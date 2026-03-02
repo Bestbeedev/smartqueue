@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -162,7 +162,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
           {notificationsOpen && (
             <div className={cn(
               "absolute right-0 top-full mt-2 w-80 rounded-lg shadow-xl z-50 max-h-96 overflow-hidden transition-all duration-300",
-              " border-border"
+              "bg-background border-border"
             )}>
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h3 className="font-semibold text-foreground">Notifications</h3>
@@ -239,16 +239,13 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
                 "hover:bg-accent hover:scale-105"
               )}
             >
-              <Avatar className="h-8 w-8 ring-2 ring-blue-500/20">
-                <AvatarImage src={user.avatar} />
-                <AvatarFallback className={cn(
-                  "bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium flex items-center justify-center"
-                )}>
+              <Avatar className="h-8 w-8 ring-2 ring-blue-500/20" src={user.avatar}>
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium flex items-center justify-center">
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block ml-3 text-left">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
+                <p className="text-sm font-medium ">{user.name}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user.role}</p>
               </div>
               <ChevronDown className="hidden md:block ml-2 h-4 w-4 text-gray-500" />
@@ -257,7 +254,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
           
           <DropdownMenuContent align="end" className={cn(
             "w-56 rounded-xl shadow-2xl transition-all duration-300",
-            "bg-popover border-border"
+            "bg-background border-border"
           )}>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">

@@ -24,7 +24,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -191,7 +191,7 @@ export default function Sidebar() {
           size={isCollapsed ? "icon" : "default"}
           className={cn(
             "w-full justify-start transition-all duration-300 rounded-xl",
-            "hover:bg-accent hover:scale-105",
+            "hover:bg-gray-200/20 hover:scale-105",
             isCollapsed && "h-10 w-10 mx-auto"
           )}
         >
@@ -205,22 +205,21 @@ export default function Sidebar() {
         </Button>
 
         {/* Profil utilisateur */}
-        <div className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 hover:bg-accent hover:scale-105 ${
+        <div className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 hover:hover:bg-gray-300/30 hover:scale-105 ${
           isCollapsed ? "justify-center" : ""
         }`}>
-          <Avatar className="h-8 w-8 ring-2 ring-blue-500/20">
-            <AvatarImage src={user?.avatar} />
+          <Avatar className="h-8 w-8 ring-2 ring-blue-500/20" src={user?.avatar}>
             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium">
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 ">
               <p className="text-sm font-medium text-foreground truncate">
                 {user?.name || 'Utilisateur'}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {user?.role || 'Visiteur'}
+                {user?.email || 'email@exemple.com'}
               </p>
             </div>
           )}
