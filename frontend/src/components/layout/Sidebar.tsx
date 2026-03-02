@@ -4,7 +4,7 @@
  */
 import { NavLink } from 'react-router-dom'
 import { useAppSelector } from '@/store'
-import { LayoutDashboard, Activity, Users, Building2, Ticket, Settings as SettingsIcon, ListOrdered, BadgeAlert, Ban, BarChart } from 'lucide-react'
+import { LayoutDashboard, Activity, Users, Building2, Ticket, Settings as SettingsIcon, ListOrdered, BadgeAlert, Ban, BarChart, Server, CreditCard } from 'lucide-react'
 
 const LinkItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => (
   <NavLink
@@ -71,6 +71,17 @@ export default function Sidebar() {
             <LinkItem to="/services" icon={Ticket} label="Services" />
             <LinkItem to="/establishments" icon={Building2} label="Établissements" />
             <LinkItem to="/stats" icon={BarChart} label="Statistiques" />
+          </>
+        )}
+
+        {role === 'super_admin' && (
+          <>
+            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              SaaS
+            </div>
+            <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" />
+            <LinkItem to="/saas/establishments" icon={Building2} label="Clients" />
+            <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" />
           </>
         )}
       </nav>

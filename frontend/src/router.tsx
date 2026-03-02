@@ -16,6 +16,9 @@ import Services from './pages/Services'
 import Establishments from './pages/Establishments'
 import Stats from './pages/Stats'
 import Settings from './pages/Settings'
+import SaasEstablishments from './pages/saas/SaasEstablishments'
+import SaasSubscriptions from './pages/saas/SaasSubscriptions'
+import SaasMonitoring from './pages/saas/SaasMonitoring'
 import { useAppSelector } from './store'
 
 function RequireAuth({ children, roles }: { children: JSX.Element; roles?: string[] }) {
@@ -36,14 +39,17 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Dashboard /> },
-      { path: 'queues', element: <RequireAuth roles={["agent","admin"]}><Queues /></RequireAuth> },
-      { path: 'called', element: <RequireAuth roles={["agent","admin"]}><TicketsCalled /></RequireAuth> },
-      { path: 'absent', element: <RequireAuth roles={["agent","admin"]}><TicketsAbsent /></RequireAuth> },
-      { path: 'priority', element: <RequireAuth roles={["agent","admin"]}><TicketsPriority /></RequireAuth> },
-      { path: 'agents', element: <RequireAuth roles={["admin"]}><Agents /></RequireAuth> },
-      { path: 'services', element: <RequireAuth roles={["admin"]}><Services /></RequireAuth> },
-      { path: 'establishments', element: <RequireAuth roles={["admin"]}><Establishments /></RequireAuth> },
-      { path: 'stats', element: <RequireAuth roles={["admin"]}><Stats /></RequireAuth> },
+      { path: 'queues', element: <RequireAuth roles={['agent','admin']}><Queues /></RequireAuth> },
+      { path: 'called', element: <RequireAuth roles={['agent','admin']}><TicketsCalled /></RequireAuth> },
+      { path: 'absent', element: <RequireAuth roles={['agent','admin']}><TicketsAbsent /></RequireAuth> },
+      { path: 'priority', element: <RequireAuth roles={['agent','admin']}><TicketsPriority /></RequireAuth> },
+      { path: 'agents', element: <RequireAuth roles={['admin']}><Agents /></RequireAuth> },
+      { path: 'services', element: <RequireAuth roles={['admin']}><Services /></RequireAuth> },
+      { path: 'establishments', element: <RequireAuth roles={['admin']}><Establishments /></RequireAuth> },
+      { path: 'stats', element: <RequireAuth roles={['admin']}><Stats /></RequireAuth> },
+      { path: 'saas/establishments', element: <RequireAuth roles={['super_admin']}><SaasEstablishments /></RequireAuth> },
+      { path: 'saas/subscriptions', element: <RequireAuth roles={['super_admin']}><SaasSubscriptions /></RequireAuth> },
+      { path: 'saas/monitoring', element: <RequireAuth roles={['super_admin']}><SaasMonitoring /></RequireAuth> },
       { path: 'settings', element: <Settings /> }
     ]
   }

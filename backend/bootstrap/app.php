@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Alias du middleware de rôle pour contrôler l'accès par rôle (admin/agent/user)
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'admin.establishment' => \App\Http\Middleware\EnsureAdminEstablishmentScope::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

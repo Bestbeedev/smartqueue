@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Service;
+use App\Models\Counter;
+use App\Models\Subscription;
 
 class Establishment extends Model
 {
@@ -23,5 +25,15 @@ class Establishment extends Model
     {
         // Un établissement possède plusieurs services (files d'attente)
         return $this->hasMany(Service::class);
+    }
+
+    public function counters()
+    {
+        return $this->hasMany(Counter::class);
+    }
+
+    public function subscription()
+    {
+        return $this->hasOne(Subscription::class);
     }
 }

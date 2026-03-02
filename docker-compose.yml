@@ -6,7 +6,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       network: host
-    network_mode: "host"
+    #network_mode: "host"
     image: smartqueue-backend
     container_name: smartqueue-backend
     restart: unless-stopped

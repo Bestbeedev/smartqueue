@@ -15,6 +15,7 @@ class Service extends Model
         'avg_service_time_minutes',
         'status',
         'priority_support',
+        'capacity',
     ];
 
     // Relations

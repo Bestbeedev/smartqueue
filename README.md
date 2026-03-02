@@ -5,19 +5,18 @@
 # VQS — Virtual Queue System
 ### Système Intelligent de File d'Attente Virtuelle
 
-**Géolocalisation · Temps Réel · Microservices · SaaS**
+**Temps Réel · SaaS · Multi-rôles (agent/admin/super_admin)**
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev)
 [![React](https://img.shields.io/badge/React.js-18.x-61DAFB?style=flat-square&logo=react)](https://reactjs.org)
-[![Node.js](https://img.shields.io/badge/Node.js-20.x%20LTS-339933?style=flat-square&logo=node.js)](https://nodejs.org)
 [![Laravel](https://img.shields.io/badge/Laravel-11.x-FF2D20?style=flat-square&logo=laravel)](https://laravel.com)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=flat-square&logo=mysql)](https://mysql.com)
-[![Supabase](https://img.shields.io/badge/Supabase-Latest-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com)
+[![Redis](https://img.shields.io/badge/Redis-latest-DC382D?style=flat-square&logo=redis)](https://redis.io)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)](https://docker.com)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0--MVP-blue?style=flat-square)]()
-[![Status](https://img.shields.io/badge/Status-En%20développement%20%7C%20backend%20dockerisé-orange?style=flat-square)]()
+[![Status](https://img.shields.io/badge/Status-En%20développement-orange?style=flat-square)]()
 
 ---
 
@@ -28,15 +27,12 @@
 
 ## 🔄 État actuel du projet
 
-- **Statut général** : en développement continu — plusieurs services en POC.
-- **Backend Laravel** : containerisé avec Docker, aperçu fonctionnel sur le port 8000 dans Compose.
-- **Base de données** : MySQL 8 et Redis inclus dans la configuration Docker Compose.
-- **Front-ends (mobile/web)** : code existant mais non intégré dans cet exercice.
-- **Prochaines étapes** : ajout de services supplémentaires (gateway, queue, ticket), tests automatisés et déploiement prod.
+- **Monorepo** : un backend Laravel (API) + un front React (dashboard).
+- **Backend Laravel** : containerisé avec Docker, disponible sur `http://localhost:8000`.
+- **Base de données** : MySQL 8 + Redis via Docker Compose.
+- **Mobile Flutter** : prévu (à intégrer selon les besoins), non démarré dans ce dépôt.
 
----
-
-</div>
+---</div>
 
 ---
 
@@ -110,51 +106,17 @@ Et pour ceux qui n'ont pas de smartphone ? VQS propose également une borne phys
 
 ## 🏗 Architecture
 
-VQS repose sur une **architecture microservices distribuée**, où chaque fonctionnalité est encapsulée dans un service indépendant, déployé dans son propre conteneur Docker. Cette approche permet de mettre à l'échelle uniquement le service sous pression, sans toucher au reste du système.
+VQS est actuellement implémenté comme un **monorepo** :
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         COUCHE CLIENT                                │
-│  ┌────────────────────────┐      ┌──────────────────────────────┐   │
-│  │   App Mobile (Flutter) │      │  Interface Web (React.js)    │   │
-│  │   iOS & Android        │      │  Dashboard usager + Admin    │   │
-│  └───────────┬────────────┘      └──────────────┬───────────────┘   │
-└──────────────┼───────────────────────────────────┼───────────────────┘
-               │ HTTPS + JWT                        │ HTTPS + JWT
-               ▼                                    ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                   API GATEWAY  (Node.js / Express)                   │
-│          Routage · Auth JWT · Rate Limiting · Load Balancing         │
-└──────┬──────────┬──────────┬──────────┬──────────┬───────────────────┘
-       │          │          │          │          │
-       ▼          ▼          ▼          ▼          ▼
-  ┌─────────┐ ┌───────┐ ┌────────┐ ┌───────┐ ┌──────────┐
-  │  Auth   │ │ Queue │ │Ticket  │ │Notif. │ │Analytics │
-  │Service  │ │Service│ │Service │ │Service│ │ Service  │
-  │(Laravel)│ │(Node) │ │(Node)  │ │(Node) │ │(Laravel) │
-  └────┬────┘ └───┬───┘ └───┬────┘ └───┬───┘ └────┬─────┘
-       │          │          │          │           │
-       └──────────┴──────────┴──────────┴───────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │    MySQL 8 + Supabase        │
-              │  (BDD principale + Realtime  │
-              │   + Auth + Storage)          │
-              └─────────────────────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │   Geolocation Service        │
-              │   Notification FCM + Twilio  │
-              └─────────────────────────────┘
+- Un **backend Laravel** (API REST, authentification, rôles, multi-tenant, exports).
+- Un **front React** (dashboards agent/admin/super_admin) consommant l'API.
+- Une **BDD MySQL** et **Redis** via Docker Compose.
 
-  ╔══════════════════════════════════════════════════════════════╗
-  ║  Docker Compose — chaque service = un conteneur isolé        ║
-  ╚══════════════════════════════════════════════════════════════╝
-```
+Une évolution future vers une architecture microservices est possible, mais ce dépôt correspond à une version monolithique (MVP) destinée à itérer rapidement.
 
 ### Flux temps réel (WebSocket)
 
-Le canal WebSocket est maintenu en permanence entre le client (app ou navigateur) et le Ticket Service. Chaque fois qu'un agent appelle un ticket, tous les clients connectés à cette file reçoivent une mise à jour de position en moins d'une seconde, sans aucun rechargement.
+Le temps réel peut être activé via le système de broadcasting (Laravel Echo). Chaque fois qu'un agent appelle un ticket, les clients connectés à un service peuvent recevoir une mise à jour sans rechargement.
 
 ---
 
@@ -162,104 +124,37 @@ Le canal WebSocket est maintenu en permanence entre le client (app ou navigateur
 
 | Couche | Technologie | Rôle |
 |--------|------------|------|
-| Mobile | **Flutter 3.x** | Application iOS & Android (un seul code source) |
-| Web front-end | **React.js 18** | Dashboard usager, agent et admin |
-| API Gateway | **Node.js + Express** | Point d'entrée, routage, auth middleware |
-| Auth Service | **Laravel 11** | JWT, OAuth2, gestion des rôles, RGPD |
-| Queue/Ticket Service | **Node.js + Socket.io** | Gestion des files, WebSocket temps réel |
-| Analytics Service | **Laravel 11** | Statistiques, exports CSV/PDF |
+| Mobile | **Flutter 3.x** | Application mobile (prévue) |
+| Web front-end | **React.js 18 + Vite** | Dashboards agent/admin/super_admin |
+| API | **Laravel 11 + Sanctum** | Auth, rôles, API REST |
+| Temps réel | **Laravel Echo / Broadcasting** | Mises à jour temps réel (selon config) |
 | Base de données | **MySQL 8** | Stockage principal relationnel |
-| BaaS | **Supabase** | Auth, Realtime, Storage, API auto-générée |
-| Push notifications | **Firebase Cloud Messaging** | Alertes push iOS & Android |
-| SMS | **Twilio** | Notifications SMS pour téléphones basiques |
-| Conteneurisation | **Docker + Docker Compose** | Isolation et déploiement reproductible |
-| Sécurité | **JWT + Refresh Token + HTTPS** | Auth stateless, protection des échanges |
+| Cache / PubSub | **Redis** | Cache, queues, broadcasting (selon config) |
+| Conteneurisation | **Docker + Docker Compose** | Environnement local reproductible |
 
 ---
 
 ## 📁 Structure du projet
 
 ```
-vqs/
+SmartQueue/
 │
-├── gateway/                    # API Gateway (Node.js / Express)
-│   ├── src/
-│   │   ├── middleware/         # Auth JWT, rate limiting, logging
-│   │   └── routes/             # Routage vers les microservices
+├── backend/                    # API Laravel
+│   ├── app/
+│   ├── database/
+│   ├── routes/
 │   └── Dockerfile
 │
-├── services/
-│   ├── auth/                   # Auth Service (Laravel)
-│   │   ├── app/
-│   │   │   ├── Http/Controllers/
-│   │   │   └── Models/
-│   │   ├── database/migrations/
-│   │   └── Dockerfile
-│   │
-│   ├── queue/                  # Queue Service (Node.js)
-│   │   ├── src/
-│   │   │   ├── controllers/
-│   │   │   ├── models/
-│   │   │   └── routes/
-│   │   └── Dockerfile
-│   │
-│   ├── ticket/                 # Ticket Service (Node.js + Socket.io)
-│   │   ├── src/
-│   │   │   ├── controllers/
-│   │   │   ├── websocket/      # Gestion WebSocket
-│   │   │   └── qrcode/         # Génération QR codes
-│   │   └── Dockerfile
-│   │
-│   ├── notification/           # Notification Service (Node.js)
-│   │   ├── src/
-│   │   │   ├── providers/
-│   │   │   │   ├── fcm.js      # Firebase Cloud Messaging
-│   │   │   │   └── twilio.js   # SMS
-│   │   │   └── handlers/
-│   │   └── Dockerfile
-│   │
-│   ├── geolocation/            # Geolocation Service (Node.js)
-│   │   ├── src/
-│   │   │   ├── eta.js          # Calcul ETA
-│   │   │   └── proximity.js    # Détection proximité
-│   │   └── Dockerfile
-│   │
-│   └── analytics/              # Analytics Service (Laravel)
-│       ├── app/
-│       │   └── Reports/        # Génération rapports PDF/CSV
-│       └── Dockerfile
+├── frontend/                   # Dashboard React (Vite)
+│   ├── src/
+│   └── package.json
 │
-├── client/
-│   ├── web/                    # Interface React.js
-│   │   ├── src/
-│   │   │   ├── pages/
-│   │   │   │   ├── user/       # Espace usager
-│   │   │   │   ├── agent/      # Tableau de bord agent
-│   │   │   │   └── admin/      # Dashboard administrateur
-│   │   │   ├── components/
-│   │   │   └── hooks/          # useQueue, useWebSocket, useGeo...
-│   │   └── package.json
-│   │
-│   └── mobile/                 # Application Flutter
+├── mobile/                     # Applications Flutter
+│   └── smartqueue_user/         # App mobile (usager)
 │       ├── lib/
-│       │   ├── screens/
-│       │   ├── widgets/
-│       │   ├── services/       # API, WebSocket, FCM
-│       │   └── models/
 │       └── pubspec.yaml
 │
-├── database/
-│   ├── migrations/             # Scripts SQL versionnés
-│   └── seeds/                  # Données de test
-│
-├── docs/
-│   ├── api/                    # Documentation Swagger
-│   ├── architecture/           # Diagrammes (PNG/SVG)
-│   └── cahier-des-charges.pdf
-│
-├── docker-compose.yml          # Orchestration locale complète
-├── docker-compose.prod.yml     # Configuration production
-├── .env.example                # Variables d'environnement (template)
+├── docker-compose.yml          # backend + mysql + redis
 └── README.md                   # Ce fichier
 ```
 
@@ -274,7 +169,7 @@ Avant de commencer, assurez-vous d'avoir installé sur votre machine les outils 
 - [Docker](https://docs.docker.com/get-docker/) ≥ 24.x
 - [Docker Compose](https://docs.docker.com/compose/) ≥ 2.x
 - [Git](https://git-scm.com/)
-- (Optionnel) [Node.js 20](https://nodejs.org/) si vous souhaitez lancer un service individuellement sans Docker
+- (Optionnel) [Node.js 20](https://nodejs.org/) pour lancer le front React sans Docker
 
 ### Installation en 4 étapes
 
@@ -287,16 +182,16 @@ cd vqs
 
 **Étape 2 — Configurer les variables d'environnement**
 
-Le fichier `.env.example` contient tous les paramètres nécessaires avec des valeurs par défaut pour le développement local. Copiez-le et remplissez les clés API manquantes (Supabase, Firebase, Twilio).
+Les fichiers `.env.example` contiennent les paramètres nécessaires pour le développement local.
 
 ```bash
-cp .env.example .env
-# Ouvrez .env dans votre éditeur et renseignez les clés manquantes
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-**Étape 3 — Lancer tous les services**
+**Étape 3 — Lancer le backend + DB (Docker)**
 
-Cette commande démarre l'intégralité de la plateforme : API Gateway, 6 microservices, base de données MySQL, et crée automatiquement le réseau Docker interne entre les services.
+Cette commande démarre le backend Laravel ainsi que ses dépendances (MySQL, Redis).
 
 ```bash
 docker compose up --build
@@ -307,11 +202,8 @@ docker compose up --build
 **Étape 4 — Lancer les migrations et les seeds**
 
 ```bash
-# Migrations MySQL (créer toutes les tables)
-docker compose exec auth-service php artisan migrate
-
-# Seed avec des données de test (facultatif mais recommandé)
-docker compose exec auth-service php artisan db:seed
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan db:seed
 ```
 
 ### Accès aux interfaces
@@ -320,10 +212,23 @@ Une fois tous les conteneurs démarrés, les interfaces sont accessibles aux adr
 
 | Interface | URL | Description |
 |-----------|-----|-------------|
-| Dashboard Web (React.js) | http://localhost:3001 | Interface usager, agent, admin |
-| API Gateway | http://localhost:3000 | Point d'entrée de l'API REST |
-| Documentation Swagger | http://localhost:3000/api-docs | Documentation interactive de l'API |
-| Supabase Studio | http://localhost:54323 | Interface de gestion de la BDD |
+| Backend API (Laravel) | http://localhost:8000 | API REST |
+| Frontend (Vite) | http://localhost:5173 | Dashboard web |
+
+Pour lancer le front en local :
+
+```bash
+npm -C frontend i
+npm -C frontend run dev
+```
+
+Pour lancer l'app mobile (Flutter) :
+
+```bash
+cd mobile/smartqueue_user
+flutter pub get
+flutter run
+```
 
 ---
 
@@ -334,40 +239,13 @@ Une fois tous les conteneurs démarrés, les interfaces sont accessibles aux adr
 Le tableau ci-dessous explique chaque variable d'environnement. La colonne "Requis" indique les variables sans lesquelles le service ne peut pas démarrer.
 
 ```env
-# ── Base de données ──────────────────────────────────────────────────────
-DB_HOST=mysql                        # Hôte MySQL (nom du service Docker)
-DB_PORT=3306                         # Port MySQL
-DB_DATABASE=vqs_db                   # Nom de la base de données
-DB_USERNAME=vqs_user                 # Utilisateur MySQL
-DB_PASSWORD=vqs_secret               # Mot de passe MySQL
+# Backend (backend/.env)
+APP_URL=http://localhost:8000
+DB_HOST=db
+REDIS_HOST=redis
 
-# ── Supabase ─────────────────────────────────────────────────────────────
-SUPABASE_URL=https://xxx.supabase.co # URL de votre projet Supabase
-SUPABASE_ANON_KEY=eyJ...             # Clé publique Supabase (safe côté client)
-SUPABASE_SERVICE_KEY=eyJ...          # Clé privée Supabase (back-end uniquement)
-
-# ── Authentification JWT ──────────────────────────────────────────────────
-JWT_SECRET=votre-secret-tres-long-et-aleatoire
-JWT_EXPIRY=15m                       # Durée de vie du token d'accès
-JWT_REFRESH_EXPIRY=7d                # Durée de vie du refresh token
-
-# ── Firebase (notifications push) ────────────────────────────────────────
-FIREBASE_PROJECT_ID=vqs-app
-FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk@vqs-app.iam.gserviceaccount.com
-
-# ── Twilio (SMS) ─────────────────────────────────────────────────────────
-TWILIO_ACCOUNT_SID=ACxxxx
-TWILIO_AUTH_TOKEN=xxxx
-TWILIO_PHONE_NUMBER=+1234567890
-
-# ── URLs internes (Docker) ────────────────────────────────────────────────
-AUTH_SERVICE_URL=http://auth-service:8000
-QUEUE_SERVICE_URL=http://queue-service:3002
-TICKET_SERVICE_URL=http://ticket-service:3003
-NOTIFICATION_SERVICE_URL=http://notification-service:3004
-GEO_SERVICE_URL=http://geo-service:3005
-ANALYTICS_SERVICE_URL=http://analytics-service:8001
+# Frontend (frontend/.env)
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
 ---
@@ -422,24 +300,17 @@ GET    /api/analytics/export       Export CSV ou PDF
 
 ### WebSocket Events
 
-Le client se connecte au WebSocket via Socket.io sur `ws://localhost:3000`. Voici les événements disponibles :
+Le client peut recevoir des événements temps réel via Laravel Echo (selon configuration) :
 
 ```javascript
-// S'abonner aux mises à jour d'une file
-socket.emit('join:queue', { queueId: 'uuid-de-la-file' })
-
-// Recevoir les mises à jour de position
-socket.on('queue:updated', (data) => {
-  // data.position   → nouvelle position de l'usager dans la file
-  // data.totalWait  → temps d'attente estimé en minutes
-  // data.called     → true si c'est le tour de l'usager
-})
-
-// Recevoir un appel direct (c'est votre tour !)
-socket.on('ticket:called', (data) => {
-  // data.guichet    → numéro du guichet assigné
-  // data.ticketId   → identifiant du ticket appelé
-})
+// Exemple (pseudo-code) d'abonnement à un channel
+Echo.channel('service.123')
+  .listen('TicketCalled', (e) => {
+    // e.ticket
+  })
+  .listen('QueueUpdated', (e) => {
+    // e.service
+  })
 ```
 
 ---
@@ -488,27 +359,18 @@ waiting → called → present → processed
 ### Lancer les tests
 
 ```bash
-# Tests unitaires et d'intégration — services Node.js (Jest)
-docker compose exec queue-service npm test
-docker compose exec ticket-service npm test
+# Tests backend (Laravel)
+docker compose exec backend php artisan test
 
-# Tests unitaires et d'intégration — services Laravel (PHPUnit)
-docker compose exec auth-service php artisan test
-docker compose exec analytics-service php artisan test
-
-# Tests End-to-End sur l'interface web (Cypress)
-cd client/web
-npx cypress open
+# Build frontend (React)
+npm -C frontend run build
 ```
 
 ### Couverture de code
 
 ```bash
-# Rapport de couverture Node.js
-docker compose exec ticket-service npm run test:coverage
-
 # Rapport de couverture Laravel
-docker compose exec auth-service php artisan test --coverage
+docker compose exec backend php artisan test --coverage
 ```
 
 L'objectif de couverture cible est **70% minimum** sur l'ensemble des services. Les chemins critiques (création de ticket, appel WebSocket, envoi de notification) visent **90%**.
@@ -519,7 +381,7 @@ L'objectif de couverture cible est **70% minimum** sur l'ensemble des services. 
 
 ### Environnement de production
 
-Pour un déploiement en production, le fichier `docker-compose.prod.yml` remplace le fichier de développement. Il désactive les volumes de rechargement à chaud, active les variables d'environnement de production, et configure les limites de ressources par conteneur.
+Pour un déploiement en production, un fichier `docker-compose.prod.yml` peut être ajouté/adapter selon votre infrastructure (volumes, reverse-proxy, CI/CD, etc.).
 
 ```bash
 # Déploiement production
@@ -528,12 +390,11 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### Variables à changer absolument en production
 
-Avant tout déploiement en production, vérifiez impérativement ces points. Un JWT_SECRET faible est la vulnérabilité la plus courante sur les APIs Node.js.
+Avant tout déploiement en production, vérifiez impérativement ces points.
 
 ```bash
-JWT_SECRET=<générer avec : openssl rand -hex 64>
+APP_KEY=<générer avec : php artisan key:generate>
 DB_PASSWORD=<mot de passe fort>
-NODE_ENV=production
 APP_ENV=production
 APP_DEBUG=false
 ```
@@ -546,7 +407,7 @@ APP_DEBUG=false
 - [ ] Tests de charge passés (objectif : 10 000 utilisateurs simultanés)
 - [ ] Monitoring activé (logs centralisés recommandés)
 - [ ] Sauvegardes MySQL automatiques configurées
-- [ ] Rate limiting activé sur l'API Gateway
+- [ ] Rate limiting activé sur l'API
 
 ---
 
@@ -561,7 +422,7 @@ Ce tableau présente l'évolution prévue du projet selon les phases de dévelop
 | 🔄 | WebSocket temps réel | v1.0 MVP |
 | 🔄 | App Flutter v1 | v1.0 MVP |
 | 🔄 | Interface React.js usager + agent | v1.0 MVP |
-| 📋 | Notifications FCM + Twilio SMS | v1.0 MVP |
+| 📋 | Notifications (FCM / SMS) | v1.0 MVP |
 | 📋 | Géolocalisation et calcul ETA | v1.1 |
 | 📋 | Analytics Service + exports PDF/CSV | v1.1 |
 | 📋 | Borne physique (tablette kiosque) | v1.2 |

@@ -31,6 +31,17 @@ class TicketService
                 abort(422, 'Service is closed');
             }
 
+            // Vérifier la capacité max de la file (si définie)
+            if (!is_null($service->capacity)) {
+                $waitingCount = Ticket::query()
+                    ->where('service_id', $serviceId)
+                    ->where('status', 'waiting')
+                    ->count();
+                if ($waitingCount >= (int) $service->capacity) {
+                    abort(422, 'Service queue is full');
+                }
+            }
+
             // Empêcher plusieurs tickets actifs pour le même service et utilisateur
             $already = Ticket::query()
                 ->where('user_id', $user->id)
@@ -97,9 +108,9 @@ class TicketService
     /**
      * Appelle le prochain ticket prêt pour un service (priorité > ancienneté).
      */
-    public function callNext(Service $service): ?Ticket
+    public function callNext(Service $service, ?int $counterId = null): ?Ticket
     {
-        return DB::transaction(function () use ($service) {
+        return DB::transaction(function () use ($service, $counterId) {
             // Sélection du prochain ticket waiting
             $ticket = Ticket::query()
                 ->where('service_id', $service->id)
@@ -114,6 +125,9 @@ class TicketService
             }
 
             $ticket->status = 'called';
+            if (!is_null($counterId)) {
+                $ticket->counter_id = $counterId;
+            }
             $ticket->called_at = Carbon::now();
             $ticket->save();
 

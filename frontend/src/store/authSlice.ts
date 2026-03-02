@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { api } from '@/api/axios'
 
-export type Role = 'admin' | 'agent' | 'user'
+export type Role = 'admin' | 'agent' | 'user' | 'super_admin'
 export interface User { id: number; name: string; email: string; phone?: string | null; role: Role }
 
 interface AuthState { token: string | null; user: User | null; loading: boolean; error?: string }

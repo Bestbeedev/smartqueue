@@ -10,10 +10,18 @@ use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\AgentTicketController;
 use App\Http\Controllers\Api\AgentServiceController;
+use App\Http\Controllers\Api\AgentQueueController;
+use App\Http\Controllers\Api\AgentTicketActionController;
+use App\Http\Controllers\Api\AgentCounterController;
 use App\Http\Controllers\Api\Admin\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\Api\Admin\CounterController as AdminCounterController;
+use App\Http\Controllers\Api\Admin\ReportExportController as AdminReportExportController;
+use App\Http\Controllers\Api\Saas\EstablishmentController as SaasEstablishmentController;
+use App\Http\Controllers\Api\Saas\SubscriptionController as SaasSubscriptionController;
+use App\Http\Controllers\Api\Saas\MonitoringController as SaasMonitoringController;
 use App\Http\Controllers\Api\NotificationController;
 
 /*
@@ -72,16 +80,43 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('tickets/{ticket}/recall', [AgentTicketController::class, 'recall']);
         // Clôturer un service (fin de journée, incidents, etc.)
         Route::post('services/{service}/close', [AgentServiceController::class, 'close']);
+
+        // Ouvrir un service à la volée
+        Route::post('services/{service}/open', [AgentServiceController::class, 'open']);
+
+        // Vue complète de la file (initialisation dashboard temps réel)
+        Route::get('services/{service}/queue', [AgentQueueController::class, 'index']);
+
+        // Actions ticket côté agent
+        Route::post('tickets/{ticket}/close', [AgentTicketActionController::class, 'close']);
+        Route::post('tickets/{ticket}/cancel', [AgentTicketActionController::class, 'cancel']);
+        Route::post('tickets/{ticket}/priority', [AgentTicketActionController::class, 'setPriority']);
+
+        // Ouverture/fermeture guichet (counter)
+        Route::post('counters/{counter}/open', [AgentCounterController::class, 'open']);
+        Route::post('counters/{counter}/close', [AgentCounterController::class, 'close']);
     });
 
     // Espace administrateur (gestion référentiel + stats)
-    Route::prefix('admin')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->middleware(['role:admin','admin.establishment'])->group(function () {
         Route::apiResource('establishments', AdminEstablishmentController::class);
         Route::apiResource('services', AdminServiceController::class);
         Route::apiResource('agents', AdminAgentController::class);
+        Route::apiResource('counters', AdminCounterController::class);
 
         Route::get('stats/overview', [AdminStatsController::class, 'overview']);
         Route::get('stats/services/{serviceId}', [AdminStatsController::class, 'service']);
+
+        // Exports
+        Route::get('establishments/{establishment}/reports/activity.csv', [AdminReportExportController::class, 'activityCsv']);
+    });
+
+    // Espace super-admin SaaS (multi-établissements)
+    Route::prefix('saas')->middleware('role:super_admin')->group(function () {
+        Route::apiResource('establishments', SaasEstablishmentController::class);
+        Route::get('subscriptions', [SaasSubscriptionController::class, 'index']);
+        Route::put('establishments/{establishment}/subscription', [SaasSubscriptionController::class, 'upsert']);
+        Route::get('monitoring/overview', [SaasMonitoringController::class, 'overview']);
     });
 });
 
