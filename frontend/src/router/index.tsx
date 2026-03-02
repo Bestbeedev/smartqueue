@@ -9,7 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/hooks/useAuth'
 
 // Lazy loading des pages pour optimiser le bundle
-const Dashboard = lazy(() => import('@/pages/dashboard/DashboardNew'))
+const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
 const Login = lazy(() => import('@/pages/auth/Login'))
 
 // Pages queues

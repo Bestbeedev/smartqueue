@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Counter;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Services\TicketService;
@@ -17,7 +18,20 @@ class AgentTicketController extends Controller
     {
         // Autorisation: rôle agent/admin (via middleware) + policy manage sur le service si besoin
         $this->authorize('manage', $service);
-        $ticket = $svc->callNext($service);
+
+        $data = request()->validate([
+            'counter_id' => ['nullable','integer','exists:counters,id'],
+        ]);
+        $counterId = $data['counter_id'] ?? null;
+
+        if (!is_null($counterId)) {
+            $counter = Counter::query()->findOrFail($counterId);
+            if ($counter->status !== 'open') {
+                abort(422, 'Counter is closed');
+            }
+        }
+
+        $ticket = $svc->callNext($service, $counterId);
         if (!$ticket) {
             return response()->json(['message' => 'No eligible ticket'], 204);
         }
@@ -25,6 +39,7 @@ class AgentTicketController extends Controller
             'id' => $ticket->id,
             'number' => $ticket->number,
             'status' => $ticket->status,
+            'counter_id' => $ticket->counter_id,
         ]]);
     }
 

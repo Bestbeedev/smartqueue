@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # BACKEND : API & Serveur Web
+  backend:
+    build:
+      context: ./backend
+      network: host
+    image: smartqueue-backend
+    container_name: smartqueue-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/var/www/html:delegated
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # REVERB : Serveur WebSocket
+  reverb:
+    image: smartqueue-backend # On réutilise la même image que le backend
+    container_name: smartqueue-reverb
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "6001:6001"
+    volumes:
+      - ./backend:/var/www/html:delegated
+    # La commande cruciale pour lancer Reverb
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=6001", "--debug"]
+    depends_on:
+      - backend
+
+  db:
+    image: mysql:8.0
+    container_name: smartqueue-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-smartqueue}
+      MYSQL_USER: ${DB_USERNAME:-user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 55s
+
+  redis:
+    image: redis:alpine
+    container_name: smartqueue-redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+volumes:
+  dbdata:
+  redisdata:

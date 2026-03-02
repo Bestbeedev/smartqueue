@@ -10,7 +10,7 @@ class Ticket extends Model
 {
     // Colonnes autorisées en écriture
     protected $fillable = [
-        'user_id', 'service_id', 'number', 'status', 'priority', 'position',
+        'user_id', 'service_id', 'counter_id', 'number', 'status', 'priority', 'position',
         'called_at', 'closed_at', 'absent_at', 'last_distance_m', 'last_seen_at'
     ];
 
@@ -32,6 +32,11 @@ class Ticket extends Model
     public function service()
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function counter()
+    {
+        return $this->belongsTo(Counter::class);
     }
 
     // Scope: tickets encore actifs (non clos/cancel)

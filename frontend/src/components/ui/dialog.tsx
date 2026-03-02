@@ -7,6 +7,11 @@ const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
+type DialogPortalProps = DialogPrimitive.DialogPortalProps & {
+  className?: string
+  children?: React.ReactNode
+}
+
 const DialogPortal = ({
   children,
   ...props

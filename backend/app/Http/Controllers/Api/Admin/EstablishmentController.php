@@ -12,7 +12,11 @@ class EstablishmentController extends Controller
     /** Liste des établissements (admin). */
     public function index()
     {
-        $items = Establishment::query()->orderByDesc('created_at')->paginate(50);
+        $scopedId = request()->attributes->get('scoped_establishment_id');
+        $items = Establishment::query()
+            ->when($scopedId, fn ($q) => $q->where('id', (int) $scopedId))
+            ->orderByDesc('created_at')
+            ->paginate(50);
         return EstablishmentResource::collection($items);
     }
 
@@ -35,14 +39,20 @@ class EstablishmentController extends Controller
     /** Détail. */
     public function show(int $id)
     {
-        $est = Establishment::findOrFail($id);
+        $scopedId = request()->attributes->get('scoped_establishment_id');
+        $est = Establishment::query()
+            ->when($scopedId, fn ($q) => $q->where('id', (int) $scopedId))
+            ->findOrFail($id);
         return new EstablishmentResource($est);
     }
 
     /** Mise à jour. */
     public function update(Request $request, int $id)
     {
-        $est = Establishment::findOrFail($id);
+        $scopedId = $request->attributes->get('scoped_establishment_id');
+        $est = Establishment::query()
+            ->when($scopedId, fn ($q) => $q->where('id', (int) $scopedId))
+            ->findOrFail($id);
         $data = $request->validate([
             'name' => ['sometimes','string','max:160'],
             'address' => ['sometimes','nullable','string'],
@@ -59,7 +69,10 @@ class EstablishmentController extends Controller
     /** Suppression. */
     public function destroy(int $id)
     {
-        $est = Establishment::findOrFail($id);
+        $scopedId = request()->attributes->get('scoped_establishment_id');
+        $est = Establishment::query()
+            ->when($scopedId, fn ($q) => $q->where('id', (int) $scopedId))
+            ->findOrFail($id);
         $est->delete();
         return response()->json(['message' => 'Deleted']);
     }

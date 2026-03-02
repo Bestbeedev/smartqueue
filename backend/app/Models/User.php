@@ -26,6 +26,7 @@ class User extends Authenticatable
         'phone',
         // Rôle applicatif (admin, agent, user)
         'role',
+        'establishment_id',
     ];
 
     /**
@@ -55,6 +56,11 @@ class User extends Authenticatable
     public function services()
     {
         return $this->belongsToMany(Service::class, 'agent_service')->withTimestamps();
+    }
+
+    public function establishment()
+    {
+        return $this->belongsTo(Establishment::class);
     }
 }
 

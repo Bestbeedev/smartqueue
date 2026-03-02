@@ -64,18 +64,25 @@ class TicketsRepository {
 
   Future<void> cancel(int id) async {
     try {
-      await _client.dio.post(AppConfig.ticketCancel(id));
+      await _client.dio.patch(AppConfig.ticketCancel(id), data: {'action': 'cancel'});
+      return;
     } on DioException catch (_) {
-      // Fallback on DELETE if cancel route not available
+      // Fallback: some APIs expose POST /tickets/{id}/cancel
       try {
-        await _client.dio.delete(AppConfig.ticketById(id));
-      } on DioException catch (e2) {
-        String msg = 'Annulation impossible.';
-        final data = e2.response?.data;
-        if (data is Map && data['message'] is String) {
-          msg = data['message'] as String;
+        await _client.dio.post('${AppConfig.ticketById(id)}/cancel');
+        return;
+      } on DioException catch (_) {
+        // Fallback on DELETE if cancel route not available
+        try {
+          await _client.dio.delete(AppConfig.ticketById(id));
+        } on DioException catch (e2) {
+          String msg = 'Annulation impossible.';
+          final data = e2.response?.data;
+          if (data is Map && data['message'] is String) {
+            msg = data['message'] as String;
+          }
+          throw Exception(msg);
         }
-        throw Exception(msg);
       }
     }
   }

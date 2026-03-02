@@ -6,7 +6,13 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaTicketAlt, FaUserClock, FaUsers, FaChartLine, FaSyncAlt } from 'react-icons/fa';
+import { 
+  Ticket, 
+  User, 
+  Users, 
+  TrendingUp, 
+  RefreshCw 
+} from 'lucide-react';
 import { getEcho } from '@/api/echo';
 import { cn } from '@/lib/utils';
 
@@ -165,7 +171,7 @@ const Queues: React.FC = () => {
                   </label>
                   <div className="relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FaTicketAlt className="h-5 w-5 text-blue-500" />
+                      <Ticket className="h-5 w-5 text-blue-500" />
                     </div>
                     <input
                       type="text"
@@ -181,7 +187,7 @@ const Queues: React.FC = () => {
                         className="p-2 text-blue-600 rounded-full hover:text-blue-800 focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         title="Actualiser"
                       >
-                        <FaSyncAlt className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -191,7 +197,7 @@ const Queues: React.FC = () => {
                     type="submit"
                     className="w-full md:w-auto px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex items-center justify-center"
                   >
-                    <FaChartLine className="mr-2" />
+                    <TrendingUp className="mr-2" />
                     Afficher les statistiques
                   </button>
                 </div>
@@ -211,7 +217,7 @@ const Queues: React.FC = () => {
                     onClick={refreshData}
                     className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-1 rounded transition-colors"
                   >
-                    <FaSyncAlt className="mr-1 h-3.5 w-3.5" />
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
                     Actualiser
                   </button>
                 )}
@@ -223,14 +229,14 @@ const Queues: React.FC = () => {
           {stats && (
             <div className="p-6 border-b border-border bg-blue-50/50 dark:bg-blue-900/10">
               <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center">
-                <FaChartLine className="mr-2 text-blue-600" />
+                <TrendingUp className="mr-2 text-blue-600" />
                 Aperçu des performances
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mr-4">
-                      <FaUserClock className="h-6 w-6" />
+                      <User className="h-6 w-6" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">En attente</p>
@@ -247,7 +253,7 @@ const Queues: React.FC = () => {
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mr-4">
-                      <FaTicketAlt className="h-6 w-6" />
+                      <Ticket className="h-6 w-6" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Traités</p>
@@ -264,7 +270,7 @@ const Queues: React.FC = () => {
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mr-4">
-                      <FaUsers className="h-6 w-6" />
+                      <Users className="h-6 w-6" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Temps d'attente</p>
@@ -285,7 +291,7 @@ const Queues: React.FC = () => {
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center">
-                <FaTicketAlt className="mr-2 text-blue-600" />
+                <Ticket className="mr-2 text-blue-600" />
                 Derniers tickets appelés
               </h2>
               {tickets.length > 0 && (
@@ -297,7 +303,7 @@ const Queues: React.FC = () => {
             
             {tickets.length === 0 ? (
               <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-dashed border-border">
-                <FaTicketAlt className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                <Ticket className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
                 <h3 className="text-lg font-medium text-foreground">Aucun ticket récent</h3>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
                   Aucun ticket n'a été appelé récemment pour ce service. Les tickets apparaîtront ici en temps réel.

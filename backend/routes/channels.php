@@ -19,6 +19,11 @@ Broadcast::channel('private-ticket.{ticketId}', function ($user, int $ticketId) 
     return $isOwner || in_array($user->role, ['agent','admin'], true);
 });
 
+// Canal privé pour l'utilisateur: réservé à l'utilisateur lui-même
+Broadcast::channel('private-user.{userId}', function ($user, int $userId) {
+    return (int) $user->id === (int) $userId;
+});
+
 // Canal de présence d'un service: agents/admins uniquement
 Broadcast::channel('presence-service.{serviceId}', function ($user, int $serviceId) {
     if (!in_array($user->role, ['agent','admin'], true)) {
