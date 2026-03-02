@@ -111,7 +111,7 @@ export default function Services(){
           </div>
         </div>
         <button 
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           onClick={()=>setOpenCreate(true)}
         >
           <Plus className="h-4 w-4" />

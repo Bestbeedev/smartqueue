@@ -429,7 +429,7 @@ export default function Agents() {
             <TableBody>
               {filteredAgents.length > 0 ? (
                 filteredAgents.map((agent) => (
-                  <TableRow key={agent.id} className="hover:bg-gray-50">
+                  <TableRow key={agent.id} className="hover-card">
                     <TableCell>
                       <Avatar className="h-8 w-8">
                         {agent.avatar ? (
@@ -510,7 +510,7 @@ export default function Agents() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover-accent"
                               onClick={() => handleDeleteAgent(agent.id)}
                             >
                               <Trash2 className="h-4 w-4" />

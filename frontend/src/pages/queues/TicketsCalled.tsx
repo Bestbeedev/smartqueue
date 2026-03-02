@@ -44,7 +44,7 @@ export default function TicketsCalled() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 md:p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
             <div className="flex items-center justify-between">
@@ -113,7 +113,7 @@ export default function TicketsCalled() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {rows.map((ticket, index) => (
-                          <tr key={`${ticket.id}-${index}`} className="hover:bg-gray-50">
+                          <tr key={`${ticket.id}-${index}`} className="hover-card">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
