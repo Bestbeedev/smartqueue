@@ -13,12 +13,11 @@ type DialogPortalProps = DialogPrimitive.DialogPortalProps & {
 }
 
 const DialogPortal = ({
-  className,
   children,
   ...props
-}: DialogPortalProps) => (
+}: DialogPrimitive.DialogPortalProps) => (
   <DialogPrimitive.Portal {...props}>
-    <div className={cn("fixed inset-0 z-50 flex items-start justify-center sm:items-center", className)}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center sm:items-center">
       {children}
     </div>
   </DialogPrimitive.Portal>
