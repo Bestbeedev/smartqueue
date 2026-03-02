@@ -31,7 +31,7 @@ const Settings = lazy(() => import('@/pages/Settings'))
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="animate-spin mx-auto rounded-full h-8 w-8 border-b-2 border-primary"></div>
       <p className="mt-4 text-muted-foreground">Chargement...</p>
     </div>
   </div>

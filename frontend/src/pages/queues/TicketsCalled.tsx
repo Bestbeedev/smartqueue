@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getEcho } from '@/api/echo';
 import { FaTicketAlt, FaUserClock, FaInfoCircle, FaSpinner } from 'react-icons/fa';
+import { cn } from '@/lib/utils';
 
 export default function TicketsCalled() {
   const [serviceId, setServiceId] = useState<number | ''>('' as any);
@@ -43,10 +44,10 @@ export default function TicketsCalled() {
   }, [serviceId]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="mx-auto space-y-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
+        <div className="bg-card rounded-xl shadow-xl border border-border overflow-hidden">
+          <div className="p-4 md:p-6 border-b border-border bg-gradient-to-r from-blue-600 to-indigo-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <FaTicketAlt className="text-white text-2xl" />
@@ -63,7 +64,7 @@ export default function TicketsCalled() {
           
           <div className="p-4 md:p-6">
             <div className="mb-6">
-              <label htmlFor="serviceId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
                 ID du Service
               </label>
               <div className="flex space-x-2">
@@ -73,11 +74,11 @@ export default function TicketsCalled() {
                   value={serviceId as any}
                   onChange={(e) => setServiceId(Number(e.target.value) || ('' as any))}
                   placeholder="Entrez l'ID du service"
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="flex-1 bg-background min-w-0 block w-full px-3 py-2 rounded-md border border-border shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm placeholder:text-muted-foreground"
                   disabled={isLoading}
                 />
               </div>
-              <p className="mt-1 text-sm text-gray-500 flex items-center">
+              <p className="mt-1 text-sm text-muted-foreground flex items-center">
                 <FaInfoCircle className="mr-1.5" /> Entrez l'ID du service pour commencer à recevoir les mises à jour
               </p>
             </div>
@@ -89,53 +90,53 @@ export default function TicketsCalled() {
             ) : serviceId ? (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-medium text-gray-900">Derniers tickets appelés</h2>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <h2 className="text-lg font-medium text-foreground">Derniers tickets appelés</h2>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
                     {rows.length} {rows.length <= 1 ? 'ticket' : 'tickets'}
                   </span>
                 </div>
 
                 {rows.length > 0 ? (
-                  <div className="overflow-hidden border border-gray-200 rounded-lg">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                  <div className="overflow-hidden border border-border rounded-lg">
+                    <table className="min-w-full divide-y divide-border">
+                      <thead className="bg-muted">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                             N° Ticket
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                             Heure d'appel
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                             Statut
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-card divide-y divide-border">
                         {rows.map((ticket, index) => (
                           <tr key={`${ticket.id}-${index}`} className="hover-card">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                                <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                                   <FaTicketAlt />
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
+                                  <div className="text-sm font-medium text-foreground">
                                     {ticket.number || `#${ticket.id}`}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-foreground">
                                 {ticket.at.toLocaleTimeString()}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 {ticket.at.toLocaleDateString()}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                                 Appelé
                               </span>
                             </td>
@@ -145,22 +146,22 @@ export default function TicketsCalled() {
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                    <FaUserClock className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun ticket appelé</h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                  <div className="text-center py-12 bg-muted/50 rounded-lg border-2 border-dashed border-border">
+                    <FaTicketAlt className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-2 text-sm font-medium text-foreground">Aucun ticket appelé</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Les tickets appelés apparaîtront ici en temps réel.
                     </p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100">
-                  <FaTicketAlt className="h-8 w-8 text-blue-600" />
+              <div className="text-center py-12 bg-muted/50 rounded-lg">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <FaTicketAlt className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">Sélectionnez un service</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-4 text-lg font-medium text-foreground">Sélectionnez un service</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Entrez l'ID d'un service pour afficher les tickets appelés en temps réel.
                 </p>
               </div>

@@ -32,12 +32,12 @@ export default function Login() {
           <div className="mx-auto w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shadow-lg mb-4">
             <span className="text-2xl font-bold text-white">SQ</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Bienvenue sur SmartQueue</h1>
-          <p className="mt-2 text-sm text-gray-600">Connectez-vous pour accéder à votre espace</p>
+          <h1 className="text-2xl font-bold text-foreground">Bienvenue sur SmartQueue</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Connectez-vous pour accéder à votre espace</p>
         </div>
 
         {/* Formulaire */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-card rounded-xl shadow-sm border border-border p-8">
           {error && (
             <div className="mb-6 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200">
               {error}
@@ -46,12 +46,12 @@ export default function Login() {
           
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
                 Adresse email
               </label>
               <div className="relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-gray-400" />
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <input
                   id="email"
@@ -61,7 +61,7 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2 sm:text-sm border-gray-300 rounded-md"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-border bg-background rounded-md placeholder:text-muted-foreground"
                   placeholder="votre@email.com"
                 />
               </div>
@@ -69,7 +69,7 @@ export default function Login() {
 
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
                   Mot de passe
                 </label>
                 <button
@@ -82,7 +82,7 @@ export default function Login() {
               </div>
               <div className="relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-400" />
+                  <Lock className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <input
                   id="password"
@@ -92,7 +92,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2 sm:text-sm border-gray-300 rounded-md"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-border bg-background rounded-md placeholder:text-muted-foreground"
                   placeholder="••••••••"
                 />
               </div>
@@ -104,9 +104,9 @@ export default function Login() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-foreground">
                   Se souvenir de moi
                 </label>
               </div>
@@ -145,7 +145,7 @@ export default function Login() {
                 <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
+                <span className="px-2 bg-card text-muted-foreground">
                   <span className="text-xs">SÉCURISÉ PAR SANCTUM</span>
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="mt-6 text-center text-xs text-gray-500">
+        <div className="mt-6 text-center text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} SmartQueue. Tous droits réservés.</p>
         </div>
       </div>

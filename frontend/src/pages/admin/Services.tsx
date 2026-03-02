@@ -12,7 +12,7 @@ import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'react-hot-toast'
-import { Plus, Ticket } from 'lucide-react'
+import { Plus, Ticket, Edit, Trash2, Pencil } from 'lucide-react'
 
 type Service = { id:number; name:string; status:string; avg_service_time_minutes?:number; priority_support?:boolean; establishment?: { id:number; name:string } }
 type Establishment = { id:number; name:string }
@@ -100,14 +100,14 @@ export default function Services(){
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-center justify-between">
+      <div className="bg-card rounded-xl shadow-sm border border-border p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+          <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Ticket className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Services</h1>
-            <p className="text-sm text-gray-500">Gérez les services et leurs établissements</p>
+            <h1 className="text-lg font-semibold text-foreground">Services</h1>
+            <p className="text-sm text-muted-foreground">Gérez les services et leurs établissements</p>
           </div>
         </div>
         <button 
@@ -119,24 +119,36 @@ export default function Services(){
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-card rounded-xl shadow-sm border border-border">
         <DataTable columns={[
           { key:'id', header:'ID' },
           { key:'name', header:'Service' },
           { key:'status', header:'Statut', render:(r:Service)=> (
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${r.status === 'open' ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-200' : 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200'}`}>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${r.status === 'open' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 ring-1 ring-inset ring-green-200 dark:ring-green-800/30' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 ring-1 ring-inset ring-red-200 dark:ring-red-800/30'}`}>
               {r.status}
             </span>
           ) },
           { key:'avg_service_time_minutes', header:'Temps moyen (min)' },
           { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
           { key:'actions', header:'Actions', render:(r:Service)=> (
-            <div className="flex gap-2">
-              <button className="btn btn-secondary" onClick={()=>openEditModal(r)}>Éditer</button>
-              <button className="btn btn-secondary" onClick={async ()=>{
-                if (!confirm(`Supprimer le service ${r.name} ?`)) return
-                try { await api.delete(`/api/admin/services/${r.id}`); toast.success('Service supprimé'); load() } catch(e:any){ toast.error(e?.response?.data?.error?.message || 'Suppression impossible') }
-              }}>Supprimer</button>
+            <div className="flex gap-1">
+              <button 
+                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" 
+                onClick={()=>openEditModal(r)}
+                title="Éditer"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button 
+                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
+                onClick={async ()=>{
+                  if (!confirm(`Supprimer le service ${r.name} ?`)) return
+                  try { await api.delete(`/api/admin/services/${r.id}`); toast.success('Service supprimé'); load() } catch(e:any){ toast.error(e?.response?.data?.error?.message || 'Suppression impossible') }
+                }}
+                title="Supprimer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           ) },
         ]} data={rows} />
@@ -146,38 +158,37 @@ export default function Services(){
       <Modal open={openCreate} onClose={()=>setOpenCreate(false)} title="Créer un service">
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="text-sm">Établissement</label>
-            <select className="w-full rounded-md border-gray-300" value={createForm.establishment_id} onChange={e=>setCreateForm({...createForm, establishment_id: Number(e.target.value)})}>
+            <label className="text-sm font-medium text-foreground">Établissement</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.establishment_id} onChange={e=>setCreateForm({...createForm, establishment_id: Number(e.target.value)})}>
               <option value={0}>—</option>
               {ests.map(e=> <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
-            {createErrors.establishment_id && <p className="text-xs text-red-600">{createErrors.establishment_id}</p>}
           </div>
           <div>
-            <label className="text-sm">Nom</label>
-            <input className="w-full rounded-md border-gray-300" value={createForm.name} onChange={e=>setCreateForm({...createForm, name:e.target.value})} />
-            {createErrors.name && <p className="text-xs text-red-600">{createErrors.name}</p>}
+            <label className="text-sm font-medium text-foreground">Nom</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.name} onChange={e=>setCreateForm({...createForm, name:e.target.value})} />
+            {createErrors.name && <p className="text-xs text-destructive">{createErrors.name}</p>}
           </div>
           <div>
-            <label className="text-sm">Temps moyen (min)</label>
-            <input type="number" className="w-full rounded-md border-gray-300" value={createForm.avg_service_time_minutes} onChange={e=>setCreateForm({...createForm, avg_service_time_minutes:Number(e.target.value)})} />
-            {createErrors.avg_service_time_minutes && <p className="text-xs text-red-600">{createErrors.avg_service_time_minutes}</p>}
+            <label className="text-sm font-medium text-foreground">Temps moyen (min)</label>
+            <input type="number" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.avg_service_time_minutes} onChange={e=>setCreateForm({...createForm, avg_service_time_minutes:Number(e.target.value)})} />
+            {createErrors.avg_service_time_minutes && <p className="text-xs text-destructive">{createErrors.avg_service_time_minutes}</p>}
           </div>
           <div>
-            <label className="text-sm">Statut</label>
-            <select className="w-full rounded-md border-gray-300" value={createForm.status} onChange={e=>setCreateForm({...createForm, status:e.target.value})}>
+            <label className="text-sm font-medium text-foreground">Statut</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.status} onChange={e=>setCreateForm({...createForm, status:e.target.value})}>
               <option value="open">Ouvert</option>
               <option value="closed">Fermé</option>
             </select>
           </div>
-          <label className="col-span-2 flex items-center gap-2 text-sm">
+          <label className="col-span-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={createForm.priority_support} onChange={e=>setCreateForm({...createForm, priority_support: e.target.checked})} />
             <span>Support prioritaire</span>
           </label>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="btn btn-secondary" onClick={()=>setOpenCreate(false)}>Annuler</button>
-          <button className="btn btn-primary" onClick={createService}>Créer</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenCreate(false)}>Annuler</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={createService}>Créer</button>
         </div>
       </Modal>
 
@@ -185,38 +196,37 @@ export default function Services(){
       <Modal open={openEdit} onClose={()=>setOpenEdit(false)} title={`Éditer le service ${editing?.name ?? ''}`}>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="text-sm">Établissement</label>
-            <select className="w-full rounded-md border-gray-300" value={editForm.establishment_id} onChange={e=>setEditForm({...editForm, establishment_id: Number(e.target.value)})}>
+            <label className="text-sm font-medium text-foreground">Établissement</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.establishment_id} onChange={e=>setEditForm({...editForm, establishment_id: Number(e.target.value)})}>
               <option value={0}>—</option>
               {ests.map(e=> <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
-            {editErrors.establishment_id && <p className="text-xs text-red-600">{editErrors.establishment_id}</p>}
           </div>
           <div>
-            <label className="text-sm">Nom</label>
-            <input className="w-full rounded-md border-gray-300" value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} />
-            {editErrors.name && <p className="text-xs text-red-600">{editErrors.name}</p>}
+            <label className="text-sm font-medium text-foreground">Nom</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} />
+            {editErrors.name && <p className="text-xs text-destructive">{editErrors.name}</p>}
           </div>
           <div>
-            <label className="text-sm">Temps moyen (min)</label>
-            <input type="number" className="w-full rounded-md border-gray-300" value={editForm.avg_service_time_minutes} onChange={e=>setEditForm({...editForm, avg_service_time_minutes:Number(e.target.value)})} />
-            {editErrors.avg_service_time_minutes && <p className="text-xs text-red-600">{editErrors.avg_service_time_minutes}</p>}
+            <label className="text-sm font-medium text-foreground">Temps moyen (min)</label>
+            <input type="number" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.avg_service_time_minutes} onChange={e=>setEditForm({...editForm, avg_service_time_minutes:Number(e.target.value)})} />
+            {editErrors.avg_service_time_minutes && <p className="text-xs text-destructive">{editErrors.avg_service_time_minutes}</p>}
           </div>
           <div>
-            <label className="text-sm">Statut</label>
-            <select className="w-full rounded-md border-gray-300" value={editForm.status} onChange={e=>setEditForm({...editForm, status:e.target.value})}>
+            <label className="text-sm font-medium text-foreground">Statut</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.status} onChange={e=>setEditForm({...editForm, status:e.target.value})}>
               <option value="open">Ouvert</option>
               <option value="closed">Fermé</option>
             </select>
           </div>
-          <label className="col-span-2 flex items-center gap-2 text-sm">
+          <label className="col-span-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={editForm.priority_support} onChange={e=>setEditForm({...editForm, priority_support: e.target.checked})} />
             <span>Support prioritaire</span>
           </label>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="btn btn-secondary" onClick={()=>setOpenEdit(false)}>Annuler</button>
-          <button className="btn btn-primary" onClick={updateService}>Enregistrer</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={updateService}>Enregistrer</button>
         </div>
       </Modal>
     </div>

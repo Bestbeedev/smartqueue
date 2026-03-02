@@ -29,7 +29,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
         "h-9 w-9 transition-all duration-300",
-        "hover:bg-gray-400/20  rounded-full hover:scale-110"
+        "hover:bg-accent rounded-full hover:scale-110"
       )}
     >
       {isDark ? (

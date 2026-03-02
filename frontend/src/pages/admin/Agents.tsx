@@ -18,7 +18,6 @@ import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // API
 import { api } from '@/api/axios';
+import { Badge } from '@/components/ui/badge';
 
 // Types et schémas de validation
 interface Service { 
@@ -273,25 +273,25 @@ export default function Agents() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="success">Actif</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 ring-1 ring-inset ring-green-200 dark:ring-green-800/30">Actif</span>;
       case 'inactive':
-        return <Badge variant="destructive">Inactif</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 ring-1 ring-inset ring-red-200 dark:ring-red-800/30">Inactif</span>;
       case 'pending':
-        return <Badge variant="warning">En attente</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200 ring-1 ring-inset ring-yellow-200 dark:ring-yellow-800/30">En attente</span>;
       default:
-        return <Badge variant="outline">Inconnu</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-200 ring-1 ring-inset ring-gray-200 dark:ring-gray-800/30">Inconnu</span>;
     }
   };
   
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
-        return <Badge variant="default">Administrateur</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 ring-1 ring-inset ring-blue-200 dark:ring-blue-800/30">Administrateur</span>;
       case 'supervisor':
-        return <Badge variant="secondary">Superviseur</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200 ring-1 ring-inset ring-purple-200 dark:ring-purple-800/30">Superviseur</span>;
       case 'agent':
       default:
-        return <Badge variant="outline">Agent</Badge>;
+        return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-200 ring-1 ring-inset ring-gray-200 dark:ring-gray-800/30">Agent</span>;
     }
   };
 
@@ -327,8 +327,8 @@ export default function Agents() {
       {/* En-tête de la page */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des agents</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Gestion des agents</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Gérez les comptes des agents et leurs accès aux services
           </p>
         </div>
@@ -346,7 +346,7 @@ export default function Agents() {
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher un agent..."
                 value={searchTerm}
@@ -445,10 +445,10 @@ export default function Agents() {
                       </Avatar>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{agent.name}</div>
-                      <div className="text-sm text-gray-500">{agent.email}</div>
+                      <div className="font-medium text-foreground">{agent.name}</div>
+                      <div className="text-sm text-muted-foreground">{agent.email}</div>
                       {agent.phone && (
-                        <div className="text-sm text-gray-500 flex items-center">
+                        <div className="text-sm text-muted-foreground flex items-center">
                           <Phone className="mr-1 h-3 w-3" />
                           {agent.phone}
                         </div>
@@ -483,11 +483,11 @@ export default function Agents() {
                     </TableCell>
                     <TableCell>
                       {agent.last_login ? (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {format(new Date(agent.last_login), 'PPpp', { locale: fr })}
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">Jamais connecté</span>
+                        <span className="text-sm text-muted-foreground">Jamais connecté</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -536,7 +536,7 @@ export default function Agents() {
         
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-4 border-t">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             Affichage de <span className="font-medium">1</span> à{' '}
             <span className="font-medium">{Math.min(10, filteredAgents.length)}</span> sur{' '}
             <span className="font-medium">{filteredAgents.length}</span> agents
@@ -567,7 +567,7 @@ export default function Agents() {
               <div className="space-y-2">
                 <Label htmlFor="name">Nom complet</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="name"
                     placeholder="Jean Dupont"
@@ -576,14 +576,14 @@ export default function Agents() {
                   />
                 </div>
                 {errors.name && (
-                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
                 )}
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="email">Adresse email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -593,14 +593,14 @@ export default function Agents() {
                   />
                 </div>
                 {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
                 )}
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="phone">Téléphone (optionnel)</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     type="tel"
@@ -671,7 +671,7 @@ export default function Agents() {
               <div className="space-y-2">
                 <Label htmlFor="password">Mot de passe temporaire</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
@@ -680,7 +680,7 @@ export default function Agents() {
                     {...register('password')}
                   />
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   L'agent devra changer ce mot de passe lors de sa première connexion.
                 </p>
               </div>
@@ -728,7 +728,7 @@ export default function Agents() {
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nom complet</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="edit-name"
                     placeholder="Jean Dupont"
@@ -737,14 +737,14 @@ export default function Agents() {
                   />
                 </div>
                 {errors.name && (
-                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
                 )}
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Adresse email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="edit-email"
                     type="email"
@@ -754,14 +754,14 @@ export default function Agents() {
                   />
                 </div>
                 {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
                 )}
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="edit-phone">Téléphone (optionnel)</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="edit-phone"
                     type="tel"
@@ -832,7 +832,7 @@ export default function Agents() {
               <div className="space-y-2">
                 <Label htmlFor="edit-password">Nouveau mot de passe (optionnel)</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="edit-password"
                     type="password"
@@ -841,7 +841,7 @@ export default function Agents() {
                     {...register('password')}
                   />
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Laissez vide pour ne pas modifier le mot de passe.
                 </p>
               </div>

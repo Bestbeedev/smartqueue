@@ -12,6 +12,7 @@ import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'react-hot-toast'
+import { Edit, Pencil, Trash2 } from 'lucide-react'
 
 type Establishment = { id:number; name:string; address?:string|null; lat?:number|null; lng?:number|null; open_at?:string|null; close_at?:string|null; is_active?:boolean }
 
@@ -102,22 +103,38 @@ export default function Establishments(){
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Établissements</h1>
-        <button className="btn btn-primary" onClick={()=>setOpenCreate(true)}>Nouvel établissement</button>
+        <h1 className="text-lg font-semibold text-foreground">Établissements</h1>
+        <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={()=>setOpenCreate(true)}>Nouvel établissement</button>
       </div>
 
       <DataTable columns={[
         { key:'id', header:'ID' },
         { key:'name', header:'Nom' },
         { key:'address', header:'Adresse' },
-        { key:'is_active', header:'Actif' },
+        { key:'is_active', header:'Actif', render:(r:Establishment)=> (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${r.is_active ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 ring-1 ring-inset ring-green-200 dark:ring-green-800/30' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 ring-1 ring-inset ring-red-200 dark:ring-red-800/30'}`}>
+            {r.is_active ? 'Actif' : 'Inactif'}
+          </span>
+        ) },
         { key:'actions', header:'Actions', render:(r:Establishment)=> (
-          <div className="flex gap-2">
-            <button className="btn btn-secondary" onClick={()=>openEditModal(r)}>Éditer</button>
-            <button className="btn btn-secondary" onClick={async ()=>{
-              if (!confirm(`Supprimer l'établissement ${r.name} ?`)) return
-              try { await api.delete(`/api/admin/establishments/${r.id}`); toast.success('Établissement supprimé'); load() } catch(e:any){ toast.error(e?.response?.data?.error?.message || 'Suppression impossible') }
-            }}>Supprimer</button>
+          <div className="flex gap-1">
+            <button 
+              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" 
+              onClick={()=>openEditModal(r)}
+              title="Éditer"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button 
+              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
+              onClick={async ()=>{
+                if (!confirm(`Supprimer l'établissement ${r.name} ?`)) return
+                try { await api.delete(`/api/admin/establishments/${r.id}`); toast.success('Établissement supprimé'); load() } catch(e:any){ toast.error(e?.response?.data?.error?.message || 'Suppression impossible') }
+              }}
+              title="Supprimer"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         )},
       ]} data={rows} />
@@ -126,38 +143,38 @@ export default function Establishments(){
       <Modal open={openCreate} onClose={()=>setOpenCreate(false)} title="Créer un établissement">
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="text-sm">Nom</label>
-            <input className="w-full rounded-md border-gray-300" value={createForm.name} onChange={e=>setCreateForm({...createForm, name:e.target.value})} />
-            {createErrors.name && <p className="text-xs text-red-600">{createErrors.name}</p>}
+            <label className="text-sm font-medium text-foreground">Nom</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.name} onChange={e=>setCreateForm({...createForm, name:e.target.value})} />
+            {createErrors.name && <p className="text-xs text-destructive">{createErrors.name}</p>}
           </div>
           <div className="md:col-span-2">
-            <label className="text-sm">Adresse</label>
-            <input className="w-full rounded-md border-gray-300" value={createForm.address ?? ''} onChange={e=>setCreateForm({...createForm, address:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Adresse</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.address ?? ''} onChange={e=>setCreateForm({...createForm, address:e.target.value})} />
           </div>
           <div>
-            <label className="text-sm">Latitude</label>
-            <input type="number" step="any" className="w-full rounded-md border-gray-300" value={createForm.lat ?? ''} onChange={e=>setCreateForm({...createForm, lat: e.target.value===''? null : Number(e.target.value)})} />
+            <label className="text-sm font-medium text-foreground">Latitude</label>
+            <input type="number" step="any" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.lat ?? ''} onChange={e=>setCreateForm({...createForm, lat: e.target.value===''? null : Number(e.target.value)})} />
           </div>
           <div>
-            <label className="text-sm">Longitude</label>
-            <input type="number" step="any" className="w-full rounded-md border-gray-300" value={createForm.lng ?? ''} onChange={e=>setCreateForm({...createForm, lng: e.target.value===''? null : Number(e.target.value)})} />
+            <label className="text-sm font-medium text-foreground">Longitude</label>
+            <input type="number" step="any" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.lng ?? ''} onChange={e=>setCreateForm({...createForm, lng: e.target.value===''? null : Number(e.target.value)})} />
           </div>
           <div>
-            <label className="text-sm">Ouverture</label>
-            <input placeholder="08:00:00" className="w-full rounded-md border-gray-300" value={createForm.open_at ?? ''} onChange={e=>setCreateForm({...createForm, open_at:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Ouverture</label>
+            <input placeholder="08:00:00" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.open_at ?? ''} onChange={e=>setCreateForm({...createForm, open_at:e.target.value})} />
           </div>
           <div>
-            <label className="text-sm">Fermeture</label>
-            <input placeholder="17:00:00" className="w-full rounded-md border-gray-300" value={createForm.close_at ?? ''} onChange={e=>setCreateForm({...createForm, close_at:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Fermeture</label>
+            <input placeholder="17:00:00" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.close_at ?? ''} onChange={e=>setCreateForm({...createForm, close_at:e.target.value})} />
           </div>
-          <label className="col-span-2 flex items-center gap-2 text-sm">
+          <label className="col-span-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={!!createForm.is_active} onChange={e=>setCreateForm({...createForm, is_active: e.target.checked})} />
             <span>Actif</span>
           </label>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="btn btn-secondary" onClick={()=>setOpenCreate(false)}>Annuler</button>
-          <button className="btn btn-primary" onClick={createEst}>Créer</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenCreate(false)}>Annuler</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={createEst}>Créer</button>
         </div>
       </Modal>
 
@@ -165,38 +182,38 @@ export default function Establishments(){
       <Modal open={openEdit} onClose={()=>setOpenEdit(false)} title={`Éditer ${editing?.name ?? ''}`}>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="text-sm">Nom</label>
-            <input className="w-full rounded-md border-gray-300" value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} />
-            {editErrors.name && <p className="text-xs text-red-600">{editErrors.name}</p>}
+            <label className="text-sm font-medium text-foreground">Nom</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} />
+            {editErrors.name && <p className="text-xs text-destructive">{editErrors.name}</p>}
           </div>
           <div className="md:col-span-2">
-            <label className="text-sm">Adresse</label>
-            <input className="w-full rounded-md border-gray-300" value={editForm.address ?? ''} onChange={e=>setEditForm({...editForm, address:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Adresse</label>
+            <input className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.address ?? ''} onChange={e=>setEditForm({...editForm, address:e.target.value})} />
           </div>
           <div>
-            <label className="text-sm">Latitude</label>
-            <input type="number" step="any" className="w-full rounded-md border-gray-300" value={editForm.lat ?? ''} onChange={e=>setEditForm({...editForm, lat: e.target.value===''? null : Number(e.target.value)})} />
+            <label className="text-sm font-medium text-foreground">Latitude</label>
+            <input type="number" step="any" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.lat ?? ''} onChange={e=>setEditForm({...editForm, lat: e.target.value===''? null : Number(e.target.value)})} />
           </div>
           <div>
-            <label className="text-sm">Longitude</label>
-            <input type="number" step="any" className="w-full rounded-md border-gray-300" value={editForm.lng ?? ''} onChange={e=>setEditForm({...editForm, lng: e.target.value===''? null : Number(e.target.value)})} />
+            <label className="text-sm font-medium text-foreground">Longitude</label>
+            <input type="number" step="any" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.lng ?? ''} onChange={e=>setEditForm({...editForm, lng: e.target.value===''? null : Number(e.target.value)})} />
           </div>
           <div>
-            <label className="text-sm">Ouverture</label>
-            <input placeholder="08:00:00" className="w-full rounded-md border-gray-300" value={editForm.open_at ?? ''} onChange={e=>setEditForm({...editForm, open_at:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Ouverture</label>
+            <input placeholder="08:00:00" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.open_at ?? ''} onChange={e=>setEditForm({...editForm, open_at:e.target.value})} />
           </div>
           <div>
-            <label className="text-sm">Fermeture</label>
-            <input placeholder="17:00:00" className="w-full rounded-md border-gray-300" value={editForm.close_at ?? ''} onChange={e=>setEditForm({...editForm, close_at:e.target.value})} />
+            <label className="text-sm font-medium text-foreground">Fermeture</label>
+            <input placeholder="17:00:00" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.close_at ?? ''} onChange={e=>setEditForm({...editForm, close_at:e.target.value})} />
           </div>
-          <label className="col-span-2 flex items-center gap-2 text-sm">
+          <label className="col-span-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" checked={!!editForm.is_active} onChange={e=>setEditForm({...editForm, is_active: e.target.checked})} />
             <span>Actif</span>
           </label>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="btn btn-secondary" onClick={()=>setOpenEdit(false)}>Annuler</button>
-          <button className="btn btn-primary" onClick={updateEst}>Enregistrer</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={updateEst}>Enregistrer</button>
         </div>
       </Modal>
     </div>
