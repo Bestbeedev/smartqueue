@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      network: host
+    network_mode: "host"
+    image: smartqueue-backend
+    container_name: smartqueue-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_KEY=${APP_KEY} 
+      - DB_HOST=db
+      - REDIS_HOST=redis
+    volumes:
+      - ./backend:/var/www/html:delegated
+    ports:
+      - "8000:8000"
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+ # frontend:
+    #build:
+   #   context: ./frontend
+    #  dockerfile: Dockerfile
+       #network: host
+    #image: smartqueue-frontend
+   # container_name: smartqueue-frontend
+    #restart: unless-stopped
+    #ports:
+    #  - "5173:5173"
+    #volumes:
+    #  - ./frontend:/app
+     # - /app/node_modules
+    #environment:
+    #  - CHOKIDAR_USEPOLLING=true
+
+  db:
+    image: mysql:8.0
+    container_name: smartqueue-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-smartqueue}
+      MYSQL_USER: ${DB_USERNAME:-user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
+      interval: 10s      # On teste toutes les 10s au lieu de 5s
+      timeout: 10s      # On laisse 10s au ping pour répondre
+      retries: 10       # On tente 10 fois avant de déclarer l'échec
+      start_period: 55s # TRÈS IMPORTANT : Laisse 40s à MySQL pour créer sa DB avant de tester
+
+
+  redis:
+    image: redis:alpine
+    container_name: smartqueue-redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+volumes:
+  dbdata:
+  redisdata:

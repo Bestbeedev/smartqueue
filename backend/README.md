@@ -57,3 +57,34 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Dockerisation
+
+Le conteneur `backend` est déjà préparé pour fonctionner dans un environnement Docker. Les fichiers suivants ont été ajoutés :
+
+- `Dockerfile` : image PHP‑FPM 8.2 avec les extensions requises et Composer.
+- `.dockerignore` : exclut les dossiers `vendor`, `node_modules`, `storage` et autres fichiers temporaires.
+- `docker-compose.yml` (à la racine du projet) : orchestre les services `backend`, `db` et `redis`.
+
+### Utilisation locale
+
+```bash
+# à partir de la racine du dépôt
+cp backend/.env.example backend/.env   # si nécessaire
+
+# démarrer uniquement le service backend et dépendances
+docker compose up -d --build backend
+
+# exécuter une commande artisan dans le conteneur
+docker compose exec backend php artisan migrate --force
+```
+
+Les sources sont montées en volume pour permettre le rechargement à chaud. N'oubliez pas d'ouvrir le port `8000` (php artisan serve) ou de configurer un reverse‑proxy si vous utilisez `nginx`/`traefik`.
+
+### Production
+
+Pour la production, utilisez `docker-compose.prod.yml` (à créer ou adapter) et évitez les volumes de développement. Veillez à définir les variables d'environnement sensibles (`APP_KEY`, `DB_PASSWORD`, etc.).
+
+---
