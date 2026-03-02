@@ -58,6 +58,7 @@ dependencies:
 
   # Realtime
   web_socket_channel: ^3.0.0 # J'ai ajouté une version par défaut pour web_socket_channel
+  pusher_channels_flutter: ^2.5.0
 
   # Utils
   intl: ^0.20.2 # J'ai ajouté une version par défaut pour intl

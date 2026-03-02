@@ -5,7 +5,7 @@ import 'package:smartqueue_user/core/app_theme.dart';
 import 'package:smartqueue_user/features/realtime/realtime_provider.dart';
 import 'package:smartqueue_user/data/models/ticket.dart';
 
-class RealtimeScreen extends ConsumerWidget {
+class RealtimeScreen extends ConsumerStatefulWidget {
   final int ticketId;
   final String serviceName;
   final Ticket? initialTicket;
@@ -18,9 +18,45 @@ class RealtimeScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (initialTicket != null) {
-      final ticket = initialTicket!;
+  ConsumerState<RealtimeScreen> createState() => _RealtimeScreenState();
+}
+
+class _RealtimeScreenState extends ConsumerState<RealtimeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(userRealtimeProvider.notifier).connect());
+  }
+
+  @override
+  void dispose() {
+    ref.read(userRealtimeProvider.notifier).disconnect();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
+    final rt = ref.watch(userRealtimeProvider);
+
+    Ticket? initial = widget.initialTicket;
+
+    if (initial != null) {
+      // Merge realtime update payload if it targets the displayed ticket
+      if (rt != null && rt['ticket_id']?.toString() == widget.ticketId.toString()) {
+        initial = Ticket(
+          id: initial.id,
+          ticketNumber: initial.ticketNumber,
+          status: (rt['status'] as String?) ?? initial.status,
+          serviceId: initial.serviceId,
+          position: (rt['position'] is int) ? rt['position'] as int : int.tryParse(rt['position']?.toString() ?? ''),
+          etaMinutes: (rt['eta_minutes'] is int) ? rt['eta_minutes'] as int : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
+          serviceName: initial.serviceName,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      final ticket = initial;
       return Scaffold(
         appBar: AppBar(
           title: const Text('Suivi en temps réel'),
@@ -37,7 +73,7 @@ class RealtimeScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       Text(
-                        'Service: $serviceName',
+                        'Service: ${widget.serviceName}',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
@@ -146,14 +182,14 @@ class RealtimeScreen extends ConsumerWidget {
                 onPressed: () async {
                   try {
                     // Try fetching live data; on success, reload screen without initialTicket
-                    await ref.read(ticketRealtimeProvider(ticketId).future);
+                    await ref.read(ticketRealtimeProvider(widget.ticketId).future);
                     if (context.mounted) {
                       Navigator.pushReplacementNamed(
                         context,
                         '/ticket/realtime',
                         arguments: {
-                          'ticketId': ticketId,
-                          'serviceName': serviceName,
+                          'ticketId': widget.ticketId,
+                          'serviceName': widget.serviceName,
                         },
                       );
                     }
@@ -174,7 +210,7 @@ class RealtimeScreen extends ConsumerWidget {
       );
     }
 
-    final asyncTicket = ref.watch(ticketRealtimeProvider(ticketId));
+    final asyncTicket = ref.watch(ticketRealtimeProvider(widget.ticketId));
 
     return Scaffold(
       appBar: AppBar(
@@ -194,7 +230,7 @@ class RealtimeScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         Text(
-                          'Service: $serviceName',
+                          'Service: ${widget.serviceName}',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
@@ -362,7 +398,7 @@ class RealtimeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => ref.refresh(ticketRealtimeProvider(ticketId)),
+                onPressed: () => ref.refresh(ticketRealtimeProvider(widget.ticketId)),
                 child: const Text('Réessayer'),
               ),
             ],

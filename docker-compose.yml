@@ -1,25 +1,20 @@
 version: '3.8'
 
 services:
+  # BACKEND : API & Serveur Web
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
       network: host
-    #network_mode: "host"
     image: smartqueue-backend
     container_name: smartqueue-backend
     restart: unless-stopped
     env_file:
       - ./backend/.env
-    environment:
-      - APP_KEY=${APP_KEY} 
-      - DB_HOST=db
-      - REDIS_HOST=redis
-    volumes:
-      - ./backend:/var/www/html:delegated
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/var/www/html:delegated
     command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
     depends_on:
       db:
@@ -27,21 +22,21 @@ services:
       redis:
         condition: service_started
 
- # frontend:
-    #build:
-   #   context: ./frontend
-    #  dockerfile: Dockerfile
-       #network: host
-    #image: smartqueue-frontend
-   # container_name: smartqueue-frontend
-    #restart: unless-stopped
-    #ports:
-    #  - "5173:5173"
-    #volumes:
-    #  - ./frontend:/app
-     # - /app/node_modules
-    #environment:
-    #  - CHOKIDAR_USEPOLLING=true
+  # REVERB : Serveur WebSocket
+  reverb:
+    image: smartqueue-backend # On réutilise la même image que le backend
+    container_name: smartqueue-reverb
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "6001:6001"
+    volumes:
+      - ./backend:/var/www/html:delegated
+    # La commande cruciale pour lancer Reverb
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=6001", "--debug"]
+    depends_on:
+      - backend
 
   db:
     image: mysql:8.0
@@ -56,11 +51,10 @@ services:
       - dbdata:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
-      interval: 10s      # On teste toutes les 10s au lieu de 5s
-      timeout: 10s      # On laisse 10s au ping pour répondre
-      retries: 10       # On tente 10 fois avant de déclarer l'échec
-      start_period: 55s # TRÈS IMPORTANT : Laisse 40s à MySQL pour créer sa DB avant de tester
-
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 55s
 
   redis:
     image: redis:alpine

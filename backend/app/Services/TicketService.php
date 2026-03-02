@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\TicketCalled;
 use App\Events\TicketUpdated;
+use App\Events\UserTicketUpdated;
 use App\Events\ServiceStatsUpdated;
 use App\Events\ServiceTicketCalled;
 use App\Events\ServiceTicketAbsent;
@@ -89,6 +90,13 @@ class TicketService
                 'position' => $ticket->position,
             ]));
 
+            event(new UserTicketUpdated($user->id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $service->id,
+                'status' => $ticket->status,
+                'position' => $ticket->position,
+            ]));
+
             // Diffusion sur le canal de présence du service: nouveau ticket en file
             event(new ServiceTicketEnqueued($service->id, [
                 'ticket' => [
@@ -139,6 +147,16 @@ class TicketService
                 'status' => $ticket->status,
             ]));
 
+            if ($ticket->user) {
+                event(new UserTicketUpdated($ticket->user->id, [
+                    'ticket_id' => $ticket->id,
+                    'service_id' => $service->id,
+                    'status' => $ticket->status,
+                    'number' => $ticket->number,
+                    'counter_id' => $ticket->counter_id,
+                ]));
+            }
+
             // Diffusion service: ticket appelé
             event(new ServiceTicketCalled($service->id, [
                 'ticket' => [
@@ -178,6 +196,14 @@ class TicketService
 
         event(new TicketUpdated($ticket->id, ['status' => $ticket->status]));
 
+        if ($ticket->user) {
+            event(new UserTicketUpdated($ticket->user->id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'status' => $ticket->status,
+            ]));
+        }
+
         // Diffusion service: ticket marqué absent
         event(new ServiceTicketAbsent($ticket->service_id, [
             'ticket' => [
@@ -202,6 +228,14 @@ class TicketService
         $ticket->status = 'canceled';
         $ticket->save();
         event(new TicketUpdated($ticket->id, ['status' => $ticket->status]));
+
+        if ($ticket->user) {
+            event(new UserTicketUpdated($ticket->user->id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'status' => $ticket->status,
+            ]));
+        }
         $this->recomputePositions($ticket->service);
         return $ticket->fresh();
     }
@@ -221,36 +255,17 @@ class TicketService
                 'number' => $ticket->number,
             ]
         ]));
-        return $ticket->fresh();
-    }
 
-    /**
-     * Recalcule la position de tous les tickets en attente d'un service et diffuse stats.
-     */
-    public function recomputePositions(Service $service): void
-    {
-        $waiting = Ticket::query()
-            ->where('service_id', $service->id)
-            ->where('status', 'waiting')
-            ->orderByRaw("CASE priority WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
-            ->orderBy('created_at')
-            ->get();
-
-        $pos = 1;
-        foreach ($waiting as $t) {
-            if ($t->position !== $pos) {
-                $t->position = $pos;
-                $t->save();
-                event(new TicketUpdated($t->id, ['position' => $pos]));
-            }
-            $pos++;
+        if ($ticket->user) {
+            event(new UserTicketUpdated($ticket->user->id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'status' => $ticket->status,
+                'number' => $ticket->number,
+                'counter_id' => $ticket->counter_id,
+            ]));
         }
-
-        // Diffusion des stats de file pour tableaux de bord
-        event(new ServiceStatsUpdated($service->id, [
-            'people' => $waiting->count(),
-            'eta_avg' => $service->avg_service_time_minutes,
-        ]));
+        return $ticket->fresh();
     }
 
     /**

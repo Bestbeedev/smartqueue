@@ -46,6 +46,7 @@ Route::prefix('auth')->group(function () {
 
 // Établissements (public: recherche; détails: public)
 Route::get('establishments', [EstablishmentController::class, 'index']); // ?lat&lng&radius
+Route::get('establishments/nearby', [EstablishmentController::class, 'index']); // alias mobile: ?lat&lng&radius
 Route::get('establishments/search', [EstablishmentController::class, 'search']); // ?q
 Route::get('establishments/{id}', [EstablishmentController::class, 'show']);
 Route::get('establishments/{id}/services', [ServiceController::class, 'byEstablishment']);
@@ -59,6 +60,7 @@ Route::get('services/{id}/recommendations', [ServiceController::class, 'recommen
 Route::middleware('auth:sanctum')->group(function () {
     // CRUD tickets utilisateur
     Route::post('tickets', [TicketController::class, 'store']);
+    Route::get('tickets/me', [TicketController::class, 'active']); // alias mobile
     Route::get('tickets/active', [TicketController::class, 'active']);
     Route::get('tickets/history', [TicketController::class, 'history']);
     Route::get('tickets/{ticket}', [TicketController::class, 'show']);
