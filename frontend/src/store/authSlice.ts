@@ -63,7 +63,11 @@ const slice = createSlice({
       localStorage.removeItem('token'); localStorage.removeItem('user')
     })
 
+    b.addCase(refreshMe.pending, (s) => { s.loading = true })
+    b.addCase(refreshMe.rejected, (s) => { s.loading = false })
+
     b.addCase(refreshMe.fulfilled, (s, a: PayloadAction<User>) => {
+      s.loading = false
       s.user = a.payload
       localStorage.setItem('user', JSON.stringify(a.payload))
     })
