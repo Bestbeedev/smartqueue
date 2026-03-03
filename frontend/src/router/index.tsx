@@ -24,6 +24,9 @@ const Services = lazy(() => import('@/pages/admin/Services'))
 const Establishments = lazy(() => import('@/pages/admin/Establishments'))
 const Stats = lazy(() => import('@/pages/admin/Stats'))
 
+// Setup onboarding admin
+const SetupEstablishment = lazy(() => import('@/pages/onboarding/SetupEstablishment'))
+
 // Pages communes
 const Settings = lazy(() => import('@/pages/Settings'))
 
@@ -65,6 +68,16 @@ export default function Router() {
             </Suspense>
           )
         },
+        ...(user?.role === 'admin' && !user?.establishment_id ? [
+          {
+            path: 'setup-establishment',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SetupEstablishment />
+              </Suspense>
+            )
+          }
+        ] : []),
         {
           path: 'queues',
           children: [
@@ -103,7 +116,7 @@ export default function Router() {
           ]
         },
         // Routes admin (protégées)
-        ...(user?.role === 'admin' ? [
+        ...(user?.role === 'admin' && !!user?.establishment_id ? [
           {
             path: 'agents',
             element: (
