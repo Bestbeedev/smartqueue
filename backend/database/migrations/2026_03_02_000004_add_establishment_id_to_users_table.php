@@ -13,12 +13,19 @@ return new class extends Migration
                 $table->foreignId('establishment_id')->nullable()->after('role')->constrained('establishments')->nullOnDelete();
                 $table->index(['establishment_id']);
             }
+
+            if (!Schema::hasColumn('users', 'pending_subscription')) {
+                $table->json('pending_subscription')->nullable()->after('establishment_id');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'pending_subscription')) {
+                $table->dropColumn('pending_subscription');
+            }
             if (Schema::hasColumn('users', 'establishment_id')) {
                 $table->dropIndex(['establishment_id']);
                 $table->dropConstrainedForeignId('establishment_id');
