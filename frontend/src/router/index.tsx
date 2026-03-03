@@ -7,6 +7,9 @@ import { Suspense, lazy } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/hooks/useAuth'
+import { useAppDispatch } from '@/store'
+import { refreshMe } from '@/store/authSlice'
+import { useEffect } from 'react'
 
 // Lazy loading des pages pour optimiser le bundle
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
@@ -42,6 +45,15 @@ const PageLoader = () => (
 
 export default function Router() {
   const { user, isAuthenticated } = useAuth()
+  const dispatch = useAppDispatch()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    // Ensure we have a fresh user (incl. establishment_id) after reload/login
+    if (!user?.establishment_id && user?.role === 'admin') {
+      dispatch(refreshMe())
+    }
+  }, [dispatch, isAuthenticated])
 
   const router = createBrowserRouter([
     {
