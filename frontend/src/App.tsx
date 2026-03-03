@@ -1,16 +1,26 @@
 /**
- * App (root)
- * Injecte le routeur applicatif.
+ * App - Composant principal simplifié
+ * Le routage est maintenant géré par le composant Router
  */
-import { RouterProvider } from 'react-router-dom'
-import { router } from './router'
 import { Toaster } from 'react-hot-toast'
 
-export default function App() {
+function App() {
   return (
     <>
-      <RouterProvider router={router} />
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'hsl(var(--primary))',
+            color: 'hsl(var(--primary-foreground))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '0.5rem',
+          },
+        }}
+      />
     </>
   )
 }
+
+export default App
