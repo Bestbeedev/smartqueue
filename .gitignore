@@ -53,6 +53,11 @@ jspm_packages/
 
 # TypeScript cache
 *.tsbuildinfo
+frontend/tsconfig*.tsbuildinfo
+
+# Vite cache
+frontend/node_modules/.vite/
+frontend/.vite/
 
 # Optional npm cache directory
 .npm
