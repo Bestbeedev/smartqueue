@@ -85,6 +85,11 @@ export default function Agents() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
+
+  const [createdAgentCredentials, setCreatedAgentCredentials] = useState<{
+    email: string;
+    temporary_password: string;
+  } | null>(null);
   
   // Formulaire avec react-hook-form
   const {
@@ -132,6 +137,17 @@ export default function Agents() {
       console.error('Erreur lors de la récupération des agents:', error);
     } finally {
       setLoading(prev => ({ ...prev, agents: false }));
+    }
+  };
+
+  const copyCredentials = async () => {
+    if (!createdAgentCredentials) return;
+    const text = `Email: ${createdAgentCredentials.email}\nMot de passe temporaire: ${createdAgentCredentials.temporary_password}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Identifiants copiés');
+    } catch {
+      toast.error('Impossible de copier (clipboard)');
     }
   };
   
@@ -224,14 +240,21 @@ export default function Agents() {
     try {
       if (currentAgent) {
         // Mise à jour d'un agent existant
-        await api.put(`/admin/agents/${currentAgent.id}`, data);
+        await api.put(`/api/admin/agents/${currentAgent.id}`, data);
         toast.success('Agent mis à jour avec succès');
       } else {
         // Création d'un nouvel agent
-        await api.post('/admin/agents', {
-          ...data,
-          password: data.password || 'password123', // Mot de passe par défaut si non fourni
-        });
+        const payload: any = { ...data };
+        if (!data.password) {
+          payload.password = null;
+        }
+        const resp = await api.post('/api/admin/agents', payload);
+        if (resp?.data?.temporary_password) {
+          setCreatedAgentCredentials({
+            email: String(resp.data.email || data.email),
+            temporary_password: String(resp.data.temporary_password),
+          });
+        }
         toast.success('Agent créé avec succès');
       }
       
@@ -260,7 +283,7 @@ export default function Agents() {
     }
     
     try {
-      await api.delete(`/admin/agents/${agentId}`);
+      await api.delete(`/api/admin/agents/${agentId}`);
       toast.success('Agent supprimé avec succès');
       await fetchAgents();
     } catch (error) {
@@ -715,15 +738,15 @@ export default function Agents() {
 
       {/* Modal d'édition */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Modifier un agent</DialogTitle>
+            <DialogDescription>
+              Modifiez les informations de l'agent et ses services associés.
+            </DialogDescription>
+          </DialogHeader>
+
           <form onSubmit={handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Modifier l'agent</DialogTitle>
-              <DialogDescription>
-                Modifiez les informations de l'agent. Les changements seront enregistrés après validation.
-              </DialogDescription>
-            </DialogHeader>
-            
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nom complet</Label>
@@ -845,8 +868,9 @@ export default function Agents() {
                   Laissez vide pour ne pas modifier le mot de passe.
                 </p>
               </div>
+
             </div>
-            
+
             <DialogFooter>
               <div className="flex justify-between w-full">
                 <Button
@@ -888,6 +912,43 @@ export default function Agents() {
               </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!createdAgentCredentials}
+        onOpenChange={(open) => {
+          if (!open) setCreatedAgentCredentials(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Identifiants de l'agent</DialogTitle>
+            <DialogDescription>
+              Ce mot de passe temporaire n'est affiché qu'une seule fois. Copiez-le et transmettez-le à l'agent.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createdAgentCredentials && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Email</Label>
+                <Input value={createdAgentCredentials.email} readOnly />
+              </div>
+              <div className="space-y-1">
+                <Label>Mot de passe temporaire</Label>
+                <Input value={createdAgentCredentials.temporary_password} readOnly />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" type="button" onClick={copyCredentials}>
+                  Copier
+                </Button>
+                <Button type="button" onClick={() => setCreatedAgentCredentials(null)}>
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

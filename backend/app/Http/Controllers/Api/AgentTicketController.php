@@ -8,9 +8,12 @@ use App\Models\Counter;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Services\TicketService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class AgentTicketController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Appelle le prochain ticket prêt pour un service.
      */

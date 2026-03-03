@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { getEcho } from '@/api/echo';
 import { cn } from '@/lib/utils';
+import { api } from '@/api/axios';
 
 type Ticket = {
   id: number;
@@ -38,9 +39,11 @@ type ServiceStats = {
 const Queues: React.FC = () => {
   const [serviceId, setServiceId] = useState<string>('');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [queue, setQueue] = useState<any[]>([]);
   const [stats, setStats] = useState<ServiceStats | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isActing, setIsActing] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const navigate = useNavigate();
@@ -56,6 +59,74 @@ const Queues: React.FC = () => {
       throw new Error("Service introuvable");
     }
     return r.json();
+  };
+
+  const fetchQueue = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new Error('Identifiant de service invalide');
+    }
+    const { data } = await api.get(`/api/services/${numericId}/queue`);
+    return data;
+  };
+
+  const refreshQueueAndStats = async () => {
+    if (!serviceId) return;
+    try {
+      const [q, s] = await Promise.all([fetchQueue(serviceId), fetchStats(serviceId)]);
+      setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+      const mapped: ServiceStats = {
+        service_id: Number(serviceId),
+        service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+        waiting: Number(s?.people ?? s?.waiting ?? 0),
+        processed: Number(s?.processed ?? 0),
+        average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+      };
+      setStats(mapped);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (e: any) {
+      setError(e?.message || 'Erreur');
+    }
+  };
+
+  const callNext = async () => {
+    if (!serviceId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/services/${Number(serviceId)}/call-next`, { counter_id: null });
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const markAbsent = async (ticketId: number) => {
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/tickets/${ticketId}/mark-absent`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const recall = async (ticketId: number) => {
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/tickets/${ticketId}/recall`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
   };
 
   const fetchStats = async (id: string) => {
@@ -88,6 +159,16 @@ const Queues: React.FC = () => {
       try {
         await fetchService(serviceId);
         if (cancelled) return;
+
+        // Initial load (queue + stats)
+        try {
+          const q = await fetchQueue(serviceId);
+          if (!cancelled) {
+            setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+          }
+        } catch (e: any) {
+          if (!cancelled) setError(e?.message || 'Erreur');
+        }
 
         // S'abonner au canal de présence pour le service
         channel = echo.join(`presence-service.${serviceId}`);
@@ -124,6 +205,15 @@ const Queues: React.FC = () => {
               ...prevTickets
             ].slice(0, 10)); // Garder uniquement les 10 derniers tickets
             setLastUpdated(new Date().toLocaleTimeString());
+            refreshQueueAndStats();
+          })
+          .listen('.service.ticket.enqueued', () => {
+            if (cancelled) return;
+            refreshQueueAndStats();
+          })
+          .listen('.service.ticket.absent', () => {
+            if (cancelled) return;
+            refreshQueueAndStats();
           })
           .listen('.service.stats.updated', (e: any) => {
             if (cancelled) return;
@@ -144,6 +234,8 @@ const Queues: React.FC = () => {
       try {
         if (channel) {
           channel.stopListening('.service.ticket.called');
+          channel.stopListening('.service.ticket.enqueued');
+          channel.stopListening('.service.ticket.absent');
           channel.stopListening('.service.stats.updated');
         }
       } catch {}
@@ -373,6 +465,107 @@ const Queues: React.FC = () => {
 
           {/* Derniers tickets appelés */}
           <div className="p-6">
+            {serviceId && (
+              <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={callNext}
+                    disabled={!isConnected || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!isConnected || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                    )}
+                  >
+                    Appeler suivant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refreshQueueAndStats}
+                    disabled={!serviceId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!serviceId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Rafraîchir la file
+                  </button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {isActing ? 'Action en cours…' : ''}
+                </div>
+              </div>
+            )}
+
+            {serviceId && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-foreground mb-3">File actuelle</h2>
+                {queue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Aucun ticket en waiting/called/absent</div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-border">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-card divide-y divide-border">
+                          {queue.map((t: any) => (
+                            <tr key={t.id} className="hover-card transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="font-semibold text-foreground">{t.number}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.status}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.priority}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => markAbsent(Number(t.id))}
+                                    disabled={isActing || t.status !== 'called'}
+                                    className={cn(
+                                      'px-3 py-1 rounded-md text-xs font-medium border',
+                                      (isActing || t.status !== 'called')
+                                        ? 'bg-muted text-muted-foreground border-border'
+                                        : 'bg-red-600 text-white border-red-600 hover:bg-red-700'
+                                    )}
+                                  >
+                                    Absent
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => recall(Number(t.id))}
+                                    disabled={isActing || t.status === 'waiting'}
+                                    className={cn(
+                                      'px-3 py-1 rounded-md text-xs font-medium border',
+                                      (isActing || t.status === 'waiting')
+                                        ? 'bg-muted text-muted-foreground border-border'
+                                        : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                                    )}
+                                  >
+                                    Recall
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center">
                 <Ticket className="mr-2 text-blue-600" />
