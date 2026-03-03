@@ -2,9 +2,9 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { api } from '@/api/axios'
 
 export type Role = 'admin' | 'agent' | 'user' | 'super_admin'
-export interface User { id: number; name: string; email: string; phone?: string | null; role: Role }
+export interface User { id: number; name: string; email: string; phone?: string | null; role: Role; avatar?: string }
 
-interface AuthState { token: string | null; user: User | null; loading: boolean; error?: string }
+interface AuthState { token: string | null; user: User | null; loading: boolean; isAuthenticated: boolean; error?: string }
 const persistedUser = localStorage.getItem('user')
 let initialUser: User | null = null
 try { initialUser = persistedUser ? JSON.parse(persistedUser) as User : null } catch { initialUser = null; localStorage.removeItem('user') }
@@ -12,6 +12,7 @@ const initialState: AuthState = {
   token: localStorage.getItem('token'),
   user: initialUser,
   loading: false,
+  isAuthenticated: !!localStorage.getItem('token'),
 }
 
 export const login = createAsyncThunk('auth/login', async (payload: { email: string; password: string }) => {
@@ -37,14 +38,14 @@ const slice = createSlice({
   extraReducers: (b) => {
     b.addCase(login.pending, (s) => { s.loading = true; s.error = undefined })
     b.addCase(login.fulfilled, (s, a: PayloadAction<{ token: string; user: User }>) => {
-      s.loading = false; s.user = a.payload.user; s.token = a.payload.token
+      s.loading = false; s.user = a.payload.user; s.token = a.payload.token; s.isAuthenticated = true
       localStorage.setItem('token', a.payload.token)
       localStorage.setItem('user', JSON.stringify(a.payload.user))
     })
     b.addCase(login.rejected, (s, a: any) => { s.loading = false; s.error = a?.error?.message || 'Login failed' })
 
     b.addCase(logout.fulfilled, (s) => {
-      s.user = null; s.token = null
+      s.user = null; s.token = null; s.isAuthenticated = false
       localStorage.removeItem('token'); localStorage.removeItem('user')
     })
   }
