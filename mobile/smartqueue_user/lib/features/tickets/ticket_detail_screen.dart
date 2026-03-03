@@ -19,10 +19,26 @@ class TicketDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (initialTicket != null) {
+    final rt = ref.watch(userRealtimeProvider);
+
+    Ticket? mergedInitial = initialTicket;
+    if (mergedInitial != null && rt != null && rt['ticket_id']?.toString() == ticketId.toString()) {
+      mergedInitial = Ticket(
+        id: mergedInitial.id,
+        ticketNumber: mergedInitial.ticketNumber,
+        status: (rt['status'] as String?) ?? mergedInitial.status,
+        serviceId: mergedInitial.serviceId,
+        position: (rt['position'] is int) ? rt['position'] as int : int.tryParse(rt['position']?.toString() ?? ''),
+        etaMinutes: (rt['eta_minutes'] is int) ? rt['eta_minutes'] as int : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
+        serviceName: mergedInitial.serviceName,
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    if (mergedInitial != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Détail du ticket')),
-        body: _TicketContent(ticket: initialTicket!, serviceName: serviceName),
+        body: _TicketContent(ticket: mergedInitial, serviceName: serviceName),
       );
     }
 

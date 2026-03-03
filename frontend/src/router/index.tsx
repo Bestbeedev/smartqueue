@@ -49,8 +49,16 @@ export default function Router() {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    // Ensure we have a fresh user (incl. establishment_id) after reload/login
-    if (!user?.establishment_id && user?.role === 'admin') {
+    // Ensure we have a fresh user after reload/login
+    // - Admin: establishment_id is required for scoping
+    // - Agent: needs services/counters for queue dashboard
+    if (user?.role === 'admin') {
+      if (!user?.establishment_id) {
+        dispatch(refreshMe())
+      }
+      return
+    }
+    if (user?.role === 'agent') {
       dispatch(refreshMe())
     }
   }, [dispatch, isAuthenticated])

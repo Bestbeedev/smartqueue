@@ -123,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('stats/overview', [AdminStatsController::class, 'overview']);
         Route::get('stats/services/{serviceId}', [AdminStatsController::class, 'service']);
+        Route::get('stats/series', [AdminStatsController::class, 'series']);
 
         // Exports
         Route::get('establishments/{establishment}/reports/activity.csv', [AdminReportExportController::class, 'activityCsv']);

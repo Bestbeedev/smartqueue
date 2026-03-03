@@ -109,10 +109,82 @@ class ServiceController extends Controller
      */
     public function recommendations(int $id)
     {
-        // TODO: Remplacer par analyse historique réelle (analytics_events)
+        // Reco basée sur l'historique des 30 derniers jours: volume d'appels/clôtures par heure
+        $service = Service::findOrFail($id);
+
+        $start = now()->subDays(30);
+        $rows = DB::table('tickets')
+            ->where('service_id', $id)
+            ->where(function ($q) use ($start) {
+                $q->where('called_at', '>=', $start)
+                  ->orWhere('closed_at', '>=', $start);
+            })
+            ->select(['called_at', 'closed_at'])
+            ->limit(5000)
+            ->get();
+
+        $counts = array_fill(0, 24, 0);
+        foreach ($rows as $r) {
+            $t = $r->called_at ?: $r->closed_at;
+            if (!$t) {
+                continue;
+            }
+            $h = (int) \Illuminate\Support\Carbon::parse($t)->format('G');
+            if ($h >= 0 && $h <= 23) {
+                $counts[$h]++;
+            }
+        }
+
+        // S'il n'y a pas assez de données, fallback sur des créneaux neutres
+        $total = array_sum($counts);
+        if ($total < 30) {
+            return response()->json([
+                ['start' => '09:00', 'end' => '10:00', 'reason' => 'Données insuffisantes (fallback)'],
+                ['start' => '14:00', 'end' => '15:00', 'reason' => 'Données insuffisantes (fallback)'],
+            ]);
+        }
+
+        // Score par fenêtre glissante de 60 minutes: moins de volume = mieux
+        $window = 1; // heures
+        $scores = [];
+        for ($h = 0; $h < 24; $h++) {
+            $sum = 0;
+            for ($k = 0; $k < $window; $k++) {
+                $sum += $counts[($h + $k) % 24];
+            }
+            $scores[] = ['h' => $h, 'sum' => $sum];
+        }
+        usort($scores, fn ($a, $b) => $a['sum'] <=> $b['sum']);
+
+        $picked = [];
+        $usedHours = [];
+        foreach ($scores as $s) {
+            $h = $s['h'];
+            // éviter créneaux trop proches (±1h)
+            if (isset($usedHours[$h]) || isset($usedHours[($h + 23) % 24]) || isset($usedHours[($h + 1) % 24])) {
+                continue;
+            }
+            $usedHours[$h] = true;
+
+            $startStr = str_pad((string) $h, 2, '0', STR_PAD_LEFT).':00';
+            $endH = ($h + 1) % 24;
+            $endStr = str_pad((string) $endH, 2, '0', STR_PAD_LEFT).':00';
+
+            $picked[] = [
+                'start' => $startStr,
+                'end' => $endStr,
+                'reason' => 'Faible affluence historique (30j) – '.$s['sum'].' passages',
+            ];
+            if (count($picked) >= 3) {
+                break;
+            }
+        }
+
+        // Ajoute un hint ETA moyen (facultatif) pour le front
         return response()->json([
-            ['start' => '08:00', 'end' => '09:00', 'reason' => 'Faible affluence historique'],
-            ['start' => '14:00', 'end' => '15:00', 'reason' => 'Temps d’attente moyen bas'],
+            'service_id' => $service->id,
+            'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
+            'windows' => $picked,
         ]);
     }
 }
