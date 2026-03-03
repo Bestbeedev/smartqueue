@@ -26,8 +26,8 @@ export default function Services(){
   const [editing, setEditing] = useState<Service | null>(null)
 
   // Formulaires
-  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false })
-  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false })
+  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, capacity: null as number | null })
+  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, capacity: null as number | null })
   const [createErrors, setCreateErrors] = useState<Record<string,string>>({})
   const [editErrors, setEditErrors] = useState<Record<string,string>>({})
 
@@ -38,6 +38,7 @@ export default function Services(){
     avg_service_time_minutes: z.number().int().min(1).max(240),
     status: z.enum(['open','closed']),
     priority_support: z.boolean(),
+    capacity: z.union([z.number().int().min(1).max(100000), z.null()]),
   })
 
   const load = () => api.get('/api/admin/services?per_page=50').then(r=> setRows(r.data.data || r.data))
@@ -52,7 +53,8 @@ export default function Services(){
       name: s.name,
       avg_service_time_minutes: s.avg_service_time_minutes || 5,
       status: s.status || 'open',
-      priority_support: !!s.priority_support
+      priority_support: !!s.priority_support,
+      capacity: (s as any).capacity ?? null,
     })
     setOpenEdit(true)
   }
@@ -70,7 +72,7 @@ export default function Services(){
       await api.post('/api/admin/services', parsed.data)
       toast.success('Service créé')
       setOpenCreate(false)
-      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false })
+      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, capacity: null })
       load()
     } catch(e:any) {
       toast.error(e?.response?.data?.error?.message || 'Erreur de création')
@@ -129,6 +131,7 @@ export default function Services(){
             </span>
           ) },
           { key:'avg_service_time_minutes', header:'Temps moyen (min)' },
+          { key:'capacity', header:'Capacité', render:(r:Service)=> ((r as any).capacity ?? '—') },
           { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
           { key:'actions', header:'Actions', render:(r:Service)=> (
             <div className="flex gap-1">
@@ -175,6 +178,17 @@ export default function Services(){
             {createErrors.avg_service_time_minutes && <p className="text-xs text-destructive">{createErrors.avg_service_time_minutes}</p>}
           </div>
           <div>
+            <label className="text-sm font-medium text-foreground">Capacité (max tickets)</label>
+            <input
+              type="number"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={createForm.capacity ?? ''}
+              onChange={e=>setCreateForm({...createForm, capacity: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder="(illimité)"
+            />
+            {createErrors.capacity && <p className="text-xs text-destructive">{createErrors.capacity}</p>}
+          </div>
+          <div>
             <label className="text-sm font-medium text-foreground">Statut</label>
             <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={createForm.status} onChange={e=>setCreateForm({...createForm, status:e.target.value})}>
               <option value="open">Ouvert</option>
@@ -211,6 +225,17 @@ export default function Services(){
             <label className="text-sm font-medium text-foreground">Temps moyen (min)</label>
             <input type="number" className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={editForm.avg_service_time_minutes} onChange={e=>setEditForm({...editForm, avg_service_time_minutes:Number(e.target.value)})} />
             {editErrors.avg_service_time_minutes && <p className="text-xs text-destructive">{editErrors.avg_service_time_minutes}</p>}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Capacité (max tickets)</label>
+            <input
+              type="number"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={editForm.capacity ?? ''}
+              onChange={e=>setEditForm({...editForm, capacity: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder="(illimité)"
+            />
+            {editErrors.capacity && <p className="text-xs text-destructive">{editErrors.capacity}</p>}
           </div>
           <div>
             <label className="text-sm font-medium text-foreground">Statut</label>

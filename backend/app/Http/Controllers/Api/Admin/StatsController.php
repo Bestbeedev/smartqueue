@@ -98,4 +98,61 @@ class StatsController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Séries temporelles (jour ou heure).
+     * Query params:
+     * - from/to (ISO ou Y-m-d)
+     * - bucket = day|hour (default day)
+     * - service_id (optionnel)
+     */
+    public function series(Request $request)
+    {
+        $from = $request->query('from') ? now()->parse($request->query('from')) : now()->subDays(14);
+        $to = $request->query('to') ? now()->parse($request->query('to')) : now();
+        $bucket = $request->query('bucket', 'day');
+        $serviceId = $request->query('service_id') ? (int) $request->query('service_id') : null;
+
+        if (!in_array($bucket, ['day', 'hour'], true)) {
+            abort(422, 'Invalid bucket');
+        }
+
+        $expr = $bucket === 'hour'
+            ? "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
+            : "DATE(created_at)";
+
+        $query = DB::table('tickets')
+            ->selectRaw($expr." as bucket,")
+            ->selectRaw("COUNT(*) as created,")
+            ->selectRaw("SUM(CASE WHEN status='closed' THEN 1 ELSE 0 END) as closed,")
+            ->selectRaw("SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent")
+            ->whereBetween('created_at', [$from, $to]);
+
+        if (!is_null($serviceId)) {
+            $query->where('service_id', $serviceId);
+        }
+
+        $rows = $query
+            ->groupBy('bucket')
+            ->orderBy('bucket')
+            ->get();
+
+        $series = [];
+        foreach ($rows as $r) {
+            $series[] = [
+                'bucket' => (string) $r->bucket,
+                'created' => (int) ($r->created ?? 0),
+                'closed' => (int) ($r->closed ?? 0),
+                'absent' => (int) ($r->absent ?? 0),
+            ];
+        }
+
+        return response()->json([
+            'from' => $from->toDateTimeString(),
+            'to' => $to->toDateTimeString(),
+            'bucket' => $bucket,
+            'service_id' => $serviceId,
+            'series' => $series,
+        ]);
+    }
 }

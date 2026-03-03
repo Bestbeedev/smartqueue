@@ -40,4 +40,7 @@ class AppConfig {
   static const notifications = '/notifications';
   static String notificationById(int id) => '/notifications/$id';
   static String notificationRead(int id) => '/notifications/$id/read';
+
+  // Préférences notifications (auth)
+  static const notificationPreferences = '/notification-preferences';
 }

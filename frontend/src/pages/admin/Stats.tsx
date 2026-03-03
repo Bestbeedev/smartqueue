@@ -11,9 +11,22 @@ export default function Stats(){
   const [overview, setOverview] = useState<any>(null)
   const [serviceId, setServiceId] = useState<number | ''>('' as any)
   const [serviceStats, setServiceStats] = useState<any>(null)
+  const [bucket, setBucket] = useState<'day' | 'hour'>('day')
+  const [series, setSeries] = useState<any[]>([])
 
   useEffect(()=>{ api.get('/api/admin/stats/overview').then(r=>setOverview(r.data)).catch(()=>setOverview(null)) },[])
   useEffect(()=>{ if(serviceId) api.get(`/api/admin/stats/services/${serviceId}`).then(r=>setServiceStats(r.data)) },[serviceId])
+
+  useEffect(() => {
+    const params: any = { bucket }
+    if (serviceId) params.service_id = serviceId
+    api.get('/api/admin/stats/series', { params })
+      .then((r) => {
+        const rows = Array.isArray(r.data?.series) ? r.data.series : []
+        setSeries(rows)
+      })
+      .catch(() => setSeries([]))
+  }, [bucket, serviceId])
 
   return (
     <div className="space-y-4">
@@ -39,7 +52,13 @@ export default function Stats(){
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
         <div className="text-lg font-semibold text-foreground mb-4">Statistiques par service</div>
         <div className="space-y-3">
-          <input className="w-40 rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={serviceId as any} onChange={e=>setServiceId(Number(e.target.value)||'' as any)} placeholder="Service ID" />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <input className="w-40 rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={serviceId as any} onChange={e=>setServiceId(Number(e.target.value)||'' as any)} placeholder="Service ID" />
+            <select className="w-40 rounded-md border-border bg-background px-3 py-2 text-sm" value={bucket} onChange={e=>setBucket(e.target.value as any)}>
+              <option value="day">Par jour</option>
+              <option value="hour">Par heure</option>
+            </select>
+          </div>
           {serviceStats && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="bg-card rounded-xl shadow-sm border border-border p-4">
@@ -56,6 +75,23 @@ export default function Stats(){
               </div>
             </div>
           )}
+
+          <div className="mt-6">
+            <div className="text-sm font-medium text-muted-foreground mb-2">Évolution (créés / clos / absents)</div>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={series}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bucket" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="created" stroke="#3b82f6" strokeWidth={2} dot={false} name="Créés" />
+                  <Line type="monotone" dataKey="closed" stroke="#10b981" strokeWidth={2} dot={false} name="Clos" />
+                  <Line type="monotone" dataKey="absent" stroke="#f59e0b" strokeWidth={2} dot={false} name="Absents" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
     </div>
