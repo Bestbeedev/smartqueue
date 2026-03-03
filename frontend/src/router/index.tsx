@@ -13,7 +13,10 @@ import { useEffect } from "react";
 
 // Lazy loading des pages pour optimiser le bundle
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
+const DashboardRedirect = lazy(() => import("@/pages/dashboard/DashboardRedirect"));
 const Login = lazy(() => import("@/pages/auth/Login"));
+const Signup = lazy(() => import("@/pages/auth/Signup"));
+const SubscriptionPlan = lazy(() => import("@/pages/auth/Subscription"));
 
 // Pages queues
 const QueuesList = lazy(() => import("@/pages/queues/Queues"));
@@ -90,6 +93,22 @@ export default function Router() {
       ),
     },
     {
+      path: "/signup",
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <Signup />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/subscription",
+      element: (
+        <Suspense fallback={<PageLoader />}>
+          <SubscriptionPlan />
+        </Suspense>
+      ),
+    },
+    {
       path: "/",
       element: (
         <ProtectedRoute>
@@ -101,7 +120,7 @@ export default function Router() {
           index: true,
           element: (
             <Suspense fallback={<PageLoader />}>
-              <Dashboard />
+              <DashboardRedirect />
             </Suspense>
           ),
         },
