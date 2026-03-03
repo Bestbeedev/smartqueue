@@ -22,6 +22,11 @@ class EnsureAdminEstablishmentScope
 
         $estId = $user->establishment_id;
         if (empty($estId)) {
+            // Onboarding: allow scoped admin to create its establishment once
+            $path = '/'.ltrim((string) $request->path(), '/');
+            if ($request->isMethod('POST') && $path === '/api/admin/establishments') {
+                return $next($request);
+            }
             abort(403, 'Admin has no establishment scope');
         }
 

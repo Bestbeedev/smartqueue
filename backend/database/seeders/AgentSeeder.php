@@ -5,18 +5,30 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use App\Models\Service;
+use App\Models\Establishment;
+use Illuminate\Support\Facades\Hash;
 
 class AgentSeeder extends Seeder
 {
     public function run(): void
     {
+        $establishmentId = Establishment::query()->value('id');
+
         $agents = [
             ['name' => 'Alice Agent', 'email' => 'alice.agent@example.com', 'password' => 'password', 'role' => 'agent'],
             ['name' => 'Bob Agent', 'email' => 'bob.agent@example.com', 'password' => 'password', 'role' => 'agent'],
             ['name' => 'Chloe Agent', 'email' => 'chloe.agent@example.com', 'password' => 'password', 'role' => 'agent'],
         ];
         foreach ($agents as $a) {
-            User::firstOrCreate(['email' => $a['email']], $a);
+            User::updateOrCreate(
+                ['email' => $a['email']],
+                [
+                    'name' => $a['name'],
+                    'password' => Hash::make($a['password']),
+                    'role' => 'agent',
+                    'establishment_id' => $establishmentId,
+                ]
+            );
         }
 
         $agentIds = User::where('role', 'agent')->pluck('id')->all();

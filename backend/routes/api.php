@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Admin\ReportExportController as AdminReportExportCo
 use App\Http\Controllers\Api\Saas\EstablishmentController as SaasEstablishmentController;
 use App\Http\Controllers\Api\Saas\SubscriptionController as SaasSubscriptionController;
 use App\Http\Controllers\Api\Saas\MonitoringController as SaasMonitoringController;
+use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\NotificationController;
 
 /*
@@ -44,6 +45,12 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->post('devices/register', [DeviceController::class, 'register']);
 });
 
+// Onboarding SaaS (établissement -> abonnement)
+Route::prefix('onboarding')->group(function () {
+    Route::post('register-establishment', [OnboardingController::class, 'registerEstablishment']);
+    Route::middleware('auth:sanctum')->post('subscribe', [OnboardingController::class, 'subscribe']);
+});
+
 // Établissements (public: recherche; détails: public)
 Route::get('establishments', [EstablishmentController::class, 'index']); // ?lat&lng&radius
 Route::get('establishments/nearby', [EstablishmentController::class, 'index']); // alias mobile: ?lat&lng&radius
@@ -58,6 +65,9 @@ Route::get('services/{id}/recommendations', [ServiceController::class, 'recommen
 
 // Espace utilisateur authentifié (tickets)
 Route::middleware('auth:sanctum')->group(function () {
+    // Profil utilisateur courant (utile front)
+    Route::get('me', [OnboardingController::class, 'me']);
+
     // CRUD tickets utilisateur
     Route::post('tickets', [TicketController::class, 'store']);
     Route::get('tickets/me', [TicketController::class, 'active']); // alias mobile

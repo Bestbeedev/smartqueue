@@ -27,6 +27,7 @@ class User extends Authenticatable
         // Rôle applicatif (admin, agent, user)
         'role',
         'establishment_id',
+        'pending_subscription',
     ];
 
     /**
@@ -49,6 +50,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'pending_subscription' => 'array',
         ];
     }
 
