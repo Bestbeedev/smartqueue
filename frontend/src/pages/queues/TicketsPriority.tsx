@@ -22,54 +22,69 @@ const TicketsPriority: React.FC = () => {
   const echo = getEcho();
 
   useEffect(() => {
-    if (!serviceId) return;
+    const numericId = Number(serviceId);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      setIsConnected(false);
+      setIsLoading(false);
+      return;
+    }
 
     // Réinitialiser l'état lors du changement de service
     setPriorityTickets([]);
     setIsLoading(true);
 
     // S'abonner au canal de présence pour le service
-    const channel = echo.join(`presence-service.${serviceId}`);
-    
-    channel
-      .here(() => {
-        setIsConnected(true);
-        setIsLoading(false);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .error(() => setIsConnected(false))
-      .listen('.service.ticket.enqueued', (e: any) => {
-        console.log('Ticket prioritaire reçu:', e);
-        // Filtrer uniquement les tickets avec priorité haute ou VIP
-        if (e.ticket.priority === 'high' || e.ticket.priority === 'vip') {
+    let channel: any;
+    try {
+      channel = echo.join(`presence-service.${numericId}`)
+        .here(() => {
+          setIsConnected(true);
+          setIsLoading(false);
+          setLastUpdated(new Date().toLocaleTimeString());
+        })
+        .error(() => {
+          setIsConnected(false);
+          setIsLoading(false);
+        });
+
+      channel.listen('.service.ticket.enqueued', (e: any) => {
+        const t = e?.ticket;
+        if (!t) return;
+        if (t.priority === 'high' || t.priority === 'vip') {
           const newTicket = {
-            id: e.ticket.id,
-            ticket_number: e.ticket.ticket_number,
-            service_id: e.ticket.service_id,
-            service_name: e.ticket.service_name,
-            created_at: e.ticket.created_at,
-            client_name: e.ticket.client_name,
-            priority: e.ticket.priority
+            id: t.id,
+            ticket_number: t.ticket_number ?? t.number ?? String(t.id),
+            service_id: t.service_id,
+            service_name: t.service_name ?? `Service ${t.service_id}`,
+            created_at: t.created_at ?? t.updated_at,
+            client_name: t.client_name,
+            priority: t.priority,
           };
-          
+
           setPriorityTickets(prevTickets => {
-            // Éviter les doublons
-            if (!prevTickets.some(t => t.id === newTicket.id)) {
-              return [newTicket, ...prevTickets].slice(0, 50); // Limiter à 50 tickets maximum
+            if (!prevTickets.some(x => x.id === newTicket.id)) {
+              return [newTicket, ...prevTickets].slice(0, 50);
             }
             return prevTickets;
           });
-          
+
           setLastUpdated(new Date().toLocaleTimeString());
         }
       });
+    } catch (err) {
+      console.error('Erreur de connexion:', err);
+      setIsConnected(false);
+      setIsLoading(false);
+    }
 
     return () => {
-      channel.stopListening('.service.ticket.enqueued');
-      echo.leave(`presence-service.${serviceId}`);
+      try {
+        channel?.stopListening?.('.service.ticket.enqueued');
+      } catch (_) {}
+      echo.leave(`presence-service.${numericId}`);
       setIsConnected(false);
     };
-  }, [echo, serviceId]);
+  }, [serviceId]);
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();

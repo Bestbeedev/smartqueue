@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use App\Models\Service;
 
 class AgentServiceController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Ouvre un service (autorise la création de nouveaux tickets).
      */

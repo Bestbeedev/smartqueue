@@ -10,16 +10,28 @@ export default function TicketsCalled() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!serviceId) return;
-    
+    const numericId = Number(serviceId);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      setIsConnected(false);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     const echo = getEcho();
-    
+
+    let channel: any;
     try {
-      const channel = echo.join(`presence-service.${serviceId}`)
-        .here(() => setIsConnected(true))
-        .error(() => setIsConnected(false));
-      
+      channel = echo.join(`presence-service.${numericId}`)
+        .here(() => {
+          setIsConnected(true);
+          setIsLoading(false);
+        })
+        .error(() => {
+          setIsConnected(false);
+          setIsLoading(false);
+        });
+
       channel.listen('.service.ticket.called', (e: any) => {
         setRows(prev => [{
           id: e?.ticket?.id,
@@ -28,19 +40,19 @@ export default function TicketsCalled() {
           status: 'called'
         }, ...prev].slice(0, 50));
       });
-      
-      setIsConnected(true);
-      
-      return () => {
-        echo.leave(`presence-service.${serviceId}`);
-        setIsConnected(false);
-      };
     } catch (error) {
       console.error('Erreur de connexion:', error);
       setIsConnected(false);
-    } finally {
       setIsLoading(false);
     }
+
+    return () => {
+      try {
+        channel?.stopListening?.('.service.ticket.called');
+      } catch (_) {}
+      echo.leave(`presence-service.${numericId}`);
+      setIsConnected(false);
+    };
   }, [serviceId]);
 
   return (
