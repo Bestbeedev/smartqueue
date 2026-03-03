@@ -122,9 +122,9 @@ class StatsController extends Controller
             : "DATE(created_at)";
 
         $query = DB::table('tickets')
-            ->selectRaw($expr." as bucket,")
-            ->selectRaw("COUNT(*) as created,")
-            ->selectRaw("SUM(CASE WHEN status='closed' THEN 1 ELSE 0 END) as closed,")
+            ->selectRaw($expr." as bucket")
+            ->selectRaw("COUNT(*) as created")
+            ->selectRaw("SUM(CASE WHEN status='closed' THEN 1 ELSE 0 END) as closed")
             ->selectRaw("SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent")
             ->whereBetween('created_at', [$from, $to]);
 

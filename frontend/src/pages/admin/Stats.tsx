@@ -13,19 +13,34 @@ export default function Stats(){
   const [serviceStats, setServiceStats] = useState<any>(null)
   const [bucket, setBucket] = useState<'day' | 'hour'>('day')
   const [series, setSeries] = useState<any[]>([])
+  const [isSeriesLoading, setIsSeriesLoading] = useState(false)
+  const [seriesError, setSeriesError] = useState<string>('')
 
   useEffect(()=>{ api.get('/api/admin/stats/overview').then(r=>setOverview(r.data)).catch(()=>setOverview(null)) },[])
-  useEffect(()=>{ if(serviceId) api.get(`/api/admin/stats/services/${serviceId}`).then(r=>setServiceStats(r.data)) },[serviceId])
+  useEffect(()=>{
+    if (!serviceId) {
+      setServiceStats(null)
+      return
+    }
+    api.get(`/api/admin/stats/services/${serviceId}`).then(r=>setServiceStats(r.data)).catch(()=>setServiceStats(null))
+  },[serviceId])
 
   useEffect(() => {
+    setIsSeriesLoading(true)
+    setSeriesError('')
     const params: any = { bucket }
     if (serviceId) params.service_id = serviceId
     api.get('/api/admin/stats/series', { params })
       .then((r) => {
         const rows = Array.isArray(r.data?.series) ? r.data.series : []
         setSeries(rows)
+        setIsSeriesLoading(false)
       })
-      .catch(() => setSeries([]))
+      .catch((e) => {
+        setSeries([])
+        setIsSeriesLoading(false)
+        setSeriesError(e?.message || 'Erreur lors du chargement de la série')
+      })
   }, [bucket, serviceId])
 
   return (
@@ -79,17 +94,27 @@ export default function Stats(){
           <div className="mt-6">
             <div className="text-sm font-medium text-muted-foreground mb-2">Évolution (créés / clos / absents)</div>
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="bucket" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="created" stroke="#3b82f6" strokeWidth={2} dot={false} name="Créés" />
-                  <Line type="monotone" dataKey="closed" stroke="#10b981" strokeWidth={2} dot={false} name="Clos" />
-                  <Line type="monotone" dataKey="absent" stroke="#f59e0b" strokeWidth={2} dot={false} name="Absents" />
-                </LineChart>
-              </ResponsiveContainer>
+              {isSeriesLoading ? (
+                <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">Chargement…</div>
+              ) : seriesError ? (
+                <div className="h-full w-full flex items-center justify-center text-sm text-destructive">{seriesError}</div>
+              ) : series.length === 0 ? (
+                <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                  Aucune donnée sur la période
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={series}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="bucket" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="created" stroke="#3b82f6" strokeWidth={2} dot={false} name="Créés" />
+                    <Line type="monotone" dataKey="closed" stroke="#10b981" strokeWidth={2} dot={false} name="Clos" />
+                    <Line type="monotone" dataKey="absent" stroke="#f59e0b" strokeWidth={2} dot={false} name="Absents" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>

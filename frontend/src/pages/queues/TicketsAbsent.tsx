@@ -28,51 +28,67 @@ const TicketsAbsent: React.FC = () => {
   const echo = getEcho();
 
   useEffect(() => {
-    if (!serviceId) return;
+    const numericId = Number(serviceId);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      setIsConnected(false);
+      setIsLoading(false);
+      return;
+    }
 
     // Réinitialiser l'état lors du changement de service
     setAbsentTickets([]);
     setIsLoading(true);
 
     // S'abonner au canal de présence pour le service
-    const channel = echo.join(`presence-service.${serviceId}`);
-    
-    channel
-      .subscribed(() => {
-        console.log(`Abonné au canal presence-service.${serviceId}`);
-        setIsConnected(true);
-        setIsLoading(false);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .listen('.service.ticket.absent', (e: any) => {
-        console.log('Ticket absent reçu:', e);
+    let channel: any;
+    try {
+      channel = echo.join(`presence-service.${numericId}`)
+        .here(() => {
+          setIsConnected(true);
+          setIsLoading(false);
+          setLastUpdated(new Date().toLocaleTimeString());
+        })
+        .error(() => {
+          setIsConnected(false);
+          setIsLoading(false);
+        });
+
+      channel.listen('.service.ticket.absent', (e: any) => {
+        const t = e?.ticket;
+        if (!t) return;
         const newTicket = {
-          id: e.ticket.id,
-          ticket_number: e.ticket.ticket_number,
-          service_id: e.ticket.service_id,
-          service_name: e.ticket.service_name,
-          created_at: e.ticket.updated_at,
-          client_name: e.ticket.client_name,
-          marked_absent_at: e.ticket.updated_at
+          id: t.id,
+          ticket_number: t.ticket_number ?? t.number ?? String(t.id),
+          service_id: t.service_id,
+          service_name: t.service_name ?? `Service ${t.service_id}`,
+          created_at: t.updated_at ?? t.created_at,
+          client_name: t.client_name,
+          marked_absent_at: t.updated_at ?? t.marked_absent_at,
         };
-        
+
         setAbsentTickets(prevTickets => {
-          // Éviter les doublons
-          if (!prevTickets.some(t => t.id === newTicket.id)) {
+          if (!prevTickets.some(x => x.id === newTicket.id)) {
             return [newTicket, ...prevTickets];
           }
           return prevTickets;
         });
-        
+
         setLastUpdated(new Date().toLocaleTimeString());
       });
+    } catch (err) {
+      console.error('Erreur de connexion:', err);
+      setIsConnected(false);
+      setIsLoading(false);
+    }
 
     return () => {
-      channel.stopListening('.service.ticket.absent');
-      echo.leave(`presence-service.${serviceId}`);
+      try {
+        channel?.stopListening?.('.service.ticket.absent');
+      } catch (_) {}
+      echo.leave(`presence-service.${numericId}`);
       setIsConnected(false);
     };
-  }, [echo, serviceId]);
+  }, [serviceId]);
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
