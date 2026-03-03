@@ -43,11 +43,11 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Logo et titre */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shadow-lg mb-4">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shadow-lg mb-4">
             <span className="text-2xl font-bold text-white">SQ</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Bienvenue sur SmartQueue</h1>
@@ -55,7 +55,7 @@ export default function Login() {
         </div>
 
         {/* Formulaire */}
-        <div className="bg-card rounded-xl shadow-sm border border-border p-8">
+        <div className="bg-card rounded-2xl shadow-lg border border-border p-8">
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">

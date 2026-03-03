@@ -177,6 +177,33 @@ export default function Router() {
             )
           }
         ] : []),
+        // Routes SaaS (protégées - uniquement super_admin)
+        ...(user?.role === 'super_admin' ? [
+          {
+            path: 'saas/monitoring',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SaasMonitoring />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'saas/establishments',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SaasEstablishments />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'saas/subscriptions',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SaasSubscriptions />
+              </Suspense>
+            ),
+          },
+        ] : []),
         {
           path: 'settings',
           element: (
@@ -198,7 +225,7 @@ export default function Router() {
 
           <div className="max-w-md w-full px-6 text-center">
             {/* L'identifiant d'erreur avec un style imposant */}
-            <h1 className="text-9xl font-black tracking-tighter text-primary/20 leading-none mb-12">
+            <h1 className="text-9xl font-black tracking-tighter text-blue-500 leading-none mb-12">
               404
             </h1>
 
