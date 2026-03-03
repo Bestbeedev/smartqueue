@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Service;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Carbon;
 
 class AgentQueueController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Vue complète temps réel de la file d'un service (waiting/called/absent).
      */
@@ -19,6 +23,7 @@ class AgentQueueController extends Controller
         $items = Ticket::query()
             ->where('service_id', $service->id)
             ->whereIn('status', ['waiting','called','absent'])
+            ->where('created_at', '>=', Carbon::now()->subHours(24))
             ->orderByRaw("CASE status WHEN 'called' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END")
             ->orderByRaw("CASE priority WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
             ->orderBy('created_at')

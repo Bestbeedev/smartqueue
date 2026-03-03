@@ -16,16 +16,28 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class TicketService
 {
+    private const ACTIVE_STATUSES = ['waiting','called','absent'];
+
     /**
      * Crée un ticket pour un service donné avec logique de position et numérotation.
      */
     public function createTicket(User $user, int $serviceId, ?float $lat = null, ?float $lng = null, ?string $fromQr = null): Ticket
     {
-        return DB::transaction(function () use ($user, $serviceId, $lat, $lng) {
-            $service = Service::query()->findOrFail($serviceId);
+        $this->expireOldTicketsForServiceId($serviceId);
+
+        $attempts = 0;
+        $maxAttempts = 5;
+
+        while (true) {
+            $attempts++;
+
+            try {
+                return DB::transaction(function () use ($user, $serviceId, $lat, $lng) {
+                    $service = Service::query()->findOrFail($serviceId);
 
             // Vérifier que le service est ouvert
             if ($service->status !== 'open') {
@@ -73,16 +85,16 @@ class TicketService
                 ->where('status', 'waiting')
                 ->count() + 1;
 
-            $ticket = Ticket::create([
-                'user_id' => $user->id,
-                'service_id' => $serviceId,
-                'number' => $number,
-                'status' => 'waiting',
-                'priority' => 'normal',
-                'position' => $position,
-                'last_distance_m' => $this->estimateDistanceMeters($lat, $lng, $service),
-                'last_seen_at' => Carbon::now(),
-            ]);
+                    $ticket = Ticket::create([
+                        'user_id' => $user->id,
+                        'service_id' => $serviceId,
+                        'number' => $number,
+                        'status' => 'waiting',
+                        'priority' => 'normal',
+                        'position' => $position,
+                        'last_distance_m' => $this->estimateDistanceMeters($lat, $lng, $service),
+                        'last_seen_at' => Carbon::now(),
+                    ]);
 
             // Broadcast mise à jour initiale
             event(new TicketUpdated($ticket->id, [
@@ -109,8 +121,17 @@ class TicketService
             // Mise à jour des stats de file
             $this->recomputePositions($service);
 
-            return $ticket->fresh(['service.establishment']);
-        });
+                    return $ticket->fresh(['service.establishment']);
+                });
+            } catch (QueryException $e) {
+                $isUniqueViolation = ($e->getCode() === '23000');
+                if ($isUniqueViolation && $attempts < $maxAttempts) {
+                    usleep(50000);
+                    continue;
+                }
+                throw $e;
+            }
+        }
     }
 
     /**
@@ -119,10 +140,13 @@ class TicketService
     public function callNext(Service $service, ?int $counterId = null): ?Ticket
     {
         return DB::transaction(function () use ($service, $counterId) {
+            $this->expireOldTicketsForService($service);
+
             // Sélection du prochain ticket waiting
             $ticket = Ticket::query()
                 ->where('service_id', $service->id)
                 ->where('status', 'waiting')
+                ->where('created_at', '>=', Carbon::now()->subHours(24))
                 ->orderByRaw("CASE priority WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
                 ->orderBy('created_at')
                 ->lockForUpdate()
@@ -190,6 +214,8 @@ class TicketService
      */
     public function markAbsent(Ticket $ticket): Ticket
     {
+        $this->expireOldTicketsForServiceId($ticket->service_id);
+
         $ticket->status = 'absent';
         $ticket->absent_at = Carbon::now();
         $ticket->save();
@@ -245,6 +271,8 @@ class TicketService
      */
     public function recall(Ticket $ticket): Ticket
     {
+        $this->expireOldTicketsForServiceId($ticket->service_id);
+
         $ticket->status = 'called';
         $ticket->called_at = Carbon::now();
         $ticket->save();
@@ -284,5 +312,31 @@ class TicketService
         $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat)) * cos(deg2rad($est->lat)) * sin($dLng/2) * sin($dLng/2);
         $c = 2 * atan2(sqrt($a), sqrt(1-$a));
         return (int) round($earth * $c);
+    }
+
+    private function expireOldTicketsForServiceId(int $serviceId): void
+    {
+        $service = Service::query()->find($serviceId);
+        if (!$service) return;
+        $this->expireOldTicketsForService($service);
+    }
+
+    private function expireOldTicketsForService(Service $service): void
+    {
+        $cutoff = Carbon::now()->subHours(24);
+
+        $updated = Ticket::query()
+            ->where('service_id', $service->id)
+            ->whereIn('status', self::ACTIVE_STATUSES)
+            ->where('created_at', '<', $cutoff)
+            ->update([
+                'status' => 'expired',
+                'position' => null,
+                'updated_at' => Carbon::now(),
+            ]);
+
+        if ($updated > 0) {
+            $this->recomputePositions($service);
+        }
     }
 }

@@ -21,7 +21,7 @@ return new class extends Migration
             // Numéro lisible par l'humain (ex: A-042)
             $table->string('number', 16);
             // Statut du ticket (machine d'états)
-            $table->enum('status', ['waiting','called','absent','closed','canceled']);
+            $table->enum('status', ['waiting','called','absent','closed','canceled','expired']);
             // Priorité d'accès
             $table->enum('priority', ['normal','high','vip'])->default('normal');
             // Position courante estimée dans la file (optionnelle)

@@ -64,5 +64,15 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Establishment::class);
     }
+
+    public function devices()
+    {
+        return $this->hasMany(Device::class);
+    }
+
+    public function notificationPreference()
+    {
+        return $this->hasOne(NotificationPreference::class);
+    }
 }
 
