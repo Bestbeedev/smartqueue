@@ -320,7 +320,7 @@ export default function Agents() {
       <div className="relative flex flex-col items-center gap-6">
 
         {/* Glow */}
-        <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse" />
 
         {/* Spinner ring */}
         <div className="relative h-8 w-8">
@@ -364,7 +364,7 @@ export default function Agents() {
       </div>
 
       {/* Filtres et recherche */}
-      <Card className="mb-6">
+      <Card className="mb-6 shadow-lg">
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
@@ -432,7 +432,7 @@ export default function Agents() {
       </Card>
 
       {/* Tableau des agents */}
-      <Card>
+      <Card className='shadow-lg'>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

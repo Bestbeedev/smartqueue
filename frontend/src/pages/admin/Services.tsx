@@ -192,7 +192,7 @@ export default function Services(){
         </button>
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border">
+      <div className=" rounded-xl shadow-lg">
         <DataTable columns={[
           { key:'id', header:'ID' },
           { key:'name', header:'Service' },

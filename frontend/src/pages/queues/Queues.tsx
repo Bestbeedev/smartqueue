@@ -4,18 +4,12 @@
  * - Actions: appeler suivant, marquer absent, rappeler
  * - Écoute temps réel des évènements via Laravel Echo
  */
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Ticket, 
-  User, 
-  Users, 
-  TrendingUp, 
-  RefreshCw 
-} from 'lucide-react';
-import { getEcho } from '@/api/echo';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Ticket, User, Users, TrendingUp, RefreshCw } from "lucide-react";
+import { getEcho } from "@/api/echo";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type Ticket = {
   id: number;
@@ -37,13 +31,13 @@ type ServiceStats = {
 };
 
 const Queues: React.FC = () => {
-  const [serviceId, setServiceId] = useState<string>('');
+  const [serviceId, setServiceId] = useState<string>("");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [stats, setStats] = useState<ServiceStats | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [error, setError] = useState<string>("");
+  const [lastUpdated, setLastUpdated] = useState<string>("");
   const navigate = useNavigate();
   const echo = getEcho();
 
@@ -82,7 +76,7 @@ const Queues: React.FC = () => {
     setStats(null);
     setIsLoading(true);
     setIsConnected(false);
-    setError('');
+    setError("");
 
     (async () => {
       try {
@@ -91,7 +85,7 @@ const Queues: React.FC = () => {
 
         // S'abonner au canal de présence pour le service
         channel = echo.join(`presence-service.${serviceId}`);
-        
+
         channel
           .subscribed(() => {
             console.log(`Abonné au canal presence-service.${serviceId}`);
@@ -100,32 +94,34 @@ const Queues: React.FC = () => {
             setLastUpdated(new Date().toLocaleTimeString());
             toast.success(`Connecté au service ${serviceId}`);
           })
-          .listen('.service.ticket.called', (e: any) => {
-            console.log('Ticket appelé reçu:', e);
-            setTickets(prevTickets => [
-              {
-                id: e.ticket.id,
-                ticket_number: e.ticket.ticket_number,
-                status: e.ticket.status,
-                created_at: e.ticket.created_at,
-                service_id: e.ticket.service_id,
-                service_name: e.ticket.service_name,
-                priority: e.ticket.priority,
-                client_name: e.ticket.client_name
-              },
-              ...prevTickets
-            ].slice(0, 10)); // Garder uniquement les 10 derniers tickets
+          .listen(".service.ticket.called", (e: any) => {
+            console.log("Ticket appelé reçu:", e);
+            setTickets((prevTickets) =>
+              [
+                {
+                  id: e.ticket.id,
+                  ticket_number: e.ticket.ticket_number,
+                  status: e.ticket.status,
+                  created_at: e.ticket.created_at,
+                  service_id: e.ticket.service_id,
+                  service_name: e.ticket.service_name,
+                  priority: e.ticket.priority,
+                  client_name: e.ticket.client_name,
+                },
+                ...prevTickets,
+              ].slice(0, 10),
+            ); // Garder uniquement les 10 derniers tickets
             setLastUpdated(new Date().toLocaleTimeString());
           })
-          .listen('.service.stats.updated', (e: any) => {
-            console.log('Statistiques mises à jour:', e);
+          .listen(".service.stats.updated", (e: any) => {
+            console.log("Statistiques mises à jour:", e);
             setStats(e.stats);
             setLastUpdated(new Date().toLocaleTimeString());
           });
       } catch (error) {
         if (!cancelled) {
-          console.error('Erreur lors de la connexion au service:', error);
-          toast.error('Erreur de configuration du service');
+          console.error("Erreur lors de la connexion au service:", error);
+          toast.error("Erreur de configuration du service");
           setIsConnected(false);
           setIsLoading(false);
         }
@@ -137,12 +133,12 @@ const Queues: React.FC = () => {
       cancelled = true;
       try {
         if (channel) {
-          channel.stopListening('.service.ticket.called');
-          channel.stopListening('.service.stats.updated');
+          channel.stopListening(".service.ticket.called");
+          channel.stopListening(".service.stats.updated");
           echo.leave(`presence-service.${serviceId}`);
         }
       } catch (error) {
-        console.error('Erreur lors du nettoyage du canal:', error);
+        console.error("Erreur lors du nettoyage du canal:", error);
       }
     };
   }, [echo, serviceId]);
@@ -150,28 +146,32 @@ const Queues: React.FC = () => {
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!serviceId.trim()) {
-      toast.error('Veuillez entrer un identifiant de service');
+      toast.error("Veuillez entrer un identifiant de service");
       return;
     }
     setIsLoading(true);
     setTickets([]);
     setStats(null);
-    setError('');
+    setError("");
 
     fetchStats(serviceId)
       .then((data) => {
         const mapped: ServiceStats = {
           service_id: Number(serviceId),
-          service_name: String(data?.service?.name || data?.service_name || `Service ${serviceId}`),
+          service_name: String(
+            data?.service?.name || data?.service_name || `Service ${serviceId}`,
+          ),
           waiting: Number(data?.people ?? data?.waiting ?? 0),
           processed: Number(data?.processed ?? 0),
-          average_wait_time: String(data?.eta_avg ?? data?.average_wait_time ?? '—'),
+          average_wait_time: String(
+            data?.eta_avg ?? data?.average_wait_time ?? "—",
+          ),
         };
         setStats(mapped);
         setLastUpdated(new Date().toLocaleTimeString());
       })
       .catch((err: any) => {
-        setError(err?.message || 'Erreur');
+        setError(err?.message || "Erreur");
       })
       .finally(() => {
         setIsLoading(false);
@@ -180,11 +180,11 @@ const Queues: React.FC = () => {
 
   const refreshData = () => {
     if (!serviceId) {
-      toast.error('Aucun service sélectionné');
+      toast.error("Aucun service sélectionné");
       return;
     }
     setIsLoading(true);
-    toast.info('Reconnexion en cours...');
+    toast.info("Reconnexion en cours...");
     // La reconnexion se fera automatiquement via l'effet
   };
 
@@ -193,10 +193,17 @@ const Queues: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <div className="text-center bg-card p-8 rounded-xl shadow-lg max-w-md w-full border border-border">
           <div className="flex justify-center mb-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full border-4 " />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+            </div>
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Connexion en cours</h2>
-          <p className="text-muted-foreground mb-6">Connexion au service {serviceId}...</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            Connexion en cours
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Connexion au service {serviceId}...
+          </p>
           <div className="w-full bg-muted rounded-full h-2">
             <div className="bg-primary h-2 rounded-full animate-pulse"></div>
           </div>
@@ -207,17 +214,23 @@ const Queues: React.FC = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/30';
-      case 'vip': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800/30';
-      default: return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800/30';
+      case "high":
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/30";
+      case "vip":
+        return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800/30";
+      default:
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800/30";
     }
   };
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
-      case 'high': return '🔥';
-      case 'vip': return '⭐';
-      default: return '📋';
+      case "high":
+        return "🔥";
+      case "vip":
+        return "⭐";
+      default:
+        return "📋";
     }
   };
 
@@ -229,8 +242,12 @@ const Queues: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Tableau de bord des files d'attente</h1>
-                <p className="text-blue-100 mt-1">Surveillez en temps réel l'activité de vos services</p>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  Tableau de bord des files d'attente
+                </h1>
+                <p className="text-blue-100 mt-1">
+                  Surveillez en temps réel l'activité de vos services
+                </p>
               </div>
               {lastUpdated && (
                 <div className="mt-4 md:mt-0 text-sm bg-blue-700 bg-opacity-50 px-3 py-1.5 rounded-full inline-flex items-center">
@@ -246,7 +263,10 @@ const Queues: React.FC = () => {
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="serviceId"
+                    className="block text-sm font-medium text-foreground mb-1"
+                  >
                     Identifiant du service
                   </label>
                   <div className="relative rounded-md shadow-sm">
@@ -292,14 +312,16 @@ const Queues: React.FC = () => {
 
             {serviceId && (
               <div className="mt-4 flex items-center">
-                <div className={`h-3 w-3 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <div
+                  className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+                ></div>
                 <span className="text-sm font-medium text-foreground">
-                  {isConnected 
-                    ? `Connecté au service ${serviceId}` 
-                    : 'Déconnecté'}
+                  {isConnected
+                    ? `Connecté au service ${serviceId}`
+                    : "Déconnecté"}
                 </span>
                 {isConnected && (
-                  <button 
+                  <button
                     onClick={refreshData}
                     className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-1 rounded transition-colors"
                   >
@@ -325,8 +347,12 @@ const Queues: React.FC = () => {
                       <User className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">En attente</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.waiting}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        En attente
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {stats.waiting}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-border">
@@ -342,8 +368,12 @@ const Queues: React.FC = () => {
                       <Ticket className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Traités</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.processed}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Traités
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {stats.processed}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-border">
@@ -359,8 +389,12 @@ const Queues: React.FC = () => {
                       <Users className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Temps d'attente</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.average_wait_time}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Temps d'attente
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {stats.average_wait_time}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-border">
@@ -386,13 +420,16 @@ const Queues: React.FC = () => {
                 </span>
               )}
             </div>
-            
+
             {tickets.length === 0 ? (
               <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-dashed border-border">
                 <Ticket className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium text-foreground">Aucun ticket récent</h3>
+                <h3 className="text-lg font-medium text-foreground">
+                  Aucun ticket récent
+                </h3>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-                  Aucun ticket n'a été appelé récemment pour ce service. Les tickets apparaîtront ici en temps réel.
+                  Aucun ticket n'a été appelé récemment pour ce service. Les
+                  tickets apparaîtront ici en temps réel.
                 </p>
               </div>
             ) : (
@@ -401,29 +438,50 @@ const Queues: React.FC = () => {
                   <table className="min-w-full divide-y divide-border">
                     <thead className="bg-muted">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Détails
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Statut
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Heure
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Heure
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                       {tickets.map((ticket, index) => (
-                        <tr key={`${ticket.id}-${index}`} className="hover-card transition-colors">
+                        <tr
+                          key={`${ticket.id}-${index}`}
+                          className="hover-card transition-colors"
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <span className="text-2xl mr-3">{getPriorityIcon(ticket.priority)}</span>
+                              <span className="text-2xl mr-3">
+                                {getPriorityIcon(ticket.priority)}
+                              </span>
                               <div>
-                                <div className="font-bold text-foreground">{ticket.ticket_number}</div>
-                                <div className="text-xs text-muted-foreground">#{ticket.id}</div>
+                                <div className="font-bold text-foreground">
+                                  {ticket.ticket_number}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  #{ticket.id}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -438,9 +496,14 @@ const Queues: React.FC = () => {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}>
-                              {ticket.priority === 'high' ? 'Haute priorité' : 
-                               ticket.priority === 'vip' ? 'VIP' : 'Standard'}
+                            <span
+                              className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}
+                            >
+                              {ticket.priority === "high"
+                                ? "Haute priorité"
+                                : ticket.priority === "vip"
+                                  ? "VIP"
+                                  : "Standard"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
@@ -462,7 +525,10 @@ const Queues: React.FC = () => {
         </div>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>Système de gestion de file d'attente en temps réel • {new Date().getFullYear()}</p>
+          <p>
+            Système de gestion de file d'attente en temps réel •{" "}
+            {new Date().getFullYear()}
+          </p>
         </div>
       </div>
     </div>

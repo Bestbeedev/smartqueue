@@ -18,39 +18,39 @@ export default function Stats(){
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="bg-card rounded-xl shadow-lg border border-border p-4">
           <div className="text-sm font-medium text-muted-foreground mb-2">Créés</div>
           <div className="text-2xl font-bold text-foreground">{overview?.tickets?.created ?? '—'}</div>
         </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="bg-card rounded-xl shadow-lg border border-border p-4">
           <div className="text-sm font-medium text-muted-foreground mb-2">Clos</div>
           <div className="text-2xl font-bold text-foreground">{overview?.tickets?.closed ?? '—'}</div>
         </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="bg-card rounded-xl shadow-lg border border-border p-4">
           <div className="text-sm font-medium text-muted-foreground mb-2">Absents</div>
           <div className="text-2xl font-bold text-foreground">{overview?.tickets?.absent ?? '—'}</div>
         </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="bg-card rounded-xl shadow-lg border border-border p-4">
           <div className="text-sm font-medium text-muted-foreground mb-2">Attente moyenne</div>
           <div className="text-2xl font-bold text-foreground">{overview?.tickets?.wait_avg_minutes ?? '—'} min</div>
         </div>
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+      <div className="bg-card rounded-xl shadow-lg border border-border p-6">
         <div className="text-lg font-semibold text-foreground mb-4">Statistiques par service</div>
         <div className="space-y-3">
           <input className="w-40 rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" value={serviceId as any} onChange={e=>setServiceId(Number(e.target.value)||'' as any)} placeholder="Service ID" />
           {serviceStats && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+              <div className="bg-card rounded-xl shadow-lg border border-border p-4">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Créés</div>
                 <div className="text-2xl font-bold text-foreground">{serviceStats.tickets?.created ?? '—'}</div>
               </div>
-              <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+              <div className="bg-card rounded-xl shadow-lg border border-border p-4">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Clos</div>
                 <div className="text-2xl font-bold text-foreground">{serviceStats.tickets?.closed ?? '—'}</div>
               </div>
-              <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+              <div className="bg-card rounded-xl shadow-lg border border-border p-4">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Absents</div>
                 <div className="text-2xl font-bold text-foreground">{serviceStats.tickets?.absent ?? '—'}</div>
               </div>
