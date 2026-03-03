@@ -41,54 +41,112 @@ const Queues: React.FC = () => {
   const [stats, setStats] = useState<ServiceStats | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const navigate = useNavigate();
   const echo = getEcho();
 
+  const fetchService = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new Error("Identifiant de service invalide");
+    }
+    const r = await fetch(`/api/services/${numericId}`);
+    if (!r.ok) {
+      throw new Error("Service introuvable");
+    }
+    return r.json();
+  };
+
+  const fetchStats = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new Error("Identifiant de service invalide");
+    }
+    const r = await fetch(`/api/services/${numericId}/affluence`);
+    if (!r.ok) {
+      throw new Error("Impossible de charger les statistiques");
+    }
+    return r.json();
+  };
+
   useEffect(() => {
     if (!serviceId) return;
+
+    let cancelled = false;
 
     // Réinitialiser l'état lors du changement de service
     setTickets([]);
     setStats(null);
     setIsLoading(true);
+    setIsConnected(false);
+    setError('');
 
-    // S'abonner au canal de présence pour le service
-    const channel = echo.join(`presence-service.${serviceId}`);
-    
-    channel
-      .subscribed(() => {
-        console.log(`Abonné au canal presence-service.${serviceId}`);
-        setIsConnected(true);
+    let channel: any = null;
+
+    (async () => {
+      try {
+        await fetchService(serviceId);
+        if (cancelled) return;
+
+        // S'abonner au canal de présence pour le service
+        channel = echo.join(`presence-service.${serviceId}`);
+
+        channel
+          .subscribed(() => {
+            if (cancelled) return;
+            console.log(`Abonné au canal presence-service.${serviceId}`);
+            setIsConnected(true);
+            setIsLoading(false);
+            setLastUpdated(new Date().toLocaleTimeString());
+          })
+          .error((err: any) => {
+            if (cancelled) return;
+            console.error('Erreur de souscription channel:', err);
+            setIsConnected(false);
+            setIsLoading(false);
+            setError('Connexion temps réel impossible');
+          })
+          .listen('.service.ticket.called', (e: any) => {
+            if (cancelled) return;
+            console.log('Ticket appelé reçu:', e);
+            setTickets(prevTickets => [
+              {
+                id: e.ticket.id,
+                ticket_number: e.ticket.ticket_number,
+                status: e.ticket.status,
+                created_at: e.ticket.created_at,
+                service_id: e.ticket.service_id,
+                service_name: e.ticket.service_name,
+                priority: e.ticket.priority,
+                client_name: e.ticket.client_name
+              },
+              ...prevTickets
+            ].slice(0, 10)); // Garder uniquement les 10 derniers tickets
+            setLastUpdated(new Date().toLocaleTimeString());
+          })
+          .listen('.service.stats.updated', (e: any) => {
+            if (cancelled) return;
+            console.log('Statistiques mises à jour:', e);
+            setStats(e.stats);
+            setLastUpdated(new Date().toLocaleTimeString());
+          });
+      } catch (e: any) {
+        if (cancelled) return;
+        setIsConnected(false);
         setIsLoading(false);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .listen('.service.ticket.called', (e: any) => {
-        console.log('Ticket appelé reçu:', e);
-        setTickets(prevTickets => [
-          {
-            id: e.ticket.id,
-            ticket_number: e.ticket.ticket_number,
-            status: e.ticket.status,
-            created_at: e.ticket.created_at,
-            service_id: e.ticket.service_id,
-            service_name: e.ticket.service_name,
-            priority: e.ticket.priority,
-            client_name: e.ticket.client_name
-          },
-          ...prevTickets
-        ].slice(0, 10)); // Garder uniquement les 10 derniers tickets
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .listen('.service.stats.updated', (e: any) => {
-        console.log('Statistiques mises à jour:', e);
-        setStats(e.stats);
-        setLastUpdated(new Date().toLocaleTimeString());
-      });
+        setError(e?.message || 'Erreur');
+      }
+    })();
 
     return () => {
-      channel.stopListening('.service.ticket.called');
-      channel.stopListening('.service.stats.updated');
+      cancelled = true;
+      try {
+        if (channel) {
+          channel.stopListening('.service.ticket.called');
+          channel.stopListening('.service.stats.updated');
+        }
+      } catch {}
       echo.leave(`presence-service.${serviceId}`);
       setIsConnected(false);
     };
@@ -100,6 +158,26 @@ const Queues: React.FC = () => {
     setIsLoading(true);
     setTickets([]);
     setStats(null);
+    setError('');
+
+    fetchStats(serviceId)
+      .then((data) => {
+        const mapped: ServiceStats = {
+          service_id: Number(serviceId),
+          service_name: String(data?.service?.name || data?.service_name || `Service ${serviceId}`),
+          waiting: Number(data?.people ?? data?.waiting ?? 0),
+          processed: Number(data?.processed ?? 0),
+          average_wait_time: String(data?.eta_avg ?? data?.average_wait_time ?? '—'),
+        };
+        setStats(mapped);
+        setLastUpdated(new Date().toLocaleTimeString());
+      })
+      .catch((err: any) => {
+        setError(err?.message || 'Erreur');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   };
 
   const refreshData = () => {
@@ -203,6 +281,12 @@ const Queues: React.FC = () => {
                 </div>
               </div>
             </form>
+
+            {error && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800/30 dark:bg-red-900/20 dark:text-red-200">
+                {error}
+              </div>
+            )}
 
             {serviceId && (
               <div className="mt-4 flex items-center">
