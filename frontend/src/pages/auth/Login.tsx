@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from '@/store'
 import { login } from '@/store/authSlice'
 import { Navigate } from 'react-router-dom'
 import { Lock, Mail } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function Login() {
   const dispatch = useAppDispatch()
@@ -21,7 +22,24 @@ export default function Login() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    await dispatch(login({ email, password }))
+    
+    try {
+      await dispatch(login({ email, password })).unwrap()
+      toast.success('Connexion réussie')
+    } catch (error: any) {
+      const status = error?.status
+      if (status === 401) {
+        toast.error('Email ou mot de passe incorrect')
+      } else if (status === 403) {
+        toast.error('Compte désactivé. Contactez l\'administrateur.')
+      } else if (status === 422) {
+        toast.error('Données invalides. Veuillez vérifier les champs.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur. Veuillez réessayer plus tard.')
+      } else {
+        toast.error('Erreur de connexion. Veuillez réessayer.')
+      }
+    }
   }
 
   return (
@@ -38,12 +56,6 @@ export default function Login() {
 
         {/* Formulaire */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-8">
-          {error && (
-            <div className="mb-6 p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200">
-              {error}
-            </div>
-          )}
-          
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">

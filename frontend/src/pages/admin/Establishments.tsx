@@ -11,7 +11,7 @@ import { api } from '@/api/axios'
 import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 import { Edit, Pencil, Trash2 } from 'lucide-react'
 
 type Establishment = { id:number; name:string; address?:string|null; lat?:number|null; lng?:number|null; open_at?:string|null; close_at?:string|null; is_active?:boolean }
@@ -21,6 +21,7 @@ export default function Establishments(){
   const [openCreate, setOpenCreate] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
   const [editing, setEditing] = useState<Establishment | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const [createForm, setCreateForm] = useState<Establishment>({ id:0, name:'', address:'', lat:null, lng:null, open_at:'', close_at:'', is_active:true })
   const [editForm, setEditForm] = useState<Establishment>({ id:0, name:'', address:'', lat:null, lng:null, open_at:'', close_at:'', is_active:true })
@@ -38,7 +39,33 @@ export default function Establishments(){
     is_active: z.boolean().optional()
   })
 
-  const load = () => api.get('/api/admin/establishments?per_page=50').then(r=> setRows(r.data.data || r.data))
+  const load = async () => {
+    if (loading) return // Éviter les appels multiples
+    setLoading(true)
+    try {
+      const response = await api.get('/api/admin/establishments?per_page=50')
+      const data = response.data.data || response.data
+      setRows(Array.isArray(data) ? data : [])
+      // Pas de toast ici pour éviter les messages au chargement initial
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Accès refusé. Permissions administrateur requises.')
+      } else if (status === 404) {
+        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur. Contactez l\'administrateur.')
+      } else {
+        toast.error('Impossible de charger les établissements')
+      }
+      console.error('Erreur lors du chargement des établissements:', error)
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
+  }
   useEffect(()=>{ load() },[])
 
   /** Ouvre le modal d'édition avec données existantes. */
@@ -68,13 +95,26 @@ export default function Establishments(){
       setCreateErrors(errs); toast.error('Veuillez corriger le formulaire'); return
     }
     try {
-      await api.post('/api/admin/establishments', parsed.data)
-      toast.success('Établissement créé')
+      const response = await api.post('/api/admin/establishments', parsed.data)
+      toast.success('Établissement créé avec succès')
       setOpenCreate(false)
       setCreateForm({ id:0, name:'', address:'', lat:null, lng:null, open_at:'', close_at:'', is_active:true })
-      load()
+      await load()
     } catch(e:any) {
-      toast.error(e?.response?.data?.error?.message || 'Erreur de création')
+      const status = e?.response?.status
+      const message = e?.response?.data?.error?.message || e?.response?.data?.message
+      
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Permission refusée pour créer un établissement.')
+      } else if (status === 422) {
+        toast.error(message || 'Données invalides. Veuillez vérifier le formulaire.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur lors de la création.')
+      } else {
+        toast.error(message || 'Erreur de création')
+      }
     }
   }
 
@@ -90,13 +130,28 @@ export default function Establishments(){
       setEditErrors(errs); toast.error('Veuillez corriger le formulaire'); return
     }
     try {
-      await api.put(`/api/admin/establishments/${editing.id}`, parsed.data)
-      toast.success('Établissement mis à jour')
+      const response = await api.put(`/api/admin/establishments/${editing.id}`, parsed.data)
+      toast.success('Établissement mis à jour avec succès')
       setOpenEdit(false)
       setEditing(null)
-      load()
+      await load()
     } catch(e:any) {
-      toast.error(e?.response?.data?.error?.message || 'Erreur de mise à jour')
+      const status = e?.response?.status
+      const message = e?.response?.data?.error?.message || e?.response?.data?.message
+      
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Permission refusée pour modifier cet établissement.')
+      } else if (status === 404) {
+        toast.error('Établissement non trouvé.')
+      } else if (status === 422) {
+        toast.error(message || 'Données invalides. Veuillez vérifier le formulaire.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur lors de la mise à jour.')
+      } else {
+        toast.error(message || 'Erreur de mise à jour')
+      }
     }
   }
 
@@ -129,7 +184,26 @@ export default function Establishments(){
               className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
               onClick={async ()=>{
                 if (!confirm(`Supprimer l'établissement ${r.name} ?`)) return
-                try { await api.delete(`/api/admin/establishments/${r.id}`); toast.success('Établissement supprimé'); load() } catch(e:any){ toast.error(e?.response?.data?.error?.message || 'Suppression impossible') }
+                try { 
+                  await api.delete(`/api/admin/establishments/${r.id}`); 
+                  toast.success('Établissement supprimé avec succès'); 
+                  await load(); 
+                } catch(e:any){ 
+                  const status = e?.response?.status
+                  const message = e?.response?.data?.error?.message || e?.response?.data?.message
+                  
+                  if (status === 401) {
+                    toast.error('Session expirée. Veuillez vous reconnecter.')
+                  } else if (status === 403) {
+                    toast.error('Permission refusée pour supprimer cet établissement.')
+                  } else if (status === 404) {
+                    toast.error('Établissement non trouvé.')
+                  } else if (status >= 500) {
+                    toast.error('Erreur serveur lors de la suppression.')
+                  } else {
+                    toast.error(message || 'Suppression impossible')
+                  }
+                }
               }}
               title="Supprimer"
             >

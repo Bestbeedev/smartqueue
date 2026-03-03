@@ -110,6 +110,7 @@ export default function Agents() {
     try {
       setLoading(prev => ({ ...prev, agents: true }));
       const { data } = await api.get('/api/admin/agents');
+      console.log('Agents data:', data);
       const list = Array.isArray(data)
         ? data
         : Array.isArray((data as any)?.data)
@@ -315,9 +316,30 @@ export default function Agents() {
 
   if (loading.agents || loading.services) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="relative flex flex-col items-center gap-6">
+
+        {/* Glow */}
+        <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+
+        {/* Spinner ring */}
+        <div className="relative h-8 w-8">
+          <div className="absolute inset-0 rounded-full border-4 border-muted opacity-30" />
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+        </div>
+
+        {/* Text */}
+        <div className="text-center space-y-1">
+          <p className="text-lg font-medium tracking-wide">
+            Chargement
+          </p>
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Préparation de votre expérience...
+          </p>
+        </div>
+
       </div>
+    </div>
     );
   }
 

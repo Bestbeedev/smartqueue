@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaStar, FaCrown, FaTicketAlt, FaSyncAlt, FaUserTie } from 'react-icons/fa';
 import { getEcho } from '@/api/echo';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Ticket = {
@@ -28,61 +29,82 @@ const TicketsPriority: React.FC = () => {
     setPriorityTickets([]);
     setIsLoading(true);
 
-    // S'abonner au canal de présence pour le service
-    const channel = echo.join(`presence-service.${serviceId}`);
-    
-    channel
-      .here(() => {
-        setIsConnected(true);
-        setIsLoading(false);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .error(() => setIsConnected(false))
-      .listen('.service.ticket.enqueued', (e: any) => {
-        console.log('Ticket prioritaire reçu:', e);
-        // Filtrer uniquement les tickets avec priorité haute ou VIP
-        if (e.ticket.priority === 'high' || e.ticket.priority === 'vip') {
-          const newTicket = {
-            id: e.ticket.id,
-            ticket_number: e.ticket.ticket_number,
-            service_id: e.ticket.service_id,
-            service_name: e.ticket.service_name,
-            created_at: e.ticket.created_at,
-            client_name: e.ticket.client_name,
-            priority: e.ticket.priority
-          };
-          
-          setPriorityTickets(prevTickets => {
-            // Éviter les doublons
-            if (!prevTickets.some(t => t.id === newTicket.id)) {
-              return [newTicket, ...prevTickets].slice(0, 50); // Limiter à 50 tickets maximum
-            }
-            return prevTickets;
-          });
-          
+    try {
+      // S'abonner au canal de présence pour le service
+      const channel = echo.join(`presence-service.${serviceId}`);
+      
+      channel
+        .here(() => {
+          setIsConnected(true);
+          setIsLoading(false);
           setLastUpdated(new Date().toLocaleTimeString());
-        }
-      });
+          toast.success(`Connecté au service ${serviceId}`);
+        })
+        .error((error: any) => {
+          console.error('Erreur de connexion WebSocket:', error);
+          setIsConnected(false);
+          setIsLoading(false);
+          toast.error('Impossible de se connecter au service en temps réel');
+        })
+        .listen('.service.ticket.enqueued', (e: any) => {
+          console.log('Ticket prioritaire reçu:', e);
+          // Filtrer uniquement les tickets avec priorité haute ou VIP
+          if (e.ticket.priority === 'high' || e.ticket.priority === 'vip') {
+            const newTicket = {
+              id: e.ticket.id,
+              ticket_number: e.ticket.ticket_number,
+              service_id: e.ticket.service_id,
+              service_name: e.ticket.service_name,
+              created_at: e.ticket.created_at,
+              client_name: e.ticket.client_name,
+              priority: e.ticket.priority
+            };
+            
+            setPriorityTickets(prevTickets => {
+              // Éviter les doublons
+              if (!prevTickets.some(t => t.id === newTicket.id)) {
+                return [newTicket, ...prevTickets].slice(0, 50); // Limiter à 50 tickets maximum
+              }
+              return prevTickets;
+            });
+            
+            setLastUpdated(new Date().toLocaleTimeString());
+          }
+        });
 
-    return () => {
-      channel.stopListening('.service.ticket.enqueued');
-      echo.leave(`presence-service.${serviceId}`);
+      return () => {
+        channel.stopListening('.service.ticket.enqueued');
+        echo.leave(`presence-service.${serviceId}`);
+        setIsConnected(false);
+      };
+    } catch (error: any) {
+      console.error('Erreur lors de la connexion au service:', error);
       setIsConnected(false);
-    };
+      setIsLoading(false);
+      toast.error('Erreur de configuration du service');
+    }
   }, [echo, serviceId]);
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId.trim()) return;
+    if (!serviceId.trim()) {
+      toast.error('Veuillez entrer un identifiant de service');
+      return;
+    }
     setIsLoading(true);
     setPriorityTickets([]);
+    toast.info(`Connexion au service ${serviceId}...`);
   };
 
   const refreshData = () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      toast.error('Aucun service sélectionné');
+      return;
+    }
     // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setPriorityTickets([]);
+    toast.info('Reconnexion en cours...');
   };
 
   const formatDate = (dateString: string) => {

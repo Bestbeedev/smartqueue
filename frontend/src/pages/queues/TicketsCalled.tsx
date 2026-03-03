@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getEcho } from '@/api/echo';
 import { FaTicketAlt, FaUserClock, FaInfoCircle, FaSpinner } from 'react-icons/fa';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export default function TicketsCalled() {
@@ -17,8 +18,15 @@ export default function TicketsCalled() {
     
     try {
       const channel = echo.join(`presence-service.${serviceId}`)
-        .here(() => setIsConnected(true))
-        .error(() => setIsConnected(false));
+        .here(() => {
+          setIsConnected(true);
+          toast.success(`Connecté au service ${serviceId}`);
+        })
+        .error((error: any) => {
+          console.error('Erreur de connexion WebSocket:', error);
+          setIsConnected(false);
+          toast.error('Impossible de se connecter au service en temps réel');
+        });
       
       channel.listen('.service.ticket.called', (e: any) => {
         setRows(prev => [{
@@ -32,12 +40,14 @@ export default function TicketsCalled() {
       setIsConnected(true);
       
       return () => {
+        channel.stopListening('.service.ticket.called');
         echo.leave(`presence-service.${serviceId}`);
         setIsConnected(false);
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur de connexion:', error);
       setIsConnected(false);
+      toast.error('Erreur de configuration du service');
     } finally {
       setIsLoading(false);
     }

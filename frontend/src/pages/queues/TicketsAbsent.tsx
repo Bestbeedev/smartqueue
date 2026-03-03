@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaUserClock, FaExclamationTriangle, FaTicketAlt, FaSyncAlt } from 'react-icons/fa';
 import { getEcho } from '@/api/echo';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Ticket = {
@@ -34,58 +35,80 @@ const TicketsAbsent: React.FC = () => {
     setAbsentTickets([]);
     setIsLoading(true);
 
-    // S'abonner au canal de présence pour le service
-    const channel = echo.join(`presence-service.${serviceId}`);
-    
-    channel
-      .subscribed(() => {
-        console.log(`Abonné au canal presence-service.${serviceId}`);
-        setIsConnected(true);
-        setIsLoading(false);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .listen('.service.ticket.absent', (e: any) => {
-        console.log('Ticket absent reçu:', e);
-        const newTicket = {
-          id: e.ticket.id,
-          ticket_number: e.ticket.ticket_number,
-          service_id: e.ticket.service_id,
-          service_name: e.ticket.service_name,
-          created_at: e.ticket.updated_at,
-          client_name: e.ticket.client_name,
-          marked_absent_at: e.ticket.updated_at
-        };
-        
-        setAbsentTickets(prevTickets => {
-          // Éviter les doublons
-          if (!prevTickets.some(t => t.id === newTicket.id)) {
-            return [newTicket, ...prevTickets];
-          }
-          return prevTickets;
+    try {
+      // S'abonner au canal de présence pour le service
+      const channel = echo.join(`presence-service.${serviceId}`);
+      
+      channel
+        .subscribed(() => {
+          console.log(`Abonné au canal presence-service.${serviceId}`);
+          setIsConnected(true);
+          setIsLoading(false);
+          setLastUpdated(new Date().toLocaleTimeString());
+          toast.success(`Connecté au service ${serviceId}`);
+        })
+        .error((error: any) => {
+          console.error('Erreur de connexion WebSocket:', error);
+          setIsConnected(false);
+          setIsLoading(false);
+          toast.error('Impossible de se connecter au service en temps réel');
+        })
+        .listen('.service.ticket.absent', (e: any) => {
+          console.log('Ticket absent reçu:', e);
+          const newTicket = {
+            id: e.ticket.id,
+            ticket_number: e.ticket.ticket_number,
+            service_id: e.ticket.service_id,
+            service_name: e.ticket.service_name,
+            created_at: e.ticket.updated_at,
+            client_name: e.ticket.client_name,
+            marked_absent_at: e.ticket.updated_at
+          };
+          
+          setAbsentTickets(prevTickets => {
+            // Éviter les doublons
+            if (!prevTickets.some(t => t.id === newTicket.id)) {
+              return [newTicket, ...prevTickets];
+            }
+            return prevTickets;
+          });
+          
+          setLastUpdated(new Date().toLocaleTimeString());
         });
-        
-        setLastUpdated(new Date().toLocaleTimeString());
-      });
 
-    return () => {
-      channel.stopListening('.service.ticket.absent');
-      echo.leave(`presence-service.${serviceId}`);
+      return () => {
+        channel.stopListening('.service.ticket.absent');
+        echo.leave(`presence-service.${serviceId}`);
+        setIsConnected(false);
+      };
+    } catch (error: any) {
+      console.error('Erreur lors de la connexion au service:', error);
       setIsConnected(false);
-    };
+      setIsLoading(false);
+      toast.error('Erreur de configuration du service');
+    }
   }, [echo, serviceId]);
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId.trim()) return;
+    if (!serviceId.trim()) {
+      toast.error('Veuillez entrer un identifiant de service');
+      return;
+    }
     setIsLoading(true);
     setAbsentTickets([]);
+    toast.info(`Connexion au service ${serviceId}...`);
   };
 
   const refreshData = () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      toast.error('Aucun service sélectionné');
+      return;
+    }
     // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setAbsentTickets([]);
+    toast.info('Reconnexion en cours...');
   };
 
   const formatDate = (dateString: string) => {

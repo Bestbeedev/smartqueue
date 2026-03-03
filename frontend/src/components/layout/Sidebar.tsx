@@ -61,8 +61,9 @@ const LinkItem = ({
       to={to}
       className={({ isActive }) =>
         cn(
-          "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+          "relative group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
           "hover:scale-105",
+          isCollapsed ? "justify-center h-10 w-10 mx-auto p-0" : "px-3 py-2.5",
           isActive
             ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
             : "text-muted-foreground",
@@ -72,7 +73,7 @@ const LinkItem = ({
       {({ isActive }) => (
         <>
           {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
           )}
           <Icon
             size={18}
@@ -280,7 +281,15 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 overflow-y-auto">
         <div className="space-y-2">
-          {filteredItems.map((item) => {
+          {/* Section principale */}
+          {!isCollapsed && (
+            <div className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Administration
+            </div>
+          )}
+          {filteredItems.filter(item => 
+            !['/admin', '/saas', '/settings'].some(prefix => item.to.startsWith(prefix))
+          ).map((item) => {
             const hasSubmenu = "submenu" in item && item.submenu;
             const isExpanded = expandedMenus.includes(item.to);
 
@@ -309,7 +318,7 @@ export default function Sidebar() {
                       {({ isActive }) => (
                         <>
                           {isActive && location.pathname === item.to && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
                           )}
                           <item.icon
                             size={18}
@@ -388,6 +397,141 @@ export default function Sidebar() {
                     {({ isActive }) => (
                       <>
                         {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                        )}
+                        <item.icon
+                          size={18}
+                          className={cn(
+                            "transition-all duration-300 ",
+                            isActive
+                              ? "text-white"
+                              : "text-muted-foreground group-hover:text-foreground",
+                          )}
+                        />
+                        {!isCollapsed && (
+                          <span
+                            className={cn(
+                              "truncate font-medium transition-all duration-300",
+                              isActive ? "text-white" : "text-foreground",
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Section Administration */}
+          {filteredItems.some(item => item.to.startsWith('/admin')) && !isCollapsed && (
+            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Administration
+            </div>
+          )}
+          {filteredItems.filter(item => item.to.startsWith('/admin')).map((item) => {
+            const hasSubmenu = "submenu" in item && item.submenu;
+            const isExpanded = expandedMenus.includes(item.to);
+
+            return (
+              <div key={item.to}>
+                {hasSubmenu ? (
+                  <div>
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        cn(
+                          "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+                          "hover:scale-105",
+                          isActive && location.pathname === item.to
+                            ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                            : "text-muted-foreground",
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && location.pathname === item.to && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                          )}
+                          <item.icon
+                            size={18}
+                            className={cn(
+                              "transition-all duration-300 ",
+                              isActive && location.pathname === item.to
+                                ? "text-white"
+                                : "text-muted-foreground group-hover:text-foreground",
+                            )}
+                          />
+                          {!isCollapsed && (
+                            <>
+                              <span
+                                className={cn(
+                                  "truncate font-medium transition-all duration-300 flex-1",
+                                  isActive && location.pathname === item.to
+                                    ? "text-white"
+                                    : "text-foreground",
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                              <div
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!isCollapsed) toggleMenu(item.to);
+                                }}
+                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                              >
+                                <ChevronDown
+                                  size={16}
+                                  className={cn(
+                                    "transition-transform duration-300",
+                                    isExpanded ? "rotate-180" : "",
+                                    isActive && location.pathname === item.to
+                                      ? "text-white"
+                                      : "text-muted-foreground",
+                                  )}
+                                />
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+
+                    {!isCollapsed && isExpanded && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        {item.submenu.map((submenuItem) => (
+                          <SubmenuItem
+                            key={submenuItem.to}
+                            to={submenuItem.to}
+                            icon={submenuItem.icon}
+                            label={submenuItem.label}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+                        "hover:scale-105",
+                        isActive
+                          ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                          : "text-muted-foreground",
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
                           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
                         )}
                         <item.icon
@@ -416,17 +560,21 @@ export default function Sidebar() {
               </div>
             );
           })}
+
+          {/* Section SaaS */}
+          {role === 'super_admin' && (
+            <>
+              {!isCollapsed && (
+                <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  SaaS
+                </div>
+              )}
+              <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
+              <LinkItem to="/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
+              <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
+            </>
+          )}
         </div>
-        {role === 'super_admin' && (
-          <>
-            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              SaaS
-            </div>
-            <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
-            <LinkItem to="/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
-            <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
-          </>
-        )}
       </nav>
 
       {/* Menu Tickets - uniquement en mode collapsed */}
@@ -541,6 +689,9 @@ export default function Sidebar() {
             </>
           )}
         </Button>
+
+        {/* Menu Settings */}
+        <LinkItem to="/settings" icon={SettingsIcon} label="Paramètres" isCollapsed={isCollapsed} />
 
         {/* Profil utilisateur */}
         <div
