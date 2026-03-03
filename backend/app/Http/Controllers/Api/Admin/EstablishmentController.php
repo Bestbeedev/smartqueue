@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Establishment;
 use App\Http\Resources\EstablishmentResource;
+use App\Models\Establishment;
+use App\Models\Subscription;
+use Illuminate\Http\Request;
 
 class EstablishmentController extends Controller
 {
@@ -23,6 +24,19 @@ class EstablishmentController extends Controller
     /** Création d'un établissement. */
     public function store(Request $request)
     {
+        $user = $request->user();
+        if (!$user) {
+            abort(401, 'Unauthenticated');
+        }
+        if ($user->role !== 'admin') {
+            abort(403, 'Forbidden');
+        }
+
+        // If admin already has an establishment scope, do not allow creating another one
+        if (!empty($user->establishment_id)) {
+            abort(403, 'Admin already has an establishment');
+        }
+
         $data = $request->validate([
             'name' => ['required','string','max:160'],
             'address' => ['nullable','string'],
@@ -33,6 +47,32 @@ class EstablishmentController extends Controller
             'is_active' => ['boolean'],
         ]);
         $est = Establishment::create($data);
+
+        $user->establishment_id = $est->id;
+        $user->save();
+
+        // Materialize subscription after establishment exists
+        if (is_array($user->pending_subscription) && !empty($user->pending_subscription)) {
+            $plan = (string) ($user->pending_subscription['plan'] ?? 'free');
+            $status = (string) ($user->pending_subscription['status'] ?? 'active');
+
+            $sub = Subscription::query()->firstOrNew([
+                'establishment_id' => (int) $est->id,
+            ]);
+            $sub->fill([
+                'plan' => $plan,
+                'status' => in_array($status, ['trial','active','past_due','canceled'], true) ? $status : 'active',
+                'current_period_start' => now(),
+                'current_period_end' => now()->addMonth(),
+                'canceled_at' => null,
+                'meta' => $user->pending_subscription,
+            ]);
+            $sub->save();
+
+            $user->forceFill(['pending_subscription' => null])->save();
+        }
+
+        $request->attributes->set('scoped_establishment_id', (int) $est->id);
         return new EstablishmentResource($est);
     }
 

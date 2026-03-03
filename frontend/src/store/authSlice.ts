@@ -2,7 +2,16 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { api } from '@/api/axios'
 
 export type Role = 'admin' | 'agent' | 'user' | 'super_admin'
-export interface User { id: number; name: string; email: string; phone?: string | null; role: Role; avatar?: string }
+export interface User {
+  id: number
+  name: string
+  email: string
+  phone?: string | null
+  role: Role
+  avatar?: string
+  establishment_id?: number | null
+  pending_subscription?: any
+}
 
 interface AuthState { token: string | null; user: User | null; loading: boolean; isAuthenticated: boolean; error?: string }
 const persistedUser = localStorage.getItem('user')
@@ -31,6 +40,11 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   return true
 })
 
+export const refreshMe = createAsyncThunk('auth/refreshMe', async () => {
+  const { data } = await api.get('/api/me')
+  return data as User
+})
+
 const slice = createSlice({
   name: 'auth',
   initialState,
@@ -47,6 +61,11 @@ const slice = createSlice({
     b.addCase(logout.fulfilled, (s) => {
       s.user = null; s.token = null; s.isAuthenticated = false
       localStorage.removeItem('token'); localStorage.removeItem('user')
+    })
+
+    b.addCase(refreshMe.fulfilled, (s, a: PayloadAction<User>) => {
+      s.user = a.payload
+      localStorage.setItem('user', JSON.stringify(a.payload))
     })
   }
 })

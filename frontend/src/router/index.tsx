@@ -19,10 +19,10 @@ const TicketsAbsent = lazy(() => import("@/pages/queues/TicketsAbsent"));
 const TicketsPriority = lazy(() => import("@/pages/queues/TicketsPriority"));
 
 // Pages admin
-const Agents = lazy(() => import("@/pages/admin/Agents"));
-const Services = lazy(() => import("@/pages/admin/Services"));
-const Establishments = lazy(() => import("@/pages/admin/Establishments"));
-const Stats = lazy(() => import("@/pages/admin/Stats"));
+const Agents = lazy(() => import('@/pages/admin/Agents'));
+const Services = lazy(() => import('@/pages/admin/Services'));
+const Establishments = lazy(() => import('@/pages/admin/Establishments'));
+const Stats = lazy(() => import('@/pages/admin/Stats'));
 
 // Pages SaaS
 const SaasMonitoring = lazy(() => import("@/pages/saas/SaasMonitoring"));
@@ -30,6 +30,9 @@ const SaasEstablishments = lazy(
   () => import("@/pages/saas/SaasEstablishments"),
 );
 const SaasSubscriptions = lazy(() => import("@/pages/saas/SaasSubscriptions"));
+
+// Setup onboarding admin
+const SetupEstablishment = lazy(() => import('@/pages/onboarding/SetupEstablishment'));
 
 // Pages communes
 const Settings = lazy(() => import("@/pages/Settings"));
@@ -92,6 +95,16 @@ export default function Router() {
             </Suspense>
           ),
         },
+        ...(user?.role === 'admin' && !user?.establishment_id ? [
+          {
+            path: 'setup-establishment',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SetupEstablishment />
+              </Suspense>
+            )
+          }
+        ] : []),
         {
           path: "queues",
           children: [
@@ -130,73 +143,42 @@ export default function Router() {
           ],
         },
         // Routes admin (protégées)
-        ...(user?.role === "admin"
-          ? [
-              {
-                path: "agents",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <Agents />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "services",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <Services />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "establishments",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <Establishments />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "stats",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <Stats />
-                  </Suspense>
-                ),
-              },
-            ]
-          : []),
-        // Routes SaaS (protégées)
-        ...(user?.role === "super_admin"
-          ? [
-              {
-                path: "saas/monitoring",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <SaasMonitoring />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "saas/establishments",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <SaasEstablishments />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "saas/subscriptions",
-                element: (
-                  <Suspense fallback={<PageLoader />}>
-                    <SaasSubscriptions />
-                  </Suspense>
-                ),
-              },
-            ]
-          : []),
+        ...(user?.role === 'admin' && !!user?.establishment_id ? [
+          {
+            path: 'agents',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <Agents />
+              </Suspense>
+            )
+          },
+          {
+            path: 'services',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <Services />
+              </Suspense>
+              )
+          },
+          {
+            path: 'establishments',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <Establishments />
+              </Suspense>
+              )
+          },
+          {
+            path: 'stats',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <Stats />
+              </Suspense>
+            )
+          }
+        ] : []),
         {
-          path: "settings",
+          path: 'settings',
           element: (
             <Suspense fallback={<PageLoader />}>
               <Settings />
