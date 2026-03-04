@@ -27,9 +27,11 @@ export default function ProtectedRoute({
   }
 
   // Guard onboarding admin: force establishment setup before accessing the app
-  const isSetupPath = location.pathname === '/setup-establishment' || location.pathname === '/setup-establishment/'
+  const isSetupPath =
+    location.pathname === '/dashboard/setup-establishment' ||
+    location.pathname === '/dashboard/setup-establishment/'
   if (!authState.loading && user?.role === 'admin' && !user?.establishment_id && !isSetupPath) {
-    return <Navigate to="/setup-establishment" replace />
+    return <Navigate to="/dashboard/setup-establishment" replace />
   }
 
   // Si un rôle spécifique est requis

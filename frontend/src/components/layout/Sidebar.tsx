@@ -197,6 +197,7 @@ export default function Sidebar() {
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const { user } = useAppSelector((s) => s.auth);
   const role = user?.role;
+  const isOnboardingLocked = role === 'admin' && !user?.establishment_id;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -267,6 +268,9 @@ export default function Sidebar() {
       )}
       data-sidebar-width={isCollapsed ? "collapsed" : "expanded"}
     >
+      {isOnboardingLocked && (
+        <div className="absolute inset-0 z-50 cursor-not-allowed" aria-hidden="true" />
+      )}
       {/* Header avec logo et toggle */}
       <div className="flex items-center justify-between h-16 px-3 border-b border-border">
         {!isCollapsed ? (
