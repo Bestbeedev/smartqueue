@@ -12,6 +12,7 @@ import { refreshMe } from "@/store/authSlice";
 import { useEffect } from "react";
 
 // Lazy loading des pages pour optimiser le bundle
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 const DashboardRedirect = lazy(() => import("@/pages/dashboard/DashboardRedirect"));
 const Login = lazy(() => import("@/pages/auth/Login"));
@@ -113,6 +114,15 @@ export default function Router() {
   }, [dispatch, isAuthenticated]);
 
   const router = createBrowserRouter([
+    // Routes publiques
+    {
+      path: "/",
+      element: (
+        <Suspense fallback={<PageLoaderSample />}>
+          <LandingPage />
+        </Suspense>
+      ),
+    },
     {
       path: "/login",
       element: (
@@ -137,8 +147,10 @@ export default function Router() {
         </Suspense>
       ),
     },
+    
+    // Routes protégées avec layout
     {
-      path: "/",
+      path: "/dashboard",
       element: (
         <ProtectedRoute>
           <AppLayout />
@@ -149,7 +161,7 @@ export default function Router() {
           index: true,
           element: (
             <Suspense fallback={<PageLoader />}>
-              <DashboardRedirect />
+              <Dashboard />
             </Suspense>
           ),
         },
@@ -294,6 +306,8 @@ export default function Router() {
         },
       ],
     },
+    
+    // Route 404
     {
       path: "*",
       element: (
@@ -323,7 +337,7 @@ export default function Router() {
                 href="/"
                 className="inline-flex items-center justify-center h-12 px-8 font-medium tracking-wide text-primary-foreground transition duration-200 rounded-full bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none focus:ring-offset-background active:scale-95"
               >
-                Retour à la navigation
+                Retour à l'accueil
               </a>
             </div>
           </div>
