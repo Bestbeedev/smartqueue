@@ -18,7 +18,7 @@ export default function Login() {
   const [password, setPassword] = useState("password");
   const [showPassword, setShowPassword] = useState(false);
 
-  if (token) return <Navigate to="/" replace />;
+  if (token) return <Navigate to="/dashboard" replace />;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
