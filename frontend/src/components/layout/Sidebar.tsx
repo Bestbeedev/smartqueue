@@ -70,19 +70,19 @@ const LinkItem = ({
               className={cn(
                 "relative group flex items-center justify-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar cursor-pointer hover:scale-105",
                 "h-10 w-10 mx-auto p-0",
-                isActive
+                isActive && location.pathname === to
                   ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
                   : "text-muted-foreground",
               )}
             >
-              {isActive && (
+              {isActive && location.pathname === to && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
               )}
               <Icon
                 size={18}
                 className={cn(
                   "transition-all duration-300 flex-shrink-0",
-                  isActive
+                  isActive && location.pathname === to
                     ? "text-white"
                     : "text-muted-foreground group-hover:text-foreground",
                 )}
@@ -106,7 +106,7 @@ const LinkItem = ({
           "relative group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
           "hover:scale-105",
           "px-3 py-2.5",
-          isActive
+          isActive && location.pathname === to
             ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
             : "text-muted-foreground",
         )
@@ -114,14 +114,14 @@ const LinkItem = ({
     >
       {({ isActive }) => (
         <>
-          {isActive && (
+          {isActive && location.pathname === to && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
           )}
           <Icon
             size={18}
             className={cn(
               "transition-all duration-300 flex-shrink-0",
-              isActive
+              isActive && location.pathname === to
                 ? "text-white"
                 : "text-muted-foreground group-hover:text-foreground",
             )}
@@ -129,7 +129,7 @@ const LinkItem = ({
           <span
             className={cn(
               "truncate font-medium transition-all duration-300",
-              isActive ? "text-white" : "text-foreground",
+              isActive && location.pathname === to ? "text-white" : "text-foreground",
             )}
           >
             {label}
@@ -158,7 +158,7 @@ const SubmenuItem = ({
         cn(
           "relative group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
           "hover:scale-105",
-          isActive
+          isActive && location.pathname === to
             ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white  shadow-lg shadow-blue-500/25 border-blue-500"
             : "text-muted-foreground",
         )
@@ -166,14 +166,14 @@ const SubmenuItem = ({
     >
       {({ isActive }) => (
         <>
-          {isActive && (
+          {isActive && location.pathname === to && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1  bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
           )}
           <Icon
             size={16}
             className={cn(
               "transition-all duration-300 ",
-              isActive
+              isActive && location.pathname === to
                 ? "text-white"
                 : "text-muted-foreground group-hover:text-foreground",
             )}
@@ -181,7 +181,7 @@ const SubmenuItem = ({
           <span
             className={cn(
               "truncate font-medium transition-all duration-300 ",
-              isActive ? "text-white" : "text-foreground",
+              isActive && location.pathname === to ? "text-white" : "text-foreground",
             )}
           >
             {label}
@@ -506,7 +506,7 @@ export default function Sidebar() {
                       cn(
                         "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
                         "hover:scale-105",
-                        isActive
+                        isActive && location.pathname === item.to
                           ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
                           : "text-muted-foreground",
                       )
@@ -514,14 +514,14 @@ export default function Sidebar() {
                   >
                     {({ isActive }) => (
                       <>
-                        {isActive && (
+                        {isActive && location.pathname === item.to && (
                           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
                         )}
                         <item.icon
                           size={18}
                           className={cn(
                             "transition-all duration-300 ",
-                            isActive
+                            isActive && location.pathname === item.to
                               ? "text-white"
                               : "text-muted-foreground group-hover:text-foreground",
                           )}
@@ -530,7 +530,7 @@ export default function Sidebar() {
                           <span
                             className={cn(
                               "truncate font-medium transition-all duration-300",
-                              isActive ? "text-white" : "text-foreground",
+                              isActive && location.pathname === item.to ? "text-white" : "text-foreground",
                             )}
                           >
                             {item.label}
@@ -641,7 +641,7 @@ export default function Sidebar() {
                       cn(
                         "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
                         "hover:scale-105",
-                        isActive
+                        isActive && location.pathname === item.to
                           ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
                           : "text-muted-foreground",
                       )
@@ -649,14 +649,14 @@ export default function Sidebar() {
                   >
                     {({ isActive }) => (
                       <>
-                        {isActive && (
+                        {isActive && location.pathname === item.to && (
                           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
                         )}
                         <item.icon
                           size={18}
                           className={cn(
                             "transition-all duration-300 ",
-                            isActive
+                            isActive && location.pathname === item.to
                               ? "text-white"
                               : "text-muted-foreground group-hover:text-foreground",
                           )}
@@ -665,7 +665,7 @@ export default function Sidebar() {
                           <span
                             className={cn(
                               "truncate font-medium transition-all duration-300",
-                              isActive ? "text-white" : "text-foreground",
+                              isActive && location.pathname === item.to ? "text-white" : "text-foreground",
                             )}
                           >
                             {item.label}
