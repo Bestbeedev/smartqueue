@@ -4,10 +4,16 @@
  * - Permet de filtrer par service
  * - Met à jour automatiquement lors des nouveaux marquages d'absence
  */
-import React, { useState, useEffect } from 'react';
-import { FaUserClock, FaExclamationTriangle, FaTicketAlt, FaSyncAlt } from 'react-icons/fa';
-import { getEcho } from '@/api/echo';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from "react";
+import {
+  FaUserClock,
+  FaExclamationTriangle,
+  FaTicketAlt,
+  FaSyncAlt,
+} from "react-icons/fa";
+import { getEcho } from "@/api/echo";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type Ticket = {
   id: number;
@@ -20,11 +26,11 @@ type Ticket = {
 };
 
 const TicketsAbsent: React.FC = () => {
-  const [serviceId, setServiceId] = useState<string>('');
+  const [serviceId, setServiceId] = useState<string>("");
   const [absentTickets, setAbsentTickets] = useState<Ticket[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<string>("");
   const echo = getEcho();
 
   useEffect(() => {
@@ -92,23 +98,35 @@ const TicketsAbsent: React.FC = () => {
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId.trim()) return;
+    if (!serviceId.trim()) {
+      toast.error("Veuillez entrer un identifiant de service");
+      return;
+    }
     setIsLoading(true);
     setAbsentTickets([]);
+    toast.info(`Connexion au service ${serviceId}...`);
   };
 
   const refreshData = () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      toast.error("Aucun service sélectionné");
+      return;
+    }
     // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setAbsentTickets([]);
+    toast.info("Reconnexion en cours...");
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return {
       time: date.toLocaleTimeString(),
-      date: date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+      date: date.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
     };
   };
 
@@ -117,10 +135,17 @@ const TicketsAbsent: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-50 to-gray-50 p-4">
         <div className="text-center bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
           <div className="flex justify-center mb-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full border-4 " />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+            </div>{" "}
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Chargement en cours</h2>
-          <p className="text-muted-foreground mb-6">Connexion au service {serviceId}...</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            Chargement en cours
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Connexion au service {serviceId}...
+          </p>
           <div className="w-full bg-muted rounded-full h-2">
             <div className="bg-primary h-2 rounded-full animate-pulse"></div>
           </div>
@@ -137,8 +162,12 @@ const TicketsAbsent: React.FC = () => {
           <div className="bg-gradient-to-r from-red-600 to-red-800 p-6 text-white">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Gestion des absences</h1>
-                <p className="text-red-100 mt-1">Surveillez les tickets marqués comme absents en temps réel</p>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  Gestion des absences
+                </h1>
+                <p className="text-red-100 mt-1">
+                  Surveillez les tickets marqués comme absents en temps réel
+                </p>
               </div>
               {lastUpdated && (
                 <div className="mt-4 md:mt-0 text-sm bg-red-700 bg-opacity-50 px-3 py-1.5 rounded-full inline-flex items-center">
@@ -154,7 +183,10 @@ const TicketsAbsent: React.FC = () => {
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="serviceId"
+                    className="block text-sm font-medium text-foreground mb-1"
+                  >
                     Identifiant du service
                   </label>
                   <div className="relative rounded-md shadow-sm">
@@ -194,14 +226,16 @@ const TicketsAbsent: React.FC = () => {
 
             {serviceId && (
               <div className="mt-4 flex items-center">
-                <div className={`h-3 w-3 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <div
+                  className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+                ></div>
                 <span className="text-sm font-medium text-foreground">
-                  {isConnected 
-                    ? `Surveillance active du service ${serviceId}` 
-                    : 'En attente de connexion...'}
+                  {isConnected
+                    ? `Surveillance active du service ${serviceId}`
+                    : "En attente de connexion..."}
                 </span>
                 {isConnected && (
-                  <button 
+                  <button
                     onClick={refreshData}
                     className="ml-4 text-red-600 hover:text-red-800 text-sm font-medium flex items-center hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded transition-colors"
                   >
@@ -223,35 +257,48 @@ const TicketsAbsent: React.FC = () => {
                       <FaExclamationTriangle className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total des absences</p>
-                      <p className="text-2xl font-bold text-foreground">{absentTickets.length}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total des absences
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {absentTickets.length}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 mr-4">
                       <FaUserClock className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Dernière absence</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Dernière absence
+                      </p>
                       <p className="text-lg font-semibold text-foreground">
-                        {formatDate(absentTickets[0]?.marked_absent_at || new Date().toISOString()).date}
+                        {
+                          formatDate(
+                            absentTickets[0]?.marked_absent_at ||
+                              new Date().toISOString(),
+                          ).date
+                        }
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mr-4">
                       <FaTicketAlt className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Service</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Service
+                      </p>
                       <p className="text-lg font-semibold text-foreground">
-                        {absentTickets[0]?.service_name || 'N/A'}
+                        {absentTickets[0]?.service_name || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -269,7 +316,8 @@ const TicketsAbsent: React.FC = () => {
               </h2>
               {absentTickets.length > 0 && (
                 <span className="text-sm text-muted-foreground">
-                  {absentTickets.length} {absentTickets.length > 1 ? 'tickets' : 'ticket'}
+                  {absentTickets.length}{" "}
+                  {absentTickets.length > 1 ? "tickets" : "ticket"}
                 </span>
               )}
             </div>
@@ -278,11 +326,13 @@ const TicketsAbsent: React.FC = () => {
               <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-dashed border-border">
                 <FaUserClock className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
                 <h3 className="text-lg font-medium text-foreground">
-                  {serviceId ? 'Aucune absence enregistrée' : 'Aucun service sélectionné'}
+                  {serviceId
+                    ? "Aucune absence enregistrée"
+                    : "Aucun service sélectionné"}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-                  {serviceId 
-                    ? "Les tickets marqués comme absents apparaîtront ici en temps réel." 
+                  {serviceId
+                    ? "Les tickets marqués comme absents apparaîtront ici en temps réel."
                     : "Veuillez entrer un ID de service pour commencer la surveillance."}
                 </p>
               </div>
@@ -292,23 +342,37 @@ const TicketsAbsent: React.FC = () => {
                   <table className="min-w-full divide-y divide-border">
                     <thead className="bg-muted">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Numéro
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Détails
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Client
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Marqué absent
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                       {absentTickets.map((ticket) => {
-                        const { time, date } = formatDate(ticket.marked_absent_at || ticket.created_at);
+                        const { time, date } = formatDate(
+                          ticket.marked_absent_at || ticket.created_at,
+                        );
                         return (
                           <tr key={ticket.id} className="hover-card">
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -317,23 +381,35 @@ const TicketsAbsent: React.FC = () => {
                                   <FaExclamationTriangle className="h-5 w-5 text-red-500 dark:text-red-400" />
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-lg font-bold text-foreground">{ticket.ticket_number}</div>
-                                  <div className="text-xs text-muted-foreground">#{ticket.id}</div>
+                                  <div className="text-lg font-bold text-foreground">
+                                    {ticket.ticket_number}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    #{ticket.id}
+                                  </div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-foreground">{ticket.service_name}</div>
-                              <div className="text-xs text-muted-foreground">Service ID: {ticket.service_id}</div>
+                              <div className="text-sm font-medium text-foreground">
+                                {ticket.service_name}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Service ID: {ticket.service_id}
+                              </div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-sm text-foreground font-medium">
-                                {ticket.client_name || 'Client non renseigné'}
+                                {ticket.client_name || "Client non renseigné"}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-foreground font-medium">{time}</div>
-                              <div className="text-xs text-muted-foreground">{date}</div>
+                              <div className="text-sm text-foreground font-medium">
+                                {time}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {date}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -347,7 +423,10 @@ const TicketsAbsent: React.FC = () => {
         </div>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>Système de gestion des absences en temps réel • {new Date().getFullYear()}</p>
+          <p>
+            Système de gestion des absences en temps réel •{" "}
+            {new Date().getFullYear()}
+          </p>
         </div>
       </div>
     </div>

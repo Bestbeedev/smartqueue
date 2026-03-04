@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api/axios'
 import { useAppSelector } from '@/store'
+import { toast } from 'sonner'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { 
   Ticket, 
@@ -26,16 +27,41 @@ import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week')
   const role = useAppSelector((s) => s.auth.user?.role)
   const user = useAppSelector((s) => s.auth.user)
 
-  useEffect(() => {
-    if (role === 'admin') {
-      api.get(`/api/admin/stats/overview?range=${timeRange}`)
-        .then(r => setStats(r.data))
-        .catch(() => setStats(null))
+  const loadStats = async () => {
+    if (loading) return
+    if (role !== 'admin') return
+    
+    setLoading(true)
+    try {
+      const response = await api.get(`/api/admin/stats/overview?range=${timeRange}`)
+      setStats(response.data)
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Accès refusé. Permissions administrateur requises.')
+      } else if (status === 404) {
+        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur. Contactez l\'administrateur.')
+      } else {
+        toast.error('Impossible de charger les statistiques')
+      }
+      console.error('Erreur lors du chargement des statistiques:', error)
+      setStats(null)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    loadStats()
   }, [role, timeRange])
 
   // Données factices pour la démo

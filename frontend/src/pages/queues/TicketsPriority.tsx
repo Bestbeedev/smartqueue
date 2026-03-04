@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { FaStar, FaCrown, FaTicketAlt, FaSyncAlt, FaUserTie } from 'react-icons/fa';
-import { getEcho } from '@/api/echo';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from "react";
+import {
+  FaStar,
+  FaCrown,
+  FaTicketAlt,
+  FaSyncAlt,
+  FaUserTie,
+} from "react-icons/fa";
+import { getEcho } from "@/api/echo";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type Ticket = {
   id: number;
@@ -14,11 +21,11 @@ type Ticket = {
 };
 
 const TicketsPriority: React.FC = () => {
-  const [serviceId, setServiceId] = useState<string>('');
+  const [serviceId, setServiceId] = useState<string>("");
   const [priorityTickets, setPriorityTickets] = useState<Ticket[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<string>("");
   const echo = getEcho();
 
   useEffect(() => {
@@ -88,39 +95,56 @@ const TicketsPriority: React.FC = () => {
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!serviceId.trim()) return;
+    if (!serviceId.trim()) {
+      toast.error("Veuillez entrer un identifiant de service");
+      return;
+    }
     setIsLoading(true);
     setPriorityTickets([]);
+    toast.info(`Connexion au service ${serviceId}...`);
   };
 
   const refreshData = () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      toast.error("Aucun service sélectionné");
+      return;
+    }
     // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setPriorityTickets([]);
+    toast.info("Reconnexion en cours...");
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return {
       time: date.toLocaleTimeString(),
-      date: date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+      date: date.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
     };
   };
 
   const getPriorityBadge = (priority: string) => {
-    const baseClasses = 'px-3 py-1 text-xs font-bold rounded-full flex items-center';
-    
+    const baseClasses =
+      "px-3 py-1 text-xs font-bold rounded-full flex items-center";
+
     switch (priority) {
-      case 'vip':
+      case "vip":
         return (
-          <span className={`${baseClasses} bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-md`}>
+          <span
+            className={`${baseClasses} bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-md`}
+          >
             <FaCrown className="mr-1.5 text-yellow-300" /> VIP
           </span>
         );
-      case 'high':
+      case "high":
         return (
-          <span className={`${baseClasses} bg-gradient-to-r from-red-600 to-red-700 text-white`}>
+          <span
+            className={`${baseClasses} bg-gradient-to-r from-red-600 to-red-700 text-white`}
+          >
             <FaStar className="mr-1.5 text-yellow-300" /> Haute
           </span>
         );
@@ -138,10 +162,17 @@ const TicketsPriority: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-gray-50 p-4">
         <div className="text-center bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
           <div className="flex justify-center mb-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full border-4 " />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+            </div>{" "}
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">Chargement en cours</h2>
-          <p className="text-muted-foreground mb-6">Connexion au service {serviceId}...</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            Chargement en cours
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Connexion au service {serviceId}...
+          </p>
           <div className="w-full bg-muted rounded-full h-2">
             <div className="bg-primary h-2 rounded-full animate-pulse"></div>
           </div>
@@ -152,14 +183,16 @@ const TicketsPriority: React.FC = () => {
 
   // Trier les tickets par priorité (VIP d'abord, puis haute priorité)
   const sortedTickets = [...priorityTickets].sort((a, b) => {
-    if (a.priority === 'vip' && b.priority !== 'vip') return -1;
-    if (a.priority !== 'vip' && b.priority === 'vip') return 1;
+    if (a.priority === "vip" && b.priority !== "vip") return -1;
+    if (a.priority !== "vip" && b.priority === "vip") return 1;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   // Compter les tickets par priorité
-  const vipCount = priorityTickets.filter(t => t.priority === 'vip').length;
-  const highPriorityCount = priorityTickets.filter(t => t.priority === 'high').length;
+  const vipCount = priorityTickets.filter((t) => t.priority === "vip").length;
+  const highPriorityCount = priorityTickets.filter(
+    (t) => t.priority === "high",
+  ).length;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
@@ -169,8 +202,12 @@ const TicketsPriority: React.FC = () => {
           <div className="bg-gradient-to-r from-purple-600 to-purple-800 p-6 text-white">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Gestion des priorités</h1>
-                <p className="text-purple-100 mt-1">Surveillez les clients VIP et les tickets prioritaires</p>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  Gestion des priorités
+                </h1>
+                <p className="text-purple-100 mt-1">
+                  Surveillez les clients VIP et les tickets prioritaires
+                </p>
               </div>
               {lastUpdated && (
                 <div className="mt-4 md:mt-0 text-sm bg-purple-700 bg-opacity-50 px-3 py-1.5 rounded-full inline-flex items-center">
@@ -186,7 +223,10 @@ const TicketsPriority: React.FC = () => {
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="serviceId"
+                    className="block text-sm font-medium text-foreground mb-1"
+                  >
                     Identifiant du service
                   </label>
                   <div className="relative rounded-md shadow-sm">
@@ -226,14 +266,16 @@ const TicketsPriority: React.FC = () => {
 
             {serviceId && (
               <div className="mt-4 flex items-center">
-                <div className={`h-3 w-3 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <div
+                  className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+                ></div>
                 <span className="text-sm font-medium text-foreground">
-                  {isConnected 
-                    ? `Surveillance active du service ${serviceId}` 
-                    : 'En attente de connexion...'}
+                  {isConnected
+                    ? `Surveillance active du service ${serviceId}`
+                    : "En attente de connexion..."}
                 </span>
                 {isConnected && (
-                  <button 
+                  <button
                     onClick={refreshData}
                     className="ml-4 text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center hover:bg-purple-50 dark:hover:bg-purple-900/20 px-2 py-1 rounded transition-colors"
                   >
@@ -255,32 +297,44 @@ const TicketsPriority: React.FC = () => {
                       <FaStar className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total des priorités</p>
-                      <p className="text-2xl font-bold text-foreground">{priorityTickets.length}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total des priorités
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {priorityTickets.length}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 mr-4">
                       <FaCrown className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Clients VIP</p>
-                      <p className="text-2xl font-bold text-foreground">{vipCount}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Clients VIP
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {vipCount}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div className="flex items-center">
                     <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mr-4">
                       <FaStar className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Haute priorité</p>
-                      <p className="text-2xl font-bold text-foreground">{highPriorityCount}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Haute priorité
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {highPriorityCount}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -301,7 +355,8 @@ const TicketsPriority: React.FC = () => {
                     <FaCrown className="mr-1 text-yellow-500" /> {vipCount} VIP
                   </span>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
-                    <FaStar className="mr-1 text-red-500" /> {highPriorityCount} Haute
+                    <FaStar className="mr-1 text-red-500" /> {highPriorityCount}{" "}
+                    Haute
                   </span>
                 </div>
               )}
@@ -311,11 +366,13 @@ const TicketsPriority: React.FC = () => {
               <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-dashed border-border">
                 <FaUserTie className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
                 <h3 className="text-lg font-medium text-foreground">
-                  {serviceId ? 'Aucun ticket prioritaire' : 'Aucun service sélectionné'}
+                  {serviceId
+                    ? "Aucun ticket prioritaire"
+                    : "Aucun service sélectionné"}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-                  {serviceId 
-                    ? "Les tickets prioritaires (VIP/Haute) apparaîtront ici en temps réel." 
+                  {serviceId
+                    ? "Les tickets prioritaires (VIP/Haute) apparaîtront ici en temps réel."
                     : "Veuillez entrer un ID de service pour commencer la surveillance."}
                 </p>
               </div>
@@ -325,19 +382,34 @@ const TicketsPriority: React.FC = () => {
                   <table className="min-w-full divide-y divide-border">
                     <thead className="bg-muted">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Numéro
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Détails
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Client
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Priorité
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
                           Créé
                         </th>
                       </tr>
@@ -345,24 +417,26 @@ const TicketsPriority: React.FC = () => {
                     <tbody className="bg-card divide-y divide-border">
                       {sortedTickets.map((ticket) => {
                         const { time, date } = formatDate(ticket.created_at);
-                        const isVip = ticket.priority === 'vip';
-                        
+                        const isVip = ticket.priority === "vip";
+
                         return (
-                          <tr 
-                            key={ticket.id} 
+                          <tr
+                            key={ticket.id}
                             className={`transition-colors hover-card ${
-                              isVip 
-                                ? 'bg-gradient-to-r from-purple-50 to-white' 
-                                : ''
+                              isVip
+                                ? "bg-gradient-to-r from-purple-50 to-white"
+                                : ""
                             }`}
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className={`flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full ${
-                                  isVip 
-                                    ? 'bg-gradient-to-br from-purple-100 to-purple-200 shadow-md' 
-                                    : 'bg-red-100'
-                                }`}>
+                                <div
+                                  className={`flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full ${
+                                    isVip
+                                      ? "bg-gradient-to-br from-purple-100 to-purple-200 shadow-md"
+                                      : "bg-red-100"
+                                  }`}
+                                >
                                   {isVip ? (
                                     <FaCrown className="h-5 w-5 text-purple-600" />
                                   ) : (
@@ -370,30 +444,44 @@ const TicketsPriority: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="ml-4">
-                                  <div className={`text-lg font-bold ${
-                                    isVip ? 'text-purple-600 dark:text-purple-400' : 'text-foreground'
-                                  }`}>
+                                  <div
+                                    className={`text-lg font-bold ${
+                                      isVip
+                                        ? "text-purple-600 dark:text-purple-400"
+                                        : "text-foreground"
+                                    }`}
+                                  >
                                     {ticket.ticket_number}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">#{ticket.id}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    #{ticket.id}
+                                  </div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-foreground">{ticket.service_name}</div>
-                              <div className="text-xs text-muted-foreground">Service ID: {ticket.service_id}</div>
+                              <div className="text-sm font-medium text-foreground">
+                                {ticket.service_name}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Service ID: {ticket.service_id}
+                              </div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-sm font-medium text-foreground">
-                                {ticket.client_name || 'Client non renseigné'}
+                                {ticket.client_name || "Client non renseigné"}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {getPriorityBadge(ticket.priority)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-foreground font-medium">{time}</div>
-                              <div className="text-xs text-muted-foreground">{date}</div>
+                              <div className="text-sm text-foreground font-medium">
+                                {time}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {date}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -407,7 +495,10 @@ const TicketsPriority: React.FC = () => {
         </div>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>Système de gestion des priorités en temps réel • {new Date().getFullYear()}</p>
+          <p>
+            Système de gestion des priorités en temps réel •{" "}
+            {new Date().getFullYear()}
+          </p>
         </div>
       </div>
     </div>

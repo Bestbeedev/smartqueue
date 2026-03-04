@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api/axios'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 
 type Establishment = {
   id: number
@@ -15,13 +15,28 @@ export default function SaasEstablishments() {
   const [loading, setLoading] = useState(false)
 
   const load = async () => {
+    if (loading) return // Éviter les appels multiples
     setLoading(true)
     try {
-      const r = await api.get('/api/saas/establishments?per_page=50')
-      const list = r.data?.data || r.data
+      const response = await api.get('/api/saas/establishments?per_page=50')
+      const list = response.data?.data || response.data
       setRows(Array.isArray(list) ? list : [])
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error?.message || 'Chargement impossible')
+      // Pas de toast ici pour éviter les messages au chargement initial
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Accès refusé. Permissions requises.')
+      } else if (status === 404) {
+        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur. Contactez l\'administrateur.')
+      } else {
+        toast.error('Impossible de charger les établissements')
+      }
+      console.error('Erreur lors du chargement des établissements:', error)
+      setRows([])
     } finally {
       setLoading(false)
     }
