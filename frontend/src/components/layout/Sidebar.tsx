@@ -3,7 +3,7 @@
  * Navigation latérale avec liens conditionnés par le rôle (admin/agent).
  */
 import React, { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAppSelector } from "@/store";
 import {
   LayoutDashboard,
@@ -55,14 +55,57 @@ const LinkItem = ({
   isCollapsed,
 }: LinkItemProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
+  if (isCollapsed) {
+    // Mode collapsed : utiliser un div comme les autres menus
+    const isActive = location.pathname === to;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              onClick={() => navigate(to)}
+              className={cn(
+                "relative group flex items-center justify-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar cursor-pointer hover:scale-105",
+                "h-10 w-10 mx-auto p-0",
+                isActive
+                  ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                  : "text-muted-foreground",
+              )}
+            >
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+              )}
+              <Icon
+                size={18}
+                className={cn(
+                  "transition-all duration-300 flex-shrink-0",
+                  isActive
+                    ? "text-white"
+                    : "text-muted-foreground group-hover:text-foreground",
+                )}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="bg-background border-border">
+            <p>{label}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Mode étendu : utiliser NavLink normal
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         cn(
-          "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+          "relative group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
           "hover:scale-105",
+          "px-3 py-2.5",
           isActive
             ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
             : "text-muted-foreground",
@@ -72,27 +115,25 @@ const LinkItem = ({
       {({ isActive }) => (
         <>
           {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
           )}
           <Icon
             size={18}
             className={cn(
-              "transition-all duration-300 ",
+              "transition-all duration-300 flex-shrink-0",
               isActive
                 ? "text-white"
                 : "text-muted-foreground group-hover:text-foreground",
             )}
           />
-          {!isCollapsed && (
-            <span
-              className={cn(
-                "truncate font-medium transition-all duration-300",
-                isActive ? "text-white" : "text-foreground",
-              )}
-            >
-              {label}
-            </span>
-          )}
+          <span
+            className={cn(
+              "truncate font-medium transition-all duration-300",
+              isActive ? "text-white" : "text-foreground",
+            )}
+          >
+            {label}
+          </span>
         </>
       )}
     </NavLink>
@@ -237,22 +278,65 @@ export default function Sidebar() {
             </span>
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center text-white font-bold text-sm mx-auto">
-            SQ
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:scale-105 transition-transform">
+                    SQ
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="bg-background border-border">
+                  <p>SmartQueue</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className={cn(
+                      "h-6 w-6 rounded-lg transition-all duration-300",
+                      "hover:bg-accent hover:scale-110",
+                    )}
+                  >
+                    <ChevronRight size={14} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="bg-background border-border">
+                  <p>Développer le menu</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={cn(
-            "h-8 w-8 rounded-lg transition-all duration-300",
-            "hover:bg-accent hover:scale-110",
-          )}
-        >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </Button>
+        {!isCollapsed && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  className={cn(
+                    "h-8 w-8 rounded-lg transition-all duration-300",
+                    "hover:bg-accent hover:scale-110",
+                  )}
+                >
+                  <ChevronLeft size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="bg-background border-border">
+                <p>Réduire le menu</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       {/* Barre de recherche (uniquement en mode étendu) */}
@@ -280,7 +364,15 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 overflow-y-auto">
         <div className="space-y-2">
-          {filteredItems.map((item) => {
+          {/* Section principale */}
+          {!isCollapsed && (
+            <div className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Administration
+            </div>
+          )}
+          {filteredItems.filter(item => 
+            !['/admin', '/saas', '/settings'].some(prefix => item.to.startsWith(prefix))
+          ).map((item) => {
             const hasSubmenu = "submenu" in item && item.submenu;
             const isExpanded = expandedMenus.includes(item.to);
 
@@ -292,7 +384,178 @@ export default function Sidebar() {
             return (
               <div key={item.to}>
                 {hasSubmenu ? (
-                  /* Menu avec sous-menus - uniquement en mode étendu */
+                  /* Menu avec sous-menus */
+                  <div>
+                    {isCollapsed && item.to !== "/queues" ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                "relative group flex items-center justify-center gap-3 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar cursor-pointer hover:scale-105",
+                                "h-10 w-10 mx-auto p-0",
+                                location.pathname === item.to
+                                  ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {location.pathname === item.to && (
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                              )}
+                              <item.icon
+                                size={18}
+                                className={cn(
+                                  "transition-all duration-300 flex-shrink-0",
+                                  location.pathname === item.to
+                                    ? "text-white"
+                                    : "text-muted-foreground group-hover:text-foreground",
+                                )}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="bg-background border-border">
+                            <p>{item.label}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) =>
+                          cn(
+                            "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+                            "hover:scale-105",
+                            isActive && location.pathname === item.to
+                              ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                              : "text-muted-foreground",
+                          )
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            {isActive && location.pathname === item.to && (
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                            )}
+                            <item.icon
+                              size={18}
+                              className={cn(
+                                "transition-all duration-300 ",
+                                isActive && location.pathname === item.to
+                                  ? "text-white"
+                                  : "text-muted-foreground group-hover:text-foreground",
+                              )}
+                            />
+                            {!isCollapsed && (
+                              <>
+                                <span
+                                  className={cn(
+                                    "truncate font-medium transition-all duration-300 flex-1",
+                                    isActive && location.pathname === item.to
+                                      ? "text-white"
+                                      : "text-foreground",
+                                  )}
+                                >
+                                  {item.label}
+                                </span>
+                                <div
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!isCollapsed) toggleMenu(item.to);
+                                  }}
+                                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                                >
+                                  <ChevronDown
+                                    size={16}
+                                    className={cn(
+                                      "transition-transform duration-300",
+                                      isExpanded ? "rotate-180" : "",
+                                      isActive && location.pathname === item.to
+                                        ? "text-white"
+                                        : "text-muted-foreground",
+                                    )}
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    )}
+
+                    {/* Sous-menus */}
+                    {!isCollapsed && isExpanded && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        {item.submenu.map((submenuItem) => (
+                          <SubmenuItem
+                            key={submenuItem.to}
+                            to={submenuItem.to}
+                            icon={submenuItem.icon}
+                            label={submenuItem.label}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Menu normal sans sous-menus */
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 ease-in-out hover-sidebar",
+                        "hover:scale-105",
+                        isActive
+                          ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border shadow-lg shadow-blue-500/25 border-blue-500"
+                          : "text-muted-foreground",
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-primary-400 to-primary-600 rounded-r-full" />
+                        )}
+                        <item.icon
+                          size={18}
+                          className={cn(
+                            "transition-all duration-300 ",
+                            isActive
+                              ? "text-white"
+                              : "text-muted-foreground group-hover:text-foreground",
+                          )}
+                        />
+                        {!isCollapsed && (
+                          <span
+                            className={cn(
+                              "truncate font-medium transition-all duration-300",
+                              isActive ? "text-white" : "text-foreground",
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Section Administration */}
+          {filteredItems.some(item => item.to.startsWith('/admin')) && !isCollapsed && (
+            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Administration
+            </div>
+          )}
+          {filteredItems.filter(item => item.to.startsWith('/admin')).map((item) => {
+            const hasSubmenu = "submenu" in item && item.submenu;
+            const isExpanded = expandedMenus.includes(item.to);
+
+            return (
+              <div key={item.to}>
+                {hasSubmenu ? (
                   <div>
                     <NavLink
                       to={item.to}
@@ -357,7 +620,6 @@ export default function Sidebar() {
                       )}
                     </NavLink>
 
-                    {/* Sous-menus */}
                     {!isCollapsed && isExpanded && (
                       <div className="ml-4 mt-1 space-y-1">
                         {item.submenu.map((submenuItem) => (
@@ -372,7 +634,6 @@ export default function Sidebar() {
                     )}
                   </div>
                 ) : (
-                  /* Menu normal sans sous-menus */
                   <NavLink
                     to={item.to}
                     className={({ isActive }) =>
@@ -416,17 +677,21 @@ export default function Sidebar() {
               </div>
             );
           })}
+
+          {/* Section SaaS */}
+          {role === 'super_admin' && (
+            <>
+              {!isCollapsed && (
+                <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  SaaS
+                </div>
+              )}
+              <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
+              <LinkItem to="/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
+              <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
+            </>
+          )}
         </div>
-        {role === 'super_admin' && (
-          <>
-            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              SaaS
-            </div>
-            <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
-            <LinkItem to="/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
-            <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
-          </>
-        )}
       </nav>
 
       {/* Menu Tickets - uniquement en mode collapsed */}
@@ -524,39 +789,90 @@ export default function Sidebar() {
       {/* Section notifications et profil */}
       <div className="p-3 border-t border-border space-y-2">
         {/* Bouton notifications */}
-        <Button
-          variant="ghost"
-          size={isCollapsed ? "icon" : "default"}
-          className={cn(
-            "w-full justify-center transition-all duration-300 rounded-xl",
-            "hover:bg-accent hover:scale-105",
-            isCollapsed && "h-10 w-10 mx-auto",
-          )}
-        >
-          <Bell size={18} className="text-muted-foreground" />
-          {!isCollapsed && (
-            <>
-              <span className="ml-3 text-foreground">Notifications</span>
-              <div className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            </>
-          )}
-        </Button>
+        {isCollapsed ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "w-full justify-center transition-all duration-300 rounded-xl",
+                    "hover:bg-accent hover:scale-105",
+                    "h-10 w-10 mx-auto",
+                  )}
+                >
+                  <Bell size={18} className="text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-background border-border">
+                <div className="flex items-center gap-2">
+                  <span>Notifications</span>
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Button
+            variant="ghost"
+            size="default"
+            className={cn(
+              "w-full justify-center transition-all duration-300 rounded-xl",
+              "hover:bg-accent hover:scale-105",
+            )}
+          >
+            <Bell size={18} className="text-muted-foreground" />
+            <span className="ml-3 text-foreground">Notifications</span>
+            <div className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          </Button>
+        )}
+
+        {/* Menu Settings */}
+        <LinkItem to="/settings" icon={SettingsIcon} label="Paramètres" isCollapsed={isCollapsed} />
 
         {/* Profil utilisateur */}
-        <div
-          className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 hover:bg-accent hover:scale-105 ${
-            isCollapsed ? "justify-center" : ""
-          }`}
-        >
-          <Avatar
-            className="h-8 w-8 ring-2 ring-blue-500/20"
-            src={user?.avatar}
+        {isCollapsed ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-accent hover:scale-105 cursor-pointer",
+                  )}
+                >
+                  <Avatar
+                    className="h-8 w-8 ring-2 ring-blue-500/20"
+                    src={user?.avatar}
+                  >
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium">
+                      {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-background border-border">
+                <div className="space-y-1">
+                  <p className="font-medium">{user?.name || "Utilisateur"}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email || "email@exemple.com"}</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <div
+            className={cn(
+              "flex items-center gap-3 p-2 rounded-xl transition-all duration-300 hover:bg-accent hover:scale-105",
+            )}
           >
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium">
-              {user?.name?.charAt(0)?.toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-          {!isCollapsed && (
+            <Avatar
+              className="h-8 w-8 ring-2 ring-blue-500/20"
+              src={user?.avatar}
+            >
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-medium">
+                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
             <div className="flex-1 min-w-0 ">
               <p className="text-sm font-medium text-foreground truncate">
                 {user?.name || "Utilisateur"}
@@ -565,8 +881,8 @@ export default function Sidebar() {
                 {user?.email || "email@exemple.com"}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </aside>
   );

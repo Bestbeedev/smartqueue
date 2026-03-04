@@ -18,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         storageKey="smartqueue-theme"
       >
         <Router />
+        <App />
       </ThemeProvider>
     </Provider>
   </React.StrictMode>

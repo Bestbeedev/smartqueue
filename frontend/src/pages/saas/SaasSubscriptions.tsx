@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api/axios'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 
 type Subscription = {
   id: number
@@ -16,13 +16,35 @@ export default function SaasSubscriptions() {
   const [rows, setRows] = useState<Subscription[]>([])
   const [status, setStatus] = useState('')
   const [plan, setPlan] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const load = async () => {
+    if (loading) return // Éviter les appels multiples
+    setLoading(true)
     try {
-      const r = await api.get('/api/saas/subscriptions', { params: { per_page: 50, status: status || undefined, plan: plan || undefined } })
-      setRows(r.data?.data || [])
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error?.message || 'Chargement impossible')
+      const response = await api.get('/api/saas/subscriptions', { 
+        params: { per_page: 50, status: status || undefined, plan: plan || undefined } 
+      })
+      const data = response.data?.data || response.data
+      setRows(Array.isArray(data) ? data : [])
+      // Pas de toast ici pour éviter les messages au chargement initial
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.')
+      } else if (status === 403) {
+        toast.error('Accès refusé. Permissions requises.')
+      } else if (status === 404) {
+        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
+      } else if (status >= 500) {
+        toast.error('Erreur serveur. Contactez l\'administrateur.')
+      } else {
+        toast.error('Impossible de charger les abonnements')
+      }
+      console.error('Erreur lors du chargement des abonnements:', error)
+      setRows([])
+    } finally {
+      setLoading(false)
     }
   }
 
