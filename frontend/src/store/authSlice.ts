@@ -11,6 +11,7 @@ export interface User {
   avatar?: string
   establishment_id?: number | null
   pending_subscription?: any
+  created_at?: string
 }
 
 interface AuthState { token: string | null; user: User | null; loading: boolean; isAuthenticated: boolean; error?: string }
