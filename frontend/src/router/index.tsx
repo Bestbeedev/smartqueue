@@ -71,6 +71,25 @@ const PageLoader = () => {
   );
 };
 
+// Composant de chargement simple
+const PageLoaderSample = () => {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="relative flex flex-col items-center gap-6">
+        {/* Glow */}
+        <div className="absolute w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse" />
+
+        {/* Spinner ring */}
+        <div className="relative h-8 w-8">
+          <div className="absolute inset-0 rounded-full border-4 " />
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export default function Router() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
@@ -95,7 +114,7 @@ export default function Router() {
     {
       path: "/login",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <Login />
         </Suspense>
       ),
@@ -103,7 +122,7 @@ export default function Router() {
     {
       path: "/signup",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <Signup />
         </Suspense>
       ),
@@ -111,7 +130,7 @@ export default function Router() {
     {
       path: "/subscription",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <SubscriptionPlan />
         </Suspense>
       ),
