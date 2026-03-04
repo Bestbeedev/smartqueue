@@ -45,9 +45,9 @@ export default function Signup() {
         password_confirmation: data.password_confirmation!,
         phone: data.phone
       })).unwrap();
-      toast.success("Compte administrateur créé avec succès !");
-      // Redirection automatique vers le dashboard
-      window.location.href = "/dashboard";
+      toast.success("Compte créé avec succès !");
+      // Redirection vers la page d'abonnement
+      window.location.href = "/subscription";
     } catch (error: any) {
       const status = error?.status;
       if (status === 422) {

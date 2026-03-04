@@ -12,7 +12,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store'
-import { subscribe } from '@/store/authSlice'
+import { refreshMe, subscribe } from '@/store/authSlice'
 import { Check, Crown, Zap, Building, Users, ArrowRight, CreditCard, Shield, Headphones, TrendingUp, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -130,6 +130,15 @@ export default function SubscriptionPlan() {
       return
     }
 
+    const token = (typeof window !== 'undefined' && (window as any).localStorage?.getItem)
+      ? (window as any).localStorage.getItem('token')
+      : null
+    if (!token) {
+      toast.error('Session expirée. Veuillez vous reconnecter.')
+      navigate('/login')
+      return
+    }
+
     setIsProcessing(true)
     
     try {
@@ -146,21 +155,27 @@ export default function SubscriptionPlan() {
 
       await dispatch(subscribe(formData)).unwrap()
       toast.success('Abonnement souscrit avec succès ! Redirection...')
+
+      setShowPaymentForm(false)
       
-      // Rediriger vers le dashboard (qui redirigera vers setup si nécessaire)
-      setTimeout(() => {
-        navigate('/')
-      }, 1500)
+      await dispatch(refreshMe())
+
+      // Rediriger vers la création de l'établissement
+      navigate('/setup-establishment', { replace: true })
     } catch (error: any) {
+      console.error('Subscription payment failed', error)
       const status = error?.status
       if (status === 422) {
         toast.error('Données invalides. Veuillez vérifier les champs.')
       } else if (status === 403) {
         toast.error('Accès refusé. Vous devez être administrateur.')
+      } else if (status === 401) {
+        toast.error('Non authentifié. Veuillez vous reconnecter.')
+        navigate('/login')
       } else if (status >= 500) {
         toast.error('Erreur serveur. Veuillez réessayer plus tard.')
       } else {
-        toast.error('Erreur lors de la souscription. Veuillez réessayer.')
+        toast.error(error?.message || 'Erreur lors de la souscription. Veuillez réessayer.')
       }
     } finally {
       setIsProcessing(false)

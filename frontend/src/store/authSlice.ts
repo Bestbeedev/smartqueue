@@ -73,10 +73,14 @@ export const subscribe = createAsyncThunk('auth/subscribe', async (payload: {
 }) => {
   try {
     const { data } = await api.post('/api/onboarding/subscribe', payload)
-    return data as { pending_subscription: any; next_step: string }
+    return data as { pending_subscription: any; next_step: string; user?: User }
   } catch (err: any) {
+    const status = err?.response?.status
     const msg = err?.response?.data?.message || err?.message || 'Subscription failed'
-    throw new Error(msg)
+    const e: any = new Error(msg)
+    e.status = status
+    e.data = err?.response?.data
+    throw e
   }
 })
 
@@ -118,9 +122,12 @@ const slice = createSlice({
     b.addCase(registerEstablishment.rejected, (s, a: any) => { s.loading = false; s.error = a?.error?.message || 'Registration failed' })
 
     b.addCase(subscribe.pending, (s) => { s.loading = true; s.error = undefined })
-    b.addCase(subscribe.fulfilled, (s, a: PayloadAction<{ pending_subscription: any; next_step: string }>) => {
+    b.addCase(subscribe.fulfilled, (s, a: PayloadAction<{ pending_subscription: any; next_step: string; user?: User }>) => {
       s.loading = false; 
-      if (s.user) {
+      if (a.payload.user) {
+        s.user = a.payload.user
+        localStorage.setItem('user', JSON.stringify(a.payload.user))
+      } else if (s.user) {
         s.user.pending_subscription = a.payload.pending_subscription
         localStorage.setItem('user', JSON.stringify(s.user))
       }

@@ -16,35 +16,35 @@ class NotificationPreferencesNotifier extends AsyncNotifier<NotificationPreferen
   }
 
   Future<void> setPushEnabled(bool v) async {
-    final current = state.valueOrNull;
+    final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(current.copyWith(pushEnabled: v));
     await _persist();
   }
 
   Future<void> setSmsEnabled(bool v) async {
-    final current = state.valueOrNull;
+    final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(current.copyWith(smsEnabled: v));
     await _persist();
   }
 
   Future<void> setNotifyBeforePositions(int v) async {
-    final current = state.valueOrNull;
+    final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(current.copyWith(notifyBeforePositions: v));
     await _persist();
   }
 
   Future<void> setNotifyBeforeMinutes(int v) async {
-    final current = state.valueOrNull;
+    final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(current.copyWith(notifyBeforeMinutes: v));
     await _persist();
   }
 
   Future<void> _persist() async {
-    final next = state.valueOrNull;
+    final next = state.asData?.value;
     if (next == null) return;
 
     try {
