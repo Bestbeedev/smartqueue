@@ -30,6 +30,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
 
 type HeaderProps = {
   onMenuToggle?: () => void
@@ -80,9 +81,11 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
   ])
 
   const unreadCount = notifications.filter(n => !n.read).length
+  const navigate= useNavigate();
 
   const handleLogout = () => {
-    dispatch(logout())
+    dispatch(logout());
+    navigate("/login");
   }
 
   // Fermer le dropdown des notifications en cliquant dehors
