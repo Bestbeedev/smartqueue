@@ -193,7 +193,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
                           "p-4 hover:bg-accent transition-colors cursor-pointer",
                           !notification.read && "bg-blue-50 dark:bg-blue-900/20"
                         )}
-                        onClick={() => navigate('/notifications')}
+                        onClick={() => navigate('/dashboard/notifications')}
                       >
                         <div className="flex items-start gap-3">
                           <div className={cn(
@@ -226,7 +226,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
                   variant="ghost" 
                   size="sm" 
                   className="w-full hover:bg-accent"
-                  onClick={() => navigate('/notifications')}
+                  onClick={() => navigate('/dashboard/notifications')}
                 >
                   Voir toutes les notifications
                 </Button>
@@ -276,7 +276,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             
             <DropdownMenuItem 
               className="hover:bg-accent"
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/dashboard/profile')}
             >
               <User className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="text-foreground">Mon profil</span>
@@ -284,7 +284,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             
             <DropdownMenuItem 
               className="hover:bg-accent"
-              onClick={() => navigate('/notifications')}
+              onClick={() => navigate('/dashboard/notifications')}
             >
               <Bell className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="text-foreground">Notifications</span>
@@ -292,7 +292,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             
             <DropdownMenuItem 
               className="hover:bg-accent"
-              onClick={() => navigate('/settings')}
+              onClick={() => navigate('/dashboard/settings')}
             >
               <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="text-foreground">Paramètres</span>
