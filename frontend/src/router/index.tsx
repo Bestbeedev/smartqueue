@@ -61,7 +61,7 @@ const PageLoader = () => {
 
         {/* Text */}
         <div className="text-center space-y-1">
-          <p className="text-lg font-medium tracking-wide">Chargement</p>
+          <p className="text-lg font-medium tracking-wide">Chargement des données</p>
           <p className="text-sm text-muted-foreground animate-pulse">
             Préparation de votre expérience...
           </p>
