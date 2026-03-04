@@ -30,6 +30,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
 
 type HeaderProps = {
   onMenuToggle?: () => void
@@ -80,9 +81,11 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
   ])
 
   const unreadCount = notifications.filter(n => !n.read).length
+  const navigate= useNavigate();
 
   const handleLogout = () => {
-    dispatch(logout())
+    dispatch(logout());
+    navigate("/login");
   }
 
   // Fermer le dropdown des notifications en cliquant dehors
@@ -190,6 +193,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
                           "p-4 hover:bg-accent transition-colors cursor-pointer",
                           !notification.read && "bg-blue-50 dark:bg-blue-900/20"
                         )}
+                        onClick={() => navigate('/notifications')}
                       >
                         <div className="flex items-start gap-3">
                           <div className={cn(
@@ -218,7 +222,12 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
               </div>
               
               <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-                <Button variant="ghost" size="sm" className="w-full hover:bg-accent">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full hover:bg-accent"
+                  onClick={() => navigate('/notifications')}
+                >
                   Voir toutes les notifications
                 </Button>
               </div>
@@ -265,12 +274,26 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             
             <DropdownMenuSeparator />
             
-            <DropdownMenuItem className="hover:bg-accent">
+            <DropdownMenuItem 
+              className="hover:bg-accent"
+              onClick={() => navigate('/profile')}
+            >
               <User className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="text-foreground">Mon profil</span>
             </DropdownMenuItem>
             
-            <DropdownMenuItem className="hover:bg-accent">
+            <DropdownMenuItem 
+              className="hover:bg-accent"
+              onClick={() => navigate('/notifications')}
+            >
+              <Bell className="mr-2 h-4 w-4 text-muted-foreground" />
+              <span className="text-foreground">Notifications</span>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem 
+              className="hover:bg-accent"
+              onClick={() => navigate('/settings')}
+            >
               <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="text-foreground">Paramètres</span>
             </DropdownMenuItem>
