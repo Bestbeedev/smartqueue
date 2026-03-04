@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:smartqueue_user/core/app_router.dart';
+import 'package:smartqueue_user/data/api_client.dart';
+import 'package:smartqueue_user/data/models/ticket.dart';
 
 /// Scanner QR pour lier un ticket / rejoindre une file
 class QrScannerScreen extends StatefulWidget {
@@ -49,7 +52,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           final serviceName = uri.queryParameters['name'] ?? 'Service';
           if (ticketId != null) {
             if (!mounted) return;
-            Navigator.pushNamed(context, '/realtime', arguments: {
+            Navigator.pushNamed(context, AppRouter.realtime, arguments: {
               'ticketId': ticketId,
               'serviceName': serviceName,
             });
@@ -60,11 +63,48 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           final serviceId = int.tryParse(idStr ?? '');
           final serviceName = uri.queryParameters['name'] ?? 'Service';
           if (serviceId != null) {
-            if (!mounted) return;
-            Navigator.pushNamed(context, '/service_detail', arguments: {
-              'serviceId': serviceId,
-              'serviceName': serviceName,
-            });
+            try {
+              final api = await ApiClient.create();
+              // First try with from_qr flag (backend supports it). If backend ignores it, request still succeeds.
+              // TicketsRepository.create only sends service_id; so we call Dio directly here.
+              final res = await api.dio.post(
+                '/tickets',
+                data: {
+                  'service_id': serviceId,
+                  'from_qr': true,
+                },
+              );
+              final data = res.data is Map && res.data['data'] != null ? res.data['data'] : res.data;
+
+              if (data is! Map) {
+                throw Exception('Réponse ticket invalide');
+              }
+
+              final ticket = Ticket.fromJson((data as Map).cast<String, dynamic>());
+
+              if (!mounted) return;
+              // 1) Open ticket detail (so user can share/cancel/etc.)
+              Navigator.pushNamed(context, AppRouter.ticketDetail, arguments: {
+                'ticketId': ticket.id,
+                'serviceName': serviceName,
+                'ticket': ticket,
+              });
+
+              // 2) Chain realtime screen right away
+              Navigator.pushNamed(context, AppRouter.realtime, arguments: {
+                'ticketId': ticket.id,
+                'serviceName': serviceName,
+                'ticket': ticket,
+              });
+            } catch (_) {
+              // Re-enable scanning on any error
+              _handled = false;
+              await controller?.start();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Impossible de créer le ticket via QR (connexion requise).')),
+              );
+            }
             return;
           }
         }

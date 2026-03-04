@@ -29,6 +29,9 @@ class EstablishmentResource extends JsonResource
             'is_active' => (bool) $this->is_active,
             // Distance (en mètres) si calculée en SQL (selectRaw)
             'distance_m' => isset($this->distance_m) ? (int) $this->distance_m : null,
+            // Affluence (si join/aggregate effectué côté controller)
+            'crowd_level' => isset($this->crowd_level) ? (string) $this->crowd_level : null,
+            'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
         ];
     }
 }

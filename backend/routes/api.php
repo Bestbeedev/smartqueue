@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Saas\SubscriptionController as SaasSubscriptionCont
 use App\Http\Controllers\Api\Saas\MonitoringController as SaasMonitoringController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationPreferencesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +81,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read']); // ou PUT si vous préférez
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+
+    // Préférences notifications (mobile/web)
+    Route::get('/notification-preferences', [NotificationPreferencesController::class, 'show']);
+    Route::put('/notification-preferences', [NotificationPreferencesController::class, 'update']);
     
 
     // Espace agent / admin (gestion des files en temps réel)
@@ -118,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('stats/overview', [AdminStatsController::class, 'overview']);
         Route::get('stats/services/{serviceId}', [AdminStatsController::class, 'service']);
+        Route::get('stats/series', [AdminStatsController::class, 'series']);
 
         // Exports
         Route::get('establishments/{establishment}/reports/activity.csv', [AdminReportExportController::class, 'activityCsv']);

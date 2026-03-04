@@ -93,6 +93,23 @@ class OnboardingController extends Controller
         if (!$user) {
             abort(401, 'Unauthenticated');
         }
+
+        $services = null;
+        $counters = null;
+        if (in_array($user->role, ['agent', 'admin'], true)) {
+            $services = $user->services()
+                ->select(['services.id', 'services.name', 'services.status', 'services.avg_service_time_minutes', 'services.priority_support', 'services.capacity'])
+                ->orderBy('services.name')
+                ->get();
+
+            if (!empty($user->establishment_id)) {
+                $counters = \App\Models\Counter::query()
+                    ->where('establishment_id', $user->establishment_id)
+                    ->select(['id', 'name', 'status', 'current_agent_id'])
+                    ->orderBy('name')
+                    ->get();
+            }
+        }
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -101,6 +118,8 @@ class OnboardingController extends Controller
             'role' => $user->role,
             'establishment_id' => $user->establishment_id,
             'pending_subscription' => $user->pending_subscription,
+            'services' => $services,
+            'counters' => $counters,
         ]);
     }
 }

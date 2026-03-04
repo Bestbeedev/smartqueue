@@ -87,6 +87,7 @@ import 'package:smartqueue_user/features/history/history_screen.dart';
 import 'package:smartqueue_user/features/home/home_screen.dart';
 import 'package:smartqueue_user/features/notifications/notifications_screen.dart';
 import 'package:smartqueue_user/features/profile/profile_screen.dart';
+import 'package:smartqueue_user/features/qr/qr_scanner_screen.dart';
 import 'package:smartqueue_user/features/realtime/realtime_screen.dart';
 import 'package:smartqueue_user/features/services/services_screen.dart';
 import 'package:smartqueue_user/features/service_detail/service_detail_screen.dart';
@@ -110,6 +111,7 @@ class AppRouter {
   static const String history = '/history';
   static const String notifications = '/notifications';
   static const String profile = '/profile';
+  static const String qr = '/qr';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -169,6 +171,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
       case profile:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
+      case qr:
+        return MaterialPageRoute(builder: (_) => const QrScannerScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

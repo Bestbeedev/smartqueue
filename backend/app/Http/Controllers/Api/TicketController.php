@@ -32,6 +32,15 @@ class TicketController extends Controller
      */
     public function active(Request $request)
     {
+        // Expire automatiquement les tickets trop anciens (24h) avant de lister.
+        // On s'appuie sur la logique centralisée du TicketService, appelée sur les actions métier.
+        // Ici, on force un passage léger en expirant les tickets actifs >24h via un filtre.
+        Ticket::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('status', ['waiting','called','absent'])
+            ->where('created_at', '<', now()->subHours(24))
+            ->update(['status' => 'expired', 'position' => null]);
+
         $tickets = Ticket::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['waiting','called','absent'])
