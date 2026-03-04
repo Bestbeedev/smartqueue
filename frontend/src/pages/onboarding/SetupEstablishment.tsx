@@ -17,11 +17,11 @@ export default function SetupEstablishment() {
   useEffect(() => {
     if (!user) return;
     if (user.role !== "admin") {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
       return;
     }
     if (user.establishment_id) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [user]);
 
@@ -35,7 +35,7 @@ export default function SetupEstablishment() {
       await api.post("/api/admin/establishments", { name, address });
       await dispatch(refreshMe());
       toast.success("Établissement créé");
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (e: any) {
       toast.error(
         e?.response?.data?.error?.message ||

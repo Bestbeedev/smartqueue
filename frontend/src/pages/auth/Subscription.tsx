@@ -153,15 +153,19 @@ export default function SubscriptionPlan() {
         paid: true,
       }
 
-      await dispatch(subscribe(formData)).unwrap()
+      const result = await dispatch(subscribe(formData)).unwrap()
       toast.success('Abonnement souscrit avec succès ! Redirection...')
 
       setShowPaymentForm(false)
       
-      await dispatch(refreshMe())
+      const me = await dispatch(refreshMe()).unwrap()
 
-      // Rediriger vers la création de l'établissement
-      navigate('/setup-establishment', { replace: true })
+      if (result?.next_step === 'setup_establishment' || !me?.establishment_id) {
+        navigate('/dashboard/setup-establishment', { replace: true })
+        return
+      }
+
+      navigate('/dashboard', { replace: true })
     } catch (error: any) {
       console.error('Subscription payment failed', error)
       const status = error?.status
@@ -388,7 +392,13 @@ export default function SubscriptionPlan() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit(handlePayment)} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                void handlePayment()
+              }}
+              className="space-y-4"
+            >
               <input type="hidden" {...register('plan')} />
               <input type="hidden" {...register('paid')} />
               
@@ -415,7 +425,8 @@ export default function SubscriptionPlan() {
                   Annuler
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => void handlePayment()}
                   disabled={isProcessing}
                   className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 ${
                     isProcessing ? 'opacity-50 cursor-not-allowed' : ''

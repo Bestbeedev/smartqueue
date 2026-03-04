@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAppDispatch } from '@/store';
-import { logout } from '@/store/authSlice';
+import { logout, refreshMe } from '@/store/authSlice';
 import { api } from '@/api/axios';
 
 export default function Profile() {
@@ -56,13 +56,26 @@ export default function Profile() {
         updateData.current_password = profileData.currentPassword;
       }
 
-      await api.put('/api/me', updateData);
+      // Backend currently exposes GET /api/me. If profile update endpoint isn't implemented yet,
+      // this request may fail (405). We still try PATCH to stay RESTful.
+      await api.patch('/api/me', updateData);
       setIsEditing(false);
-      // Recharger les données utilisateur
-      window.location.reload();
+      await dispatch(refreshMe());
     } catch (error) {
       console.error('Erreur sauvegarde profil:', error);
-      alert('Erreur lors de la sauvegarde du profil');
+      const anyErr: any = error as any;
+      const status = anyErr?.response?.status;
+      const message =
+        anyErr?.response?.data?.message ||
+        anyErr?.message ||
+        'Erreur lors de la sauvegarde du profil';
+
+      if (status === 405) {
+        alert("La modification du profil n'est pas encore disponible côté serveur (endpoint manquant).");
+        return;
+      }
+
+      alert(message);
     } finally {
       setLoading(false);
     }
