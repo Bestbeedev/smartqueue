@@ -211,43 +211,43 @@ export default function Sidebar() {
   // Auto-ouvrir le menu des queues si on est sur une page de sous-menu
   React.useEffect(() => {
     if (
-      location.pathname.startsWith("/queues") &&
-      location.pathname !== "/queues" &&
-      !expandedMenus.includes("/queues")
+      location.pathname.startsWith("/dashboard/queues") &&
+      location.pathname !== "/dashboard/queues" &&
+      !expandedMenus.includes("/dashboard/queues")
     ) {
-      setExpandedMenus(["/queues"]);
+      setExpandedMenus(["/dashboard/queues"]);
     }
   }, [location.pathname, expandedMenus]);
 
   const navigationItems = [
     {
-      to: "/",
+      to: "/dashboard",
       icon: LayoutDashboard,
       label: "Tableau de bord",
       roles: ["all"],
     },
     {
-      to: "/queues",
+      to: "/dashboard/queues",
       icon: ListOrdered,
       label: "Files d'attente",
       roles: ["agent", "admin"],
       submenu: [
-        { to: "/queues/called", icon: Activity, label: "Tickets appelés" },
-        { to: "/queues/absent", icon: Ban, label: "Absents" },
-        { to: "/queues/priority", icon: BadgeAlert, label: "Prioritaires" },
+        { to: "/dashboard/queues/called", icon: Activity, label: "Tickets appelés" },
+        { to: "/dashboard/queues/absent", icon: Ban, label: "Absents" },
+        { to: "/dashboard/queues/priority", icon: BadgeAlert, label: "Prioritaires" },
       ],
     },
-    { to: "/agents", icon: Users, label: "Agents", roles: ["admin"] },
-    { to: "/services", icon: Ticket, label: "Services", roles: ["admin"] },
+    { to: "/dashboard/agents", icon: Users, label: "Agents", roles: ["admin"] },
+    { to: "/dashboard/services", icon: Ticket, label: "Services", roles: ["admin"] },
     {
-      to: "/establishments",
+      to: "/dashboard/establishments",
       icon: Building2,
       label: "Établissements",
       roles: ["admin"],
     },
-    { to: "/stats", icon: BarChart, label: "Statistiques", roles: ["admin"] },
+    { to: "/dashboard/stats", icon: BarChart, label: "Statistiques", roles: ["admin"] },
     {
-      to: "/settings",
+      to: "/dashboard/settings",
       icon: SettingsIcon,
       label: "Paramètres",
       roles: ["all"],
@@ -372,13 +372,13 @@ export default function Sidebar() {
             </div>
           )}
           {filteredItems.filter(item => 
-            !['/admin', '/saas', '/settings'].some(prefix => item.to.startsWith(prefix))
+            !['/dashboard/admin', '/dashboard/saas', '/dashboard/settings'].some(prefix => item.to.startsWith(prefix))
           ).map((item) => {
             const hasSubmenu = "submenu" in item && item.submenu;
             const isExpanded = expandedMenus.includes(item.to);
 
             // En mode collapsed, on exclut le menu queues de la navigation principale
-            if (isCollapsed && hasSubmenu && item.to === "/queues") {
+            if (isCollapsed && hasSubmenu && item.to === "/dashboard/queues") {
               return null;
             }
 
@@ -387,7 +387,7 @@ export default function Sidebar() {
                 {hasSubmenu ? (
                   /* Menu avec sous-menus */
                   <div>
-                    {isCollapsed && item.to !== "/queues" ? (
+                    {isCollapsed && item.to !== "/dashboard/queues" ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -545,12 +545,12 @@ export default function Sidebar() {
           })}
 
           {/* Section Administration */}
-          {filteredItems.some(item => item.to.startsWith('/admin')) && !isCollapsed && (
+          {filteredItems.some(item => item.to.startsWith('/dashboard/admin')) && !isCollapsed && (
             <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Administration
             </div>
           )}
-          {filteredItems.filter(item => item.to.startsWith('/admin')).map((item) => {
+          {filteredItems.filter(item => item.to.startsWith('/dashboard/admin')).map((item) => {
             const hasSubmenu = "submenu" in item && item.submenu;
             const isExpanded = expandedMenus.includes(item.to);
 
@@ -687,9 +687,9 @@ export default function Sidebar() {
                   SaaS
                 </div>
               )}
-              <LinkItem to="/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
-              <LinkItem to="/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
-              <LinkItem to="/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
+              <LinkItem to="/dashboard/saas/monitoring" icon={Server} label="Monitoring" isCollapsed={isCollapsed} />
+              <LinkItem to="/dashboard/saas/establishments" icon={Building2} label="Clients" isCollapsed={isCollapsed} />
+              <LinkItem to="/dashboard/saas/subscriptions" icon={CreditCard} label="Abonnements" isCollapsed={isCollapsed} />
             </>
           )}
         </div>
@@ -706,7 +706,7 @@ export default function Sidebar() {
                 className={cn(
                   "w-full h-10 rounded-xl transition-all duration-300",
                   "hover:bg-accent hover:scale-105",
-                  location.pathname.startsWith("/queues")
+                  location.pathname.startsWith("/dashboard/queues")
                     ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 border-blue-500"
                     : "text-muted-foreground",
                 )}
@@ -715,7 +715,7 @@ export default function Sidebar() {
                   size={18}
                   className={cn(
                     "transition-all w-fit duration-300",
-                    location.pathname.startsWith("/queues")
+                    location.pathname.startsWith("/dashboard/queues")
                       ? "text-white"
                       : "text-muted-foreground group-hover:text-foreground",
                   )}
@@ -729,10 +729,10 @@ export default function Sidebar() {
             >
               <DropdownMenuItem asChild>
                 <NavLink
-                  to="/queues"
+                  to="/dashboard/queues"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded-md transition-colors",
-                    location.pathname === "/queues"
+                    location.pathname === "/dashboard/queues"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
@@ -743,10 +743,10 @@ export default function Sidebar() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <NavLink
-                  to="/queues/called"
+                  to="/dashboard/queues/called"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded-md transition-colors",
-                    location.pathname === "/queues/called"
+                    location.pathname === "/dashboard/queues/called"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
@@ -757,10 +757,10 @@ export default function Sidebar() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <NavLink
-                  to="/queues/absent"
+                  to="/dashboard/queues/absent"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded-md transition-colors",
-                    location.pathname === "/queues/absent"
+                    location.pathname === "/dashboard/queues/absent"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
@@ -771,10 +771,10 @@ export default function Sidebar() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <NavLink
-                  to="/queues/priority"
+                  to="/dashboard/queues/priority"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded-md transition-colors",
-                    location.pathname === "/queues/priority"
+                    location.pathname === "/dashboard/queues/priority"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent hover:text-accent-foreground",
                   )}
@@ -797,17 +797,17 @@ export default function Sidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => navigate('/notifications')}
+                  onClick={() => navigate('/dashboard/notifications')}
                   className={cn(
                     "w-full justify-center transition-all duration-300 rounded-xl",
                     "hover:bg-accent hover:scale-105",
                     "h-10 w-10 mx-auto",
-                    location.pathname === "/notifications"
+                    location.pathname === "/dashboard/notifications"
                       ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 border-blue-500"
                       : "",
                   )}
                 >
-                  <Bell size={18} className={location.pathname === "/notifications" ? "text-white" : "text-muted-foreground"} />
+                  <Bell size={18} className={location.pathname === "/dashboard/notifications" ? "text-white" : "text-muted-foreground"} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-background border-border">
@@ -822,23 +822,23 @@ export default function Sidebar() {
           <Button
             variant="ghost"
             size="default"
-            onClick={() => navigate('/notifications')}
+            onClick={() => navigate('/dashboard/notifications')}
             className={cn(
               "w-full justify-center transition-all duration-300 rounded-xl",
               "hover:bg-accent hover:scale-105",
-              location.pathname === "/notifications"
+              location.pathname === "/dashboard/notifications"
                 ? "bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg shadow-blue-500/25 border-blue-500"
                 : "",
             )}
           >
-            <Bell size={18} className={location.pathname === "/notifications" ? "text-white" : "text-muted-foreground"} />
-            <span className={location.pathname === "/notifications" ? "text-white ml-3" : "text-foreground ml-3"}>Notifications</span>
+            <Bell size={18} className={location.pathname === "/dashboard/notifications" ? "text-white" : "text-muted-foreground"} />
+            <span className={location.pathname === "/dashboard/notifications" ? "text-white ml-3" : "text-foreground ml-3"}>Notifications</span>
             <div className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           </Button>
         )}
 
         {/* Menu Settings */}
-        <LinkItem to="/settings" icon={SettingsIcon} label="Paramètres" isCollapsed={isCollapsed} />
+        <LinkItem to="/dashboard/settings" icon={SettingsIcon} label="Paramètres" isCollapsed={isCollapsed} />
 
         {/* Profil utilisateur */}
         {isCollapsed ? (
