@@ -7,14 +7,6 @@ export default defineConfig(function (_a) {
     var API = env.VITE_API_BASE_URL || 'http://localhost:8000';
     return {
         plugins: [react()],
-        css: {
-            postcss: {
-                plugins: [
-                    require('tailwindcss'),
-                    require('autoprefixer'),
-                ],
-            },
-        },
         server: {
             port: 5173,
             host: true,
