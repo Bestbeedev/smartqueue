@@ -34,14 +34,20 @@ export default function Signup() {
 
   const watchedPassword = watch("password");
 
-  if (token) return <Navigate to="/subscription" replace />;
+  if (token) return <Navigate to="/dashboard" replace />;
 
   const onSubmit = async (data: SignupFormData) => {
     try {
-      const result = await dispatch(signup(data)).unwrap();
+      const result = await dispatch(signup({
+        name: data.name!,
+        email: data.email!,
+        password: data.password!,
+        password_confirmation: data.password_confirmation!,
+        phone: data.phone
+      })).unwrap();
       toast.success("Compte administrateur créé avec succès !");
-      // Redirection automatique vers la page d'abonnement
-      window.location.href = "/subscription";
+      // Redirection automatique vers le dashboard
+      window.location.href = "/dashboard";
     } catch (error: any) {
       const status = error?.status;
       if (status === 422) {

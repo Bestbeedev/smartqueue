@@ -191,26 +191,26 @@ export default function SubscriptionPlan() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-white font-bold">
                 SQ
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent dark:from-blue-400 dark:to-blue-300">
                 SmartQueue
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
                 Connecté en tant que {user.name}
               </span>
               <Link
                 to="/login"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
               >
                 Déconnexion
               </Link>
@@ -222,24 +222,24 @@ export default function SubscriptionPlan() {
       {/* Hero Section */}
       <div className="text-center py-16 px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
             Choisissez votre plan
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
               pour gérer intelligemment vos files d'attente
             </span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Des tarifs transparents et adaptés à vos besoins. Commencez gratuitement et évoluez à votre rythme.
           </p>
 
           {/* Billing Toggle */}
-          <div className="inline-flex items-center rounded-full bg-gray-100 p-1 mb-12">
+          <div className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 p-1 mb-12">
             <button
               onClick={() => setBillingCycle('month')}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
                 billingCycle === 'month'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               Facturation mensuelle
@@ -248,8 +248,8 @@ export default function SubscriptionPlan() {
               onClick={() => setBillingCycle('year')}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all relative ${
                 billingCycle === 'year'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               Facturation annuelle
@@ -263,7 +263,7 @@ export default function SubscriptionPlan() {
 
       {/* Plans Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan) => {
             const Icon = plan.icon
             const displayPrice = billingCycle === 'month' 
@@ -274,12 +274,12 @@ export default function SubscriptionPlan() {
             return (
               <div
                 key={plan.id}
-                className={`relative bg-white rounded-2xl shadow-lg border-2 transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer ${
+                className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer p-6 ${
                   plan.popular 
-                    ? 'border-purple-500 ring-4 ring-purple-100' 
-                    : 'border-gray-200'
+                    ? 'border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900' 
+                    : 'border-gray-200 dark:border-gray-600'
                 } ${
-                  selectedPlan === plan.id ? 'ring-4 ring-blue-100 border-blue-500' : ''
+                  selectedPlan === plan.id ? 'ring-4 ring-blue-100 dark:ring-blue-900 border-blue-500' : ''
                 }`}
                 onClick={() => handlePlanSelect(plan.id)}
               >
@@ -292,31 +292,31 @@ export default function SubscriptionPlan() {
                   </div>
                 )}
 
-                <div className="p-8">
+                <div className="p-6">
                   {/* Plan Header */}
-                  <div className="text-center mb-8">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center mx-auto mb-4`}>
-                      <Icon className="w-8 h-8 text-white" />
+                  <div className="text-center mb-6">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mx-auto mb-3`}>
+                      <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{plan.description}</p>
                     <div className="flex items-baseline justify-center">
-                      <span className="text-5xl font-bold text-gray-900">{displayPrice}€</span>
-                      <span className="text-gray-600 ml-2">{periodText}</span>
+                      <span className="text-4xl font-bold text-gray-900 dark:text-white">{displayPrice}€</span>
+                      <span className="text-gray-600 dark:text-gray-300 ml-2">{periodText}</span>
                     </div>
                     {billingCycle === 'year' && (
-                      <p className="text-green-600 text-sm mt-2">
+                      <p className="text-green-600 dark:text-green-400 text-sm mt-2">
                         Économisez {plan.price * 12 * 0.2}€ par an
                       </p>
                     )}
                   </div>
 
                   {/* Features */}
-                  <div className="space-y-3 mb-8">
+                  <div className="space-y-2 mb-6">
                     {plan.features.map((feature, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700 text-sm">{feature}</span>
+                      <div key={index} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700 dark:text-gray-300 text-sm">{feature}</span>
                       </div>
                     ))}
                   </div>
@@ -324,12 +324,12 @@ export default function SubscriptionPlan() {
                   {/* CTA Button */}
                   <button
                     type="button"
-                    className={`w-full py-3 px-6 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 text-sm ${
                       selectedPlan === plan.id
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : plan.popular
                         ? 'bg-gradient-to-r from-purple-600 to-purple-400 text-white hover:from-purple-700 hover:to-purple-500 shadow-lg'
-                        : 'bg-gray-900 text-white hover:bg-gray-800'
+                        : 'bg-gray-900 dark:bg-gray-700 text-white hover:bg-gray-800 dark:hover:bg-gray-600'
                     }`}
                   >
                     {selectedPlan === plan.id ? (
