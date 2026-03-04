@@ -3,6 +3,10 @@ set -eu
 
 PORT_VALUE="${PORT:-8080}"
 
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+  php artisan migrate --force
+fi
+
 cat > /etc/nginx/conf.d/default.conf <<EOF
 server {
   listen 0.0.0.0:${PORT_VALUE};
