@@ -25,6 +25,9 @@ export default function Settings() {
   const [stats, setStats] = useState(null);
   const [agents, setAgents] = useState(null);
 
+  const currentPlan = (subscription as any)?.plan || user?.pending_subscription?.plan || 'basic'
+  const currentStatus = (subscription as any)?.status || user?.pending_subscription?.status || 'active'
+
   const handleLogout = () => {
     dispatch(logout());
   };
@@ -147,13 +150,22 @@ export default function Settings() {
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-foreground">Abonnement et facturation</h2>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                subscription?.plan === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                subscription?.plan === 'pro' ? 'bg-green-100 text-green-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                Plan {subscription?.plan || 'Basic'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  currentPlan === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                  currentPlan === 'pro' ? 'bg-green-100 text-green-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  Plan {String(currentPlan).toUpperCase()}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  currentStatus === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                  currentStatus === 'canceled' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {currentStatus === 'active' ? 'Actif' : currentStatus}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -161,15 +173,15 @@ export default function Settings() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">Plan actuel</span>
                   <span className="text-2xl font-bold text-primary">
-                    {subscription?.plan === 'enterprise' ? '€149' :
-                     subscription?.plan === 'pro' ? '€49' :
-                     subscription?.plan === 'basic' ? '€19' : '€0'}/mois
+                    {currentPlan === 'enterprise' ? '€149' :
+                     currentPlan === 'pro' ? '€49' :
+                     currentPlan === 'basic' ? '€19' : '€0'}/mois
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground mb-3">
-                  {subscription?.plan === 'enterprise' ? 'Illimité agents, API complète, support prioritaire' :
-                   subscription?.plan === 'pro' ? 'Jusqu\'à 5 agents, 10 services, analytics avancées' :
-                   subscription?.plan === 'basic' ? 'Jusqu\'à 2 agents, 3 services, analytics basic' :
+                  {currentPlan === 'enterprise' ? 'Illimité agents, API complète, support prioritaire' :
+                   currentPlan === 'pro' ? 'Jusqu\'à 5 agents, 10 services, analytics avancées' :
+                   currentPlan === 'basic' ? 'Jusqu\'à 2 agents, 3 services, analytics basic' :
                    'Fonctionnalités limitées'}
                 </div>
                 <Button className="w-full" disabled={loading}>Changer de plan</Button>

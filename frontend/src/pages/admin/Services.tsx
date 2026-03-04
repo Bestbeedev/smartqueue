@@ -14,7 +14,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import { Plus, Ticket, Edit, Trash2, Pencil } from 'lucide-react'
 
-type Service = { id:number; name:string; status:string; avg_service_time_minutes?:number; priority_support?:boolean; establishment?: { id:number; name:string } }
+type Service = { id:number; name:string; status:string; avg_service_time_minutes?:number; priority_support?:boolean; capacity?: number | null; establishment?: { id:number; name:string } }
 type Establishment = { id:number; name:string }
 
 export default function Services(){
@@ -48,7 +48,8 @@ export default function Services(){
     try {
       const response = await api.get('/api/admin/services?per_page=50')
       const data = response.data.data || response.data
-      setRows(Array.isArray(data) ? data : [])
+      const arr = Array.isArray(data) ? data : []
+      setRows(arr)
       // Pas de toast ici pour éviter les messages au chargement initial
     } catch (error: any) {
       const status = error?.response?.status
@@ -152,7 +153,14 @@ export default function Services(){
       toast.success('Service mis à jour avec succès')
       setOpenEdit(false)
       setEditing(null)
-      await load()
+
+      // Optimistic UI update if API returns the updated service.
+      const updated = response?.data?.data || response?.data
+      if (updated && typeof updated === 'object' && updated.id) {
+        setRows((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)))
+      } else {
+        await load()
+      }
     } catch(e:any) {
       const status = e?.response?.status
       const message = e?.response?.data?.error?.message || e?.response?.data?.message
@@ -204,7 +212,7 @@ export default function Services(){
             </span>
           ) },
           { key:'avg_service_time_minutes', header:'Temps moyen (min)' },
-          { key:'capacity', header:'Capacité', render:(r:Service)=> ((r as any).capacity ?? '—') },
+          { key:'capacity', header:'Capacité', render:(r:Service)=> (r.capacity === null || r.capacity === undefined ? '—' : r.capacity) },
           { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
           { key:'actions', header:'Actions', render:(r:Service)=> (
             <div className="flex gap-1">
