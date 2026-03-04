@@ -44,6 +44,8 @@ const SetupEstablishment = lazy(
 
 // Pages communes
 const Settings = lazy(() => import("@/pages/Settings"));
+const Profile = lazy(() => import("@/pages/auth/user/Profile"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 
 // Composant de chargement
 const PageLoader = () => {
@@ -271,6 +273,22 @@ export default function Router() {
           element: (
             <Suspense fallback={<PageLoader />}>
               <Settings />
+            </Suspense>
+          ),
+        },
+        {
+          path: "profile",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Profile />
+            </Suspense>
+          ),
+        },
+        {
+          path: "notifications",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Notifications />
             </Suspense>
           ),
         },
