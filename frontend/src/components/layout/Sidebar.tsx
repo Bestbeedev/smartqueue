@@ -198,6 +198,7 @@ export default function Sidebar() {
   const { user } = useAppSelector((s) => s.auth);
   const role = user?.role;
   const location = useLocation();
+  const navigate = useNavigate();
 
   const toggleMenu = (menuPath: string) => {
     setExpandedMenus((prev) =>
@@ -796,13 +797,17 @@ export default function Sidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={() => navigate('/notifications')}
                   className={cn(
                     "w-full justify-center transition-all duration-300 rounded-xl",
                     "hover:bg-accent hover:scale-105",
                     "h-10 w-10 mx-auto",
+                    location.pathname === "/notifications"
+                      ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 border-blue-500"
+                      : "",
                   )}
                 >
-                  <Bell size={18} className="text-muted-foreground" />
+                  <Bell size={18} className={location.pathname === "/notifications" ? "text-white" : "text-muted-foreground"} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-background border-border">
@@ -817,13 +822,17 @@ export default function Sidebar() {
           <Button
             variant="ghost"
             size="default"
+            onClick={() => navigate('/notifications')}
             className={cn(
               "w-full justify-center transition-all duration-300 rounded-xl",
               "hover:bg-accent hover:scale-105",
+              location.pathname === "/notifications"
+                ? "bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg shadow-blue-500/25 border-blue-500"
+                : "",
             )}
           >
-            <Bell size={18} className="text-muted-foreground" />
-            <span className="ml-3 text-foreground">Notifications</span>
+            <Bell size={18} className={location.pathname === "/notifications" ? "text-white" : "text-muted-foreground"} />
+            <span className="ml-3 text-white">Notifications</span>
             <div className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           </Button>
         )}

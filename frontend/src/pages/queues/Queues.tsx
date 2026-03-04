@@ -415,7 +415,7 @@ const Queues: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className=" mx-auto">
         <div className="bg-card rounded-2xl shadow-xl overflow-hidden mb-8 border border-border">
           {/* En-tête */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">

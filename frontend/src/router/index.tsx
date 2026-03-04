@@ -44,6 +44,8 @@ const SetupEstablishment = lazy(
 
 // Pages communes
 const Settings = lazy(() => import("@/pages/Settings"));
+const Profile = lazy(() => import("@/pages/auth/user/Profile"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 
 // Composant de chargement
 const PageLoader = () => {
@@ -61,7 +63,7 @@ const PageLoader = () => {
 
         {/* Text */}
         <div className="text-center space-y-1">
-          <p className="text-lg font-medium tracking-wide">Chargement</p>
+          <p className="text-lg font-medium tracking-wide">Chargement des données</p>
           <p className="text-sm text-muted-foreground animate-pulse">
             Préparation de votre expérience...
           </p>
@@ -70,6 +72,25 @@ const PageLoader = () => {
     </div>
   );
 };
+
+// Composant de chargement simple
+const PageLoaderSample = () => {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="relative flex flex-col items-center gap-6">
+        {/* Glow */}
+        <div className="absolute w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse" />
+
+        {/* Spinner ring */}
+        <div className="relative h-8 w-8">
+          <div className="absolute inset-0 rounded-full border-4 " />
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default function Router() {
   const { user, isAuthenticated } = useAuth();
@@ -95,7 +116,7 @@ export default function Router() {
     {
       path: "/login",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <Login />
         </Suspense>
       ),
@@ -103,7 +124,7 @@ export default function Router() {
     {
       path: "/signup",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <Signup />
         </Suspense>
       ),
@@ -111,7 +132,7 @@ export default function Router() {
     {
       path: "/subscription",
       element: (
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<PageLoaderSample />}>
           <SubscriptionPlan />
         </Suspense>
       ),
@@ -252,6 +273,22 @@ export default function Router() {
           element: (
             <Suspense fallback={<PageLoader />}>
               <Settings />
+            </Suspense>
+          ),
+        },
+        {
+          path: "profile",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Profile />
+            </Suspense>
+          ),
+        },
+        {
+          path: "notifications",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Notifications />
             </Suspense>
           ),
         },
