@@ -599,7 +599,7 @@ export default function Agents() {
 
       {/* Modal de création */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] shadow-lg">
           <form onSubmit={handleSubmit(onSubmit)}>
             <DialogHeader>
               <DialogTitle>Ajouter un nouvel agent</DialogTitle>
