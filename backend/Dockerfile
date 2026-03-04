@@ -1,41 +1,39 @@
 FROM php:8.2-fpm
 
-# Installation des dépendances système
+# 1. Dépendances système (avec libpq-dev corrigé)
 RUN apt-get update && apt-get install -y \
     git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libicu-dev \
+    libpq-dev \
     nginx supervisor \
     && docker-php-ext-configure intl \
     && docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip exif pcntl bcmath intl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Composer
+# 2. Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Optimisation du cache : on installe les libs avant de copier tout le code
+# 3. Cache libs
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Copie du code avec les bonnes permissions pour PHP-FPM (www-data)
+# 4. Code & Permissions
 COPY --chown=www-data:www-data . .
 
-# Permissions runtime (Laravel)
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R ug+rwX storage bootstrap/cache
+    && chmod -R ug+rwX storage bootstrap/cache \
+    && composer dump-autoload --optimize
 
-# Finalisation de l'autoloader et scripts
-RUN composer dump-autoload --optimize
-
+# 5. Nettoyage Nginx (pour laisser start.sh configurer le port)
 RUN rm -f /etc/nginx/sites-enabled/default
 
-RUN chmod +x /var/www/html/start.sh
-
-# Supervisor config to run php-fpm + nginx
+# 6. Config Supervisor
 RUN printf '%s\n' \
   '[supervisord]' \
   'nodaemon=true' \
+  'user=root' \
   '' \
   '[program:php-fpm]' \
   'command=php-fpm -F' \
@@ -53,6 +51,8 @@ RUN printf '%s\n' \
   'stderr_logfile=/dev/stderr' \
   'stderr_logfile_maxbytes=0' \
   > /etc/supervisor/conf.d/supervisord.conf
+
+RUN chmod +x /var/www/html/start.sh
 
 EXPOSE 8080
 
