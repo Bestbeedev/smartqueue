@@ -56,7 +56,7 @@ class OnboardingController extends Controller
         if (!$user) {
             abort(401, 'Unauthenticated');
         }
-        if ($user->role !== 'admin') {
+        if (!in_array($user->role, ['user', 'admin'], true)) {
             abort(403, 'Forbidden');
         }
 
@@ -78,7 +78,24 @@ class OnboardingController extends Controller
             ],
         ])->save();
 
+        // Promote newly subscribed user to admin (scoped admin must create establishment next)
+        if ($user->role === 'user') {
+            $user->forceFill([
+                'role' => 'admin',
+                'establishment_id' => null,
+            ])->save();
+        }
+
         return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+                'establishment_id' => $user->establishment_id,
+                'pending_subscription' => $user->pending_subscription,
+            ],
             'pending_subscription' => $user->pending_subscription,
             'next_step' => 'create_establishment',
         ]);
