@@ -20,7 +20,17 @@ class EstablishmentController extends Controller
         $lng = $request->query('lng');
         $radius = (int) ($request->query('radius', 5000)); // mètres
 
-        $query = Establishment::query()->where('is_active', true);
+        $query = Establishment::query()
+            ->where('is_active', true)
+            ->leftJoin('services', 'services.establishment_id', '=', 'establishments.id')
+            ->leftJoin('tickets', function ($join) {
+                $join->on('tickets.service_id', '=', 'services.id')
+                    ->where('tickets.status', '=', 'waiting');
+            })
+            ->select('establishments.*')
+            ->selectRaw('COUNT(tickets.id) as people_waiting')
+            ->selectRaw("CASE WHEN COUNT(tickets.id) >= 16 THEN 'high' WHEN COUNT(tickets.id) >= 6 THEN 'medium' ELSE 'low' END as crowd_level")
+            ->groupBy('establishments.id');
 
         if ($lat !== null && $lng !== null) {
             // Formule Haversine approchée (compatible SQLite/MySQL/Postgres)

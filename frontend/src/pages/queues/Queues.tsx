@@ -4,12 +4,18 @@
  * - Actions: appeler suivant, marquer absent, rappeler
  * - Écoute temps réel des évènements via Laravel Echo
  */
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Ticket, User, Users, TrendingUp, RefreshCw } from "lucide-react";
-import { getEcho } from "@/api/echo";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import React, { useEffect, useState } from 'react';
+import { 
+  Ticket, 
+  User, 
+  Users, 
+  TrendingUp, 
+  RefreshCw 
+} from 'lucide-react';
+import { getEcho } from '@/api/echo';
+import { cn } from '@/lib/utils';
+import { api } from '@/api/axios';
+import { useAppSelector } from '@/store';
 
 type Ticket = {
   id: number;
@@ -30,16 +36,45 @@ type ServiceStats = {
   average_wait_time: string;
 };
 
+type AssignedService = {
+  id: number;
+  name: string;
+  status: string;
+  avg_service_time_minutes?: number;
+  priority_support?: boolean;
+  capacity?: number | null;
+};
+
+type Counter = {
+  id: number;
+  name: string;
+  status: string;
+  current_agent_id?: number | null;
+};
+
 const Queues: React.FC = () => {
-  const [serviceId, setServiceId] = useState<string>("");
+  const { user } = useAppSelector((s) => s.auth);
+  const assignedServices = (user as any)?.services as AssignedService[] | undefined;
+  const counters = (user as any)?.counters as Counter[] | undefined;
+
+  const [serviceId, setServiceId] = useState<string>('');
+  const [counterId, setCounterId] = useState<string>('');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [queue, setQueue] = useState<any[]>([]);
   const [stats, setStats] = useState<ServiceStats | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-  const [lastUpdated, setLastUpdated] = useState<string>("");
-  const navigate = useNavigate();
+  const [isActing, setIsActing] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<string>('');
   const echo = getEcho();
+
+  // Default service selection from assigned services
+  useEffect(() => {
+    if (!serviceId && assignedServices && assignedServices.length > 0) {
+      setServiceId(String(assignedServices[0].id));
+    }
+  }, [serviceId, assignedServices]);
 
   const fetchService = async (id: string) => {
     const numericId = Number(id);
@@ -51,6 +86,129 @@ const Queues: React.FC = () => {
       throw new Error("Service introuvable");
     }
     return r.json();
+  };
+
+  const fetchQueue = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new Error('Identifiant de service invalide');
+    }
+    const { data } = await api.get(`/api/services/${numericId}/queue`);
+    return data;
+  };
+
+  const refreshQueueAndStats = async () => {
+    if (!serviceId) return;
+    try {
+      const [q, s] = await Promise.all([fetchQueue(serviceId), fetchStats(serviceId)]);
+      setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+      const mapped: ServiceStats = {
+        service_id: Number(serviceId),
+        service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+        waiting: Number(s?.people ?? s?.waiting ?? 0),
+        processed: Number(s?.processed ?? 0),
+        average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+      };
+      setStats(mapped);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (e: any) {
+      setError(e?.message || 'Erreur');
+    }
+  };
+
+  const callNext = async () => {
+    if (!serviceId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      const numericCounterId = counterId ? Number(counterId) : null;
+      await api.post(`/api/services/${Number(serviceId)}/call-next`, { counter_id: numericCounterId });
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const openService = async () => {
+    if (!serviceId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/services/${Number(serviceId)}/open`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const closeService = async () => {
+    if (!serviceId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/services/${Number(serviceId)}/close`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const openCounter = async () => {
+    if (!counterId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/counters/${Number(counterId)}/open`);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const closeCounter = async () => {
+    if (!counterId) return;
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/counters/${Number(counterId)}/close`);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const markAbsent = async (ticketId: number) => {
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/tickets/${ticketId}/mark-absent`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const recall = async (ticketId: number) => {
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/tickets/${ticketId}/recall`);
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+    } finally {
+      setIsActing(false);
+    }
   };
 
   const fetchStats = async (id: string) => {
@@ -83,6 +241,16 @@ const Queues: React.FC = () => {
         await fetchService(serviceId);
         if (cancelled) return;
 
+        // Initial load (queue + stats)
+        try {
+          const q = await fetchQueue(serviceId);
+          if (!cancelled) {
+            setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+          }
+        } catch (e: any) {
+          if (!cancelled) setError(e?.message || 'Erreur');
+        }
+
         // S'abonner au canal de présence pour le service
         channel = echo.join(`presence-service.${serviceId}`);
 
@@ -112,6 +280,15 @@ const Queues: React.FC = () => {
               ].slice(0, 10),
             ); // Garder uniquement les 10 derniers tickets
             setLastUpdated(new Date().toLocaleTimeString());
+            refreshQueueAndStats();
+          })
+          .listen('.service.ticket.enqueued', () => {
+            if (cancelled) return;
+            refreshQueueAndStats();
+          })
+          .listen('.service.ticket.absent', () => {
+            if (cancelled) return;
+            refreshQueueAndStats();
           })
           .listen(".service.stats.updated", (e: any) => {
             console.log("Statistiques mises à jour:", e);
@@ -133,9 +310,10 @@ const Queues: React.FC = () => {
       cancelled = true;
       try {
         if (channel) {
-          channel.stopListening(".service.ticket.called");
-          channel.stopListening(".service.stats.updated");
-          echo.leave(`presence-service.${serviceId}`);
+          channel.stopListening('.service.ticket.called');
+          channel.stopListening('.service.ticket.enqueued');
+          channel.stopListening('.service.ticket.absent');
+          channel.stopListening('.service.stats.updated');
         }
       } catch (error) {
         console.error("Erreur lors du nettoyage du canal:", error);
@@ -258,29 +436,41 @@ const Queues: React.FC = () => {
             </div>
           </div>
 
-          {/* Formulaire de sélection du service */}
+          {/* Sélection du service */}
           <div className="p-6 border-b border-border">
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label
-                    htmlFor="serviceId"
-                    className="block text-sm font-medium text-foreground mb-1"
-                  >
-                    Identifiant du service
+                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
+                    Service
                   </label>
                   <div className="relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Ticket className="h-5 w-5 text-blue-500" />
                     </div>
-                    <input
-                      type="text"
-                      id="serviceId"
-                      value={serviceId}
-                      onChange={(e) => setServiceId(e.target.value)}
-                      placeholder="Entrez l'ID du service"
-                      className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 border-border rounded-lg text-base bg-background placeholder:text-muted-foreground"
-                    />
+                    {assignedServices && assignedServices.length > 0 ? (
+                      <select
+                        id="serviceId"
+                        value={serviceId}
+                        onChange={(e) => setServiceId(e.target.value)}
+                        className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 border-border rounded-lg text-base bg-background"
+                      >
+                        {assignedServices.map((s) => (
+                          <option key={s.id} value={String(s.id)}>
+                            {s.name} ({s.status})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        id="serviceId"
+                        value={serviceId}
+                        onChange={(e) => setServiceId(e.target.value)}
+                        placeholder="Entrez l'ID du service"
+                        className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-12 border-border rounded-lg text-base bg-background placeholder:text-muted-foreground"
+                      />
+                    )}
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                       <button
                         type="submit"
@@ -409,6 +599,184 @@ const Queues: React.FC = () => {
 
           {/* Derniers tickets appelés */}
           <div className="p-6">
+            {serviceId && (
+              <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={callNext}
+                    disabled={!isConnected || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!isConnected || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                    )}
+                  >
+                    Appeler suivant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openService}
+                    disabled={!serviceId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!serviceId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Ouvrir service
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeService}
+                    disabled={!serviceId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!serviceId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Fermer service
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refreshQueueAndStats}
+                    disabled={!serviceId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!serviceId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Rafraîchir la file
+                  </button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {isActing ? 'Action en cours…' : ''}
+                </div>
+              </div>
+            )}
+
+            {counters && counters.length > 0 && (
+              <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center">
+                <div className="w-full md:w-96">
+                  <label htmlFor="counterId" className="block text-sm font-medium text-foreground mb-1">
+                    Guichet
+                  </label>
+                  <select
+                    id="counterId"
+                    value={counterId}
+                    onChange={(e) => setCounterId(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">— Aucun guichet —</option>
+                    {counters.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.name} ({c.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <button
+                    type="button"
+                    onClick={openCounter}
+                    disabled={!counterId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!counterId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Ouvrir guichet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeCounter}
+                    disabled={!counterId || isActing}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      (!counterId || isActing)
+                        ? 'bg-muted text-muted-foreground border-border'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
+                    )}
+                  >
+                    Fermer guichet
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {serviceId && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-foreground mb-3">File actuelle</h2>
+                {queue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Aucun ticket en waiting/called/absent</div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-border">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-card divide-y divide-border">
+                          {queue.map((t: any) => (
+                            <tr key={t.id} className="hover-card transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="font-semibold text-foreground">{t.number}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.status}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.priority}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => markAbsent(Number(t.id))}
+                                    disabled={isActing || t.status !== 'called'}
+                                    className={cn(
+                                      'px-3 py-1 rounded-md text-xs font-medium border',
+                                      (isActing || t.status !== 'called')
+                                        ? 'bg-muted text-muted-foreground border-border'
+                                        : 'bg-red-600 text-white border-red-600 hover:bg-red-700'
+                                    )}
+                                  >
+                                    Absent
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => recall(Number(t.id))}
+                                    disabled={isActing || t.status === 'waiting'}
+                                    className={cn(
+                                      'px-3 py-1 rounded-md text-xs font-medium border',
+                                      (isActing || t.status === 'waiting')
+                                        ? 'bg-muted text-muted-foreground border-border'
+                                        : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                                    )}
+                                  >
+                                    Recall
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center">
                 <Ticket className="mr-2 text-blue-600" />

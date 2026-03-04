@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'profile_provider.dart';
+import 'notification_preferences_provider.dart';
 import '../auth/auth_repository.dart';
 import '../../core/app_router.dart';
 
@@ -11,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncUser = ref.watch(currentUserProvider);
+    final prefsAsync = ref.watch(notificationPreferencesProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
       body: asyncUser.when(
@@ -44,12 +46,66 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const Text('Préférences', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                SwitchListTile(
-                  value: true,
-                  onChanged: (_) {},
-                  title: const Text('Notifications push'),
-                  subtitle: const Text('Recevoir des alertes sur l’avancée de la file'),
-                ),
+                if (user == null)
+                  const Text('Connectez-vous pour configurer vos notifications.')
+                else
+                  prefsAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    ),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text('Erreur préférences: $e'),
+                    ),
+                    data: (prefs) {
+                      return Column(
+                        children: [
+                          SwitchListTile(
+                            value: prefs.pushEnabled,
+                            onChanged: (v) => ref.read(notificationPreferencesProvider.notifier).setPushEnabled(v),
+                            title: const Text('Notifications push'),
+                            subtitle: const Text('Recevoir des alertes sur l’avancée de la file'),
+                          ),
+                          SwitchListTile(
+                            value: prefs.smsEnabled,
+                            onChanged: (v) => ref.read(notificationPreferencesProvider.notifier).setSmsEnabled(v),
+                            title: const Text('Notifications SMS'),
+                            subtitle: const Text('Recevoir un SMS quand votre tour approche'),
+                          ),
+                          const SizedBox(height: 8),
+                          ListTile(
+                            title: const Text('Alerter quand la position ≤'),
+                            trailing: DropdownButton<int>(
+                              value: prefs.notifyBeforePositions,
+                              items: const [0, 1, 2, 3, 4, 5, 10]
+                                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  ref.read(notificationPreferencesProvider.notifier).setNotifyBeforePositions(v);
+                                }
+                              },
+                            ),
+                          ),
+                          ListTile(
+                            title: const Text('Alerter quand ETA ≤ (minutes)'),
+                            trailing: DropdownButton<int>(
+                              value: prefs.notifyBeforeMinutes,
+                              items: const [0, 3, 5, 10, 15, 20, 30]
+                                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  ref.read(notificationPreferencesProvider.notifier).setNotifyBeforeMinutes(v);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 const Spacer(),
                 Row(
                   children: [
