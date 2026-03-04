@@ -832,7 +832,7 @@ export default function Sidebar() {
             )}
           >
             <Bell size={18} className={location.pathname === "/notifications" ? "text-white" : "text-muted-foreground"} />
-            <span className="ml-3 text-white">Notifications</span>
+            <span className={location.pathname === "/notifications" ? "text-white ml-3" : "text-foreground ml-3"}>Notifications</span>
             <div className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           </Button>
         )}
