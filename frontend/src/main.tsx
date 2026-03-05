@@ -6,6 +6,7 @@ import './index.css'
 import App from './App'
 import { store } from './store'
 import { ThemeProvider } from './components/theme-provider'
+import { Analytics } from "@vercel/analytics/react"
 import Router from './router/index'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       >
         <Router />
         <App />
+        <Analytics/>
       </ThemeProvider>
     </Provider>
   </React.StrictMode>
