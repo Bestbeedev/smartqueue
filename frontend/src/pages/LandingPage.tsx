@@ -308,6 +308,98 @@ const Testimonials = ({ t }: { t: any }) => {
   );
 };
 
+const FAQ = ({ t }: { t: any }) => {
+  const faqs = [
+    {
+      q: "Comment fonctionne SmartQueue ?",
+      a: "SmartQueue est un système de gestion de files d'attente intelligent. Les clients prennent un ticket via une interface web ou mobile, reçoivent des notifications en temps réel, et les agents gèrent l'appel depuis un tableau de bord simple."
+    },
+    {
+      q: "Est-ce compatible avec mon système actuel ?",
+      a: "SmartQueue s'intègre facilement avec vos systèmes existants via notre API REST. Nous proposons également des connecteurs pour les principaux logiciels de gestion et CRM."
+    },
+    {
+      q: "Quelles sont les données collectées ?",
+      a: "Nous collectons uniquement les données nécessaires au fonctionnement du service : temps d'attente, nombre de clients, et statistiques d'utilisation. Toutes les données sont sécurisées et conformes au RGPD."
+    },
+    {
+      q: "Comment les clients sont-ils notifiés ?",
+      a: "Les clients peuvent recevoir des notifications par SMS, email, ou via notre application mobile. Ils peuvent également consulter l'affichage en temps réel sur écran dans votre établissement."
+    },
+    {
+      q: "Quel est le temps de mise en place ?",
+      a: "La mise en place est généralement effectuée en moins de 48h. Nos équipes vous accompagnent pour l'installation, la configuration et la formation de vos agents."
+    },
+    {
+      q: "Puis-je personnaliser l'interface ?",
+      a: "Oui, vous pouvez personnaliser les couleurs, logos, et messages pour correspondre à votre identité visuelle. La version Enterprise offre même une solution white-label complète."
+    }
+  ];
+
+  return (
+    <section id="faq" className="py-24 px-6" style={{ background: t.surface }}>
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-16 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Questions fréquentes</p>
+          <h2 className="text-[clamp(24px,4vw,42px)] font-black tracking-tight" style={{ color: t.text }}>Vous avez des questions ?</h2>
+        </div>
+        <div className="space-y-4">
+          {faqs.map((faq, i) => (
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, y: 20 }} 
+              whileInView={{ opacity: 1, y: 0 }} 
+              viewport={{ once: true }} 
+              transition={{ delay: i * 0.1 }}
+              className="p-6 rounded-2xl border" 
+              style={{ background: t.bg, borderColor: t.border }}
+            >
+              <h3 className="text-sm font-bold mb-3" style={{ color: t.text }}>{faq.q}</h3>
+              <p className="text-xs leading-relaxed" style={{ color: t.textMid }}>{faq.a}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const Stats = ({ t }: { t: any }) => {
+  const stats = [
+    { label: "Établissements", value: "500+", desc: "Nous font confiance" },
+    { label: "Tickets gérés", value: "2M+", desc: "Chaque mois" },
+    { label: "Temps d'attente réduit", value: "-45%", desc: "En moyenne" },
+    { label: "Satisfaction client", value: "98%", desc: "Taux de satisfaction" },
+  ];
+
+  return (
+    <section className="py-24 px-6" style={{ background: t.bg }}>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-16 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Chiffres clés</p>
+          <h2 className="text-[clamp(24px,4vw,42px)] font-black tracking-tight" style={{ color: t.text }}>L'impact SmartQueue.</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {stats.map((stat, i) => (
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, scale: 0.9 }} 
+              whileInView={{ opacity: 1, scale: 1 }} 
+              viewport={{ once: true }} 
+              transition={{ delay: i * 0.1 }}
+              className="text-center"
+            >
+              <div className="text-4xl lg:text-5xl font-black mb-2" style={{ color: t.accent }}>{stat.value}</div>
+              <div className="text-sm font-bold mb-1" style={{ color: t.text }}>{stat.label}</div>
+              <div className="text-xs" style={{ color: t.textMid }}>{stat.desc}</div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const Pricing = ({ t }: { t: any }) => {
   const plans = [
     { name: "Starter", price: "0", desc: "Pour les petits commerces", features: ["1 service", "100 tickets/jour", "Interface Web Agent"] },
@@ -371,7 +463,7 @@ export default function LandingPage() {
               <span>SmartQueue</span>
             </Link>
             <div className="hidden md:flex items-center gap-6">
-              {['Features', 'Ecosystem', 'Pricing'].map(item => (
+              {['Features', 'Ecosystem', 'FAQ', 'Pricing'].map(item => (
                 <a key={item} href={`#${item.toLowerCase()}`} className="text-[12px] font-semibold hover:opacity-50 transition-opacity" style={{ color: t.textMid }}>{item}</a>
               ))}
             </div>
@@ -389,6 +481,8 @@ export default function LandingPage() {
         <Features t={t} />
         <Testimonials t={t} />
         <Pricing t={t} />
+        <FAQ t={t} />
+        <Stats t={t} />
         <section className="py-32 px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto rounded-[48px] p-12 md:p-20 text-center text-white space-y-8 relative overflow-hidden" style={{ background: t.accent }}>
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />

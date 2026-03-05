@@ -149,3 +149,4 @@ migrate_working_dir/
 
 # Local configuration
 config/local.php
+.vercel
