@@ -3,17 +3,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { 
   Bell, 
   Check, 
@@ -24,11 +13,10 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock,
-  Plus,
-  Send
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/api/axios';
 
 interface Notification {
   id: string;
@@ -41,101 +29,88 @@ interface Notification {
   actionUrl?: string;
 }
 
+interface NotificationDb {
+  id: string;
+  type?: string;
+  data?: any;
+  read_at?: string | null;
+  created_at?: string;
+}
+
+const toRelativeTime = (iso?: string) => {
+  if (!iso) return '';
+  const dt = new Date(iso);
+  const diff = Date.now() - dt.getTime();
+  const s = Math.max(0, Math.floor(diff / 1000));
+  if (s < 60) return "À l'instant";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `Il y a ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  return `Il y a ${d} j`;
+};
+
+const normalizeNotification = (n: NotificationDb): Notification => {
+  const rawType = (n.data?.type || n.data?.level || n.type || 'info') as string;
+  const type: Notification['type'] =
+    rawType === 'success' || rawType === 'warning' || rawType === 'error' || rawType === 'info'
+      ? (rawType as any)
+      : 'info';
+
+  const rawCategory = (n.data?.category || n.data?.scope || 'system') as string;
+  const category: Notification['category'] =
+    rawCategory === 'ticket' || rawCategory === 'system' || rawCategory === 'queue' || rawCategory === 'user'
+      ? (rawCategory as any)
+      : 'system';
+
+  const title = n.data?.title || n.data?.subject || n.data?.name || 'Notification';
+  const message = n.data?.message || n.data?.body || n.data?.content || '';
+  const actionUrl = n.data?.actionUrl || n.data?.action_url || n.data?.url;
+
+  return {
+    id: String(n.id),
+    title: String(title),
+    message: String(message),
+    time: toRelativeTime(n.created_at),
+    read: !!n.read_at,
+    type,
+    category,
+    actionUrl: typeof actionUrl === 'string' ? actionUrl : undefined,
+  };
+};
+
 export default function Notifications() {
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [creatingNotification, setCreatingNotification] = useState(false);
-  
-  // Form state for creating notifications
-  const [newNotification, setNewNotification] = useState({
-    title: '',
-    message: '',
-    type: 'info' as 'info' | 'success' | 'warning' | 'error',
-    category: 'system' as 'ticket' | 'system' | 'queue' | 'user',
-    targetRole: 'all' as 'all' | 'admin' | 'agent' | 'user'
-  });
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  // Mock notifications - à remplacer avec l'API
-  useEffect(() => {
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        title: 'Nouveau ticket créé',
-        message: 'Un nouveau ticket a été ajouté à la file A avec priorité haute',
-        time: 'Il y a 2 min',
-        read: false,
-        type: 'info',
-        category: 'ticket',
-        actionUrl: '/queues'
-      },
-      {
-        id: '2',
-        title: 'Ticket prioritaire en attente',
-        message: 'Le ticket #123 nécessite une attention immédiate - client en attente depuis 15 minutes',
-        time: 'Il y a 5 min',
-        read: false,
-        type: 'warning',
-        category: 'queue',
-        actionUrl: '/queues/priority'
-      },
-      {
-        id: '3',
-        title: 'File traitée avec succès',
-        message: 'La file B a été complètement traitée. 45 tickets ont été servis.',
-        time: 'Il y a 10 min',
-        read: true,
-        type: 'success',
-        category: 'queue'
-      },
-      {
-        id: '4',
-        title: 'Erreur de connexion',
-        message: 'Une tentative de connexion non autorisée a été détectée sur votre compte',
-        time: 'Il y a 1 heure',
-        read: false,
-        type: 'error',
-        category: 'system'
-      },
-      {
-        id: '5',
-        title: 'Mise à jour du système',
-        message: 'Le système sera mis à jour demain à 2h00. Prévoyez une interruption de 15 minutes.',
-        time: 'Il y a 2 heures',
-        read: true,
-        type: 'info',
-        category: 'system'
-      },
-      {
-        id: '6',
-        title: 'Nouvel agent ajouté',
-        message: 'Jean Dupont a été ajouté comme agent à votre établissement',
-        time: 'Il y a 3 heures',
-        read: true,
-        type: 'success',
-        category: 'user'
-      },
-      {
-        id: '7',
-        title: 'Temps d\'attente élevé',
-        message: 'Le temps d\'attente moyen dans la file C dépasse 20 minutes',
-        time: 'Il y a 4 heures',
-        read: false,
-        type: 'warning',
-        category: 'queue'
-      }
-    ];
-
-    setTimeout(() => {
-      setNotifications(mockNotifications);
+  const fetchNotifications = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = await api.get('/api/notifications?per_page=50');
+      const items: NotificationDb[] = Array.isArray(data?.data) ? data.data : [];
+      setNotifications(items.map(normalizeNotification));
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Impossible de charger les notifications';
+      setLoadError(msg);
+      setNotifications([]);
+    } finally {
       setLoading(false);
-    }, 1000);
-  }, []);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const filteredNotifications = notifications.filter(notification => {
     const matchesReadStatus = 
@@ -152,78 +127,45 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(n => ({ ...n, read: true }))
-    );
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
-  const handleCreateNotification = async () => {
-    if (!newNotification.title.trim() || !newNotification.message.trim()) {
-      alert('Veuillez remplir tous les champs obligatoires');
-      return;
-    }
-
-    setCreatingNotification(true);
-    
+  const markAsRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     try {
-      // Simuler API call - remplacer avec vrai appel API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const notification: Notification = {
-        id: Date.now().toString(),
-        title: newNotification.title,
-        message: newNotification.message,
-        time: 'À l\'instant',
-        read: false,
-        type: newNotification.type,
-        category: newNotification.category
-      };
-
-      setNotifications(prev => [notification, ...prev]);
-      
-      // Reset form
-      setNewNotification({
-        title: '',
-        message: '',
-        type: 'info',
-        category: 'system',
-        targetRole: 'all'
-      });
-      setShowCreateForm(false);
-      
-      alert('Notification créée avec succès!');
-    } catch (error) {
-      console.error('Erreur création notification:', error);
-      alert('Erreur lors de la création de la notification');
-    } finally {
-      setCreatingNotification(false);
+      await api.post(`/api/notifications/${id}/read`);
+    } catch (e) {
+      await fetchNotifications();
     }
   };
 
-  const handleCancelCreate = () => {
-    setNewNotification({
-      title: '',
-      message: '',
-      type: 'info',
-      category: 'system',
-      targetRole: 'all'
-    });
-    setShowCreateForm(false);
+  const markAllAsRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    if (unread.length === 0) return;
+
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try {
+      await Promise.all(unread.map(n => api.post(`/api/notifications/${n.id}/read`)));
+    } catch (e) {
+      await fetchNotifications();
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await api.delete(`/api/notifications/${id}`);
+    } catch (e) {
+      await fetchNotifications();
+    }
+  };
+
+  const clearAll = async () => {
+    if (notifications.length === 0) return;
+    const ids = notifications.map(n => n.id);
+    setNotifications([]);
+    try {
+      await Promise.all(ids.map(id => api.delete(`/api/notifications/${id}`)));
+    } catch (e) {
+      await fetchNotifications();
+    }
   };
 
   const getNotificationIcon = (type: Notification['type']) => {
@@ -283,136 +225,6 @@ export default function Notifications() {
 
         {/* Actions rapides */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {isAdmin && (
-            <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="default"
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Créer une notification
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <Send className="h-5 w-5" />
-                    Créer une nouvelle notification
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="title">Titre *</Label>
-                      <Input
-                        id="title"
-                        value={newNotification.title}
-                        onChange={(e) => setNewNotification(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Titre de la notification"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="type">Type</Label>
-                      <Select value={newNotification.type} onValueChange={(value: any) => setNewNotification(prev => ({ ...prev, type: value }))}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="info">
-                            <div className="flex items-center gap-2">
-                              <Info className="h-4 w-4 text-blue-500" />
-                              Information
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="success">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              Succès
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="warning">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4 text-orange-500" />
-                              Alerte
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="error">
-                            <div className="flex items-center gap-2">
-                              <XCircle className="h-4 w-4 text-red-500" />
-                              Erreur
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="message">Message *</Label>
-                    <Textarea
-                      id="message"
-                      value={newNotification.message}
-                      onChange={(e) => setNewNotification(prev => ({ ...prev, message: e.target.value }))}
-                      placeholder="Contenu détaillé de la notification"
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="category">Catégorie</Label>
-                      <Select value={newNotification.category} onValueChange={(value: any) => setNewNotification(prev => ({ ...prev, category: value }))}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="system">Système</SelectItem>
-                          <SelectItem value="ticket">Tickets</SelectItem>
-                          <SelectItem value="queue">Files d'attente</SelectItem>
-                          <SelectItem value="user">Utilisateurs</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="targetRole">Destinataires</Label>
-                      <Select value={newNotification.targetRole} onValueChange={(value: any) => setNewNotification(prev => ({ ...prev, targetRole: value }))}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les utilisateurs</SelectItem>
-                          <SelectItem value="admin">Administrateurs</SelectItem>
-                          <SelectItem value="agent">Agents</SelectItem>
-                          <SelectItem value="user">Utilisateurs</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 pt-4">
-                    <Button 
-                      onClick={handleCreateNotification}
-                      disabled={creatingNotification || !newNotification.title.trim() || !newNotification.message.trim()}
-                      className="flex items-center gap-2"
-                    >
-                      <Send className="h-4 w-4" />
-                      {creatingNotification ? 'Création...' : 'Envoyer la notification'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={handleCancelCreate}
-                      disabled={creatingNotification}
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
           <Button 
             variant="outline" 
             size="sm" 
@@ -448,21 +260,30 @@ export default function Notifications() {
                 <Button
                   variant={filter === 'all' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setFilter('all')}
+                  onClick={() => {
+                    setFilter('all');
+                    setTypeFilter('all');
+                  }}
                 >
                   Tout ({notifications.length})
                 </Button>
                 <Button
                   variant={filter === 'unread' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setFilter('unread')}
+                  onClick={() => {
+                    setFilter('unread');
+                    setTypeFilter('all');
+                  }}
                 >
                   Non lues ({unreadCount})
                 </Button>
                 <Button
                   variant={filter === 'read' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setFilter('read')}
+                  onClick={() => {
+                    setFilter('read');
+                    setTypeFilter('all');
+                  }}
                 >
                   Lues ({notifications.length - unreadCount})
                 </Button>
@@ -537,6 +358,19 @@ export default function Notifications() {
             </Card>
           ))}
         </div>
+      ) : loadError && notifications.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Erreur de chargement
+            </h3>
+            <p className="text-muted-foreground mb-6">{loadError}</p>
+            <Button variant="outline" onClick={fetchNotifications}>
+              Réessayer
+            </Button>
+          </CardContent>
+        </Card>
       ) : filteredNotifications.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">

@@ -188,9 +188,14 @@ export default function Settings() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className={`border rounded-lg p-3 text-center ${
-                  subscription?.plan === 'basic' ? 'border-2 border-primary bg-primary/5' : 'border-border'
+                <div className={`border rounded-lg p-3 text-center relative ${
+                  currentPlan === 'basic' ? 'border-2 border-primary bg-primary/5' : 'border-border'
                 }`}>
+                  {currentPlan === 'basic' && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
+                      Actuel
+                    </span>
+                  )}
                   <h4 className="font-medium mb-1">Basic</h4>
                   <p className="text-2xl font-bold mb-1">€19</p>
                   <p className="text-xs text-muted-foreground">/mois</p>
@@ -200,9 +205,14 @@ export default function Settings() {
                     <li>• Analytics basic</li>
                   </ul>
                 </div>
-                <div className={`border rounded-lg p-3 text-center ${
-                  subscription?.plan === 'pro' ? 'border-2 border-primary bg-primary/5' : 'border-border'
+                <div className={`border rounded-lg p-3 text-center relative ${
+                  currentPlan === 'pro' ? 'border-2 border-primary bg-primary/5' : 'border-border'
                 }`}>
+                  {currentPlan === 'pro' && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
+                      Actuel
+                    </span>
+                  )}
                   <h4 className="font-medium mb-1">Pro</h4>
                   <p className="text-2xl font-bold mb-1 text-primary">€49</p>
                   <p className="text-xs text-muted-foreground">/mois</p>
@@ -212,9 +222,14 @@ export default function Settings() {
                     <li>• Analytics avancées</li>
                   </ul>
                 </div>
-                <div className={`border rounded-lg p-3 text-center ${
-                  subscription?.plan === 'enterprise' ? 'border-2 border-primary bg-primary/5' : 'border-border'
+                <div className={`border rounded-lg p-3 text-center relative ${
+                  currentPlan === 'enterprise' ? 'border-2 border-primary bg-primary/5' : 'border-border'
                 }`}>
+                  {currentPlan === 'enterprise' && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground">
+                      Actuel
+                    </span>
+                  )}
                   <h4 className="font-medium mb-1">Enterprise</h4>
                   <p className="text-2xl font-bold mb-1">€149</p>
                   <p className="text-xs text-muted-foreground">/mois</p>
