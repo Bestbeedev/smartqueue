@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 const T = {
   dark: {
     bg: "#000000",
-    surface: "#0A0A0F",
+    surface: "#212529",
     surfaceHover: "#12121A",
     border: "rgba(255,255,255,0.06)",
     borderAccent: "rgba(0,113,227,0.3)",
@@ -22,7 +22,7 @@ const T = {
     purple: "#BF5AF2",
     navBg: "rgba(0,0,0,0.8)",
     glow: "rgba(0,113,227,0.1)",
-  },
+    },
   light: {
     bg: "#F5F6F7",
     surface: "#FFFFFF",
@@ -67,7 +67,7 @@ const QueueVisual = () => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.98 }}
     animate={{ opacity: 1, scale: 1 }}
-    className="relative w-full max-w-[340px] aspect-[4/5] bg-[#0A0A0F] rounded-[32px] border-[6px] border-[#1C1C21] shadow-2xl overflow-hidden p-6 mx-auto"
+    className="relative w-full max-w-[360px] aspect-[4/5] bg-[#0A0A0F] rounded-[32px] border-[6px] border-[#1C1C21] shadow-2xl overflow-hidden p-6 mx-auto"
   >
     <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#1C1C21] rounded-b-xl" />
     <div className="mt-4 space-y-4">
@@ -228,7 +228,7 @@ const Hero = ({ t }: { t: any }) => (
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex flex-wrap gap-3 pt-2">
           <Link to="/signup" className="px-6 py-3.5 text-white rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-blue-600/10" style={{ background: t.accent }}>Démarrer gratuitement</Link>
-          <a href="#ecosystem" className="px-6 py-3.5 border border-border rounded-xl font-bold text-sm hover:bg-surface transition-all" style={{ color: t.text, borderColor: t.border }}>Découvrir l'écosystème</a>
+          <a href="#ecosystem" className="px-6 py-3.5 border border-border rounded-xl font-bold text-sm hover:bg-surface transition-all" style={{ color: t.text}}>Découvrir l'écosystème</a>
         </motion.div>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="flex gap-10 pt-8 border-t border-border" style={{ borderColor: t.border }}>
           <div><p className="text-2xl font-black" style={{ color: t.text }}>-65%</p><p className="text-[9px] uppercase font-bold tracking-widest" style={{ color: t.textSub }}>Stress perçu</p></div>
@@ -240,6 +240,125 @@ const Hero = ({ t }: { t: any }) => (
   </section>
 );
 
+const HowItWorks = ({ t }: { t: any }) => {
+  const steps = [
+    {
+      step: "01",
+      title: "Prise de ticket",
+      desc: "Le client scanne un QR Code ou accède à l'interface web pour obtenir un ticket virtuel instantanément.",
+      icon: Icons.Smartphone,
+      color: t.accent
+    },
+    {
+      step: "02", 
+      title: "Suivi en temps réel",
+      desc: "Le client consulte sa position dans la file et reçoit des notifications quand son tour approche.",
+      icon: Icons.Bell,
+      color: t.purple
+    },
+    {
+      step: "03",
+      title: "Gestion par l'agent",
+      desc: "L'agent appelle le prochain ticket depuis son interface web, avec transfert et statistiques en direct.",
+      icon: Icons.Terminal,
+      color: t.green
+    },
+    {
+      step: "04",
+      title: "Analytics & Optimisation",
+      desc: "Les administrateurs analysent les performances et optimisent les ressources via le tableau de bord.",
+      icon: Icons.BarChart,
+      color: t.orange
+    }
+  ];
+
+  return (
+    <section id="how-it-works" className="py-24 px-6 " style={{ background:t.surface }}>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-16 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Comment ça marche ?</p>
+          <h2 className="text-[clamp(24px,4vw,42px)] font-black tracking-tight" style={{ color: t.text }}>
+            Simple en 4 étapes.<br />
+            <span className="opacity-40">Du ticket à l'analyse.</span>
+          </h2>
+          <p className="max-w-2xl mx-auto text-base md:text-lg leading-relaxed" style={{ color: t.textMid }}>
+            Une expérience fluide pour vos usagers et un contrôle total pour vos équipes. Découvrez comment SmartQueue révolutionne la gestion des files d'attente.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {steps.map((step, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15 }}
+              className="relative group"
+            >
+              {/* Numéro d'étape */}
+              <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full flex items-center justify-center text-lg font-black shadow-lg z-10"
+                   style={{ background: step.color, color: '#fff' }}>
+                {step.step}
+              </div>
+              
+              {/* Carte */}
+              <div className="p-8 shadow-xl  rounded-2xl border h-full relative overflow-hidden"
+                   style={{ background: t.surface, borderColor: t.border }}>
+                
+                {/* Icône */}
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110"
+                     style={{ background: step.color + '15', color: step.color }}>
+                  <step.icon />
+                </div>
+                
+                {/* Contenu */}
+                <h3 className="text-lg font-bold mb-3" style={{ color: t.text }}>
+                  {step.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: t.textMid }}>
+                  {step.desc}
+                </p>
+                
+                {/* Ligne de connexion */}
+                {i < steps.length - 1 && (
+                  <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5"
+                       style={{ background: t.border }} />
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        
+        {/* CTA */}
+        <div className="text-center mt-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="inline-flex gap-4"
+          >
+            <Link 
+              to="/signup" 
+              className="px-8 py-4 text-white rounded-xl font-bold hover:scale-[1.02] transition-all shadow-lg"
+              style={{ background: t.accent }}
+            >
+              Essayer gratuitement
+            </Link>
+            <a 
+              href="#features" 
+              className="px-8 py-4 border rounded-xl font-bold hover:bg-surface transition-all"
+              style={{ color: t.text, borderColor: t.border }}
+            >
+              Voir les fonctionnalités
+            </a>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const Ecosystem = ({ t }: { t: any }) => {
   const roles = [
     { icon: Icons.Layout, title: "Admins", role: "Créateurs", desc: "Configurez vos établissements, services et guichets en quelques clics. Gérez vos abonnements et accédez aux analytics globaux.", color: t.purple },
@@ -247,7 +366,7 @@ const Ecosystem = ({ t }: { t: any }) => {
     { icon: Icons.Smartphone, title: "Usagers", role: "Clients", desc: "Application mobile intuitive pour prendre un ticket, suivre sa position et recevoir des alertes de proximité.", color: t.green },
   ];
   return (
-    <section id="ecosystem" className="py-24 px-6 border-y border-border" style={{ borderColor: t.border }}>
+    <section id="ecosystem" className="py-24 px-6 border-y border-border" >
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Un écosystème complet</p>
@@ -264,7 +383,7 @@ const Ecosystem = ({ t }: { t: any }) => {
                 <h3 className="text-xl font-black" style={{ color: t.text }}>{role.title}</h3>
               </div>
               <p className="text-xs leading-relaxed flex-grow" style={{ color: t.textMid }}>{role.desc}</p>
-              <div className="mt-8 pt-6 border-t border-border" style={{ borderColor: t.border }}>
+              <div className="mt-8 pt-6 border-t border-border" >
                 <Link to="/signup" className="text-[10px] font-bold flex items-center gap-2 hover:gap-3 transition-all" style={{ color: role.color }}>
                   En savoir plus <Icons.ArrowRight />
                 </Link>
@@ -279,13 +398,13 @@ const Ecosystem = ({ t }: { t: any }) => {
 
 const Testimonials = ({ t }: { t: any }) => {
   const reviews = [
-    { name: "Marc Lefebvre", role: "Directeur Clinique", content: "SmartQueue a réduit la tension dans notre salle d'attente de 80%. Les patients arrivent beaucoup plus sereins.", img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" },
-    { name: "Sophie Durant", role: "Mairie de Lyon", content: "L'interface agent est si simple qu'aucune formation n'a été nécessaire. Le déploiement a été un succès immédiat.", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop" },
-    { name: "Thomas Wagner", role: "Responsable Retail", content: "Nos clients adorent pouvoir faire leurs courses en attendant leur tour. Une vraie révolution pour le commerce.", img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-    { name: "Elena Rossi", role: "DSI Banque", content: "La sécurité des données et la conformité RGPD étaient nos priorités. SmartQueue coche toutes les cases.", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
+    { name: "Marc Lefebvre", role: "Directeur Clinique", content: "SmartQueue a réduit la tension dans notre salle d'attente de 80%. Les patients arrivent beaucoup plus sereins.", img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop", bg: "bg-blue-50 dark:bg-blue-900/40" },
+    { name: "Sophie Durant", role: "Mairie de Lyon", content: "L'interface agent est si simple qu'aucune formation n'a été nécessaire. Le déploiement a été un succès immédiat.", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop", bg: "bg-purple-50 dark:bg-purple-900/40" },
+    { name: "Thomas Wagner", role: "Responsable Retail", content: "Nos clients adorent pouvoir faire leurs courses en attendant leur tour. Une vraie révolution pour le commerce.", img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop", bg: "bg-green-50 dark:bg-green-900/40" },
+    { name: "Elena Rossi", role: "DSI Banque", content: "La sécurité des données et la conformité RGPD étaient nos priorités. SmartQueue coche toutes les cases.", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop", bg: "bg-orange-50 dark:bg-orange-900/40" },
   ];
   return (
-    <section id="testimonials" className="py-24 px-6" style={{ background: t.bg }}>
+    <section id="testimonials" className="py-24 px-6" style={{ background: t.surface }}>
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Témoignages</p>
@@ -294,11 +413,12 @@ const Testimonials = ({ t }: { t: any }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {reviews.map((r, i) => (
             <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-              className="p-6 rounded-3xl border flex flex-col justify-between" style={{ background: t.surface, borderColor: t.border }}>
+              className={`p-6 rounded-3xl border flex flex-col justify-between ${r.bg}`}
+            >
               <p className="text-xs leading-relaxed mb-6 italic" style={{ color: t.textMid }}>"{r.content}"</p>
               <div className="flex items-center gap-3">
                 <img src={r.img} alt={r.name} className="w-8 h-8 rounded-full bg-gray-200" />
-                <div><p className="text-[11px] font-bold" style={{ color: t.text }}>{r.name}</p><p className="text-[9px]" style={{ color: t.textSub }}>{r.role}</p></div>
+                <div><p className="text-[11px] font-bold" style={{ color: t.text }}>{r.name}</p><p className="text-[9px] text-black/50 dark:text-white" >{r.role}</p></div>
               </div>
             </motion.div>
           ))}
@@ -338,12 +458,12 @@ const FAQ = ({ t }: { t: any }) => {
 
   return (
     <section id="faq" className="py-24 px-6" style={{ background: t.surface }}>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Questions fréquentes</p>
           <h2 className="text-[clamp(24px,4vw,42px)] font-black tracking-tight" style={{ color: t.text }}>Vous avez des questions ?</h2>
         </div>
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {faqs.map((faq, i) => (
             <motion.div 
               key={i} 
@@ -351,10 +471,10 @@ const FAQ = ({ t }: { t: any }) => {
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
               transition={{ delay: i * 0.1 }}
-              className="p-6 rounded-2xl border" 
-              style={{ background: t.bg, borderColor: t.border }}
+              className="p-6 rounded-2xl shadow-sm border" 
+              style={{ background: t.surface, borderColor: t.border }}
             >
-              <h3 className="text-sm font-bold mb-3" style={{ color: t.text }}>{faq.q}</h3>
+              <h3 className="text-base font-bold mb-3" style={{ color: t.text }}>{faq.q}</h3>
               <p className="text-xs leading-relaxed" style={{ color: t.textMid }}>{faq.a}</p>
             </motion.div>
           ))}
@@ -373,7 +493,7 @@ const Stats = ({ t }: { t: any }) => {
   ];
 
   return (
-    <section className="py-24 px-6" style={{ background: t.bg }}>
+    <section className="py-24 px-6 border-b" style={{ background: t.bg }}>
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16 space-y-3">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Chiffres clés</p>
@@ -387,9 +507,9 @@ const Stats = ({ t }: { t: any }) => {
               whileInView={{ opacity: 1, scale: 1 }} 
               viewport={{ once: true }} 
               transition={{ delay: i * 0.1 }}
-              className="text-center"
+              className="text-center rounded-3xl p-6 bg-slate-300/20 border border-border "
             >
-              <div className="text-4xl lg:text-5xl font-black mb-2" style={{ color: t.accent }}>{stat.value}</div>
+              <div className="text-4xl lg:text-5xl font-black mb-2 " style={{ color: t.accent }}>{stat.value}</div>
               <div className="text-sm font-bold mb-1" style={{ color: t.text }}>{stat.label}</div>
               <div className="text-xs" style={{ color: t.textMid }}>{stat.desc}</div>
             </motion.div>
@@ -478,13 +598,14 @@ export default function LandingPage() {
       <main>
         <Hero t={t} />
         <Ecosystem t={t} />
+        <HowItWorks t={t} />
         <Features t={t} />
         <Testimonials t={t} />
         <Pricing t={t} />
         <FAQ t={t} />
         <Stats t={t} />
         <section className="py-32 px-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto rounded-[48px] p-12 md:p-20 text-center text-white space-y-8 relative overflow-hidden" style={{ background: t.accent }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto rounded-[48px] p-12 md:p-20 text-center text-white space-y-8 relative overflow-hidden" style={{ background: t.accent }}>
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
             <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-none">Prêt à transformer votre accueil ?</h2>
             <p className="text-sm text-white/80 max-lg mx-auto">Rejoignez les établissements qui modernisent leur expérience usager chaque jour.</p>
@@ -495,7 +616,7 @@ export default function LandingPage() {
           </motion.div>
         </section>
       </main>
-      <footer className="py-16 px-6 border-t border-border" style={{ borderColor: t.border }}>
+      <footer className="py-16 px-6 border-t border-border" style={{ borderColor: t.border , background:t.surface}}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10 text-[11px] font-bold" style={{ color: t.textMid }}>
           <div className="flex items-center gap-2"><div className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[8px] font-black" style={{ background: t.accent }}>SQ</div><span>SmartQueue Inc. 2026</span></div>
           <div className="flex gap-10">
