@@ -94,9 +94,58 @@ export default function Notifications() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data } = await api.get('/api/notifications?per_page=50');
-      const items: NotificationDb[] = Array.isArray(data?.data) ? data.data : [];
-      setNotifications(items.map(normalizeNotification));
+      // Données mockées pour le moment
+      const mockNotifications: Notification[] = [
+        {
+          id: '1',
+          title: 'Nouveau ticket créé',
+          message: 'Un client a pris un ticket pour le service Guichet',
+          time: 'Il y a 2 min',
+          read: false,
+          type: 'info',
+          category: 'ticket',
+          actionUrl: '/dashboard/queues'
+        },
+        {
+          id: '2',
+          title: 'File d\'attente pleine',
+          message: 'Le service Guichet a atteint sa capacité maximale',
+          time: 'Il y a 5 min',
+          read: false,
+          type: 'warning',
+          category: 'queue'
+        },
+        {
+          id: '3',
+          title: 'Agent disponible',
+          message: 'L\'agent Jean Dupont est maintenant en ligne',
+          time: 'Il y a 10 min',
+          read: true,
+          type: 'success',
+          category: 'user'
+        },
+        {
+          id: '4',
+          title: 'Système mis à jour',
+          message: 'La plateforme a été mise à jour vers la version 1.0.1',
+          time: 'Il y a 1 h',
+          read: true,
+          type: 'info',
+          category: 'system'
+        },
+        {
+          id: '5',
+          title: 'Ticket prioritaire',
+          message: 'Un ticket prioritaire a été appelé au service Accueil',
+          time: 'Il y a 15 min',
+          read: false,
+          type: 'error',
+          category: 'ticket',
+          actionUrl: '/dashboard/queues/priority'
+        }
+      ];
+      
+      setNotifications(mockNotifications);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Impossible de charger les notifications';
       setLoadError(msg);
@@ -207,21 +256,22 @@ export default function Notifications() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Notifications</h1>
-            <p className="text-muted-foreground">
-              Gérez vos notifications et restez informé des activités importantes
-            </p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Notifications</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Gérez vos notifications et restez informé des activités importantes
+              </p>
+            </div>
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="animate-pulse w-fit shrink-0">
+                {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+              </Badge>
+            )}
           </div>
-          {unreadCount > 0 && (
-            <Badge variant="destructive" className="animate-pulse">
-              {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
-            </Badge>
-          )}
-        </div>
 
         {/* Actions rapides */}
         <div className="flex flex-wrap gap-2 mb-6">
@@ -245,18 +295,46 @@ export default function Notifications() {
             <Trash2 className="h-4 w-4" />
             Tout effacer
           </Button>
+          {isAdmin && (
+            <>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => {
+                  // Fonctionnalité à venir
+                  alert('Fonctionnalité d\'ajout de notifications bientôt disponible !');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Bell className="h-4 w-4" />
+                Ajouter une notification
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => {
+                  // Fonctionnalité à venir
+                  alert('Fonctionnalité de notification globale bientôt disponible !');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Info className="h-4 w-4" />
+                Notification globale
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Filtres */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+              <div className="flex items-center gap-2 mb-3 lg:mb-0">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Filtrer:</span>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant={filter === 'all' ? 'default' : 'ghost'}
                   size="sm"
@@ -289,9 +367,9 @@ export default function Notifications() {
                 </Button>
               </div>
 
-              <div className="h-6 w-px bg-border" />
+              <div className="h-6 w-px bg-border lg:hidden" />
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant={typeFilter === 'all' ? 'default' : 'ghost'}
                   size="sm"
@@ -485,6 +563,7 @@ export default function Notifications() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
