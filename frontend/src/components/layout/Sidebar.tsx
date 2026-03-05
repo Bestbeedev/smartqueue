@@ -23,7 +23,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ChevronRight as ChevronRightIcon, Server, CreditCard
+  ChevronRight as ChevronRightIcon, Server, CreditCard,
+  ArrowBigRight,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -195,6 +198,7 @@ const SubmenuItem = ({
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const { user } = useAppSelector((s) => s.auth);
   const role = user?.role;
   const isOnboardingLocked = role === 'admin' && !user?.establishment_id;
@@ -258,6 +262,27 @@ export default function Sidebar() {
   const filteredItems = navigationItems.filter(
     (item) => item.roles.includes("all") || item.roles.includes(role as string),
   );
+
+  const searchableRoutes = React.useMemo(() => {
+    const routes: { to: string; label: string }[] = [];
+    for (const item of filteredItems) {
+      routes.push({ to: item.to, label: item.label });
+      if ('submenu' in item && Array.isArray((item as any).submenu)) {
+        for (const sub of (item as any).submenu) {
+          routes.push({ to: sub.to, label: sub.label });
+        }
+      }
+    }
+    return routes;
+  }, [filteredItems]);
+
+  const searchResults = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [] as { to: string; label: string }[];
+    return searchableRoutes
+      .filter((r) => r.label.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [searchQuery, searchableRoutes]);
 
   return (
     <aside
@@ -355,6 +380,17 @@ export default function Sidebar() {
             <input
               type="text"
               placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchResults.length > 0) {
+                  navigate(searchResults[0].to);
+                  setSearchQuery('');
+                }
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                }
+              }}
               className={cn(
                 "w-full pl-10 pr-4 py-2.5 text-sm rounded-xl transition-all duration-300",
                 "bg-muted border border-border",
@@ -362,6 +398,51 @@ export default function Sidebar() {
                 "placeholder:text-muted-foreground",
               )}
             />
+
+            {searchResults.length > 0 && (
+              <div className={cn(
+                "absolute left-0 right-0 top-full mt-2 rounded-xl border shadow-xl overflow-hidden z-50",
+                "dark:bg-slate-900 bg-white border-border",
+                "min-w-[230px] w-max max-w-md"
+              )}>
+                <div className="divide-y divide-border">
+                  {searchResults.map((r) => (
+                    <div
+                      key={r.to}
+                      className={cn(
+                        "group relative flex items-center justify-between px-3 py-2 text-sm transition-colors",
+                        "hover:bg-accent"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="flex-1 text-left"
+                        onClick={() => {
+                          navigate(r.to);
+                          setSearchQuery('');
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-foreground truncate">{r.label}</span>
+                          {/* <span className="text-xs text-muted-foreground truncate">{r.to}</span> */}
+                        </div>
+                      </button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 h-7 px-2 text-xs"
+                        onClick={() => {
+                          navigate(r.to);
+                          setSearchQuery('');
+                        }}
+                      >
+                        Visiter <ArrowRight size="10"/>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
