@@ -425,7 +425,9 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
               className={cn(
                 'absolute left-0 right-0 top-full mt-2 rounded-xl border shadow-xl overflow-hidden z-50',
                 'bg-background border-border',
-                '  min-w-[450px] w-max max-w-lg md:max-w-xl lg:max-w-2xl'
+                // Responsive width et positionnement
+                'min-w-[280px] max-w-[calc(100vw-2rem)] sm:min-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl',
+                'left-2 sm:left-0 right-2 sm:right-0'
               )}
             >
               {searchLoading ? (
@@ -502,8 +504,12 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
           {notificationsOpen && (
             <div
               className={cn(
-                "absolute right-0 top-full mt-2 w-80 rounded-lg shadow-xl z-50 max-h-96 overflow-hidden transition-all duration-300",
+                "absolute right-0 top-full mt-2 rounded-lg shadow-xl z-50 max-h-96 overflow-hidden transition-all duration-300",
                 "bg-background border",
+                // Responsive width : 320px sur grand écran, 280px sur tablette, prend toute la largeur avec marges sur mobile
+                "w-80 sm:w-72 md:w-80",
+                "right-2 sm:right-0",
+                "max-w-[calc(100vw-2rem)] sm:max-w-none"
               )}
             >
               <div className="flex items-center justify-between p-4 border-b border-border">
@@ -622,6 +628,9 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             className={cn(
               "w-56 rounded-xl shadow-2xl transition-all duration-300",
               "bg-background border-border",
+              // Responsive width et positionnement
+              "sm:w-56 w-52",
+              "max-w-[calc(100vw-2rem)] sm:max-w-none"
             )}
           >
             <DropdownMenuLabel className="font-normal">

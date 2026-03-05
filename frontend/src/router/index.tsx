@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppDispatch } from "@/store";
 import { refreshMe } from "@/store/authSlice";
 import { useEffect } from "react";
+import { Activity } from "lucide-react"; 
 
 // Lazy loading des pages pour optimiser le bundle
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
@@ -93,6 +94,47 @@ const PageLoaderSample = () => {
 };
 
 
+
+const PageLoaderHome = () => {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="text-center space-y-4 max-w-xs w-full">
+        {/* Logo + Nom */}
+        <div className="flex items-center gap-2 justify-center animate-pulse">
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+            <Activity className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div>
+            <p className="font-bold text-lg text-foreground">SmartQueue</p>
+            <p className="text-xs text-muted-foreground leading-none">Gestion de vos files d'attente</p>
+          </div>
+        </div>
+
+        {/* Barre de chargement */}
+        <div className="space-y-2">
+          <div className="mx-10 h-2 bg-muted rounded-full overflow-hidden relative">
+            <div
+              className="absolute top-0 left-0 h-full bg-primary rounded-full animate-[loading_2s_ease-in-out_infinite]"
+              style={{ width: "30%" }}
+            />
+          </div>
+          <p className="text-muted-foreground text-sm">Chargement de votre espace...</p>
+        </div>
+      </div>
+
+      {/* Animation personnalisée pour la barre */}
+      <style>{`
+        @keyframes loading {
+          0% { left: -30%; }
+          100% { left: 100%; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+
+
 export default function Router() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
@@ -118,7 +160,7 @@ export default function Router() {
     {
       path: "/",
       element: (
-        <Suspense fallback={<PageLoaderSample />}>
+        <Suspense fallback={<PageLoaderHome/>}>
           <LandingPage />
         </Suspense>
       ),
