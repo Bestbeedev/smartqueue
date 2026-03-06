@@ -117,9 +117,21 @@ class StatsController extends Controller
             abort(422, 'Invalid bucket');
         }
 
-        $expr = $bucket === 'hour'
-            ? "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
-            : "DATE(created_at)";
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'pgsql') {
+            $expr = $bucket === 'hour'
+                ? "to_char(date_trunc('hour', created_at), 'YYYY-MM-DD HH24:00:00')"
+                : "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')";
+        } elseif ($driver === 'sqlite') {
+            $expr = $bucket === 'hour'
+                ? "strftime('%Y-%m-%d %H:00:00', created_at)"
+                : "date(created_at)";
+        } else {
+            // mysql / mariadb
+            $expr = $bucket === 'hour'
+                ? "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
+                : "DATE(created_at)";
+        }
 
         $query = DB::table('tickets')
             ->selectRaw($expr." as bucket")

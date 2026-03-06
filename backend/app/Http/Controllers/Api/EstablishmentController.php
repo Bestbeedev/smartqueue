@@ -33,13 +33,20 @@ class EstablishmentController extends Controller
             ->groupBy('establishments.id');
 
         if ($lat !== null && $lng !== null) {
+            $lat = (float) $lat;
+            $lng = (float) $lng;
+            $radius = max(100, min($radius, 200_000));
+
+            // On ne peut pas calculer une distance sans coordonnées.
+            $query->whereNotNull('establishments.lat')->whereNotNull('establishments.lng');
+
             // Formule Haversine approchée (compatible SQLite/MySQL/Postgres)
             $haversine = "(6371000 * 2 * ASIN(SQRT(POWER(SIN(RADIANS(? - lat)/2),2) + COS(RADIANS(lat)) * COS(RADIANS(?)) * POWER(SIN(RADIANS(? - lng)/2),2))))";
             $query->select('*')
                 ->selectRaw($haversine.' as distance_m', [$lat, $lat, $lng])
                 ->orderBy('distance_m');
-            // Optionnel: filtrer par rayon (approx)
-            // $query->having('distance_m', '<=', $radius);
+            // Filtrer par rayon pour le listing "nearby"
+            $query->having('distance_m', '<=', $radius);
         } else {
             $query->orderBy('name');
         }

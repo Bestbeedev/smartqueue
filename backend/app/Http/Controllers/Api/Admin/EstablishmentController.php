@@ -98,10 +98,22 @@ class EstablishmentController extends Controller
             'address' => ['sometimes','nullable','string'],
             'lat' => ['sometimes','nullable','numeric','between:-90,90'],
             'lng' => ['sometimes','nullable','numeric','between:-180,180'],
+            'latitude' => ['sometimes','nullable','numeric','between:-90,90'],
+            'longitude' => ['sometimes','nullable','numeric','between:-180,180'],
             'open_at' => ['sometimes','nullable'],
             'close_at' => ['sometimes','nullable'],
             'is_active' => ['sometimes','boolean'],
         ]);
+
+        if (array_key_exists('latitude', $data) && !array_key_exists('lat', $data)) {
+            $data['lat'] = $data['latitude'];
+        }
+        if (array_key_exists('longitude', $data) && !array_key_exists('lng', $data)) {
+            $data['lng'] = $data['longitude'];
+        }
+
+        unset($data['latitude'], $data['longitude']);
+
         $est->update($data);
         return new EstablishmentResource($est);
     }
