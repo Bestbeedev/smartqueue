@@ -20,6 +20,8 @@ jobs:
       - name: 🔄 Checkout repository
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.SYNC_TOKEN }}
+          repository: Bestbeedev/smartqueue
           fetch-depth: 0 # récupérer tout l'historique
 
       - name: 🔧 Configure Git
