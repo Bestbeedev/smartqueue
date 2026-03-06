@@ -489,14 +489,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
               >
                 {unreadCount}
               </Badge>
-            ) : (
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center animate-pulse shadow-lg"
-              >
-                0
-              </Badge>
-            )}
+            ) : null}
             <span className="sr-only">Notifications</span>
           </Button>
 
@@ -514,14 +507,34 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
             >
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h3 className="font-semibold text-foreground">Notifications</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setNotificationsOpen(false)}
-                  className="h-6 w-6 hover:bg-accent"
-                >
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const unread = notifications.filter((n) => !n.read)
+                      if (unread.length === 0) return
+                      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+                      try {
+                        await Promise.all(unread.map((n) => api.post(`/api/notifications/${n.id}/read`)))
+                      } catch (_) {
+                        fetchNotifications()
+                      }
+                    }}
+                    disabled={unreadCount === 0}
+                    className="h-7"
+                  >
+                    Tout lire
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setNotificationsOpen(false)}
+                    className="h-6 w-6 hover:bg-accent"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
               </div>
 
               <div className="max-h-80 overflow-y-auto">

@@ -10,12 +10,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppDispatch } from "@/store";
 import { refreshMe } from "@/store/authSlice";
 import { useEffect } from "react";
-import { Activity } from "lucide-react"; 
+import { Activity } from "lucide-react";
 
 // Lazy loading des pages pour optimiser le bundle
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
-const DashboardRedirect = lazy(() => import("@/pages/dashboard/DashboardRedirect"));
+const DashboardRedirect = lazy(
+  () => import("@/pages/dashboard/DashboardRedirect"),
+);
 const Login = lazy(() => import("@/pages/auth/Login"));
 const Signup = lazy(() => import("@/pages/auth/Signup"));
 const SubscriptionPlan = lazy(() => import("@/pages/auth/Subscription"));
@@ -31,6 +33,7 @@ const Agents = lazy(() => import("@/pages/admin/Agents"));
 const Services = lazy(() => import("@/pages/admin/Services"));
 const Establishments = lazy(() => import("@/pages/admin/Establishments"));
 const Stats = lazy(() => import("@/pages/admin/Stats"));
+const NotificationLogs = lazy(() => import("@/pages/admin/NotificationLogs"));
 
 // Pages SaaS
 const SaasMonitoring = lazy(() => import("@/pages/saas/SaasMonitoring"));
@@ -68,7 +71,9 @@ const PageLoader = () => {
 
         {/* Text */}
         <div className="text-center space-y-1">
-          <p className="text-lg font-medium tracking-wide">Chargement des données</p>
+          <p className="text-lg font-medium tracking-wide">
+            Chargement des données
+          </p>
           <p className="text-sm text-muted-foreground animate-pulse">
             Préparation de votre expérience...
           </p>
@@ -96,8 +101,6 @@ const PageLoaderSample = () => {
   );
 };
 
-
-
 const PageLoaderHome = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -109,7 +112,9 @@ const PageLoaderHome = () => {
           </div>
           <div>
             <p className="font-bold text-lg text-foreground">SmartQueue</p>
-            <p className="text-xs text-muted-foreground leading-none">Gestion de vos files d'attente</p>
+            <p className="text-xs text-muted-foreground leading-none">
+              Gestion de vos files d'attente
+            </p>
           </div>
         </div>
 
@@ -121,7 +126,9 @@ const PageLoaderHome = () => {
               style={{ width: "30%" }}
             />
           </div>
-          <p className="text-muted-foreground text-sm">Chargement de votre espace...</p>
+          <p className="text-muted-foreground text-sm">
+            Chargement de votre espace...
+          </p>
         </div>
       </div>
 
@@ -136,25 +143,23 @@ const PageLoaderHome = () => {
   );
 };
 
-
-
 export default function Router() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated) return;
     // Ensure we have a fresh user after reload/login
     // - Admin: establishment_id is required for scoping
     // - Agent: needs services/counters for queue dashboard
-    if (user?.role === 'admin') {
+    if (user?.role === "admin") {
       if (!user?.establishment_id) {
-        dispatch(refreshMe())
+        dispatch(refreshMe());
       }
-      return
+      return;
     }
-    if (user?.role === 'agent') {
-      dispatch(refreshMe())
+    if (user?.role === "agent") {
+      dispatch(refreshMe());
     }
   }, [dispatch, isAuthenticated]);
 
@@ -163,7 +168,7 @@ export default function Router() {
     {
       path: "/",
       element: (
-        <Suspense fallback={<PageLoaderHome/>}>
+        <Suspense fallback={<PageLoaderHome />}>
           <LandingPage />
         </Suspense>
       ),
@@ -192,7 +197,7 @@ export default function Router() {
         </Suspense>
       ),
     },
-    
+
     // Routes protégées avec layout
     {
       path: "/dashboard",
@@ -294,6 +299,14 @@ export default function Router() {
                   </Suspense>
                 ),
               },
+              {
+                path: "admin/notification-logs",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <NotificationLogs />
+                  </Suspense>
+                ),
+              },
             ]
           : []),
         // Routes SaaS (protégées - uniquement super_admin)
@@ -383,7 +396,7 @@ export default function Router() {
         },
       ],
     },
-    
+
     // Route 404
     {
       path: "*",
