@@ -205,19 +205,19 @@ export default function AgentDashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Temps moyen</span>
                 <span className="text-sm font-bold">
-                  {stats?.avg_time ? `${stats.avg_time} min` : '12 min'}
+                  {typeof stats?.avg_time === 'number' ? `${stats.avg_time} min` : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Tickets/jour</span>
                 <span className="text-sm font-bold">
-                  {stats?.tickets_per_day || '15'}
+                  {typeof stats?.tickets_per_day === 'number' ? stats.tickets_per_day : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Satisfaction</span>
                 <span className="text-sm font-bold">
-                  {stats?.satisfaction ? `${stats.satisfaction}%` : '95%'}
+                  {typeof stats?.satisfaction === 'number' ? `${stats.satisfaction}%` : '—'}
                 </span>
               </div>
             </div>

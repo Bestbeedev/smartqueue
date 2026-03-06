@@ -56,9 +56,7 @@ export function VerticalBarChart({
             tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
             axisLine={false}
             tickLine={false}
-            angle={-45}
-            textAnchor="end"
-            height={80}
+            height={10}
           />
           <YAxis 
             type="number"

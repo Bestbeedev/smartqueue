@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/api/axios';
 import { toast } from 'sonner';
@@ -77,9 +77,7 @@ export default function SuperAdminDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/saas/dashboard/overview', {
-        params: { range: timeRange }
-      });
+      const response = await api.get('/api/saas/monitoring/overview');
       setData(response.data);
     } catch (error: any) {
       const status = error?.response?.status;
@@ -100,54 +98,65 @@ export default function SuperAdminDashboard() {
     loadDashboardData();
   }, [timeRange]);
 
-  // Utiliser les vraies données ou les données par défaut
-  const stats = data?.stats || {
-    totalRevenue: 284750,
-    revenueGrowth: 23.5,
-    totalCustomers: 1247,
-    customerGrowth: 18.2,
-    activeSubscriptions: 892,
-    subscriptionGrowth: 15.8,
-    avgTicketTime: 12.3,
-    satisfactionRate: 94.7,
-    systemUptime: 99.97,
-    serverLoad: 67.3,
-    storageUsed: 78.4,
-    bandwidthUsage: 45.2,
-    apiCalls: 2847392,
-    errorRate: 0.12
-  };
+  const stats = useMemo(() => {
+    if (!data) return null;
 
-  const revenueData = data?.revenue_chart || [
-    { date: 'Lun', revenue: 42000, subscriptions: 45 },
-    { date: 'Mar', revenue: 38000, subscriptions: 42 },
-    { date: 'Mer', revenue: 45000, subscriptions: 48 },
-    { date: 'Jeu', revenue: 52000, subscriptions: 52 },
-    { date: 'Ven', revenue: 48000, subscriptions: 50 },
-    { date: 'Sam', revenue: 35000, subscriptions: 38 },
-    { date: 'Dim', revenue: 28750, subscriptions: 32 }
-  ];
+    const subscriptions = data?.subscriptions_by_status || {};
+    const activeSubscriptions = Number(subscriptions?.active ?? 0);
 
-  const planDistribution = data?.plan_distribution || [
-    { name: 'Basic', value: 423, revenue: 8037, color: '#3b82f6' },
-    { name: 'Pro', value: 356, revenue: 17444, color: '#10b981' },
-    { name: 'Enterprise', value: 113, revenue: 16869, color: '#8b5cf6' }
-  ];
+    return {
+      totalRevenue: null,
+      revenueGrowth: null,
+      totalCustomers: Number(data?.establishments ?? 0),
+      customerGrowth: null,
+      activeSubscriptions,
+      subscriptionGrowth: null,
+      satisfactionRate: null,
+    };
+  }, [data]);
 
-  const performanceMetrics = data?.performance || [
-    { metric: 'CPU Usage', value: 67, max: 100, color: '#3b82f6' },
-    { metric: 'Memory', value: 78, max: 100, color: '#10b981' },
-    { metric: 'Storage', value: 84, max: 100, color: '#f59e0b' },
-    { metric: 'Network', value: 45, max: 100, color: '#8b5cf6' }
-  ];
+  const revenueData: any[] = [];
+  const planDistribution = useMemo(() => {
+    const s = data?.subscriptions_by_status;
+    if (!s) return [];
+    return [
+      { name: 'Actifs', value: Number(s.active ?? 0), color: '#10b981' },
+      { name: 'Essai', value: Number(s.trial ?? 0), color: '#3b82f6' },
+      { name: 'Expirés', value: Number(s.expired ?? 0), color: '#f59e0b' },
+      { name: 'Annulés', value: Number(s.canceled ?? 0), color: '#ef4444' },
+    ].filter((x) => Number(x.value) > 0);
+  }, [data]);
 
-  const recentActivity = data?.recent_activity || [
-    { id: 1, type: 'new_customer', message: 'Nouveau client: Restaurant Le Gourmet', time: '2 min ago', icon: Users, color: 'text-green-600' },
-    { id: 2, type: 'subscription', message: 'Abonnement Enterprise activé: TechCorp', time: '15 min ago', icon: CreditCard, color: 'text-blue-600' },
-    { id: 3, type: 'alert', message: 'Pic de trafic détecté sur le serveur EU-West', time: '1h ago', icon: AlertTriangle, color: 'text-orange-600' },
-    { id: 4, type: 'system', message: 'Sauvegarde automatique complétée', time: '2h ago', icon: Database, color: 'text-purple-600' },
-    { id: 5, type: 'revenue', message: 'Objectif mensuel atteint: 100.2%', time: '3h ago', icon: Target, color: 'text-green-600' }
-  ];
+  const performanceMetrics = useMemo(() => {
+    const tickets = data?.tickets;
+    const services = data?.services;
+    const counters = data?.counters;
+
+    const items: any[] = [];
+    if (tickets) {
+      const totalTickets = Number(tickets.waiting ?? 0) + Number(tickets.called ?? 0) + Number(tickets.absent ?? 0);
+      items.push({ metric: 'Tickets en attente', value: Number(tickets.waiting ?? 0), color: '#3b82f6' });
+      items.push({ metric: 'Tickets appelés', value: Number(tickets.called ?? 0), color: '#10b981' });
+      items.push({ metric: 'Tickets absents', value: Number(tickets.absent ?? 0), color: '#f59e0b' });
+      items.push({ metric: 'Tickets total', value: totalTickets, color: '#8b5cf6' });
+    }
+    if (services) {
+      const total = Number(services.open ?? 0) + Number(services.closed ?? 0);
+      items.push({ metric: 'Services ouverts', value: Number(services.open ?? 0), color: '#10b981' });
+      items.push({ metric: 'Services fermés', value: Number(services.closed ?? 0), color: '#ef4444' });
+      items.push({ metric: 'Services total', value: total, color: '#3b82f6' });
+    }
+    if (counters) {
+      const total = Number(counters.open ?? 0) + Number(counters.closed ?? 0);
+      items.push({ metric: 'Guichets ouverts', value: Number(counters.open ?? 0), color: '#10b981' });
+      items.push({ metric: 'Guichets fermés', value: Number(counters.closed ?? 0), color: '#ef4444' });
+      items.push({ metric: 'Guichets total', value: total, color: '#3b82f6' });
+    }
+
+    return items.slice(0, 4).map((m) => ({ ...m, max: 100 }));
+  }, [data]);
+
+  const recentActivity: any[] = [];
 
   if (loading) {
     return (
@@ -164,7 +173,7 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -219,11 +228,11 @@ export default function SuperAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white mb-2">
-                {stats.totalRevenue.toLocaleString()}€
+                {typeof stats?.totalRevenue === 'number' ? `${stats.totalRevenue.toLocaleString()}€` : '—'}
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-300" />
-                <span className="text-green-300 font-medium">+{stats.revenueGrowth}%</span>
+                <span className="text-green-300 font-medium">{typeof stats?.revenueGrowth === 'number' ? `+${stats.revenueGrowth}%` : '—'}</span>
                 <span className="text-white/60 text-sm">vs mois dernier</span>
               </div>
             </CardContent>
@@ -239,11 +248,11 @@ export default function SuperAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white mb-2">
-                {stats.totalCustomers.toLocaleString()}
+                {typeof stats?.totalCustomers === 'number' ? stats.totalCustomers.toLocaleString() : '—'}
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-300" />
-                <span className="text-green-300 font-medium">+{stats.customerGrowth}%</span>
+                <span className="text-green-300 font-medium">{typeof stats?.customerGrowth === 'number' ? `+${stats.customerGrowth}%` : '—'}</span>
                 <span className="text-white/60 text-sm">ce mois</span>
               </div>
             </CardContent>
@@ -259,11 +268,11 @@ export default function SuperAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white mb-2">
-                {stats.activeSubscriptions}
+                {typeof stats?.activeSubscriptions === 'number' ? stats.activeSubscriptions : '—'}
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-300" />
-                <span className="text-green-300 font-medium">+{stats.subscriptionGrowth}%</span>
+                <span className="text-green-300 font-medium">{typeof stats?.subscriptionGrowth === 'number' ? `+${stats.subscriptionGrowth}%` : '—'}</span>
                 <span className="text-white/60 text-sm">croissance</span>
               </div>
             </CardContent>
@@ -279,7 +288,7 @@ export default function SuperAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white mb-2">
-                {stats.satisfactionRate}%
+                {typeof stats?.satisfactionRate === 'number' ? `${stats.satisfactionRate}%` : '—'}
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-300" />
@@ -292,7 +301,7 @@ export default function SuperAdminDashboard() {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="shadow-xl border-0">
+          <Card className="shadow-xl border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LineChartIcon className="h-5 w-5 text-blue-600" />
@@ -301,37 +310,43 @@ export default function SuperAdminDashboard() {
               <CardDescription>Derniers 7 jours</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={revenueData}>
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px'
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#3b82f6" 
-                    fill="url(#revenueGradient)"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {revenueData.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
+                  Aucune donnée pour la période sélectionnée.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={revenueData}>
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#3b82f6" 
+                      fill="url(#revenueGradient)"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="shadow-xl border-0">
+          <Card className="shadow-xl border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <PieChartIcon className="h-5 w-5 text-purple-600" />
@@ -340,31 +355,48 @@ export default function SuperAdminDashboard() {
               <CardDescription>Distribution des abonnements</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={planDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {planDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {planDistribution.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
+                  Aucune donnée pour la période sélectionnée.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={planDistribution.map((p: any, i: number) => ({
+                    date: String(p.name ?? i),
+                    value: Number(p.value ?? 0),
+                  }))}>
+                    <defs>
+                      <linearGradient id="plansGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px'
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#8b5cf6"
+                      fill="url(#plansGradient)"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* System Performance */}
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Server className="h-5 w-5 text-green-600" />
@@ -374,7 +406,11 @@ export default function SuperAdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {performanceMetrics.map((metric, index) => (
+              {performanceMetrics.length === 0 ? (
+                <div className="col-span-full text-sm text-muted-foreground text-center py-6">
+                  Aucune donnée pour la période sélectionnée.
+                </div>
+              ) : performanceMetrics.map((metric, index) => (
                 <div key={index} className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{metric.metric}</span>
@@ -396,7 +432,7 @@ export default function SuperAdminDashboard() {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-600" />
@@ -406,7 +442,11 @@ export default function SuperAdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity) => (
+              {recentActivity.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">
+                  Aucune activité récente.
+                </div>
+              ) : recentActivity.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className={`p-2 rounded-full ${activity.color} bg-current/10`}>
                     <activity.icon className="h-4 w-4" />
@@ -422,8 +462,8 @@ export default function SuperAdminDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="shadow-xl border-0 hover:shadow-2xl transition-shadow cursor-pointer">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
+          <Card className="shadow-xl border-border hover:shadow-2xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Users className="h-8 w-8 text-blue-600" />
@@ -434,7 +474,7 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-xl border-0 hover:shadow-2xl transition-shadow cursor-pointer">
+          <Card className="shadow-xl border-border hover:shadow-2xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <CreditCard className="h-8 w-8 text-green-600" />
@@ -445,7 +485,7 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-xl border-0 hover:shadow-2xl transition-shadow cursor-pointer">
+          <Card className="shadow-xl border-border hover:shadow-2xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Settings className="h-8 w-8 text-purple-600" />
