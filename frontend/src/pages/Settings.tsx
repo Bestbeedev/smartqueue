@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { useAppDispatch } from '@/store';
 import { logout } from '@/store/authSlice';
 import { api } from '@/api/axios';
+import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [establishmentData, setEstablishmentData] = useState({
@@ -16,6 +18,8 @@ export default function Settings() {
     address: '',
     phone: '',
     email: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     capacity: 50,
     avgServiceTime: 15,
     priorityQueues: true,
@@ -50,6 +54,8 @@ export default function Settings() {
         address: data.data.address || '',
         phone: data.data.phone || '',
         email: data.data.email || '',
+        latitude: (typeof data.data.lat === 'number' ? data.data.lat : (typeof data.data.latitude === 'number' ? data.data.latitude : null)),
+        longitude: (typeof data.data.lng === 'number' ? data.data.lng : (typeof data.data.longitude === 'number' ? data.data.longitude : null)),
         capacity: data.data.capacity || 50,
         avgServiceTime: data.data.avg_service_time_minutes || 15,
         priorityQueues: data.data.priority_queues || true,
@@ -106,6 +112,8 @@ export default function Settings() {
         address: establishmentData.address,
         phone: establishmentData.phone,
         email: establishmentData.email,
+        latitude: establishmentData.latitude,
+        longitude: establishmentData.longitude,
         capacity: establishmentData.capacity,
         avg_service_time_minutes: establishmentData.avgServiceTime,
         priority_queues: establishmentData.priorityQueues,
@@ -120,6 +128,14 @@ export default function Settings() {
       setLoading(false);
     }
   };
+
+  const handleChangePlan = () => {
+    navigate('/dashboard/subscription')
+  }
+
+  const handleManageBilling = () => {
+    navigate('/dashboard/billing')
+  }
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -184,8 +200,12 @@ export default function Settings() {
                    currentPlan === 'basic' ? 'Jusqu\'à 2 agents, 3 services, analytics basic' :
                    'Fonctionnalités limitées'}
                 </div>
-                <Button className="w-full" disabled={loading}>Changer de plan</Button>
+                <Button className="w-full" onClick={handleChangePlan} disabled={loading}>Changer de plan</Button>
               </div>
+
+              <Button variant="outline" className="w-full" onClick={handleManageBilling} disabled={loading}>
+                Gérer la facturation
+              </Button>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className={`border rounded-lg p-3 text-center relative ${
@@ -254,7 +274,7 @@ export default function Settings() {
                     }
                   </p>
                 </div>
-                <Button variant="outline" disabled={loading}>Gérer la facturation</Button>
+                <Button variant="outline" onClick={handleManageBilling} disabled={loading}>Gérer la facturation</Button>
               </div>
             </div>
           </div>
@@ -281,13 +301,12 @@ export default function Settings() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Nom de l'établissement
-                </label>
+                <label className="text-sm font-medium text-foreground">Nom de l'établissement</label>
                 <Input
                   value={establishmentData.name}
                   onChange={(e) => setEstablishmentData({ ...establishmentData, name: e.target.value })}
                   disabled={!isEditing}
+                  className="mt-1"
                 />
               </div>
               <div>
@@ -302,24 +321,38 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Email de contact
-                </label>
-                <Input
-                  type="email"
-                  value={establishmentData.email}
-                  onChange={(e) => setEstablishmentData({ ...establishmentData, email: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Adresse
-                </label>
+                <label className="text-sm font-medium text-foreground">Adresse</label>
                 <Input
                   value={establishmentData.address}
                   onChange={(e) => setEstablishmentData({ ...establishmentData, address: e.target.value })}
                   disabled={!isEditing}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Latitude</label>
+                <Input
+                  type="number"
+                  value={establishmentData.latitude ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEstablishmentData({ ...establishmentData, latitude: v === '' ? null : Number(v) })
+                  }}
+                  disabled={!isEditing}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Longitude</label>
+                <Input
+                  type="number"
+                  value={establishmentData.longitude ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEstablishmentData({ ...establishmentData, longitude: v === '' ? null : Number(v) })
+                  }}
+                  disabled={!isEditing}
+                  className="mt-1"
                 />
               </div>
             </div>
@@ -462,12 +495,13 @@ export default function Settings() {
                         <p className="text-xs text-muted-foreground">Push notifications</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">Configurer</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/push')}>Configurer</Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Colonne latérale */}
@@ -513,7 +547,7 @@ export default function Settings() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" className="w-full mt-4">
+            <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/dashboard/analytics')}>
               Voir les analytics complets
             </Button>
           </div>

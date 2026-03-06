@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 use App\Models\Device;
 use App\Models\NotificationLog;
+use Google\Auth\Credentials\ServiceAccountCredentials;
 
 class SendPushNotification implements ShouldQueue
 {
@@ -20,11 +21,18 @@ class SendPushNotification implements ShouldQueue
      */
     public function handle(): void
     {
-        $serverKey = env('FCM_SERVER_KEY');
-        if (!$serverKey) {
-            Log::warning('FCM_SERVER_KEY not configured; skipping push');
+        $serviceAccountJson = env('FIREBASE_SERVICE_ACCOUNT_JSON');
+        if (!$serviceAccountJson) {
+            Log::warning('FIREBASE_SERVICE_ACCOUNT_JSON not configured; skipping push');
             return;
         }
+
+        $serviceAccount = json_decode($serviceAccountJson, true);
+        if (!is_array($serviceAccount) || empty($serviceAccount['project_id'])) {
+            Log::warning('Invalid FIREBASE_SERVICE_ACCOUNT_JSON (missing project_id); skipping push');
+            return;
+        }
+        $projectId = (string) $serviceAccount['project_id'];
 
         $tokens = Device::query()
             ->where('user_id', $this->userId)
@@ -36,44 +44,64 @@ class SendPushNotification implements ShouldQueue
             return;
         }
 
+        $scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+        $credentials = new ServiceAccountCredentials($scopes, $serviceAccount);
+        $tokenInfo = $credentials->fetchAuthToken();
+        $accessToken = $tokenInfo['access_token'] ?? null;
+        if (!$accessToken) {
+            Log::warning('Failed to obtain Firebase access token; skipping push');
+            return;
+        }
+
         $client = new Client(['base_uri' => 'https://fcm.googleapis.com']);
-        $payload = [
-            'registration_ids' => array_values($tokens),
-            'notification' => [
+        $url = '/v1/projects/'.$projectId.'/messages:send';
+
+        $sentAny = false;
+        $anyFailed = false;
+
+        foreach (array_values($tokens) as $t) {
+            $payload = [
+                'message' => [
+                    'token' => $t,
+                    'notification' => [
+                        'title' => $this->title,
+                        'body' => $this->body,
+                    ],
+                    'data' => array_map('strval', $this->data),
+                ],
+            ];
+
+            try {
+                $res = $client->post($url, [
+                    'headers' => [
+                        'Authorization' => 'Bearer '.$accessToken,
+                        'Content-Type' => 'application/json; charset=UTF-8',
+                    ],
+                    'json' => $payload,
+                    'timeout' => 10,
+                ]);
+                $status = $res->getStatusCode();
+                $sentAny = $sentAny || ($status >= 200 && $status < 300);
+                $anyFailed = $anyFailed || !($status >= 200 && $status < 300);
+            } catch (\Throwable $e) {
+                $anyFailed = true;
+                Log::error('FCM v1 send error: '.$e->getMessage());
+            }
+        }
+
+        NotificationLog::create([
+            'ticket_id' => $this->data['ticket_id'] ?? null,
+            'channel' => 'push',
+            'type' => $this->data['type'] ?? 'generic',
+            'status' => ($sentAny && !$anyFailed) ? 'sent' : (($sentAny && $anyFailed) ? 'sent' : 'failed'),
+            'payload' => [
+                'project_id' => $projectId,
+                'tokens' => array_values($tokens),
                 'title' => $this->title,
                 'body' => $this->body,
+                'data' => $this->data,
             ],
-            'data' => $this->data,
-        ];
-
-        try {
-            $res = $client->post('/fcm/send', [
-                'headers' => [
-                    'Authorization' => 'key='.$serverKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload,
-                'timeout' => 10,
-            ]);
-            $status = $res->getStatusCode();
-            NotificationLog::create([
-                'ticket_id' => $this->data['ticket_id'] ?? null,
-                'channel' => 'push',
-                'type' => $this->data['type'] ?? 'generic',
-                'status' => $status === 200 ? 'sent' : 'failed',
-                'payload' => $payload,
-                'sent_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('FCM send error: '.$e->getMessage());
-            NotificationLog::create([
-                'ticket_id' => $this->data['ticket_id'] ?? null,
-                'channel' => 'push',
-                'type' => $this->data['type'] ?? 'generic',
-                'status' => 'failed',
-                'payload' => $payload,
-                'sent_at' => null,
-            ]);
-        }
+            'sent_at' => $sentAny ? now() : null,
+        ]);
     }
 }

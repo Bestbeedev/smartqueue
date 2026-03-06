@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Saas\MonitoringController as SaasMonitoringControll
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferencesController;
+use App\Http\Controllers\Api\Admin\PushNotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -127,6 +128,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Exports
         Route::get('establishments/{establishment}/reports/activity.csv', [AdminReportExportController::class, 'activityCsv']);
+
+        // Push notifications (FCM)
+        Route::post('push/broadcast', [PushNotificationController::class, 'broadcast']);
     });
 
     // Espace super-admin SaaS (multi-établissements)
