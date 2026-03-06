@@ -101,12 +101,15 @@ jobs:
     needs: sync
     if: always()
     steps:
-      - name: 📊 Check sync health
-        run: |
-          echo "=== Monitoring de la synchronisation ==="
-          echo "Sync job status: ${{ needs.sync.result }}"
-          if [ "${{ needs.sync.result }}" = "failure" ]; then
-            echo "❌ La synchronisation a échoué"
-            exit 1
-          else
-            echo "✅ Synchronisation réussie"
+    - name: 📊 Check sync health
+      run: |
+        echo "=== Monitoring de la synchronisation ==="
+        SYNC_STATUS="${{ needs.sync.result }}"
+        echo "Sync job status: $SYNC_STATUS"
+
+        if [ "$SYNC_STATUS" = "failure" ]; then
+          echo "❌ La synchronisation a échoué"
+          exit 1
+        else
+          echo "✅ Synchronisation réussie"
+        fi
