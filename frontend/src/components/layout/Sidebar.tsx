@@ -228,7 +228,7 @@ export default function Sidebar() {
     {
       to: "/dashboard",
       icon: LayoutDashboard,
-      label: "Tableau de bord",
+      label: role === "super_admin" ? "Dashboard SaaS" : role === "agent" ? "Espace Agent" : "Tableau de bord",
       roles: ["all"],
     },
     {

@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LoadingState, ErrorState } from '@/components/ui/loading-state'
+import { useApiData } from '@/hooks/use-api-data'
 import { 
   Activity, 
   Users, 
@@ -16,25 +18,18 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  RefreshCw
+  RefreshCw,
+  DollarSign,
+  XCircle,
+  AlertCircle
 } from 'lucide-react'
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts'
+import { StatusChart } from '@/components/ui/status-chart'
+import { 
+  VerticalBarChart, 
+  DonutChart, 
+  LineChartComponent, 
+  AreaChartComponent 
+} from '@/components/ui/charts'
 
 interface MonitoringData {
   establishments: number
@@ -81,40 +76,75 @@ interface MonitoringData {
 }
 
 export default function SaasMonitoring() {
-  const [data, setData] = useState<MonitoringData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-
-  const load = async () => {
-    setRefreshing(true)
-    try {
-      const r = await api.get('/api/saas/monitoring/overview')
-      setData(r.data)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
+  const { data, loading, refreshing, error, refresh } = useApiData<MonitoringData>(
+    '/api/saas/monitoring/overview',
+    {
+      showToast: true,
+      onSuccess: (data) => {
+        console.log('Monitoring data loaded successfully:', data)
+      }
     }
-  }
-
-  useEffect(() => { 
-    setLoading(true)
-    load() 
-  }, [])
-
-  if (loading && !data) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-        <p className="text-muted-foreground">Chargement du monitoring...</p>
-      </div>
-    </div>
   )
 
+  if (loading && !data) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <LoadingState message="Chargement du monitoring..." size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !data) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <ErrorState 
+            message={error} 
+            onRetry={refresh}
+          />
+        </div>
+      </div>
+    )
+  }
+
   const subscriptionData = data?.subscriptions_by_status ? [
-    { name: 'Actifs', value: data.subscriptions_by_status.active, color: '#10b981' },
-    { name: 'Essai', value: data.subscriptions_by_status.trial, color: '#3b82f6' },
-    { name: 'Expirés', value: data.subscriptions_by_status.expired, color: '#f59e0b' },
-    { name: 'Annulés', value: data.subscriptions_by_status.canceled, color: '#ef4444' }
+    { 
+      name: 'Actifs', 
+      value: data.subscriptions_by_status.active, 
+      color: '#10b981', 
+      icon: <CheckCircle className="w-4 h-4" />,
+      trend: { value: 15, isPositive: true }
+    },
+    { 
+      name: 'Essai', 
+      value: data.subscriptions_by_status.trial, 
+      color: '#3b82f6', 
+      icon: <Clock className="w-4 h-4" />,
+      trend: { value: -8, isPositive: false }
+    },
+    { 
+      name: 'Expirés', 
+      value: data.subscriptions_by_status.expired, 
+      color: '#f59e0b', 
+      icon: <AlertCircle className="w-4 h-4" />,
+      trend: { value: 3, isPositive: true }
+    },
+    { 
+      name: 'Annulés', 
+      value: data.subscriptions_by_status.canceled, 
+      color: '#ef4444', 
+      icon: <XCircle className="w-4 h-4" />,
+      trend: { value: -2, isPositive: false }
+    }
+  ] : []
+
+  const ticketsData = data?.tickets ? [
+    { name: 'En attente', value: data.tickets.waiting, color: '#3b82f6' },
+    { name: 'Appelés', value: data.tickets.called, color: '#10b981' },
+    { name: 'Absents', value: data.tickets.absent, color: '#f59e0b' },
+    { name: 'Traités', value: data.tickets.processed, color: '#8b5cf6' }
   ] : []
 
   const performanceData = data?.performance ? [
@@ -124,9 +154,9 @@ export default function SaasMonitoring() {
   ] : []
 
   const systemData = data?.system ? [
-    { name: 'CPU', value: data.system.cpu_usage, max: 100, unit: '%' },
-    { name: 'Mémoire', value: data.system.memory_usage, max: 100, unit: '%' },
-    { name: 'Disque', value: data.system.disk_usage, max: 100, unit: '%' }
+    { name: 'CPU', value: data.system.cpu_usage, color: '#3b82f6' },
+    { name: 'Mémoire', value: data.system.memory_usage, color: '#10b981' },
+    { name: 'Disque', value: data.system.disk_usage, color: '#f59e0b' }
   ] : []
 
   return (
@@ -140,7 +170,7 @@ export default function SaasMonitoring() {
           </div>
           <Button 
             variant="outline" 
-            onClick={load} 
+            onClick={refresh} 
             disabled={refreshing}
             className="flex items-center gap-2"
           >
@@ -222,114 +252,64 @@ export default function SaasMonitoring() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Tickets Status */}
+              {/* Tickets Status - Vertical Bar Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Statuts des tickets</CardTitle>
                   <CardDescription>Répartition des tickets par statut</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {data?.tickets && [
-                      { label: 'En attente', value: data.tickets.waiting, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/20' },
-                      { label: 'Appelés', value: data.tickets.called, color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/20' },
-                      { label: 'Absents', value: data.tickets.absent, color: 'text-orange-600', bg: 'bg-orange-100 dark:bg-orange-900/20' },
-                      { label: 'Traités', value: data.tickets.processed, color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/20' }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${item.bg}`} />
-                          <span className="font-medium">{item.label}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {data.tickets.total ? Math.round((item.value / data.tickets.total) * 100) : 0}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <VerticalBarChart 
+                    data={ticketsData}
+                    height={280}
+                    showLabels={true}
+                  />
                 </CardContent>
               </Card>
 
-              {/* Timeline Chart */}
-              {data?.timeline && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Évolution sur 30 jours</CardTitle>
-                    <CardDescription>Croissance des établissements et tickets</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={data.timeline}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis 
-                          dataKey="date" 
-                          className="text-xs"
-                          tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                        />
-                        <YAxis className="text-xs" />
-                        <Tooltip 
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="establishments" 
-                          stroke="hsl(var(--primary))" 
-                          strokeWidth={2}
-                          dot={false}
-                          name="Établissements"
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="tickets" 
-                          stroke="hsl(var(--chart-2))" 
-                          strokeWidth={2}
-                          dot={false}
-                          name="Tickets"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Growth Timeline - Line Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Évolution sur 30 jours</CardTitle>
+                  <CardDescription>Croissance des établissements et tickets</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <LineChartComponent 
+                    data={data?.timeline || []}
+                    lines={[
+                      {
+                        dataKey: 'establishments',
+                        stroke: 'hsl(var(--primary))',
+                        name: 'Établissements'
+                      },
+                      {
+                        dataKey: 'tickets',
+                        stroke: 'hsl(var(--chart-2))',
+                        name: 'Tickets'
+                      }
+                    ]}
+                    height={280}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="subscriptions" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Subscription Pie Chart */}
+              {/* Subscription Donut Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Répartition des abonnements</CardTitle>
-                  <CardDescription>Par statut</CardDescription>
+                  <CardDescription>Distribution par statut</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={subscriptionData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {subscriptionData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <DonutChart 
+                    data={subscriptionData}
+                    height={300}
+                    innerRadius={70}
+                    outerRadius={100}
+                  />
                 </CardContent>
               </Card>
 
@@ -394,40 +374,26 @@ export default function SaasMonitoring() {
                 </CardContent>
               </Card>
 
-              {/* Performance Chart */}
+              {/* Performance Area Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Performance temporelle</CardTitle>
-                  <CardDescription>Évolution des métriques clés</CardDescription>
+                  <CardDescription>Évolution des tickets traités</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={data?.timeline || []}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis 
-                        dataKey="date" 
-                        className="text-xs"
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      />
-                      <YAxis className="text-xs" />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="tickets" 
-                        stroke="hsl(var(--primary))" 
-                        fill="hsl(var(--primary))"
-                        fillOpacity={0.2}
-                        strokeWidth={2}
-                        name="Tickets"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <AreaChartComponent 
+                    data={data?.timeline || []}
+                    areas={[
+                      {
+                        dataKey: 'tickets',
+                        stroke: 'hsl(var(--primary))',
+                        fill: 'hsl(var(--primary))',
+                        name: 'Tickets',
+                        fillOpacity: 0.2
+                      }
+                    ]}
+                    height={280}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -435,40 +401,18 @@ export default function SaasMonitoring() {
 
           <TabsContent value="system" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* System Resources */}
+              {/* System Resources - Vertical Bar Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Ressources système</CardTitle>
                   <CardDescription>Utilisation des ressources serveur</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {systemData.map((item, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Server className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">{item.name}</span>
-                          </div>
-                          <span className={`text-sm font-medium ${
-                            item.value > 80 ? 'text-red-600' : 
-                            item.value > 60 ? 'text-yellow-600' : 'text-green-600'
-                          }`}>
-                            {item.value}{item.unit}
-                          </span>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              item.value > 80 ? 'bg-red-500' : 
-                              item.value > 60 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${Math.min((item.value / item.max) * 100, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <VerticalBarChart 
+                    data={systemData}
+                    height={280}
+                    showLabels={true}
+                  />
                 </CardContent>
               </Card>
 

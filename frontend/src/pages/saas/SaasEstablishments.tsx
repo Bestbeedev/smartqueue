@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LoadingState, ErrorState } from '@/components/ui/loading-state'
+import { usePaginatedApiData } from '@/hooks/use-api-data'
 import {
   Table,
   TableBody,
@@ -35,7 +37,12 @@ import {
   RefreshCw,
   Plus,
   Download,
-  Mail
+  Mail,
+  CheckCircle,
+  XCircle,
+  Activity,
+  DollarSign,
+  CreditCard
 } from 'lucide-react'
 import {
   BarChart,
@@ -50,6 +57,7 @@ import {
   Pie,
   Cell
 } from 'recharts'
+import { StatusChart } from '@/components/ui'
 
 type Establishment = {
   id: number
@@ -67,42 +75,45 @@ type Establishment = {
 }
 
 export default function SaasEstablishments() {
-  const [rows, setRows] = useState<Establishment[]>([])
-  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [planFilter, setPlanFilter] = useState<'all' | 'basic' | 'pro' | 'enterprise'>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'total_tickets'>('created_at')
+  const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'total_tickets' | 'last_active'>('created_at')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const load = async () => {
-    if (loading) return
-    setLoading(true)
-    try {
-      const response = await api.get('/api/saas/establishments?per_page=100')
-      const list = response.data?.data || response.data
-      setRows(Array.isArray(list) ? list : [])
-    } catch (error: any) {
-      const status = error?.response?.status
-      if (status === 401) {
-        toast.error('Session expirée. Veuillez vous reconnecter.')
-      } else if (status === 403) {
-        toast.error('Accès refusé. Permissions requises.')
-      } else if (status === 404) {
-        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
-      } else if (status >= 500) {
-        toast.error('Erreur serveur. Contactez l\'administrateur.')
-      } else {
-        toast.error('Impossible de charger les établissements')
+  const { data: rows, loading, refreshing, error, refresh } = usePaginatedApiData<Establishment>(
+    '/api/saas/establishments',
+    {
+      perPage: 100,
+      showToast: true,
+      onSuccess: (data) => {
+        console.log('Establishments loaded successfully:', data)
       }
-      console.error('Erreur lors du chargement des établissements:', error)
-      setRows([])
-    } finally {
-      setLoading(false)
     }
+  )
+
+  if (loading && !rows.length) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <LoadingState message="Chargement des établissements..." size="lg" />
+        </div>
+      </div>
+    )
   }
 
-  useEffect(() => { load() }, [])
+  if (error && !rows.length) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <ErrorState 
+            message={error} 
+            onRetry={() => refresh()}
+          />
+        </div>
+      </div>
+    )
+  }
 
   // Filtrage et tri
   const filteredAndSortedRows = rows
@@ -151,8 +162,20 @@ export default function SaasEstablishments() {
   ]
 
   const statusData = [
-    { name: 'Actifs', value: stats.active, color: '#10b981' },
-    { name: 'Inactifs', value: stats.inactive, color: '#ef4444' }
+    { 
+      name: 'Actifs', 
+      value: stats.active, 
+      color: '#10b981', 
+      icon: <CheckCircle className="w-4 h-4" />,
+      trend: { value: 18, isPositive: true }
+    },
+    { 
+      name: 'Inactifs', 
+      value: stats.inactive, 
+      color: '#ef4444', 
+      icon: <XCircle className="w-4 h-4" />,
+      trend: { value: -7, isPositive: false }
+    }
   ]
 
   const getPlanBadge = (plan: string) => {
@@ -180,8 +203,13 @@ export default function SaasEstablishments() {
             <p className="text-muted-foreground">Gestion multi-établissements et monitoring</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={load} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <Button 
+              variant="outline" 
+              onClick={() => refresh()} 
+              disabled={refreshing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Actualiser
             </Button>
             <Button>
@@ -274,33 +302,13 @@ export default function SaasEstablishments() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Statuts des clients</CardTitle>
-              <CardDescription>Actifs vs Inactifs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <StatusChart
+            title="Statuts des clients"
+            description="Actifs vs Inactifs"
+            data={statusData}
+            height={250}
+            showTrend={true}
+          />
         </div>
 
         {/* Filters */}
@@ -354,6 +362,7 @@ export default function SaasEstablishments() {
                   <SelectItem value="created_at">Date de création</SelectItem>
                   <SelectItem value="name">Nom</SelectItem>
                   <SelectItem value="total_tickets">Tickets</SelectItem>
+                  <SelectItem value="last_active">Dernière activité</SelectItem>
                 </SelectContent>
               </Select>
             </div>
