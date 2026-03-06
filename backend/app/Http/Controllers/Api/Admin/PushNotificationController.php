@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\SendPushNotification;
-use App\Models\Device;
 use App\Models\NotificationLog;
 use App\Models\User;
 use App\Notifications\AdminBroadcastNotification;
@@ -29,17 +28,28 @@ class PushNotificationController extends Controller
         $payload = is_array($data['data'] ?? null) ? $data['data'] : [];
         $payload['type'] = $payload['type'] ?? 'admin_broadcast';
 
-        // Dispatch to each distinct user that has at least one push-enabled device.
-        $userIds = Device::query()
-            ->where('push_enabled', true)
-            ->distinct()
-            ->pluck('user_id')
+        // La cloche/dashboard doit afficher le broadcast pour tous les users du même établissement.
+        // En revanche, l'envoi FCM doit rester limité aux users ayant au moins un device push_enabled.
+        $admin = $request->user();
+        $establishmentId = (int) ($admin->establishment_id ?? 0);
+
+        $establishmentUsers = User::query()
+            ->where('establishment_id', $establishmentId)
+            ->get();
+
+        foreach ($establishmentUsers as $u) {
+            $u->notify(new AdminBroadcastNotification($data['title'], $data['body'], $payload));
+        }
+
+        $pushUserIds = User::query()
+            ->whereHas('devices', function ($q) {
+                $q->where('push_enabled', true);
+            })
+            ->pluck('id')
             ->all();
 
-        $users = User::query()->whereIn('id', $userIds)->get();
-        foreach ($users as $u) {
-            $u->notify(new AdminBroadcastNotification($data['title'], $data['body'], $payload));
-            dispatch(new SendPushNotification((int) $u->id, $data['title'], $data['body'], $payload));
+        foreach ($pushUserIds as $userId) {
+            dispatch(new SendPushNotification((int) $userId, $data['title'], $data['body'], $payload));
         }
 
         NotificationLog::create([
@@ -51,14 +61,16 @@ class PushNotificationController extends Controller
                 'title' => $data['title'],
                 'body' => $data['body'],
                 'data' => $payload,
-                'users_targeted' => $users->count(),
+                'establishment_users_notified' => $establishmentUsers->count(),
+                'push_users_targeted' => count($pushUserIds),
             ],
             'sent_at' => null,
         ]);
 
         return response()->json([
             'message' => 'Broadcast queued',
-            'users_targeted' => $users->count(),
+            'establishment_users_notified' => $establishmentUsers->count(),
+            'push_users_targeted' => count($pushUserIds),
         ]);
     }
 }
