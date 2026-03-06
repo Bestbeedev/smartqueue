@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/api/axios';
@@ -212,7 +213,7 @@ export default function Notifications() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <div className="container mx-auto px-4 py-6 ">
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
@@ -276,6 +277,17 @@ export default function Notifications() {
                 <Info className="h-4 w-4" />
                 Notification globale
               </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => {
+                  window.location.href = '/dashboard/admin/notification-logs';
+                }}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Logs notifications
+              </Button>
             </>
           )}
         </div>
@@ -283,13 +295,16 @@ export default function Notifications() {
         {/* Filtres */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-              <div className="flex items-center gap-2 mb-3 lg:mb-0">
+            <div className="flex flex-col gap-4">
+              {/* Header des filtres */}
+              <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Filtrer:</span>
               </div>
               
-              <div className="flex flex-wrap gap-2">
+              {/* Tous les filtres sur une seule ligne */}
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Filtres par statut */}
                 <Button
                   variant={filter === 'all' ? 'default' : 'ghost'}
                   size="sm"
@@ -297,6 +312,7 @@ export default function Notifications() {
                     setFilter('all');
                     setTypeFilter('all');
                   }}
+                  className="shrink-0"
                 >
                   Tout ({notifications.length})
                 </Button>
@@ -307,6 +323,7 @@ export default function Notifications() {
                     setFilter('unread');
                     setTypeFilter('all');
                   }}
+                  className="shrink-0"
                 >
                   Non lues ({unreadCount})
                 </Button>
@@ -317,18 +334,20 @@ export default function Notifications() {
                     setFilter('read');
                     setTypeFilter('all');
                   }}
+                  className="shrink-0"
                 >
                   Lues ({notifications.length - unreadCount})
                 </Button>
-              </div>
 
-              <div className="h-6 w-px bg-border lg:hidden" />
+                {/* Séparateur */}
+                <div className="hidden sm:block w-px h-4 bg-border mx-1" />
 
-              <div className="flex flex-wrap gap-2">
+                {/* Filtres par type */}
                 <Button
                   variant={typeFilter === 'all' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTypeFilter('all')}
+                  className="shrink-0 text-xs"
                 >
                   Tous types
                 </Button>
@@ -336,37 +355,41 @@ export default function Notifications() {
                   variant={typeFilter === 'info' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTypeFilter('info')}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 shrink-0 text-xs"
                 >
                   <Info className="h-3 w-3" />
-                  Info
+                  <span className="hidden xs:inline">Info</span>
+                  <span className="xs:hidden">Info</span>
                 </Button>
                 <Button
                   variant={typeFilter === 'success' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTypeFilter('success')}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 shrink-0 text-xs"
                 >
                   <CheckCircle className="h-3 w-3" />
-                  Succès
+                  <span className="hidden xs:inline">Succès</span>
+                  <span className="xs:hidden">Succès</span>
                 </Button>
                 <Button
                   variant={typeFilter === 'warning' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTypeFilter('warning')}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 shrink-0 text-xs"
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  Alerte
+                  <span className="hidden xs:inline">Alerte</span>
+                  <span className="xs:hidden">Alerte</span>
                 </Button>
                 <Button
                   variant={typeFilter === 'error' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTypeFilter('error')}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 shrink-0 text-xs"
                 >
                   <XCircle className="h-3 w-3" />
-                  Erreur
+                  <span className="hidden xs:inline">Erreur</span>
+                  <span className="xs:hidden">Erreur</span>
                 </Button>
               </div>
             </div>

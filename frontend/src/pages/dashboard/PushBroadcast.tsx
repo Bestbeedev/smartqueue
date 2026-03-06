@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/api/axios'
+import { Textarea } from '@/components/ui'
 
 export default function PushBroadcast() {
   const [title, setTitle] = useState('')
@@ -34,8 +35,8 @@ export default function PushBroadcast() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="bg-card rounded-xl shadow-lg border border-border p-6">
+    <div className="container mx-auto px-4 py-8">
+      <div className="bg-card rounded-xl shadow-lg border max-w-6xl mx-auto border-border p-6">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-foreground mb-1">Push notifications (Firebase)</h1>
@@ -56,7 +57,7 @@ export default function PushBroadcast() {
 
           <div>
             <label className="text-sm font-medium text-foreground">Message</label>
-            <Input value={body} onChange={(e) => setBody(e.target.value)} className="mt-1" />
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} className="mt-1" />
           </div>
 
           {error ? <div className="text-sm text-destructive">{error}</div> : null}
