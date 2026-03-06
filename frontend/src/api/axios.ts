@@ -7,7 +7,7 @@
  */
 import axios from 'axios'
 
-const baseURL = import.meta.env.DEV ? '/' : (import.meta.env.VITE_API_BASE_URL || '/')
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/'
 export const api = axios.create({ baseURL })
 
 // Injecte le token Sanctum dans chaque requête sortante

@@ -46,6 +46,9 @@ const SetupEstablishment = lazy(
 
 // Pages communes
 const Settings = lazy(() => import("@/pages/Settings"));
+const Billing = lazy(() => import("@/pages/dashboard/Billing"));
+const Analytics = lazy(() => import("@/pages/dashboard/Analytics"));
+const PushBroadcast = lazy(() => import("@/pages/dashboard/PushBroadcast"));
 const Profile = lazy(() => import("@/pages/auth/user/Profile"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 
@@ -327,6 +330,38 @@ export default function Router() {
           element: (
             <Suspense fallback={<PageLoader />}>
               <Settings />
+            </Suspense>
+          ),
+        },
+        {
+          path: "billing",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Billing />
+            </Suspense>
+          ),
+        },
+        {
+          path: "subscription",
+          element: (
+            <Suspense fallback={<PageLoaderSample />}>
+              <SubscriptionPlan />
+            </Suspense>
+          ),
+        },
+        {
+          path: "analytics",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <Analytics />
+            </Suspense>
+          ),
+        },
+        {
+          path: "push",
+          element: (
+            <Suspense fallback={<PageLoader />}>
+              <PushBroadcast />
             </Suspense>
           ),
         },
