@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferencesController;
 use App\Http\Controllers\Api\Admin\PushNotificationController;
+use App\Http\Controllers\Api\Admin\NotificationLogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -131,6 +132,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Push notifications (FCM)
         Route::post('push/broadcast', [PushNotificationController::class, 'broadcast']);
+
+        // Historique des notifications envoyées (logs)
+        Route::get('notification-logs', [NotificationLogController::class, 'index']);
+        Route::get('notification-logs/{id}', [NotificationLogController::class, 'show']);
+        Route::patch('notification-logs/{id}', [NotificationLogController::class, 'update']);
     });
 
     // Espace super-admin SaaS (multi-établissements)

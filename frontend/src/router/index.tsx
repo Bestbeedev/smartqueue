@@ -31,6 +31,7 @@ const Agents = lazy(() => import("@/pages/admin/Agents"));
 const Services = lazy(() => import("@/pages/admin/Services"));
 const Establishments = lazy(() => import("@/pages/admin/Establishments"));
 const Stats = lazy(() => import("@/pages/admin/Stats"));
+const NotificationLogs = lazy(() => import("@/pages/admin/NotificationLogs"));
 
 // Pages SaaS
 const SaasMonitoring = lazy(() => import("@/pages/saas/SaasMonitoring"));
@@ -294,6 +295,14 @@ export default function Router() {
                   </Suspense>
                 ),
               },
+              {
+                path: "admin/notification-logs",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <NotificationLogs />
+                  </Suspense>
+                ),
+              },
             ]
           : []),
         // Routes SaaS (protégées - uniquement super_admin)
@@ -325,14 +334,6 @@ export default function Router() {
               },
             ]
           : []),
-        {
-          path: "settings",
-          element: (
-            <Suspense fallback={<PageLoader />}>
-              <Settings />
-            </Suspense>
-          ),
-        },
         {
           path: "billing",
           element: (
