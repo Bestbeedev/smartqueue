@@ -257,12 +257,6 @@ export default function Sidebar() {
       label: "Paramètres",
       roles: ["all"],
     },
-    {
-      to: "/dashboard/admin/notification-logs",
-      icon: Bell,
-      label: "Logs notifications",
-      roles: ["admin"],
-    },
   ];
 
   const filteredItems = navigationItems.filter(
