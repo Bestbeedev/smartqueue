@@ -94,58 +94,13 @@ export default function Notifications() {
     setLoading(true);
     setLoadError(null);
     try {
-      // Données mockées pour le moment
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          title: 'Nouveau ticket créé',
-          message: 'Un client a pris un ticket pour le service Guichet',
-          time: 'Il y a 2 min',
-          read: false,
-          type: 'info',
-          category: 'ticket',
-          actionUrl: '/dashboard/queues'
-        },
-        {
-          id: '2',
-          title: 'File d\'attente pleine',
-          message: 'Le service Guichet a atteint sa capacité maximale',
-          time: 'Il y a 5 min',
-          read: false,
-          type: 'warning',
-          category: 'queue'
-        },
-        {
-          id: '3',
-          title: 'Agent disponible',
-          message: 'L\'agent Jean Dupont est maintenant en ligne',
-          time: 'Il y a 10 min',
-          read: true,
-          type: 'success',
-          category: 'user'
-        },
-        {
-          id: '4',
-          title: 'Système mis à jour',
-          message: 'La plateforme a été mise à jour vers la version 1.0.1',
-          time: 'Il y a 1 h',
-          read: true,
-          type: 'info',
-          category: 'system'
-        },
-        {
-          id: '5',
-          title: 'Ticket prioritaire',
-          message: 'Un ticket prioritaire a été appelé au service Accueil',
-          time: 'Il y a 15 min',
-          read: false,
-          type: 'error',
-          category: 'ticket',
-          actionUrl: '/dashboard/queues/priority'
-        }
-      ];
-      
-      setNotifications(mockNotifications);
+      const { data } = await api.get('/api/notifications?per_page=50');
+      const items: NotificationDb[] = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+          ? data
+          : [];
+      setNotifications(items.map(normalizeNotification));
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Impossible de charger les notifications';
       setLoadError(msg);
