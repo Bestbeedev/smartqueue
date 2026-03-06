@@ -41,6 +41,7 @@ const SaasEstablishments = lazy(
   () => import("@/pages/saas/SaasEstablishments"),
 );
 const SaasSubscriptions = lazy(() => import("@/pages/saas/SaasSubscriptions"));
+const SuperAdminSettings = lazy(() => import("@/pages/saas/SuperAdminSettings"));
 
 // Setup onboarding admin
 const SetupEstablishment = lazy(
@@ -336,13 +337,21 @@ export default function Router() {
                   </Suspense>
                 ),
               },
+              {
+                path: "saas/settings",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <SuperAdminSettings />
+                  </Suspense>
+                ),
+              },
             ]
           : []),
         {
           path: "settings",
           element: (
             <Suspense fallback={<PageLoader />}>
-              <Settings />
+              {user?.role === "super_admin" ? <SuperAdminSettings /> : <Settings />}
             </Suspense>
           ),
         },
