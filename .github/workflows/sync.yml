@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.SYNC_TOKEN }}
+          fetch-depth: 0
 
       - name: Add upstream repo
         run: |
