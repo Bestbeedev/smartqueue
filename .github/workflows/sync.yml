@@ -1,11 +1,8 @@
-name: 🔄 Sync Repository from Upstream
+name: Sync Repository from Upstream
 
 on:
-  # Vérification automatique toutes les 5 minutes
   schedule:
-    - cron: '*/5 * * * *'
-  
-  # Déclenchement manuel depuis l'interface GitHub
+    - cron: '*/5 * * * *' # toutes les 5 minutes
   workflow_dispatch:
     inputs:
       force_sync:
@@ -13,6 +10,8 @@ on:
         required: false
         default: false
         type: boolean
+  repository_dispatch:
+    types: [sync-request]
 
 jobs:
   sync:
@@ -21,8 +20,7 @@ jobs:
       - name: 🔄 Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          fetch-depth: 0 # récupérer tout l'historique
 
       - name: 🔧 Configure Git
         run: |
@@ -66,33 +64,25 @@ jobs:
         if: steps.check_diff.outputs.no_changes == 'false' || github.event.inputs.force_sync == 'true'
         run: |
           echo "🚀 Début de la synchronisation..."
-          # Fast-forward si possible
-          if git merge-base --is-ancestor main upstream/main; then
-            echo "✅ Fast-forward possible"
-            git merge upstream/main --ff-only
-          else
-            echo "⚠️ Fast-forward impossible, merge avec autorisation des historiques différents"
-            git merge upstream/main --allow-unrelated-histories -m "🔄 Auto-sync from upstream $(date '+%Y-%m-%d %H:%M:%S')"
-          fi
+          # Merge avec option pour le premier run (histoires différentes)
+          git merge upstream/main --no-ff --allow-unrelated-histories -m "🔄 Auto-sync from upstream $(date '+%Y-%m-%d %H:%M:%S')"
           echo "=== Résultat du merge ==="
           git log --oneline -5
 
       - name: 🚀 Push to origin
         if: steps.check_diff.outputs.no_changes == 'false' || github.event.inputs.force_sync == 'true'
         run: |
-          echo "📤 Push vers le repository miroir..."
-          if git merge-base --is-ancestor origin/main main 2>/dev/null; then
-            git push origin main
-          else
-            git push origin main --force-with-lease
+          git push origin main --force-with-lease
+          echo "📤 Push terminé"
 
       - name: 📊 Sync Summary
         if: always()
         run: |
           echo "=== Résumé ==="
-          echo "Source: https://github.com/stephdeve/SmartQueue.git"
-          echo "Miroir: https://github.com/Bestbeedev/smartqueue.git"
+          echo "Repository source: https://github.com/stephdeve/SmartQueue.git"
+          echo "Repository cible: https://github.com/Bestbeedev/smartqueue.git"
           echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "Trigger: ${{ github.event_name }}"
           if [ "${{ steps.check_diff.outputs.no_changes }}" = "true" ]; then
             echo "Status: ✅ Déjà à jour"
           else
@@ -102,4 +92,19 @@ jobs:
       - name: 🎯 Notify Vercel (optional)
         if: steps.check_diff.outputs.no_changes == 'false' || github.event.inputs.force_sync == 'true'
         run: |
-          echo "🔄 Push détecté → Vercel déclenchera le déploiement automatiquement"
+          echo "🔄 Notification envoyée à Vercel pour redéploiement automatique"
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs: sync
+    if: always()
+    steps:
+      - name: 📊 Check sync health
+        run: |
+          echo "=== Monitoring de la synchronisation ==="
+          echo "Sync job status: ${{ needs.sync.result }}"
+          if [ "${{ needs.sync.result }}" = "failure" ]; then
+            echo "❌ La synchronisation a échoué"
+            exit 1
+          else
+            echo "✅ Synchronisation réussie"
