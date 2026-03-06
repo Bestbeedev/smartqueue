@@ -254,7 +254,7 @@ export default function Sidebar() {
     {
       to: "/dashboard/settings",
       icon: SettingsIcon,
-      label: "Paramètres",
+      label: role === "super_admin" ? "Config SaaS" : "Paramètres",
       roles: ["all"],
     },
   ];
