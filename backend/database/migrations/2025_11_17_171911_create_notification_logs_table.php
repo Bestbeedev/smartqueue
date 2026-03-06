@@ -15,7 +15,7 @@ return new class extends Migration
             // Identifiant du log
             $table->id();
             // Ticket concerné (cascade on delete)
-            $table->foreignId('ticket_id')->constrained('tickets')->cascadeOnDelete();
+            $table->foreignId('ticket_id')->nullable()->constrained('tickets')->nullOnDelete();
             // Canal d'envoi: push ou sms
             $table->enum('channel', ['push','sms']);
             // Type fonctionnel de la notification
