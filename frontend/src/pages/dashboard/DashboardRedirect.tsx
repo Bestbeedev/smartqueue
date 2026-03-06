@@ -23,13 +23,6 @@ export default function DashboardRedirect() {
       return
     }
 
-    // Debug: afficher les infos utilisateur
-    console.log('DashboardRedirect - User:', {
-      role: user.role,
-      establishment_id: user.establishment_id,
-      pending_subscription: user.pending_subscription,
-      currentPath: window.location.pathname
-    })
 
     // Si l'utilisateur est admin
     if (user.role === 'admin') {
@@ -37,14 +30,12 @@ export default function DashboardRedirect() {
       if (!user.establishment_id) {
         // Si admin n'a pas d'abonnement actif → Rediriger vers subscription d'abord
         if (!user.pending_subscription) {
-          console.log('Redirection vers subscription (pending_subscription est null)')
           toast.info('Veuillez choisir un abonnement pour continuer')
           navigate('/subscription')
           return
         }
         
         // Si admin a un abonnement mais pas d'établissement → Rediriger vers setup
-        console.log('Redirection vers setup-establishment (abonnement existe mais pas d\'établissement)')
         toast.info('Veuillez configurer votre établissement pour continuer')
         navigate('/setup-establishment')
         return

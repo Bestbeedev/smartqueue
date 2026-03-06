@@ -150,7 +150,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 ">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Paramètres de l'établissement</h1>
         <p className="text-muted-foreground">
@@ -488,7 +488,7 @@ export default function Settings() {
                   <div className="flex items-center justify-between p-3 border border-border rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                        <span className="text-xs font-bold text-red-600">FCM</span>
+                        <span className="text-xs font-bold text-red-600">FB</span>
                       </div>
                       <div>
                         <p className="font-medium">Firebase</p>
