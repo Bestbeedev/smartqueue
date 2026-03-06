@@ -22,6 +22,29 @@ class TicketService
 {
     private const ACTIVE_STATUSES = ['waiting','called','absent'];
 
+    private function recomputePositions(Service $service): void
+    {
+        $waiting = Ticket::query()
+            ->where('service_id', $service->id)
+            ->where('status', 'waiting')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', 'user_id', 'position']);
+
+        $pos = 1;
+        foreach ($waiting as $t) {
+            if ((int) $t->position !== $pos) {
+                Ticket::query()->where('id', $t->id)->update(['position' => $pos]);
+                event(new TicketUpdated($t->id, ['position' => $pos]));
+                event(new UserTicketUpdated($t->user_id, ['ticket_id' => $t->id, 'position' => $pos]));
+            }
+            $pos++;
+        }
+
+        $waitingCount = $pos - 1;
+        event(new ServiceStatsUpdated($service->id, ['waiting_count' => $waitingCount]));
+    }
+
     /**
      * Crée un ticket pour un service donné avec logique de position et numérotation.
      */
