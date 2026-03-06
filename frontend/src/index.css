@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 4%;
+    --foreground: 213 31% 91%;
+    --card: 222 47% 7%;
+    --card-foreground: 213 31% 91%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47% 4%;
+    --secondary: 217.2 32.6% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17%;
+    --accent-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 15%;
+    --input: 217.2 32.6% 15%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * {
+    /* Correction ici : On utilise la variable HSL directement */
+    border-color: hsl(var(--border));
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer components {
+  /* Classes utilitaires personnalisées */
+  .bg-background {
+    background-color: hsl(var(--background));
+  }
+
+  .text-foreground {
+    color: hsl(var(--foreground));
+  }
+
+  .bg-card {
+    background-color: hsl(var(--card));
+  }
+
+  .text-card-foreground {
+    color: hsl(var(--card-foreground));
+  }
+
+  .bg-muted {
+    background-color: hsl(var(--muted));
+  }
+
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .bg-accent {
+    background-color: hsl(var(--accent));
+  }
+
+  .text-accent-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  .bg-primary {
+    background-color: hsl(var(--primary));
+  }
+
+  .text-primary {
+    color: hsl(var(--primary));
+  }
+
+  .bg-destructive {
+    background-color: hsl(var(--destructive));
+  }
+
+  .text-destructive-foreground {
+    color: hsl(var(--destructive-foreground));
+  }
+
+  .border-border {
+    border-color: hsl(var(--border));
+  }
+
+  .bg-secondary {
+    background-color: hsl(var(--secondary));
+  }
+
+  .text-secondary-foreground {
+    color: hsl(var(--secondary-foreground));
+  }
+
+  /* Classes hover améliorées */
+  .hover-accent:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  .hover-accent:hover .text-muted-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  .hover-secondary:hover {
+    background-color: hsl(var(--secondary));
+  }
+
+  .hover-secondary:hover .text-muted-foreground {
+    color: hsl(var(--secondary-foreground));
+  }
+
+  /* Effets de hover plus prononcés pour sidebar */
+  .hover-sidebar:hover {
+    background-color: hsl(var(--accent));
+    transform: scale(1.02);
+  }
+
+  .hover-sidebar:hover .text-muted-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  /* Effets de hover pour cards et tables */
+  .hover-card:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  .hover-card:hover .text-muted-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+
+  /* Effet Glassmorphism pour Sidebar et Topbar */
+  .glass-panel {
+    @apply bg-background/60 backdrop-blur-xl border-r border-border/50;
+  }
+
+  /* Style Premium pour les items de navigation */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-in-out font-medium text-sm;
+    @apply text-muted-foreground hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .nav-item-active {
+    @apply bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/10;
+  }
+
+  /* Dashboard Cards style Linear/Stripe */
+  .stats-card {
+    @apply relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-premium {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, #7c3aed 100%);
+  }
+  
+  .active-scale {
+    @apply active:scale-95 transition-transform;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.1);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.2);
+}

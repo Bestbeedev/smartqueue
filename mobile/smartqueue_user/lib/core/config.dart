@@ -1,0 +1,46 @@
+// Centralise la configuration de l'app (URLs, chemins, options)
+class AppConfig {
+  // Base API Laravel. Adapter selon votre backend (10.0.2.2 = localhost Android emulator)
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://smartqueue-production-e738.up.railway.app/api',
+  );
+
+  // URL WebSocket (ex: ws://10.0.2.2:6001). Adapter à votre stack temps réel
+  static const String wsUrl = String.fromEnvironment(
+    'WS_URL',
+    defaultValue: 'wss://reverb-production-b4e5.up.railway.app',
+  );
+
+  // Auth
+  static const login = '/auth/login';
+  static const register = '/auth/register';
+  static const logout = '/auth/logout';
+  static const deviceRegister = '/auth/devices/register';
+
+  // Établissements et services (public)
+  static const establishments = '/establishments'; // ?lat&lng&radius&per_page
+  static String establishmentById(int id) => '/establishments/$id';
+  static String servicesByEst(int id) => '/establishments/$id/services';
+  static String serviceDetail(int id) => '/services/$id';
+  static String serviceAffluence(int id) => '/services/$id/affluence';
+  static String serviceRecommendations(int id) => '/services/$id/recommendations';
+
+  // Tickets (auth:sanctum)
+  static const createTicket = '/tickets';
+  static const activeTickets = '/tickets/active';
+  static const historyTickets = '/tickets/history';
+  static String ticketById(int id) => '/tickets/$id';
+  static String ticketCancel(int id) => '/tickets/$id';
+
+  // Broadcasting (Echo/Reverb)
+  static const broadcastingAuth = '/broadcasting/auth';
+
+  // Notifications (auth)
+  static const notifications = '/notifications';
+  static String notificationById(int id) => '/notifications/$id';
+  static String notificationRead(int id) => '/notifications/$id/read';
+
+  // Préférences notifications (auth)
+  static const notificationPreferences = '/notification-preferences';
+}
