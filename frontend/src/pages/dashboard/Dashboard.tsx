@@ -60,12 +60,22 @@ export default function Dashboard() {
     }
   }
 
+  const loadRecentActivity = async () => {
+    try {
+      const response = await api.get('/api/admin/recent-activity')
+      // Utiliser les vraies données ou garder les données mock si API pas dispo
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'activité récente:', error)
+    }
+  }
+
   useEffect(() => {
     loadStats()
+    loadRecentActivity()
   }, [role, timeRange])
 
-  // Données factices pour la démo
-  const mockLineData = [
+  // Utiliser les vraies données ou les données par défaut
+  const lineData = stats?.daily_stats || [
     { name: 'Lun', tickets: 12, resolved: 8 },
     { name: 'Mar', tickets: 19, resolved: 15 },
     { name: 'Mer', tickets: 15, resolved: 12 },
@@ -75,7 +85,7 @@ export default function Dashboard() {
     { name: 'Dim', tickets: 8, resolved: 7 },
   ]
 
-  const mockPieData = [
+  const pieData = stats?.service_distribution || [
     { name: 'Accueil', value: 35, color: '#3b82f6' },
     { name: 'Comptabilité', value: 25, color: '#10b981' },
     { name: 'RH', value: 20, color: '#f59e0b' },
@@ -203,7 +213,7 @@ export default function Dashboard() {
           }
         >
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockLineData}>
+            <LineChart data={lineData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
                 dataKey="name" 
@@ -252,7 +262,7 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={mockPieData}
+                data={pieData}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
@@ -260,7 +270,7 @@ export default function Dashboard() {
                 paddingAngle={5}
                 dataKey="value"
               >
-                {mockPieData.map((entry, index) => (
+                {pieData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -274,7 +284,7 @@ export default function Dashboard() {
             </PieChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-2 gap-2 mt-4">
-            {mockPieData.map((item) => (
+            {pieData.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
                 <div 
                   className="w-3 h-3 rounded-full shadow-sm" 

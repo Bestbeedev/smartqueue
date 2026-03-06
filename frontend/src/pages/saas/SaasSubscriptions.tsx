@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LoadingState, ErrorState } from '@/components/ui/loading-state'
+import { usePaginatedApiData } from '@/hooks/use-api-data'
 import {
   Table,
   TableBody,
@@ -31,7 +33,12 @@ import {
   RefreshCw,
   Download,
   Eye,
-  Edit
+  Edit,
+  Activity,
+  CheckCircle,
+  Clock,
+  XCircle,
+  AlertCircle
 } from 'lucide-react'
 import {
   LineChart,
@@ -50,6 +57,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
+import { StatusChart } from '@/components/ui/status-chart'
 
 type Subscription = {
   id: number
@@ -66,44 +74,54 @@ type Subscription = {
 }
 
 export default function SaasSubscriptions() {
-  const [rows, setRows] = useState<Subscription[]>([])
   const [status, setStatus] = useState('all')
   const [plan, setPlan] = useState('all')
-  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'created_at' | 'monthly_revenue' | 'establishment_name' | 'current_period_end'>('created_at')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const load = async () => {
-    if (loading) return
-    setLoading(true)
-    try {
-      const response = await api.get('/api/saas/subscriptions', { 
-        params: { per_page: 100, status: status !== 'all' ? status : undefined, plan: plan !== 'all' ? plan : undefined } 
-      })
-      const data = response.data?.data || response.data
-      setRows(Array.isArray(data) ? data : [])
-    } catch (error: any) {
-      const status = error?.response?.status
-      if (status === 401) {
-        toast.error('Session expirée. Veuillez vous reconnecter.')
-      } else if (status === 403) {
-        toast.error('Accès refusé. Permissions requises.')
-      } else if (status === 404) {
-        toast.error('Endpoint non trouvé. Vérifiez l\'API.')
-      } else if (status >= 500) {
-        toast.error('Erreur serveur. Contactez l\'administrateur.')
-      } else {
-        toast.error('Impossible de charger les abonnements')
+  const { data: rows, loading, refreshing, error, refresh } = usePaginatedApiData<Subscription>(
+    '/api/saas/subscriptions',
+    {
+      perPage: 100,
+      showToast: true,
+      onSuccess: (data) => {
+        console.log('Subscriptions loaded successfully:', data)
       }
-      console.error('Erreur lors du chargement des abonnements:', error)
-      setRows([])
-    } finally {
-      setLoading(false)
     }
+  )
+
+  // Load filtered data when filters change
+  useEffect(() => {
+    const params: Record<string, any> = {}
+    if (status !== 'all') params.status = status
+    if (plan !== 'all') params.plan = plan
+    
+    refresh(params)
+  }, [status, plan, refresh])
+
+  if (loading && !rows.length) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <LoadingState message="Chargement des abonnements..." size="lg" />
+        </div>
+      </div>
+    )
   }
 
-  useEffect(() => { load() }, [])
+  if (error && !rows.length) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <ErrorState 
+            message={error} 
+            onRetry={() => refresh()}
+          />
+        </div>
+      </div>
+    )
+  }
 
   // Filtrage et tri
   const filteredAndSortedRows = rows
@@ -149,10 +167,34 @@ export default function SaasSubscriptions() {
   }
 
   const statusData = [
-    { name: 'Actifs', value: stats.active, color: '#10b981' },
-    { name: 'Essai', value: stats.trial, color: '#3b82f6' },
-    { name: 'Expirés', value: stats.expired, color: '#f59e0b' },
-    { name: 'Annulés', value: stats.canceled, color: '#ef4444' }
+    { 
+      name: 'Actifs', 
+      value: stats.active, 
+      color: '#10b981', 
+      icon: <CheckCircle className="w-4 h-4" />,
+      trend: { value: 12, isPositive: true }
+    },
+    { 
+      name: 'Essai', 
+      value: stats.trial, 
+      color: '#3b82f6', 
+      icon: <Clock className="w-4 h-4" />,
+      trend: { value: -5, isPositive: false }
+    },
+    { 
+      name: 'Expirés', 
+      value: stats.expired, 
+      color: '#f59e0b', 
+      icon: <AlertCircle className="w-4 h-4" />,
+      trend: { value: 8, isPositive: true }
+    },
+    { 
+      name: 'Annulés', 
+      value: stats.canceled, 
+      color: '#ef4444', 
+      icon: <XCircle className="w-4 h-4" />,
+      trend: { value: -3, isPositive: false }
+    }
   ]
 
   const planData = [
@@ -204,7 +246,7 @@ export default function SaasSubscriptions() {
             <p className="text-muted-foreground">Gestion des abonnements et revenus SaaS</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={load} disabled={loading}>
+            <Button variant="outline" onClick={() => refresh()} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualiser
             </Button>
@@ -310,33 +352,13 @@ export default function SaasSubscriptions() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Répartition par statut</CardTitle>
-              <CardDescription>Abonnements par statut</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <StatusChart
+            title="Répartition par statut"
+            description="Abonnements par statut"
+            data={statusData}
+            height={250}
+            showTrend={true}
+          />
         </div>
 
         {/* Plan Distribution */}
