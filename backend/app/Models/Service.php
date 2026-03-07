@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Establishment;
 use App\Models\Ticket;
+use App\Models\User;
 
 class Service extends Model
 {
@@ -29,6 +30,11 @@ class Service extends Model
     {
         // Un service possède plusieurs tickets
         return $this->hasMany(Ticket::class);
+    }
+
+    public function agents()
+    {
+        return $this->belongsToMany(User::class, 'agent_service')->withTimestamps();
     }
 
     // Scopes pratiques

@@ -411,16 +411,16 @@ export default function SuperAdminDashboard() {
                   Aucune donnée pour la période sélectionnée.
                 </div>
               ) : performanceMetrics.map((metric, index) => (
-                <div key={index} className="space-y-3">
+                <div key={index} className="space-y-3 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{metric.metric}</span>
-                    <span className="text-sm text-muted-foreground">{metric.value}%</span>
+                    <span className="text-sm font-medium truncate">{metric.metric}</span>
+                    <span className="text-sm text-muted-foreground flex-shrink-0">{metric.value}%</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div 
                       className="h-2 rounded-full transition-all duration-500"
                       style={{ 
-                        width: `${metric.value}%`,
+                        width: `${Math.min(metric.value, 100)}%`,
                         backgroundColor: metric.color
                       }}
                     />
