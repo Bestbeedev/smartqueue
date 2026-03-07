@@ -27,6 +27,7 @@ class ServiceController extends Controller
             ->withCount(['tickets as people_waiting' => function ($q2) {
                 $q2->where('status', 'waiting');
             }])
+            ->withCount(['agents as agents_count'])
             ->orderBy('name');
 
         if (in_array($status, ['open','closed'], true)) {

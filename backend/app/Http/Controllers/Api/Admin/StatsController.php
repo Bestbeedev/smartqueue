@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Service;
+use App\Models\User;
 
 class StatsController extends Controller
 {
@@ -16,6 +17,8 @@ class StatsController extends Controller
     {
         $from = $request->query('from') ? now()->parse($request->query('from')) : now()->subDays(7);
         $to = $request->query('to') ? now()->parse($request->query('to')) : now();
+
+        $scopedId = $request->attributes->get('scoped_establishment_id');
 
         // Nombre total de tickets créés / clos / absents sur la période
         $totals = DB::table('tickets')
@@ -40,6 +43,37 @@ class StatsController extends Controller
         }
         $waitAvg = $n > 0 ? (int) round($sum / $n) : null;
 
+        // Agrégats services/agence (scope établissement pour admin)
+        $services = null;
+        if (!empty($scopedId)) {
+            $activeServices = Service::query()
+                ->where('establishment_id', (int) $scopedId)
+                ->where('status', 'open')
+                ->count();
+
+            $agentsCount = User::query()
+                ->where('role', 'agent')
+                ->where('establishment_id', (int) $scopedId)
+                ->count();
+
+            $waitingCount = (int) (DB::table('tickets')
+                ->join('services', 'services.id', '=', 'tickets.service_id')
+                ->where('services.establishment_id', (int) $scopedId)
+                ->where('tickets.status', 'waiting')
+                ->count());
+
+            $avgServiceTime = (int) round(Service::query()
+                ->where('establishment_id', (int) $scopedId)
+                ->avg('avg_service_time_minutes') ?? 0);
+
+            $services = [
+                'active' => (int) $activeServices,
+                'agents' => (int) $agentsCount,
+                'waiting' => (int) $waitingCount,
+                'avgTime' => (int) $avgServiceTime,
+            ];
+        }
+
         return response()->json([
             'from' => $from->toDateTimeString(),
             'to' => $to->toDateTimeString(),
@@ -49,6 +83,7 @@ class StatsController extends Controller
                 'absent' => (int) ($totals->absent ?? 0),
                 'wait_avg_minutes' => $waitAvg,
             ],
+            'services' => $services,
         ]);
     }
 

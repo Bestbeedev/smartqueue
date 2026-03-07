@@ -8,6 +8,7 @@ interface ChartContainerProps {
   children: React.ReactNode
   className?: string
   actions?: React.ReactNode
+  config?: Record<string, { label: string; color: string }>
 }
 
 export function ChartContainer({
@@ -15,7 +16,8 @@ export function ChartContainer({
   description,
   children,
   className,
-  actions
+  actions,
+  config
 }: ChartContainerProps) {
   return (
     <Card className={cn(

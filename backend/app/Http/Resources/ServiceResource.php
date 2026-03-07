@@ -21,6 +21,8 @@ class ServiceResource extends JsonResource
             'avg_service_time_minutes' => (int) $this->avg_service_time_minutes,
             // Nombre de personnes en attente si chargé via withCount
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
+            // Nombre d'agents assignés si chargé via withCount
+            'agents_count' => isset($this->agents_count) ? (int) $this->agents_count : null,
             // Etablissement parent (résumé)
             'establishment' => $this->whenLoaded('establishment', function () {
                 return [
