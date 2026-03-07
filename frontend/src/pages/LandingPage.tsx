@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { Link } from "react-router-dom";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useTheme } from "@/components/theme-provider";
 
 // ─── DESIGN SYSTEM ──────────────────────────────────────────────────────────
 const T = {
@@ -63,21 +65,26 @@ const Icons = {
 
 // ─── COMPONENTS ─────────────────────────────────────────────────────────────
 
-const QueueVisual = () => (
+const QueueVisual = ({ t }: { t: any }) => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.98 }}
     animate={{ opacity: 1, scale: 1 }}
-    className="relative w-full max-w-[360px] aspect-[4/5] bg-[#0A0A0F] rounded-[32px] border-[6px] border-[#1C1C21] shadow-2xl overflow-hidden p-6 mx-auto"
+    className="relative w-full max-w-[360px] aspect-[4/5] rounded-[32px] border-[6px] shadow-2xl overflow-hidden p-6 mx-auto transition-colors duration-500"
+    style={{ 
+      background: t.surface, 
+      borderColor: t.border 
+    }}
   >
-    <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#1C1C21] rounded-b-xl" />
+    <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-4 rounded-b-xl transition-colors duration-500" 
+         style={{ background: t.border }} />
     <div className="mt-4 space-y-4">
       <div className="flex justify-between items-end">
         <div>
           <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest mb-0.5">Live</p>
-          <h4 className="text-base font-bold text-white">Guichet Central</h4>
+          <h4 className="text-base font-bold transition-colors duration-500" style={{ color: t.text }}>Guichet Central</h4>
         </div>
         <div className="text-right">
-          <p className="text-[9px] text-gray-500 mb-0.5">Attente</p>
+          <p className="text-[9px] mb-0.5 transition-colors duration-500" style={{ color: t.textMid }}>Attente</p>
           <p className="text-xl font-black text-green-400">~8m</p>
         </div>
       </div>
@@ -88,19 +95,38 @@ const QueueVisual = () => (
           { id: '206', status: 'Suivant', blur: false },
         ].map((item, i) => (
           <motion.div key={item.id} initial={{ x: 10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 + 0.3 }}
-            className={`p-3 rounded-xl flex items-center justify-between ${item.active ? 'bg-blue-600/10 border border-blue-500/20' : 'bg-white/5 border border-white/5'}`}>
+            className="p-3 rounded-xl flex items-center justify-between border transition-colors duration-500"
+            style={{ 
+              background: item.active ? t.accentBg : 'rgba(255,255,255,0.05)',
+              borderColor: item.active ? t.borderAccent : t.border
+            }}>
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold ${item.active ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/50'}`}>{item.id}</div>
-              <div><p className="text-xs font-bold text-white">{item.status}</p><p className="text-[9px] text-white/30">Service A</p></div>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold transition-colors duration-500`}
+                   style={{ 
+                     background: item.active ? t.accent : 'rgba(255,255,255,0.1)',
+                     color: item.active ? '#fff' : t.textMid 
+                   }}>{item.id}</div>
+              <div>
+                <p className="text-xs font-bold transition-colors duration-500" style={{ color: t.text }}>{item.status}</p>
+                <p className="text-[9px] transition-colors duration-500" style={{ color: t.textSub }}>Service A</p>
+              </div>
             </div>
             {item.active && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
           </motion.div>
         ))}
       </div>
-      <motion.div animate={{ y: [0, -2, 0] }} transition={{ duration: 3, repeat: Infinity }} className="bg-blue-600 p-3 rounded-xl shadow-lg shadow-blue-600/10">
+      <motion.div animate={{ y: [0, -2, 0] }} transition={{ duration: 3, repeat: Infinity }} 
+                   className="p-3 rounded-xl shadow-lg transition-colors duration-500"
+                   style={{ background: t.accent, boxShadow: `0 10px 25px -5px ${t.accent}20` }}>
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-white/20 rounded-md"><Icons.Smartphone /></div>
-          <div><p className="text-[10px] font-bold text-white">C'est bientôt à vous</p><p className="text-[8px] text-white/70">Position n°2 dans la file.</p></div>
+          <div className="p-1.5 rounded-md transition-colors duration-500" 
+               style={{ background: 'rgba(255,255,255,0.2)' }}>
+            <Icons.Smartphone />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-white transition-colors duration-500">C'est bientôt à vous</p>
+            <p className="text-[8px] text-white/70 transition-colors duration-500">Position n°2 dans la file.</p>
+          </div>
         </div>
       </motion.div>
     </div>
@@ -235,7 +261,7 @@ const Hero = ({ t }: { t: any }) => (
           <div><p className="text-2xl font-black" style={{ color: t.text }}>15m</p><p className="text-[9px] uppercase font-bold tracking-widest" style={{ color: t.textSub }}>Temps gagné / usager</p></div>
         </motion.div>
       </div>
-      <div className="flex justify-center"><QueueVisual /></div>
+      <div className="flex justify-center"><QueueVisual t={t} /></div>
     </div>
   </section>
 );
@@ -562,11 +588,11 @@ const Pricing = ({ t }: { t: any }) => {
 // ─── PAGE COMPONENT ─────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const [mode, setMode] = useState("dark");
-  const t = T[mode as keyof typeof T];
-  useEffect(() => { document.documentElement.classList.toggle('dark', mode === 'dark'); }, [mode]);
+  const { theme } = useTheme();
+  const t = T[theme as keyof typeof T] || T.dark;
+  
   return (
-    <div className="min-h-screen transition-colors duration-500 font-sans" style={{ background: t.bg, color: t.text }}>
+    <div className={`min-h-screen transition-colors duration-500 font-sans ${theme === 'dark' ? 'bg-black text-white' : 'bg-[#F5F6F7] text-[#1D1D1F]'}`}>
       <style>{`
         @font-face { font-family: 'SF Pro Display'; src: url('https://db.onlinewebfonts.com/t/607593d66416625890b07a974b6a9578.woff2') format('woff2'); }
         html { scroll-behavior: smooth; }
@@ -589,7 +615,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => setMode(m => m === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: t.textMid }}><Icons.Sun /></button>
+            <ThemeToggle />
             <Link to="/login" className="hidden sm:block px-4 py-2 text-[12px] font-bold hover:opacity-50 transition-opacity" style={{ color: t.text }}>Connexion</Link>
             <Link to="/signup" className="px-5 py-2 text-white rounded-lg text-[12px] font-bold shadow-lg shadow-blue-600/10 hover:scale-105 transition-all" style={{ background: t.accent }}>S'inscrire</Link>
           </div>
