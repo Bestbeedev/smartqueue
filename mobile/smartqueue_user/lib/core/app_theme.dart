@@ -38,7 +38,7 @@ class AppTheme {
       foregroundColor: textPrimary,
       titleTextStyle: TextStyle(
         color: textPrimary,
-        fontSize: 17,
+        fontSize: 1,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.5,
       ),
@@ -71,7 +71,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
         textStyle: const TextStyle(
-          fontSize: 17,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.5,
         ),
@@ -86,7 +86,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
         textStyle: const TextStyle(
-          fontSize: 17,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.5,
         ),
@@ -126,19 +126,19 @@ class AppTheme {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: errorColor),
       ),
-      labelStyle: const TextStyle(color: textSecondary, fontSize: 17),
-      hintStyle: const TextStyle(color: textSecondary, fontSize: 17),
+      labelStyle: const TextStyle(color: textSecondary, fontSize: 15),
+      hintStyle: const TextStyle(color: textSecondary, fontSize: 15),
     ),
     listTileTheme: const ListTileThemeData(
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       titleTextStyle: TextStyle(
         color: textPrimary,
-        fontSize: 17,
+        fontSize: 15,
         fontWeight: FontWeight.w400,
       ),
       subtitleTextStyle: TextStyle(
         color: textSecondary,
-        fontSize: 15,
+        fontSize: 13,
         fontWeight: FontWeight.w400,
       ),
     ),
@@ -167,77 +167,77 @@ class AppTheme {
 
   // Styles de texte iOS
   static const TextStyle largeTitle = TextStyle(
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: FontWeight.bold,
     color: textPrimary,
     letterSpacing: -0.5,
   );
 
   static const TextStyle title1 = TextStyle(
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: FontWeight.bold,
     color: textPrimary,
     letterSpacing: -0.5,
   );
 
   static const TextStyle title2 = TextStyle(
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: FontWeight.bold,
     color: textPrimary,
     letterSpacing: -0.5,
   );
 
   static const TextStyle title3 = TextStyle(
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: FontWeight.w600,
     color: textPrimary,
     letterSpacing: -0.5,
   );
 
   static const TextStyle headline = TextStyle(
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     color: textPrimary,
     letterSpacing: -0.5,
   );
 
   static const TextStyle body = TextStyle(
-    fontSize: 17,
-    color: textPrimary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle callout = TextStyle(
-    fontSize: 16,
-    color: textPrimary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle subheadline = TextStyle(
     fontSize: 15,
     color: textPrimary,
     fontWeight: FontWeight.w400,
     letterSpacing: -0.5,
   );
 
-  static const TextStyle footnote = TextStyle(
-    fontSize: 13,
-    color: textSecondary,
+  static const TextStyle callout = TextStyle(
+    fontSize: 14,
+    color: textPrimary,
     fontWeight: FontWeight.w400,
     letterSpacing: -0.5,
   );
 
-  static const TextStyle caption1 = TextStyle(
+  static const TextStyle subheadline = TextStyle(
+    fontSize: 13,
+    color: textPrimary,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.5,
+  );
+
+  static const TextStyle footnote = TextStyle(
     fontSize: 12,
     color: textSecondary,
     fontWeight: FontWeight.w400,
     letterSpacing: -0.5,
   );
 
-  static const TextStyle caption2 = TextStyle(
+  static const TextStyle caption1 = TextStyle(
     fontSize: 11,
+    color: textSecondary,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.5,
+  );
+
+  static const TextStyle caption2 = TextStyle(
+    fontSize: 10,
     color: textSecondary,
     fontWeight: FontWeight.w400,
     letterSpacing: -0.5,
