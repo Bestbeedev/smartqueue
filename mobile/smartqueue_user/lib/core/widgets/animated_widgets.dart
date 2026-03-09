@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../core/app_theme.dart';
+import '../app_theme.dart';
 
 /// Widget d'animation de ticket avec effet de pulsation
 class AnimatedTicketCard extends StatefulWidget {

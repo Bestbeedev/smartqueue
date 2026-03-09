@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
-import '../../core/widgets/cupertino_widgets.dart';
+import '../../core/widgets/cupertino_widgets.dart' as sq_cupertino;
 import '../../data/models/ticket.dart';
-import '../../core/app_router.dart';
 
 /// Écran de détail du ticket avec design iOS Cupertino
 class TicketDetailScreen extends ConsumerStatefulWidget {
@@ -109,7 +108,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
     if (ticket == null) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        appBar: CupertinoNavigationBar(
+        appBar: sq_cupertino.CupertinoNavigationBar(
           title: 'Détail du ticket',
           onBackPressed: () => Navigator.pop(context),
         ),
@@ -185,7 +184,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
                     builder: (context, child) {
                       return Transform.scale(
                         scale: isWaiting ? _pulseAnimation.value : 1.0,
-                        child: CupertinoCard(
+                        child: sq_cupertino.CupertinoCard(
                           padding: const EdgeInsets.all(24),
                           child: Column(
                             children: [
@@ -298,7 +297,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: CupertinoButtonCustom(
+                        child: sq_cupertino.CupertinoButtonCustom(
                           onPressed: () {
                             // TODO: Implémenter l'annulation
                             _showCancelConfirmation();
@@ -309,7 +308,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: CupertinoButtonCustom(
+                        child: sq_cupertino.CupertinoButtonCustom(
                           onPressed: () {
                             // TODO: Implémenter le partage
                             _shareTicket();
@@ -337,7 +336,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
     required String value,
     Color? valueColor,
   }) {
-    return CupertinoCard(
+    return sq_cupertino.CupertinoCard(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [

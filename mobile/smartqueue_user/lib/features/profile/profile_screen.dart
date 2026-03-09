@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
-import '../../core/widgets/cupertino_widgets.dart';
+import '../../core/widgets/cupertino_widgets.dart' as sq_cupertino;
 import '../../core/app_router.dart';
 import 'profile_provider.dart';
 import 'notification_preferences_provider.dart';
@@ -115,7 +115,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   
                   // Carte profil
-                  CupertinoCard(
+                  sq_cupertino.CupertinoCard(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     padding: const EdgeInsets.all(20),
                     child: Row(
@@ -198,7 +198,7 @@ class ProfileScreen extends ConsumerWidget {
                     prefsAsync.when(
                       loading: () => Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: CupertinoCard(
+                        child: sq_cupertino.CupertinoCard(
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
@@ -216,7 +216,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       error: (error, _) => Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: CupertinoCard(
+                        child: sq_cupertino.CupertinoCard(
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
@@ -241,7 +241,7 @@ class ProfileScreen extends ConsumerWidget {
                       data: (prefs) => Column(
                         children: [
                           // Notifications push
-                          CupertinoListTile(
+                          sq_cupertino.CupertinoListTile(
                             leading: Icon(
                               CupertinoIcons.bell,
                               color: AppTheme.primaryColor,
@@ -257,7 +257,7 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           
                           // Notifications SMS
-                          CupertinoListTile(
+                          sq_cupertino.CupertinoListTile(
                             leading: Icon(
                               CupertinoIcons.phone,
                               color: AppTheme.primaryColor,
@@ -273,7 +273,7 @@ class ProfileScreen extends ConsumerWidget {
                           ),
 
                           // Position alert
-                          CupertinoListTile(
+                          sq_cupertino.CupertinoListTile(
                             leading: Icon(
                               CupertinoIcons.list_number,
                               color: AppTheme.primaryColor,
@@ -308,7 +308,7 @@ class ProfileScreen extends ConsumerWidget {
                           ),
 
                           // Time alert
-                          CupertinoListTile(
+                          sq_cupertino.CupertinoListTile(
                             leading: Icon(
                               CupertinoIcons.time,
                               color: AppTheme.primaryColor,
@@ -348,12 +348,12 @@ class ProfileScreen extends ConsumerWidget {
                     // Message pour utilisateur non connecté
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: CupertinoCard(
+                      child: sq_cupertino.CupertinoCard(
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
                             Icon(
-                              CupertinoIcons.person_crop_circle_badge_exclamationmark,
+                              CupertinoIcons.person_crop_circle_badge_xmark,
                               size: 48,
                               color: AppTheme.textSecondary,
                             ),
@@ -392,14 +392,14 @@ class ProfileScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: user == null
-                        ? CupertinoButtonCustom(
+                        ? sq_cupertino.CupertinoButtonCustom(
                             onPressed: () => Navigator.pushReplacementNamed(context, AppRouter.login),
                             filled: true,
                             child: const Text('Se connecter'),
                           )
                         : Column(
                             children: [
-                              CupertinoButtonCustom(
+                              sq_cupertino.CupertinoButtonCustom(
                                 onPressed: () async {
                                   final repo = await AuthRepository.create();
                                   await repo.logout();
@@ -415,7 +415,7 @@ class ProfileScreen extends ConsumerWidget {
                                 child: const Text('Se déconnecter'),
                               ),
                               const SizedBox(height: 12),
-                              CupertinoButtonCustom(
+                              sq_cupertino.CupertinoButtonCustom(
                                 onPressed: () {
                                   // TODO: Implémenter la suppression du compte
                                   _showDeleteAccountConfirmation();
