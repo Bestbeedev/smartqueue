@@ -1,9 +1,11 @@
 // features/home/home_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:smartqueue_user/core/app_theme.dart';
-import 'package:smartqueue_user/features/establishments/establishments_provider.dart';
-import 'package:smartqueue_user/features/establishments/widgets/establishment_card.dart';
+import '../../core/app_theme.dart';
+import '../../core/widgets/cupertino_widgets.dart';
+import '../establishments/establishments_provider.dart';
+import '../establishments/widgets/establishment_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -13,85 +15,169 @@ class HomeScreen extends ConsumerWidget {
     final asyncEstablishments = ref.watch(nearbyEstablishmentsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Établissements à proximité'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
-          ),
-        ],
-      ),
-      body: asyncEstablishments.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                'Erreur de chargement',
-                style: AppTheme.heading2.copyWith(color: AppTheme.errorColor),
+      backgroundColor: AppTheme.backgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          // Header style iOS
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                right: 16,
+                bottom: 16,
               ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: AppTheme.bodyMedium,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
-                child: const Text('Réessayer'),
-              ),
-            ],
-          ),
-        ),
-        data: (establishments) {
-          if (establishments.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.location_off, size: 64, color: AppTheme.textSecondary),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Aucun établissement à proximité',
-                    style: AppTheme.heading2,
+              decoration: BoxDecoration(
+                color: AppTheme.navigationBarColor,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.dividerColor.withOpacity(0.3),
+                    width: 0.5,
                   ),
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32.0),
-                    child: Text(
-                      'Essayez d\'activer votre localisation ou d\'élargir la zone de recherche.',
-                      textAlign: TextAlign.center,
-                      style: AppTheme.bodyMedium,
+                ),
+                boxShadow: AppTheme.navigationShadow,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SmartQueue',
+                          style: AppTheme.largeTitle.copyWith(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Établissements à proximité',
+                          style: AppTheme.subheadline.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  CupertinoButton(
+                    onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
+                    padding: EdgeInsets.zero,
+                    child: Icon(
+                      CupertinoIcons.refresh,
+                      color: AppTheme.primaryColor,
+                      size: 24,
                     ),
                   ),
                 ],
               ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(nearbyEstablishmentsProvider.future),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: establishments.length,
-              itemBuilder: (context, index) {
-                final establishment = establishments[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: EstablishmentCard(establishment: establishment),
-                );
-              },
             ),
-          );
-        },
+          ),
+
+          // Contenu principal
+          asyncEstablishments.when(
+            loading: () => SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CupertinoActivityIndicator(radius: 16),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Chargement...',
+                      style: AppTheme.body.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            error: (error, _) => SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.exclamationmark_triangle,
+                      color: AppTheme.errorColor,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Erreur de chargement',
+                      style: AppTheme.title3.copyWith(
+                        color: AppTheme.errorColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Text(
+                        error.toString(),
+                        textAlign: TextAlign.center,
+                        style: AppTheme.callout.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    CupertinoButtonCustom(
+                      onPressed: () =>
+                          ref.refresh(nearbyEstablishmentsProvider),
+                      filled: true,
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            data: (establishments) {
+              if (establishments.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          CupertinoIcons.location,
+                          size: 64,
+                          color: AppTheme.textSecondary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucun établissement à proximité',
+                          style: AppTheme.title3,
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                          child: Text(
+                            'Essayez d\'activer votre localisation ou d\'élargir la zone de recherche.',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.callout.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final establishment = establishments[index];
+                    return EstablishmentCard(establishment: establishment);
+                  },
+                  childCount: establishments.length,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
