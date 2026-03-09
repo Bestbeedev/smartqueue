@@ -5,7 +5,6 @@ import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
 import '../websocket/websocket_service.dart';
 import '../../core/app_router.dart';
-import '../../data/models/ticket.dart';
 
 /// Active Ticket Screen - The core interface with real-time updates
 class ActiveTicketsScreen extends ConsumerStatefulWidget {
@@ -367,6 +366,7 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                       },
                       filled: true,
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
@@ -375,10 +375,13 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'QR Code',
-                            style: AppTheme.button.copyWith(
-                              color: Colors.white,
+                          Flexible(
+                            child: Text(
+                              'QR Code',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.button.copyWith(
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
@@ -397,6 +400,7 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                       },
                       filled: false,
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
@@ -405,10 +409,13 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Live Map',
-                            style: AppTheme.button.copyWith(
-                              color: AppTheme.primaryColor,
+                          Flexible(
+                            child: Text(
+                              'Live Map',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.button.copyWith(
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                           ),
                         ],
@@ -428,6 +435,7 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                       },
                       filled: false,
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
@@ -436,10 +444,13 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'AI Predictions',
-                            style: AppTheme.button.copyWith(
-                              color: AppTheme.primaryColor,
+                          Flexible(
+                            child: Text(
+                              'AI Predictions',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.button.copyWith(
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                           ),
                         ],

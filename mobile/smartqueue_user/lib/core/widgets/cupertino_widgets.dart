@@ -234,18 +234,36 @@ class CupertinoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin:
-            margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding: padding ?? const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color ?? AppTheme.cardColor,
-          borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
-          boxShadow: AppTheme.cardShadow,
+    final radius = BorderRadius.circular(AppTheme.borderRadiusMedium);
+
+    return Container(
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        boxShadow: AppTheme.cardShadow,
+        borderRadius: radius,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: color ?? AppTheme.cardColor,
+            borderRadius: radius,
+          ),
+          child: onTap == null
+              ? Padding(
+                  padding: padding ?? const EdgeInsets.all(16),
+                  child: child,
+                )
+              : InkWell(
+                  onTap: onTap,
+                  borderRadius: radius,
+                  child: Padding(
+                    padding: padding ?? const EdgeInsets.all(16),
+                    child: child,
+                  ),
+                ),
         ),
-        child: child,
       ),
     );
   }

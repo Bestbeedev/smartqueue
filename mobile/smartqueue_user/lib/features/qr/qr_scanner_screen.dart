@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:smartqueue_user/core/app_router.dart';
 import 'package:smartqueue_user/data/api_client.dart';
-import 'package:smartqueue_user/data/models/ticket.dart';
+import 'package:smartqueue_user/data/repositories/tickets_repository.dart';
 
 /// Scanner QR pour lier un ticket / rejoindre une file
 class QrScannerScreen extends StatefulWidget {
@@ -16,6 +16,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   final keyQR = GlobalKey(debugLabel: 'QR');
   MobileScannerController? controller;
   bool _handled = false;
+
+  Future<void> _resumeScanningWithError(String message) async {
+    _handled = false;
+    await controller?.start();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -52,7 +60,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           final serviceName = uri.queryParameters['name'] ?? 'Service';
           if (ticketId != null) {
             if (!mounted) return;
-            Navigator.pushNamed(context, AppRouter.realtime, arguments: {
+            Navigator.pushNamed(context, AppRouter.ticketDetail, arguments: {
               'ticketId': ticketId,
               'serviceName': serviceName,
             });
@@ -65,56 +73,27 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           if (serviceId != null) {
             try {
               final api = await ApiClient.create();
-              // First try with from_qr flag (backend supports it). If backend ignores it, request still succeeds.
-              // TicketsRepository.create only sends service_id; so we call Dio directly here.
-              final res = await api.dio.post(
-                '/tickets',
-                data: {
-                  'service_id': serviceId,
-                  'from_qr': true,
-                },
-              );
-              final data = res.data is Map && res.data['data'] != null ? res.data['data'] : res.data;
-
-              if (data is! Map) {
-                throw Exception('Réponse ticket invalide');
-              }
-
-              final ticket = Ticket.fromJson((data as Map).cast<String, dynamic>());
+              final repo = TicketsRepository(api);
+              final ticket = await repo.create(serviceId, fromQr: true);
 
               if (!mounted) return;
-              // 1) Open ticket detail (so user can share/cancel/etc.)
               Navigator.pushNamed(context, AppRouter.ticketDetail, arguments: {
                 'ticketId': ticket.id,
                 'serviceName': serviceName,
                 'ticket': ticket,
               });
-
-              // 2) Chain realtime screen right away
-              Navigator.pushNamed(context, AppRouter.realtime, arguments: {
-                'ticketId': ticket.id,
-                'serviceName': serviceName,
-                'ticket': ticket,
-              });
-            } catch (_) {
-              // Re-enable scanning on any error
-              _handled = false;
-              await controller?.start();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Impossible de créer le ticket via QR (connexion requise).')),
+            } catch (e) {
+              await _resumeScanningWithError(
+                e is Exception
+                    ? e.toString().replaceAll('Exception: ', '')
+                    : 'Impossible de créer le ticket via QR (connexion requise).',
               );
             }
             return;
           }
         }
         // Format inconnu -> reprendre le flux et notifier
-        _handled = false;
-        await controller?.start();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('QR non reconnu: $code')),
-        );
+        await _resumeScanningWithError('QR non reconnu: $code');
         return;
       }
 
