@@ -13,12 +13,12 @@ class EstablishmentCard extends StatelessWidget {
   String _getAffluenceText(String affluence) {
     switch (affluence.toLowerCase()) {
       case 'low':
-        return 'Low';
+        return 'Faible';
       case 'high':
-        return 'High';
+        return 'Élevée';
       case 'medium':
       default:
-        return 'Medium';
+        return 'Moyenne';
     }
   }
 
@@ -98,6 +98,42 @@ class EstablishmentCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
+          // Affluence level indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getAffluenceColor(establishment.affluence)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _getAffluenceColor(establishment.affluence)
+                    .withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _getAffluenceColor(establishment.affluence),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Affluence: ${_getAffluenceText(establishment.affluence)}',
+                  style: AppTheme.caption1.copyWith(
+                    color: _getAffluenceColor(establishment.affluence),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           // Stats row
           Row(
             children: [
@@ -121,7 +157,7 @@ class EstablishmentCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Waiting: ${15 + (establishment.peopleWaiting ?? 0)} min',
+                      'Attente: ${15 + (establishment.peopleWaiting ?? 0)} min',
                       style: AppTheme.caption1.copyWith(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -156,7 +192,7 @@ class EstablishmentCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${establishment.peopleWaiting ?? 5} people in queue',
+                      '${establishment.peopleWaiting ?? 5} personnes en attente',
                       style: AppTheme.caption1.copyWith(
                         color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w500,

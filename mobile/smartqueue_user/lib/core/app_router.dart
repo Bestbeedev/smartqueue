@@ -88,6 +88,9 @@ import 'package:smartqueue_user/features/home/home_screen.dart';
 import 'package:smartqueue_user/features/notifications/notifications_screen.dart';
 import 'package:smartqueue_user/features/profile/profile_screen.dart';
 import 'package:smartqueue_user/features/qr/qr_scanner_screen.dart';
+import 'package:smartqueue_user/features/qr/qr_ticket_screen.dart';
+import 'package:smartqueue_user/features/map/live_map_screen.dart';
+import 'package:smartqueue_user/features/ai/predictive_waiting_screen.dart';
 import 'package:smartqueue_user/features/realtime/realtime_screen.dart';
 import 'package:smartqueue_user/features/services/services_screen.dart';
 import 'package:smartqueue_user/features/service_detail/service_detail_screen.dart';
@@ -98,7 +101,8 @@ import 'package:smartqueue_user/features/tickets/ticket_detail_screen.dart';
 import 'package:smartqueue_user/data/models/ticket.dart';
 
 class AppRouter {
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -112,6 +116,9 @@ class AppRouter {
   static const String notifications = '/notifications';
   static const String profile = '/profile';
   static const String qr = '/qr';
+  static const String qrTicket = '/qr/ticket';
+  static const String liveMap = '/map';
+  static const String predictiveWaiting = '/ai/predictive';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -165,6 +172,20 @@ class AppRouter {
             initialTicket: args['ticket'] as Ticket?,
           ),
         );
+      case qrTicket:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => QRTicketScreen(
+            ticketNumber: args['ticketNumber'] as String,
+            serviceName: args['serviceName'] as String,
+            establishmentName: args['establishmentName'] as String,
+          ),
+        );
+      case liveMap:
+        return MaterialPageRoute(builder: (_) => const LiveMapScreen());
+      case predictiveWaiting:
+        return MaterialPageRoute(
+            builder: (_) => const PredictiveWaitingScreen());
       case history:
         return MaterialPageRoute(builder: (_) => const HistoryScreen());
       case notifications:

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
 import '../establishments/establishments_provider.dart';
+import '../../core/app_router.dart';
 import '../establishments/widgets/establishment_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -46,7 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   // Greeting
                   Text(
-                    'Hello Josué 👋',
+                    'Bonjour Josué 👋',
                     style: AppTheme.title1.copyWith(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -72,7 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         });
                       },
                       decoration: InputDecoration(
-                        hintText: 'Search establishment...',
+                        hintText: 'Rechercher un établissement...',
                         hintStyle: AppTheme.body.copyWith(
                           color: AppTheme.textSecondary,
                         ),
@@ -91,9 +92,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Quick access to features
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fonctionnalités',
+                          style: AppTheme.headline.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            // Live Map
+                            Expanded(
+                              child: CupertinoCard(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                      context, AppRouter.liveMap);
+                                },
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.location,
+                                        color: AppTheme.primaryColor,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Live Map',
+                                      style: AppTheme.callout.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // AI Predictions
+                            Expanded(
+                              child: CupertinoCard(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                      context, AppRouter.predictiveWaiting);
+                                },
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.warningColor
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.chart_bar,
+                                        color: AppTheme.warningColor,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'IA Prédictions',
+                                      style: AppTheme.callout.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
                   // Nearby establishments title
                   Text(
-                    'Nearby establishments',
+                    'Établissements à proximité',
                     style: AppTheme.headline.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textPrimary,
@@ -114,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const CupertinoActivityIndicator(radius: 16),
                     const SizedBox(height: 16),
                     Text(
-                      'Loading...',
+                      'Chargement...',
                       style: AppTheme.body.copyWith(
                         color: AppTheme.textSecondary,
                       ),
@@ -135,7 +229,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Loading error',
+                      'Erreur de chargement',
                       style: AppTheme.title3.copyWith(
                         color: AppTheme.errorColor,
                       ),
@@ -156,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onPressed: () =>
                           ref.refresh(nearbyEstablishmentsProvider),
                       filled: true,
-                      child: const Text('Retry'),
+                      child: const Text('Réessayer'),
                     ),
                   ],
                 ),
@@ -187,8 +281,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _searchQuery.isEmpty
-                              ? 'No nearby establishments'
-                              : 'No establishments found',
+                              ? 'Aucun établissement à proximité'
+                              : 'Aucun établissement trouvé',
                           style: AppTheme.title3,
                         ),
                         const SizedBox(height: 8),
@@ -196,8 +290,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 32.0),
                           child: Text(
                             _searchQuery.isEmpty
-                                ? 'Try enabling your location or expanding the search area.'
-                                : 'Try different search terms.',
+                                ? 'Essayez d\'activer votre localisation ou d\'élargir la zone de recherche.'
+                                : 'Essayez d\'autres termes de recherche.',
                             textAlign: TextAlign.center,
                             style: AppTheme.callout.copyWith(
                               color: AppTheme.textSecondary,
