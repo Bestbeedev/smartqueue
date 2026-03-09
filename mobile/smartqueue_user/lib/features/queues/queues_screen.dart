@@ -13,7 +13,7 @@ class QueuesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncEstablishments = ref.watch(nearbyEstablishmentsProvider);
+    final asyncNearby = ref.watch(nearbyEstablishmentsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -52,7 +52,7 @@ class QueuesScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
           // Content
-          asyncEstablishments.when(
+          asyncNearby.when(
             loading: () => const SliverFillRemaining(
               child: Center(child: CupertinoActivityIndicator()),
             ),
@@ -88,8 +88,9 @@ class QueuesScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            data: (establishments) {
-              if (establishments.isEmpty) {
+            data: (nearby) {
+              final establishments = nearby.establishments;
+              if (nearby.status != NearbyEstablishmentsStatus.ok || establishments.isEmpty) {
                 return const SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -125,7 +126,11 @@ class QueuesScreen extends ConsumerWidget {
                       final establishment = establishments[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: QueueCard(establishment: establishment),
+                        child: EstablishmentCard(
+                          establishment: establishment,
+                          userLat: nearby.position?.latitude,
+                          userLng: nearby.position?.longitude,
+                        ),
                       );
                     },
                     childCount: establishments.length,
