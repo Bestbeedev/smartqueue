@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
 import '../websocket/websocket_service.dart';
+import '../../core/app_router.dart';
+import '../../data/models/ticket.dart';
 
 /// Active Ticket Screen - The core interface with real-time updates
 class ActiveTicketsScreen extends ConsumerStatefulWidget {
@@ -334,6 +336,110 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
               ),
 
               const Spacer(),
+
+              // Feature buttons
+              Column(
+                children: [
+                  // QR Code button
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButtonCustom(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRouter.qrTicket,
+                          arguments: {
+                            'ticketNumber': 'A001',
+                            'serviceName': 'Service Standard',
+                            'establishmentName': 'Banque Principale',
+                          },
+                        );
+                      },
+                      filled: true,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.qrcode,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'QR Code',
+                            style: AppTheme.button.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Live Map button
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButtonCustom(
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRouter.liveMap);
+                      },
+                      filled: false,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.location,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Live Map',
+                            style: AppTheme.button.copyWith(
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Predictive Waiting button
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButtonCustom(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                            context, AppRouter.predictiveWaiting);
+                      },
+                      filled: false,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.chart_bar,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'AI Predictions',
+                            style: AppTheme.button.copyWith(
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
 
               // Cancel button
               SizedBox(

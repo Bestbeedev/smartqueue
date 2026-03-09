@@ -35,19 +35,19 @@ class CupertinoBottomNavigationBar extends StatelessWidget {
               _buildTabItem(
                 icon: CupertinoIcons.house,
                 activeIcon: CupertinoIcons.house_fill,
-                label: 'Home',
+                label: 'Accueil',
                 index: 0,
               ),
               _buildTabItem(
                 icon: CupertinoIcons.list_bullet,
                 activeIcon: CupertinoIcons.list_bullet,
-                label: 'Queues',
+                label: 'Files',
                 index: 1,
               ),
               _buildTabItem(
                 icon: CupertinoIcons.ticket,
                 activeIcon: CupertinoIcons.ticket_fill,
-                label: 'Ticket',
+                label: 'Billets',
                 index: 2,
               ),
               _buildTabItem(
@@ -59,7 +59,7 @@ class CupertinoBottomNavigationBar extends StatelessWidget {
               _buildTabItem(
                 icon: CupertinoIcons.person,
                 activeIcon: CupertinoIcons.person_fill,
-                label: 'Profile',
+                label: 'Profil',
                 index: 4,
               ),
             ],

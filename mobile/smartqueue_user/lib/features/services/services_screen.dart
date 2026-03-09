@@ -108,7 +108,7 @@ class ServicesScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Services available',
+                'Services disponibles',
                 style: AppTheme.headline.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -126,7 +126,7 @@ class ServicesScreen extends ConsumerWidget {
             error: (e, _) => SliverFillRemaining(
               child: Center(
                 child: Text(
-                  'Error: $e',
+                  'Erreur: $e',
                   style: AppTheme.body.copyWith(color: AppTheme.errorColor),
                 ),
               ),
@@ -136,7 +136,7 @@ class ServicesScreen extends ConsumerWidget {
                 return const SliverFillRemaining(
                   child: Center(
                     child: Text(
-                      'No services available',
+                      'Aucun service disponible',
                       style: AppTheme.body,
                     ),
                   ),
@@ -199,7 +199,7 @@ class ServicesScreen extends ConsumerWidget {
                                       ),
                                     ),
                                     child: Text(
-                                      isOpen ? 'Open' : 'Closed',
+                                      isOpen ? 'Ouvert' : 'Fermé',
                                       style: AppTheme.caption1.copyWith(
                                         color: isOpen
                                             ? AppTheme.successColor
@@ -223,7 +223,7 @@ class ServicesScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Waiting: ${service.avgServiceTimeMinutes} min',
+                                    'Attente: ${service.avgServiceTimeMinutes} min',
                                     style: AppTheme.callout.copyWith(
                                       color: AppTheme.textSecondary,
                                     ),
@@ -243,7 +243,7 @@ class ServicesScreen extends ConsumerWidget {
                                         ),
                                         filled: true,
                                         child: Text(
-                                          'Take Ticket',
+                                          'Prendre un ticket',
                                           style: AppTheme.caption1.copyWith(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w600,
