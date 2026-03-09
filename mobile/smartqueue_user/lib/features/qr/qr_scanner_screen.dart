@@ -17,6 +17,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   MobileScannerController? controller;
   bool _handled = false;
 
+  Map<String, String>? _parseVqs(String code) {
+    if (!code.startsWith('VQS|')) return null;
+    final parts = code.split('|');
+    if (parts.length < 3) return null;
+    return {
+      'format': 'vqs',
+      'ticket_number': parts[1],
+      'service_name': parts.length > 2 ? parts[2] : '',
+      'establishment_name': parts.length > 3 ? parts[3] : '',
+      if (parts.length > 4) 'ts': parts[4],
+    };
+  }
+
   Future<void> _resumeScanningWithError(String message) async {
     _handled = false;
     await controller?.start();
@@ -45,6 +58,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       if (!mounted || _handled) return;
       if (code.isEmpty) return;
 
+      final vqs = _parseVqs(code);
+      if (vqs != null) {
+        _handled = true;
+        await controller?.stop();
+        await _resumeScanningWithError('QR non supporté (format legacy VQS).');
+        return;
+      }
+
       Uri? uri;
       try {
         uri = Uri.tryParse(code);
@@ -60,7 +81,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           final serviceName = uri.queryParameters['name'] ?? 'Service';
           if (ticketId != null) {
             if (!mounted) return;
-            Navigator.pushNamed(context, AppRouter.ticketDetail, arguments: {
+            AppRouter.navigatorKey.currentState?.pushNamed(AppRouter.ticketDetail, arguments: {
               'ticketId': ticketId,
               'serviceName': serviceName,
             });
@@ -70,23 +91,26 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           final idStr = uri.queryParameters['id'];
           final serviceId = int.tryParse(idStr ?? '');
           final serviceName = uri.queryParameters['name'] ?? 'Service';
+          final token = uri.queryParameters['token'] ?? uri.queryParameters['t'];
           if (serviceId != null) {
             try {
               final api = await ApiClient.create();
               final repo = TicketsRepository(api);
+              // token est optionnel côté backend: si non supporté, il sera ignoré.
               final ticket = await repo.create(serviceId, fromQr: true);
 
               if (!mounted) return;
-              Navigator.pushNamed(context, AppRouter.ticketDetail, arguments: {
+              AppRouter.navigatorKey.currentState?.pushNamed(AppRouter.ticketDetail, arguments: {
                 'ticketId': ticket.id,
                 'serviceName': serviceName,
                 'ticket': ticket,
+                if (token != null) 'token': token,
               });
             } catch (e) {
               await _resumeScanningWithError(
                 e is Exception
-                    ? e.toString().replaceAll('Exception: ', '')
-                    : 'Impossible de créer le ticket via QR (connexion requise).',
+                  ? e.toString().replaceAll('Exception: ', '')
+                  : 'Impossible de créer le ticket via QR (connexion requise).',
               );
             }
             return;

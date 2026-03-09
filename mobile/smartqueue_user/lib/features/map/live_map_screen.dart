@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
-import '../../core/widgets/cupertino_widgets.dart';
 import '../establishments/establishments_provider.dart';
 
 /// Live Map Screen - Interactive map with nearby establishments
@@ -20,7 +19,7 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncEstablishments = ref.watch(nearbyEstablishmentsProvider);
+    final asyncNearby = ref.watch(nearbyEstablishmentsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -156,34 +155,76 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
           Positioned(
             bottom: 120,
             left: 16,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
+            child: asyncNearby.when(
+              loading: () => const SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CupertinoActivityIndicator(),
                   ),
-                ],
+                ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    'Legend',
-                    style: AppTheme.caption1.copyWith(
-                      fontWeight: FontWeight.w600,
+              error: (error, _) => SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text(
+                      'Error: $error',
+                      style: AppTheme.caption1.copyWith(
+                        color: AppTheme.errorColor,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildLegendItem('Low Wait', AppTheme.successColor),
-                  _buildLegendItem('Medium Wait', AppTheme.warningColor),
-                  _buildLegendItem('High Wait', AppTheme.errorColor),
-                  _buildLegendItem('Your Location', AppTheme.primaryColor),
-                ],
+                ),
               ),
+              data: (nearby) {
+                final establishments = nearby.establishments;
+                if (nearby.status != NearbyEstablishmentsStatus.ok || establishments.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Text(
+                          'No nearby establishments',
+                          style: AppTheme.caption1.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Legend',
+                        style: AppTheme.caption1.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildLegendItem('Low Wait', AppTheme.successColor),
+                      _buildLegendItem('Medium Wait', AppTheme.warningColor),
+                      _buildLegendItem('High Wait', AppTheme.errorColor),
+                      _buildLegendItem('Your Location', AppTheme.primaryColor),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
 
@@ -336,7 +377,7 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
                   // Establishment list
                   if (_showEstablishments)
                     Expanded(
-                      child: asyncEstablishments.when(
+                      child: asyncNearby.when(
                         loading: () => const Center(
                           child: CupertinoActivityIndicator(),
                         ),
@@ -348,14 +389,16 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
                             ),
                           ),
                         ),
-                        data: (establishments) {
+                        data: (nearby) {
+                          final establishments = nearby.establishments;
+                          final count = establishments.length > 5 ? 5 : establishments.length;
                           return SizedBox(
                             height: 100,
                             child: ListView.builder(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
                               scrollDirection: Axis.horizontal,
-                              itemCount: establishments.take(5).length,
+                              itemCount: count,
                               itemBuilder: (context, index) {
                                 final establishment = establishments[index];
                                 return Container(

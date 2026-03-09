@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
 import '../establishments/establishments_provider.dart';
@@ -28,7 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncEstablishments = ref.watch(nearbyEstablishmentsProvider);
+    final asyncNearby = ref.watch(nearbyEstablishmentsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -267,7 +268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
 
           // Content
-          asyncEstablishments.when(
+          asyncNearby.when(
             loading: () => SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -324,7 +325,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-            data: (establishments) {
+            data: (nearby) {
+              if (nearby.status == NearbyEstablishmentsStatus.locationServiceDisabled) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            CupertinoIcons.location_slash,
+                            size: 64,
+                            color: AppTheme.textSecondary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Localisation désactivée',
+                            style: AppTheme.title3,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Active la localisation de ton téléphone pour voir les établissements à proximité.',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.callout.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          CupertinoButtonCustom(
+                            onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
+                            filled: true,
+                            child: const Text('Réessayer'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              if (nearby.status == NearbyEstablishmentsStatus.permissionDenied ||
+                  nearby.status == NearbyEstablishmentsStatus.permissionDeniedForever) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            CupertinoIcons.location,
+                            size: 64,
+                            color: AppTheme.textSecondary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Autorisation requise',
+                            style: AppTheme.title3,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Autorise la localisation pour afficher les établissements proches.',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.callout.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          CupertinoButtonCustom(
+                            onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
+                            filled: true,
+                            child: const Text('Autoriser'),
+                          ),
+
+                          if (nearby.status == NearbyEstablishmentsStatus.permissionDeniedForever) ...[
+                            const SizedBox(height: 12),
+                            CupertinoButtonCustom(
+                              onPressed: () async {
+                                await Geolocator.openAppSettings();
+                                await Geolocator.openLocationSettings();
+                              },
+                              filled: false,
+                              child: const Text('Ouvrir les réglages'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final establishments = nearby.establishments;
               // Filter establishments based on search
               final filteredEstablishments = _searchQuery.isEmpty
                   ? establishments
@@ -380,7 +475,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final establishment = filteredEstablishments[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: EstablishmentCard(establishment: establishment),
+                        child: EstablishmentCard(
+                          establishment: establishment,
+                          userLat: nearby.position?.latitude,
+                          userLng: nearby.position?.longitude,
+                        ),
                       );
                     },
                     childCount: filteredEstablishments.length,

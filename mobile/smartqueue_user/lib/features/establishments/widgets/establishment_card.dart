@@ -1,14 +1,22 @@
 import 'package:flutter/cupertino.dart';
 import 'package:smartqueue_user/core/app_router.dart';
 import 'package:smartqueue_user/core/app_theme.dart';
+import 'package:smartqueue_user/core/geo_utils.dart';
 import 'package:smartqueue_user/core/widgets/cupertino_widgets.dart';
 
 import '../../../data/models/establishment.dart';
 
 class EstablishmentCard extends StatelessWidget {
   final Establishment establishment;
+  final double? userLat;
+  final double? userLng;
 
-  const EstablishmentCard({super.key, required this.establishment});
+  const EstablishmentCard({
+    super.key,
+    required this.establishment,
+    this.userLat,
+    this.userLng,
+  });
 
   String _getAffluenceText(String affluence) {
     switch (affluence.toLowerCase()) {
@@ -36,6 +44,19 @@ class EstablishmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canComputeDistance =
+        userLat != null && userLng != null && establishment.lat != null && establishment.lng != null;
+
+    final distanceM = canComputeDistance
+        ? GeoUtils.distanceMeters(
+            lat1: userLat!,
+            lng1: userLng!,
+            lat2: establishment.lat!,
+            lng2: establishment.lng!,
+          )
+        : null;
+    final etaMin = distanceM != null ? GeoUtils.etaMinutesHeuristic(distanceM) : null;
+
     return CupertinoCard(
       onTap: () => Navigator.pushNamed(
         context,
@@ -95,6 +116,19 @@ class EstablishmentCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+
+          if (distanceM != null && etaMin != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${(distanceM / 1000).toStringAsFixed(1)} km • ~${etaMin} min',
+              style: AppTheme.caption1.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
 
           const SizedBox(height: 12),
 

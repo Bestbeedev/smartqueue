@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
-import '../websocket/websocket_service.dart';
+import '../realtime/realtime_provider.dart';
 
 /// QR Code Ticket Screen - Display QR code for ticket validation
 class QRTicketScreen extends ConsumerStatefulWidget {
@@ -24,32 +24,49 @@ class QRTicketScreen extends ConsumerStatefulWidget {
 }
 
 class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
-  final WebSocketService _wsService = WebSocketService.instance;
   bool _isConnected = false;
-  TicketUpdate? _lastUpdate;
+  Map<String, dynamic>? _lastUpdate;
+
+  int? _asInt(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    return int.tryParse(v.toString());
+  }
 
   @override
   void initState() {
     super.initState();
-    _wsService.ticketUpdates.listen(_handleTicketUpdate);
-    _wsService.connect(widget.ticketNumber);
+    Future.microtask(() async {
+      try {
+        await ref.read(userRealtimeProvider.notifier).connect();
+      } catch (_) {}
+    });
+
+    ref.listen<Map<String, dynamic>?>(userRealtimeProvider, (prev, next) {
+      if (next == null) return;
+      final ticketId = next['ticket_id']?.toString() ?? next['ticketId']?.toString();
+      if (ticketId == null) return;
+      if (ticketId != widget.ticketNumber.toString()) return;
+      _handleTicketUpdate(next);
+    });
   }
 
   @override
   void dispose() {
-    _wsService.disconnect();
+    ref.read(userRealtimeProvider.notifier).disconnect();
     super.dispose();
   }
 
-  void _handleTicketUpdate(TicketUpdate update) {
+  void _handleTicketUpdate(Map<String, dynamic> update) {
+    if (!mounted) return;
     setState(() {
       _lastUpdate = update;
       _isConnected = true;
     });
 
-    if (update.type == 'status_update' && update.status == 'called') {
-      _showNotification(
-          'Ticket Appelé !', update.message ?? 'Votre ticket est appelé !');
+    final status = update['status']?.toString();
+    if (status == 'called') {
+      _showNotification('Ticket Appelé !', update['message']?.toString() ?? 'Votre ticket est appelé !');
     }
   }
 
@@ -289,7 +306,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          if (_lastUpdate!.position != null)
+                          if (_asInt(_lastUpdate!['position']) != null)
                             Column(
                               children: [
                                 Text(
@@ -300,7 +317,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _lastUpdate!.position.toString(),
+                                  _asInt(_lastUpdate!['position']).toString(),
                                   style: AppTheme.headline.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryColor,
@@ -308,7 +325,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                                 ),
                               ],
                             ),
-                          if (_lastUpdate!.etaMinutes != null)
+                          if (_asInt(_lastUpdate!['eta_minutes'] ?? _lastUpdate!['etaMinutes']) != null)
                             Column(
                               children: [
                                 Text(
@@ -319,7 +336,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${_lastUpdate!.etaMinutes}m',
+                                  '${_asInt(_lastUpdate!['eta_minutes'] ?? _lastUpdate!['etaMinutes'])}m',
                                   style: AppTheme.headline.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryColor,
@@ -327,7 +344,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                                 ),
                               ],
                             ),
-                          if (_lastUpdate!.peopleAhead != null)
+                          if (_asInt(_lastUpdate!['people_ahead'] ?? _lastUpdate!['peopleAhead']) != null)
                             Column(
                               children: [
                                 Text(
@@ -338,7 +355,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _lastUpdate!.peopleAhead.toString(),
+                                  _asInt(_lastUpdate!['people_ahead'] ?? _lastUpdate!['peopleAhead']).toString(),
                                   style: AppTheme.headline.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.warningColor,
