@@ -74,266 +74,276 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              // Header with connection status
-              Row(
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                    child: const Icon(
-                      CupertinoIcons.back,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'YOUR TICKET',
-                    style: AppTheme.title3.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Connection status indicator
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: _isConnected
-                          ? AppTheme.successColor
-                          : AppTheme.textSecondary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      CupertinoIcons.wifi,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-
-              const Spacer(),
-
-              // Main ticket display with real-time updates
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(40),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.3),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Real-time indicator
-                    if (_isConnected)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Header with connection status
+                      Row(
+                        children: [
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => Navigator.pop(context),
+                            child: const Icon(
+                              CupertinoIcons.back,
+                              color: AppTheme.primaryColor,
                             ),
-                            const SizedBox(width: 6),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'YOUR TICKET',
+                            style: AppTheme.title3.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const Spacer(),
+                          // Connection status indicator
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: _isConnected
+                                  ? AppTheme.successColor
+                                  : AppTheme.textSecondary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              CupertinoIcons.wifi,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Main ticket display with real-time updates
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(40),
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.primaryGradient,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // Real-time indicator
+                            if (_isConnected)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'LIVE',
+                                      style: AppTheme.caption1.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            const SizedBox(height: 20),
+
+                            // Ticket number
                             Text(
-                              'LIVE',
-                              style: AppTheme.caption1.copyWith(
+                              'A123',
+                              style: const TextStyle(
+                                fontSize: 72,
+                                fontWeight: FontWeight.w900,
                                 color: Colors.white,
-                                fontWeight: FontWeight.w600,
+                                letterSpacing: 4,
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 24),
 
-                    // Ticket number
-                    Text(
-                      'A123',
-                      style: const TextStyle(
-                        fontSize: 72,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 60),
-
-              // Position in queue with real-time updates
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.dividerColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Position in queue',
-                      style: AppTheme.callout.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          position.toString(),
-                          style: AppTheme.largeTitle.copyWith(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        if (_lastUpdate != null &&
-                            _lastUpdate!.type == 'position_update') ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            CupertinoIcons.arrow_up,
-                            color: AppTheme.successColor,
-                            size: 24,
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (peopleAhead > 0)
-                      Text(
-                        '$peopleAhead people ahead',
-                        style: AppTheme.caption1.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Estimated wait with real-time updates
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.dividerColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Estimated wait',
-                      style: AppTheme.callout.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$eta min',
-                          style: AppTheme.largeTitle.copyWith(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        if (_lastUpdate != null &&
-                            _lastUpdate!.type == 'eta_update') ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            CupertinoIcons.time,
-                            color: AppTheme.primaryColor,
-                            size: 24,
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_lastUpdate?.avgWaitTime != null)
-                      Text(
-                        'Avg: ${_lastUpdate!.avgWaitTime} min',
-                        style: AppTheme.caption1.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Progress bar with real-time updates
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Queue progress',
-                    style: AppTheme.callout.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: position > 0 ? (1 - position / 10) : 1.0,
-                      child: Container(
+                      // Position in queue with real-time updates
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.dividerColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Position in queue',
+                              style: AppTheme.callout.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  position.toString(),
+                                  style: AppTheme.largeTitle.copyWith(
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                if (_lastUpdate != null &&
+                                    _lastUpdate!.type ==
+                                        'position_update') ...[
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    CupertinoIcons.arrow_up,
+                                    color: AppTheme.successColor,
+                                    size: 24,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (peopleAhead > 0)
+                              Text(
+                                '$peopleAhead people ahead',
+                                style: AppTheme.caption1.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  if (_lastUpdate != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Last update: ${_formatTime(_lastUpdate!.timestamp)}',
-                        style: AppTheme.caption1.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
 
-              const Spacer(),
+                      const SizedBox(height: 24),
+
+                      // Estimated wait with real-time updates
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.dividerColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Estimated wait',
+                              style: AppTheme.callout.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '$eta min',
+                                  style: AppTheme.largeTitle.copyWith(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                if (_lastUpdate != null &&
+                                    _lastUpdate!.type == 'eta_update') ...[
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    CupertinoIcons.time,
+                                    color: AppTheme.primaryColor,
+                                    size: 24,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (_lastUpdate?.avgWaitTime != null)
+                              Text(
+                                'Avg: ${_lastUpdate!.avgWaitTime} min',
+                                style: AppTheme.caption1.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Progress bar with real-time updates
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Queue progress',
+                            style: AppTheme.callout.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor:
+                                  position > 0 ? (1 - position / 10) : 1.0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.primaryGradient,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_lastUpdate != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Last update: ${_formatTime(_lastUpdate!.timestamp)}',
+                                style: AppTheme.caption1.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
 
               // Cancel button
               SizedBox(
