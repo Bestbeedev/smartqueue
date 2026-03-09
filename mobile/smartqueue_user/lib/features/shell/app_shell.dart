@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../home/home_screen.dart';
 import '../tickets/active_tickets_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../core/app_router.dart';
+import '../../core/widgets/cupertino_widgets.dart';
+import '../../core/app_theme.dart';
 import '../services/services_screen.dart';
 import '../service_detail/service_detail_screen.dart';
 import '../ticket/take_ticket_screen.dart';
 import '../realtime/realtime_screen.dart';
 
-/// Conteneur avec NavigationBar (Material 3)
+/// Conteneur avec Bottom Navigation Bar style iOS Cupertino
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -17,9 +20,32 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
-  int index = 0;
+class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
+  int currentIndex = 0;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   final homeNavKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: AppTheme.defaultAnimationDuration,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _animationController, curve: AppTheme.defaultAnimationCurve),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   Route _homeOnGenerate(RouteSettings settings) {
     switch (settings.name) {
@@ -64,44 +90,54 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  void _onTabTapped(int index) {
+    if (index != currentIndex) {
+      setState(() {
+        currentIndex = index;
+      });
+      _animationController.reset();
+      _animationController.forward();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        if (index == 0 && homeNavKey.currentState != null && homeNavKey.currentState!.canPop()) {
+        if (currentIndex == 0 &&
+            homeNavKey.currentState != null &&
+            homeNavKey.currentState!.canPop()) {
           homeNavKey.currentState!.pop();
           return false;
         }
         return true;
       },
       child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
         body: SafeArea(
-          child: IndexedStack(
-            index: index,
-            children: [
-              // Flux Accueil → Services → Détails, conservé dans un Navigator imbriqué
-              Navigator(
-                key: homeNavKey,
-                onGenerateRoute: (settings) => _homeOnGenerate(settings),
-              ),
-              // Tickets actifs
-              const ActiveTicketsScreen(),
-              // Notifications
-              const NotificationsScreen(),
-              // Profil
-              const ProfileScreen(),
-            ],
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: IndexedStack(
+              index: currentIndex,
+              children: [
+                // Home avec navigation imbriquée
+                Navigator(
+                  key: homeNavKey,
+                  onGenerateRoute: (settings) => _homeOnGenerate(settings),
+                ),
+                // Tickets actifs
+                const ActiveTicketsScreen(),
+                // Notifications
+                const NotificationsScreen(),
+                // Profil
+                const ProfileScreen(),
+              ],
+            ),
           ),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: index,
-          onDestinationSelected: (i) => setState(() => index = i),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Accueil'),
-            NavigationDestination(icon: Icon(Icons.confirmation_number_outlined), selectedIcon: Icon(Icons.confirmation_number), label: 'Tickets'),
-            NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Notifications'),
-            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
-          ],
+        bottomNavigationBar: CupertinoBottomNavigationBar(
+          currentIndex: currentIndex,
+          onTap: _onTabTapped,
         ),
       ),
     );
