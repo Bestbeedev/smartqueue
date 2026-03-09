@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
-import '../../core/widgets/cupertino_widgets.dart' as sq_cupertino;
+import '../../core/widgets/cupertino_widgets.dart';
 import '../../core/app_router.dart';
 import 'profile_provider.dart';
 import 'notification_preferences_provider.dart';
 import '../auth/auth_repository.dart';
 
-/// Profil utilisateur avec design iOS Cupertino
+/// Profile Screen with settings and logout
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -21,7 +21,7 @@ class ProfileScreen extends ConsumerWidget {
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // Header style iOS
+          // Header
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
@@ -30,59 +30,19 @@ class ProfileScreen extends ConsumerWidget {
                 right: 16,
                 bottom: 16,
               ),
-              decoration: BoxDecoration(
-                color: AppTheme.navigationBarColor,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.dividerColor.withOpacity(0.3),
-                    width: 0.5,
-                  ),
+              child: Text(
+                'Profile',
+                style: AppTheme.title1.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                boxShadow: AppTheme.navigationShadow,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Profil',
-                          style: AppTheme.largeTitle,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Gérez vos préférences',
-                          style: AppTheme.subheadline.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
 
-          // Contenu principal
+          // Content
           asyncUser.when(
             loading: () => SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const CupertinoActivityIndicator(radius: 16),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Chargement...',
-                      style: AppTheme.body.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: Center(child: CupertinoActivityIndicator()),
             ),
             error: (error, _) => SliverFillRemaining(
               child: Center(
@@ -96,7 +56,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Erreur de chargement',
+                      'Loading error',
                       style: AppTheme.title3.copyWith(
                         color: AppTheme.errorColor,
                       ),
@@ -106,131 +66,236 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
             data: (user) {
-              final name = user?.name ?? 'Utilisateur';
-              final email = user?.email ?? 'non connecté';
-              final initials = (name.isNotEmpty ? name[0] : 'U').toUpperCase();
+              final name = user?.name ?? 'Josué';
+              final email = user?.email ?? 'josue@example.com';
+              final initials = name.isNotEmpty ? name[0].toUpperCase() : 'J';
 
               return SliverList(
                 delegate: SliverChildListDelegate([
-                  const SizedBox(height: 16),
-                  
-                  // Carte profil
-                  sq_cupertino.CupertinoCard(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        // Avatar
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.primaryGradient,
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryColor.withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              initials,
-                              style: AppTheme.title1.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  // Profile card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: CupertinoCard(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.primaryGradient,
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Infos utilisateur
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: AppTheme.title3,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                email,
-                                style: AppTheme.callout.copyWith(
-                                  color: AppTheme.textSecondary,
+                            child: Center(
+                              child: Text(
+                                initials,
+                                style: AppTheme.title1.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 32,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        // Edit button
-                        if (user != null)
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () {
-                              // TODO: Implémenter l'édition du profil
-                            },
-                            child: Icon(
-                              CupertinoIcons.pencil,
-                              color: AppTheme.primaryColor,
-                              size: 20,
                             ),
                           ),
-                      ],
+                          const SizedBox(width: 20),
+                          // User info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: AppTheme.title2.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  email,
+                                  style: AppTheme.callout.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 32),
 
-                  // Section Préférences
+                  // Settings section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Settings',
+                      style: AppTheme.headline.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Notification preferences
                   if (user != null) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Préférences de notification',
-                        style: AppTheme.title3,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    prefsAsync.when(
-                      loading: () => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: sq_cupertino.CupertinoCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
+                      child: CupertinoCard(
+                        child: prefsAsync.when(
+                          loading: () => Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                const CupertinoActivityIndicator(),
+                                const SizedBox(width: 16),
+                                Text(
+                                  'Loading preferences...',
+                                  style: AppTheme.callout.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          error: (error, _) => Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  CupertinoIcons.exclamationmark_triangle,
+                                  color: AppTheme.errorColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Error: $error',
+                                    style: AppTheme.callout.copyWith(
+                                      color: AppTheme.errorColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          data: (prefs) => Column(
                             children: [
-                              const CupertinoActivityIndicator(),
-                              const SizedBox(width: 16),
-                              Text(
-                                'Chargement des préférences...',
-                                style: AppTheme.callout.copyWith(
-                                  color: AppTheme.textSecondary,
+                              // Push notifications
+                              _buildSettingTile(
+                                icon: CupertinoIcons.bell,
+                                title: 'Push Notifications',
+                                subtitle: 'Receive alerts about queue progress',
+                                trailing: CupertinoSwitch(
+                                  value: prefs.pushEnabled,
+                                  onChanged: (value) {
+                                    ref
+                                        .read(notificationPreferencesProvider
+                                            .notifier)
+                                        .setPushEnabled(value);
+                                  },
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      error: (error, _) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: sq_cupertino.CupertinoCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Icon(
-                                CupertinoIcons.exclamationmark_triangle,
-                                color: AppTheme.errorColor,
-                                size: 20,
+
+                              // SMS notifications
+                              _buildSettingTile(
+                                icon: CupertinoIcons.phone,
+                                title: 'SMS Notifications',
+                                subtitle:
+                                    'Receive SMS when your turn approaches',
+                                trailing: CupertinoSwitch(
+                                  value: prefs.smsEnabled,
+                                  onChanged: (value) {
+                                    ref
+                                        .read(notificationPreferencesProvider
+                                            .notifier)
+                                        .setSmsEnabled(value);
+                                  },
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Erreur: $error',
-                                  style: AppTheme.callout.copyWith(
-                                    color: AppTheme.errorColor,
+
+                              // Position alert
+                              _buildSettingTile(
+                                icon: CupertinoIcons.list_number,
+                                title: 'Alert when position ≤',
+                                trailing: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: AppTheme.dividerColor
+                                          .withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    value: prefs.notifyBeforePositions,
+                                    underline: const SizedBox(),
+                                    isDense: true,
+                                    items: const [0, 1, 2, 3, 4, 5, 10]
+                                        .map((v) => DropdownMenuItem(
+                                              value: v,
+                                              child: Text('$v'),
+                                            ))
+                                        .toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        ref
+                                            .read(
+                                                notificationPreferencesProvider
+                                                    .notifier)
+                                            .setNotifyBeforePositions(value);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+
+                              // Time alert
+                              _buildSettingTile(
+                                icon: CupertinoIcons.time,
+                                title: 'Alert when ETA ≤ (minutes)',
+                                trailing: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: AppTheme.dividerColor
+                                          .withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    value: prefs.notifyBeforeMinutes,
+                                    underline: const SizedBox(),
+                                    isDense: true,
+                                    items: const [0, 3, 5, 10, 15, 20, 30]
+                                        .map((v) => DropdownMenuItem(
+                                              value: v,
+                                              child: Text('$v'),
+                                            ))
+                                        .toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        ref
+                                            .read(
+                                                notificationPreferencesProvider
+                                                    .notifier)
+                                            .setNotifyBeforeMinutes(value);
+                                      }
+                                    },
                                   ),
                                 ),
                               ),
@@ -238,118 +303,13 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      data: (prefs) => Column(
-                        children: [
-                          // Notifications push
-                          sq_cupertino.CupertinoListTile(
-                            leading: Icon(
-                              CupertinoIcons.bell,
-                              color: AppTheme.primaryColor,
-                            ),
-                            title: const Text('Notifications push'),
-                            subtitle: const Text('Recevoir des alertes sur l\'avancée de la file'),
-                            trailing: CupertinoSwitch(
-                              value: prefs.pushEnabled,
-                              onChanged: (value) {
-                                ref.read(notificationPreferencesProvider.notifier).setPushEnabled(value);
-                              },
-                            ),
-                          ),
-                          
-                          // Notifications SMS
-                          sq_cupertino.CupertinoListTile(
-                            leading: Icon(
-                              CupertinoIcons.phone,
-                              color: AppTheme.primaryColor,
-                            ),
-                            title: const Text('Notifications SMS'),
-                            subtitle: const Text('Recevoir un SMS quand votre tour approche'),
-                            trailing: CupertinoSwitch(
-                              value: prefs.smsEnabled,
-                              onChanged: (value) {
-                                ref.read(notificationPreferencesProvider.notifier).setSmsEnabled(value);
-                              },
-                            ),
-                          ),
-
-                          // Position alert
-                          sq_cupertino.CupertinoListTile(
-                            leading: Icon(
-                              CupertinoIcons.list_number,
-                              color: AppTheme.primaryColor,
-                            ),
-                            title: const Text('Alerter quand la position ≤'),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundColor,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppTheme.dividerColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: DropdownButton<int>(
-                                value: prefs.notifyBeforePositions,
-                                underline: const SizedBox(),
-                                isDense: true,
-                                items: const [0, 1, 2, 3, 4, 5, 10]
-                                    .map((v) => DropdownMenuItem(
-                                          value: v,
-                                          child: Text('$v'),
-                                        ))
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    ref.read(notificationPreferencesProvider.notifier).setNotifyBeforePositions(value);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-
-                          // Time alert
-                          sq_cupertino.CupertinoListTile(
-                            leading: Icon(
-                              CupertinoIcons.time,
-                              color: AppTheme.primaryColor,
-                            ),
-                            title: const Text('Alerter quand ETA ≤ (minutes)'),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundColor,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppTheme.dividerColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: DropdownButton<int>(
-                                value: prefs.notifyBeforeMinutes,
-                                underline: const SizedBox(),
-                                isDense: true,
-                                items: const [0, 3, 5, 10, 15, 20, 30]
-                                    .map((v) => DropdownMenuItem(
-                                          value: v,
-                                          child: Text('$v'),
-                                        ))
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    ref.read(notificationPreferencesProvider.notifier).setNotifyBeforeMinutes(value);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ] else ...[
-                    // Message pour utilisateur non connecté
+                    // Not logged in message
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: sq_cupertino.CupertinoCard(
-                        padding: const EdgeInsets.all(20),
+                      child: CupertinoCard(
+                        padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
                             Icon(
@@ -359,12 +319,12 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Connectez-vous',
+                              'Sign In',
                               style: AppTheme.title3,
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Connectez-vous pour configurer vos préférences de notification et accéder à toutes les fonctionnalités.',
+                              'Sign in to configure notification preferences and access all features.',
                               style: AppTheme.callout.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
@@ -378,28 +338,69 @@ class ProfileScreen extends ConsumerWidget {
 
                   const SizedBox(height: 32),
 
-                  // Section Actions
+                  // Other settings
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Actions',
-                      style: AppTheme.title3,
+                    child: CupertinoCard(
+                      child: Column(
+                        children: [
+                          _buildSettingTile(
+                            icon: CupertinoIcons.globe,
+                            title: 'Language',
+                            subtitle: 'English',
+                            trailing: const Icon(
+                              CupertinoIcons.chevron_forward,
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                            onTap: () {
+                              // TODO: Implement language selection
+                            },
+                          ),
+                          _buildSettingTile(
+                            icon: CupertinoIcons.shield_lefthalf_fill,
+                            title: 'Privacy Policy',
+                            trailing: const Icon(
+                              CupertinoIcons.chevron_forward,
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                            onTap: () {
+                              // TODO: Implement privacy policy
+                            },
+                          ),
+                          _buildSettingTile(
+                            icon: CupertinoIcons.doc_text,
+                            title: 'Terms of Service',
+                            trailing: const Icon(
+                              CupertinoIcons.chevron_forward,
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                            onTap: () {
+                              // TODO: Implement terms of service
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
 
-                  // Bouton connexion/déconnexion
+                  const SizedBox(height: 32),
+
+                  // Logout/Login button
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: user == null
-                        ? sq_cupertino.CupertinoButtonCustom(
-                            onPressed: () => Navigator.pushReplacementNamed(context, AppRouter.login),
+                        ? CupertinoButtonCustom(
+                            onPressed: () => Navigator.pushReplacementNamed(
+                                context, AppRouter.login),
                             filled: true,
-                            child: const Text('Se connecter'),
+                            child: const Text('Sign In'),
                           )
                         : Column(
                             children: [
-                              sq_cupertino.CupertinoButtonCustom(
+                              CupertinoButtonCustom(
                                 onPressed: () async {
                                   final repo = await AuthRepository.create();
                                   await repo.logout();
@@ -412,17 +413,12 @@ class ProfileScreen extends ConsumerWidget {
                                   }
                                 },
                                 filled: false,
-                                child: const Text('Se déconnecter'),
-                              ),
-                              const SizedBox(height: 12),
-                              sq_cupertino.CupertinoButtonCustom(
-                                onPressed: () {
-                                  // TODO: Implémenter la suppression du compte
-                                  _showDeleteAccountConfirmation();
-                                },
-                                filled: false,
-                                textColor: AppTheme.errorColor,
-                                child: const Text('Supprimer le compte'),
+                                child: Text(
+                                  'Sign Out',
+                                  style: AppTheme.button.copyWith(
+                                    color: AppTheme.errorColor,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -438,7 +434,60 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showDeleteAccountConfirmation() {
-    // TODO: Implémenter la confirmation de suppression
+  Widget _buildSettingTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: AppTheme.dividerColor.withOpacity(0.3),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTheme.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTheme.caption1.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
   }
 }

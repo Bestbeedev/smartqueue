@@ -15,22 +15,34 @@ class TicketDetailScreen extends ConsumerWidget {
   final String? serviceName;
   final Ticket? initialTicket;
 
-  const TicketDetailScreen({super.key, required this.ticketId, this.serviceName, this.initialTicket});
+  const TicketDetailScreen(
+      {super.key,
+      required this.ticketId,
+      this.serviceName,
+      this.initialTicket});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rt = ref.watch(userRealtimeProvider);
 
     Ticket? mergedInitial = initialTicket;
-    if (mergedInitial != null && rt != null && rt['ticket_id']?.toString() == ticketId.toString()) {
+    if (mergedInitial != null &&
+        rt != null &&
+        rt['ticket_id']?.toString() == ticketId.toString()) {
       mergedInitial = Ticket(
         id: mergedInitial.id,
-        ticketNumber: mergedInitial.ticketNumber,
+        number: mergedInitial.ticketNumber,
         status: (rt['status'] as String?) ?? mergedInitial.status,
-        serviceId: mergedInitial.serviceId,
-        position: (rt['position'] is int) ? rt['position'] as int : int.tryParse(rt['position']?.toString() ?? ''),
-        etaMinutes: (rt['eta_minutes'] is int) ? rt['eta_minutes'] as int : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
-        serviceName: mergedInitial.serviceName,
+        priority: mergedInitial.priority,
+        position: (rt['position'] is int)
+            ? rt['position'] as int
+            : int.tryParse(rt['position']?.toString() ?? ''),
+        etaMinutes: (rt['eta_minutes'] is int)
+            ? rt['eta_minutes'] as int
+            : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
+        service: mergedInitial.service,
+        establishment: mergedInitial.establishment,
+        createdAt: mergedInitial.createdAt,
         updatedAt: DateTime.now(),
       );
     }
@@ -48,8 +60,11 @@ class TicketDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Détail du ticket')),
       body: asyncTicket.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorView(error: e.toString(), onRetry: () => ref.refresh(ticketRealtimeProvider(ticketId))),
-        data: (ticket) => _TicketContent(ticket: ticket, serviceName: serviceName),
+        error: (e, _) => _ErrorView(
+            error: e.toString(),
+            onRetry: () => ref.refresh(ticketRealtimeProvider(ticketId))),
+        data: (ticket) =>
+            _TicketContent(ticket: ticket, serviceName: serviceName),
       ),
     );
   }
@@ -73,14 +88,17 @@ class _TicketContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Ticket #${ticket.ticketNumber}', style: Theme.of(context).textTheme.titleLarge),
+                  Text('Ticket #${ticket.ticketNumber}',
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       _StatusChip(status: ticket.status),
                       const SizedBox(width: 8),
                       if (ticket.position != null)
-                        Text('Position: ${ticket.position}', style: const TextStyle(color: AppTheme.textSecondary)),
+                        Text('Position: ${ticket.position}',
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary)),
                     ],
                   ),
                 ],
@@ -91,7 +109,8 @@ class _TicketContent extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.store_mall_directory_outlined),
-              title: Text(serviceName ?? ticket.serviceName ?? 'Service inconnu'),
+              title:
+                  Text(serviceName ?? ticket.serviceName ?? 'Service inconnu'),
               subtitle: Text('Service ID: ${ticket.serviceId}'),
             ),
           ),
@@ -116,24 +135,30 @@ class _TicketContent extends StatelessWidget {
                   try {
                     final api = await ApiClient.create();
                     final servicesRepo = ServicesRepository(api);
-                    final s = await servicesRepo.detail(ticket.serviceId);
-                    final estRepo = EstablishmentsRepository(api);
-                    String estName = 'Établissement';
-                    try {
-                      final est = await estRepo.byId(s.establishmentId);
-                      estName = est.name;
-                    } catch (_) {}
-                    Navigator.pushNamed(
-                      context,
-                      AppRouter.services,
-                      arguments: {
-                        'establishmentId': s.establishmentId,
-                        'establishmentName': estName,
-                      },
-                    );
+
+                    if (ticket.serviceId != null) {
+                      final s = await servicesRepo.detail(ticket.serviceId!);
+                      final estRepo = EstablishmentsRepository(api);
+                      String estName = 'Établissement';
+                      try {
+                        final est = await estRepo.byId(s.establishmentId);
+                        estName = est.name;
+                      } catch (_) {}
+
+                      Navigator.pushNamed(
+                        context,
+                        AppRouter.services,
+                        arguments: {
+                          'establishmentId': s.establishmentId,
+                          'establishmentName': estName,
+                        },
+                      );
+                    }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Impossible d\'ouvrir l\'établissement: ${e.toString().replaceFirst('Exception: ', '')}')),
+                      SnackBar(
+                          content: Text(
+                              'Impossible d\'ouvrir l\'établissement: ${e.toString().replaceFirst('Exception: ', '')}')),
                     );
                   }
                 },
@@ -157,10 +182,15 @@ class _TicketContent extends StatelessWidget {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Annuler le ticket ?'),
-                        content: const Text('Êtes-vous sûr de vouloir annuler ce ticket ?'),
+                        content: const Text(
+                            'Êtes-vous sûr de vouloir annuler ce ticket ?'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Oui')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Non')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Oui')),
                         ],
                       ),
                     );
@@ -175,13 +205,18 @@ class _TicketContent extends StatelessWidget {
                       Navigator.pop(context);
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                        SnackBar(
+                            content: Text(
+                                e.toString().replaceFirst('Exception: ', ''))),
                       );
                     }
                   },
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.errorColor)),
-                  icon: const Icon(Icons.cancel_outlined, color: AppTheme.errorColor),
-                  label: const Text('Annuler le ticket', style: TextStyle(color: AppTheme.errorColor)),
+                  style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.errorColor)),
+                  icon: const Icon(Icons.cancel_outlined,
+                      color: AppTheme.errorColor),
+                  label: const Text('Annuler le ticket',
+                      style: TextStyle(color: AppTheme.errorColor)),
                 ),
             ],
           ),
@@ -199,7 +234,8 @@ class _TicketContent extends StatelessWidget {
               ),
               icon: const Icon(Icons.play_circle_outline),
               label: const Text('Suivre en temps réel'),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+              style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16)),
             ),
         ],
       ),
@@ -253,9 +289,12 @@ class _ErrorView extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
           const SizedBox(height: 16),
-          const Text('Erreur de chargement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Erreur de chargement',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(error, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+          Text(error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 24),
           ElevatedButton(onPressed: onRetry, child: const Text('Réessayer')),
         ],

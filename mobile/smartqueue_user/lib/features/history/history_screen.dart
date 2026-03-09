@@ -1,7 +1,9 @@
 // features/history/history_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartqueue_user/core/app_theme.dart';
+import 'package:smartqueue_user/core/widgets/cupertino_widgets.dart';
 import 'package:smartqueue_user/features/history/history_provider.dart';
 import 'package:smartqueue_user/core/app_router.dart';
 
@@ -13,154 +15,152 @@ class HistoryScreen extends ConsumerWidget {
     final asyncHistory = ref.watch(historyTicketsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historique'),
-      ),
-      body: asyncHistory.when(
-        data: (tickets) {
-          if (tickets.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: AppTheme.backgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          // Header
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                right: 16,
+                bottom: 16,
+              ),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.history_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    'Aucun historique',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    'Ticket History',
+                    style: AppTheme.title1.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Vos tickets précédents apparaîtront ici',
-                    style: AppTheme.bodyMedium,
+                  const Spacer(),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => ref.refresh(historyTicketsProvider),
+                    child: const Icon(
+                      CupertinoIcons.refresh,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                 ],
               ),
-            );
-          }
+            ),
+          ),
 
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(historyTicketsProvider.future),
-            child: ListView.builder(
-              itemCount: tickets.length,
-              itemBuilder: (context, index) {
-                final ticket = tickets[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 8,
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(ticket.status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        _getStatusIcon(ticket.status),
-                        color: _getStatusColor(ticket.status),
-                        size: 28,
-                      ),
-                    ),
-                    title: Text(
-                      'Ticket #${ticket.ticketNumber}',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          // Content
+          asyncHistory.when(
+            data: (tickets) {
+              if (tickets.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          'Service: ${ticket.serviceName ?? 'Inconnu'}',
-                          style: const TextStyle(fontSize: 14),
+                        Icon(
+                          CupertinoIcons.clock,
+                          size: 80,
+                          color: AppTheme.textSecondary,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 16),
                         Text(
-                          'Statut: ${_getStatusText(ticket.status)}',
-                          style: const TextStyle(fontSize: 14),
+                          'No ticket history',
+                          style: AppTheme.title3,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
-                          _relativeTime(ticket.updatedAt),
-                          style: const TextStyle(
-                            fontSize: 12,
+                          'Your previous tickets will appear here',
+                          style: AppTheme.callout.copyWith(
                             color: AppTheme.textSecondary,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRouter.ticketDetail,
-                        arguments: {
-                          'ticketId': ticket.id,
-                          'serviceName': ticket.serviceName,
-                          'ticket': ticket,
-                        },
-                      );
-                    },
                   ),
                 );
-              },
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final ticket = tickets[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: HistoryTicketCard(ticket: ticket),
+                      );
+                    },
+                    childCount: tickets.length,
+                  ),
+                ),
+              );
+            },
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 48,
-                color: AppTheme.errorColor,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Erreur de chargement',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppTheme.textSecondary),
+            error: (error, _) => SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.exclamationmark_triangle,
+                      color: AppTheme.errorColor,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading error',
+                      style: AppTheme.title3.copyWith(
+                        color: AppTheme.errorColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Text(
+                        error.toString(),
+                        textAlign: TextAlign.center,
+                        style: AppTheme.callout.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    CupertinoButtonCustom(
+                      onPressed: () => ref.refresh(historyTicketsProvider),
+                      filled: true,
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => ref.refresh(historyTicketsProvider),
-                child: const Text('Réessayer'),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
+}
+
+class HistoryTicketCard extends StatelessWidget {
+  final dynamic ticket;
+
+  const HistoryTicketCard({super.key, required this.ticket});
 
   String _getStatusText(String status) {
     switch (status) {
       case 'served':
-        return 'Terminé';
+        return 'Completed';
       case 'cancelled':
-        return 'Annulé';
+        return 'Cancelled';
       case 'no_show':
-        return 'Non présenté';
+        return 'No Show';
+      case 'closed':
+        return 'Completed';
       default:
         return status;
     }
@@ -169,37 +169,164 @@ class HistoryScreen extends ConsumerWidget {
   IconData _getStatusIcon(String status) {
     switch (status) {
       case 'served':
-        return Icons.check_circle_outline;
+      case 'closed':
+        return CupertinoIcons.check_mark_circled;
       case 'cancelled':
-        return Icons.cancel_outlined;
+        return CupertinoIcons.xmark_circle_fill;
       case 'no_show':
-        return Icons.person_off_outlined;
+        return CupertinoIcons.person_crop_circle_badge_xmark;
       default:
-        return Icons.history_outlined;
+        return CupertinoIcons.clock;
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
       case 'served':
-        return Colors.green;
+      case 'closed':
+        return AppTheme.successColor;
       case 'cancelled':
-        return Colors.red;
+        return AppTheme.errorColor;
       case 'no_show':
-        return Colors.orange;
+        return AppTheme.warningColor;
       default:
-        return AppTheme.primaryColor;
+        return AppTheme.textSecondary;
     }
   }
 
-  String _relativeTime(DateTime? dt) {
+  String _formatDate(DateTime? dt) {
     if (dt == null) return '';
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return "à l'instant";
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours} h';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays} j';
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    return '${dt.day} ${_getMonth(dt.month)} ${dt.year}';
+  }
+
+  String _getMonth(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _getStatusColor(ticket.status);
+
+    return CupertinoCard(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AppRouter.ticketDetail,
+          arguments: {
+            'ticketId': ticket.id,
+            'serviceName': ticket.serviceName,
+            'ticket': ticket,
+          },
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with establishment and status
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  ticket.serviceName ?? 'Unknown Service',
+                  style: AppTheme.headline.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  _getStatusText(ticket.status),
+                  style: AppTheme.caption1.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Ticket number and date
+          Row(
+            children: [
+              Icon(
+                CupertinoIcons.ticket,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Ticket ${ticket.ticketNumber}',
+                style: AppTheme.callout.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                CupertinoIcons.calendar,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _formatDate(ticket.updatedAt),
+                style: AppTheme.callout.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Status icon and text
+          Row(
+            children: [
+              Icon(
+                _getStatusIcon(ticket.status),
+                size: 16,
+                color: statusColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _getStatusText(ticket.status),
+                style: AppTheme.callout.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

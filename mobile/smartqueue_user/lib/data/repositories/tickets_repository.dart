@@ -7,11 +7,25 @@ class TicketsRepository {
   final ApiClient _client;
   TicketsRepository(this._client);
 
-  Future<Ticket> create(int serviceId) async {
+  Future<Ticket> create(
+    int serviceId, {
+    double? lat,
+    double? lng,
+    bool? fromQr,
+  }) async {
     try {
-      final res = await _client.dio.post(AppConfig.createTicket, data: {'service_id': serviceId});
-      final data = res.data is Map && res.data['data'] != null ? res.data['data'] : res.data;
-      return Ticket.fromJson((data as Map).cast<String, dynamic>());
+      final data = <String, dynamic>{
+        'service_id': serviceId,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+        if (fromQr != null) 'from_qr': fromQr,
+      };
+
+      final res = await _client.dio.post(AppConfig.createTicket, data: data);
+      final responseData = res.data is Map && res.data['data'] != null
+          ? res.data['data']
+          : res.data;
+      return Ticket.fromJson((responseData as Map).cast<String, dynamic>());
     } on DioException catch (e) {
       // If backend returns 422, surface a friendly message and try alt key
       if (e.response?.statusCode == 422) {
@@ -31,8 +45,11 @@ class TicketsRepository {
         }
         // Try alternate payload key once
         try {
-          final res2 = await _client.dio.post(AppConfig.createTicket, data: {'serviceId': serviceId});
-          final data2 = res2.data is Map && res2.data['data'] != null ? res2.data['data'] : res2.data;
+          final res2 = await _client.dio
+              .post(AppConfig.createTicket, data: {'serviceId': serviceId});
+          final data2 = res2.data is Map && res2.data['data'] != null
+              ? res2.data['data']
+              : res2.data;
           return Ticket.fromJson((data2 as Map).cast<String, dynamic>());
         } catch (_) {
           throw Exception(msg);
@@ -44,27 +61,52 @@ class TicketsRepository {
 
   Future<List<Ticket>> active() async {
     final res = await _client.dio.get(AppConfig.activeTickets);
-    final data = res.data is Map && res.data['data'] is List ? res.data['data'] : res.data;
-    return (data as List).map((e) => Ticket.fromJson((e as Map).cast<String, dynamic>())).toList();
+    final data = res.data is Map && res.data['data'] is List
+        ? res.data['data']
+        : res.data;
+    return (data as List)
+        .map((e) => Ticket.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
   }
 
-  Future<List<Ticket>> history({int? perPage}) async {
-    final res = await _client.dio.get(AppConfig.historyTickets, queryParameters: {
+  Future<List<Ticket>> history({
+    int? perPage,
+    String? status,
+    String? from,
+    String? to,
+  }) async {
+    final queryParams = <String, dynamic>{
       if (perPage != null) 'per_page': perPage,
-    });
-    final data = res.data is Map && res.data['data'] is List ? res.data['data'] : res.data;
-    return (data as List).map((e) => Ticket.fromJson((e as Map).cast<String, dynamic>())).toList();
+      if (status != null) 'status': status,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+    };
+
+    final res = await _client.dio.get(
+      AppConfig.historyTickets,
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+
+    final data = res.data is Map && res.data['data'] is List
+        ? res.data['data']
+        : res.data;
+    return (data as List)
+        .map((e) => Ticket.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
   }
 
   Future<Ticket> byId(int id) async {
     final res = await _client.dio.get(AppConfig.ticketById(id));
-    final data = res.data is Map && res.data['data'] != null ? res.data['data'] : res.data;
+    final data = res.data is Map && res.data['data'] != null
+        ? res.data['data']
+        : res.data;
     return Ticket.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<void> cancel(int id) async {
     try {
-      await _client.dio.patch(AppConfig.ticketCancel(id), data: {'action': 'cancel'});
+      await _client.dio
+          .patch(AppConfig.ticketCancel(id), data: {'action': 'cancel'});
       return;
     } on DioException catch (_) {
       // Fallback: some APIs expose POST /tickets/{id}/cancel

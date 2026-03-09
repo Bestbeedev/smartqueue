@@ -7,18 +7,32 @@ import '../../core/widgets/cupertino_widgets.dart';
 import '../establishments/establishments_provider.dart';
 import '../establishments/widgets/establishment_card.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final asyncEstablishments = ref.watch(nearbyEstablishmentsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // Header style iOS
+          // Header with greeting and search
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
@@ -27,46 +41,62 @@ class HomeScreen extends ConsumerWidget {
                 right: 16,
                 bottom: 16,
               ),
-              decoration: BoxDecoration(
-                color: AppTheme.navigationBarColor,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.dividerColor.withOpacity(0.3),
-                    width: 0.5,
-                  ),
-                ),
-                boxShadow: AppTheme.navigationShadow,
-              ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SmartQueue',
-                          style: AppTheme.largeTitle.copyWith(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Établissements à proximité',
-                          style: AppTheme.subheadline.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
+                  // Greeting
+                  Text(
+                    'Hello Josué 👋',
+                    style: AppTheme.title1.copyWith(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  CupertinoButton(
-                    onPressed: () => ref.refresh(nearbyEstablishmentsProvider),
-                    padding: EdgeInsets.zero,
-                    child: Icon(
-                      CupertinoIcons.refresh,
-                      color: AppTheme.primaryColor,
-                      size: 24,
+
+                  const SizedBox(height: 24),
+
+                  // Search bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppTheme.dividerColor.withOpacity(0.3)),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value.toLowerCase();
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search establishment...',
+                        hintStyle: AppTheme.body.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                        prefixIcon: Icon(
+                          CupertinoIcons.search,
+                          color: AppTheme.textSecondary,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Nearby establishments title
+                  Text(
+                    'Nearby establishments',
+                    style: AppTheme.headline.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -74,7 +104,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
 
-          // Contenu principal
+          // Content
           asyncEstablishments.when(
             loading: () => SliverFillRemaining(
               child: Center(
@@ -84,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
                     const CupertinoActivityIndicator(radius: 16),
                     const SizedBox(height: 16),
                     Text(
-                      'Chargement...',
+                      'Loading...',
                       style: AppTheme.body.copyWith(
                         color: AppTheme.textSecondary,
                       ),
@@ -105,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Erreur de chargement',
+                      'Loading error',
                       style: AppTheme.title3.copyWith(
                         color: AppTheme.errorColor,
                       ),
@@ -126,14 +156,24 @@ class HomeScreen extends ConsumerWidget {
                       onPressed: () =>
                           ref.refresh(nearbyEstablishmentsProvider),
                       filled: true,
-                      child: const Text('Réessayer'),
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
               ),
             ),
             data: (establishments) {
-              if (establishments.isEmpty) {
+              // Filter establishments based on search
+              final filteredEstablishments = _searchQuery.isEmpty
+                  ? establishments
+                  : establishments
+                      .where((est) =>
+                          est.name.toLowerCase().contains(_searchQuery) ||
+                          (est.address?.toLowerCase().contains(_searchQuery) ??
+                              false))
+                      .toList();
+
+              if (filteredEstablishments.isEmpty) {
                 return SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -146,14 +186,18 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Aucun établissement à proximité',
+                          _searchQuery.isEmpty
+                              ? 'No nearby establishments'
+                              : 'No establishments found',
                           style: AppTheme.title3,
                         ),
                         const SizedBox(height: 8),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 32.0),
                           child: Text(
-                            'Essayez d\'activer votre localisation ou d\'élargir la zone de recherche.',
+                            _searchQuery.isEmpty
+                                ? 'Try enabling your location or expanding the search area.'
+                                : 'Try different search terms.',
                             textAlign: TextAlign.center,
                             style: AppTheme.callout.copyWith(
                               color: AppTheme.textSecondary,
@@ -166,13 +210,19 @@ class HomeScreen extends ConsumerWidget {
                 );
               }
 
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final establishment = establishments[index];
-                    return EstablishmentCard(establishment: establishment);
-                  },
-                  childCount: establishments.length,
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final establishment = filteredEstablishments[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: EstablishmentCard(establishment: establishment),
+                      );
+                    },
+                    childCount: filteredEstablishments.length,
+                  ),
                 ),
               );
             },

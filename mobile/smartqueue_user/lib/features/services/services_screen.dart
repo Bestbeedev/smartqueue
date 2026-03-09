@@ -1,50 +1,270 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/service.dart';
 import '../../core/app_router.dart';
+import '../../core/app_theme.dart';
+import '../../core/widgets/cupertino_widgets.dart';
 import 'services_provider.dart';
 
-/// Liste des services d'un établissement
+/// Establishment Details Page with services
 class ServicesScreen extends ConsumerWidget {
   final int establishmentId;
   final String establishmentName;
-  const ServicesScreen({super.key, required this.establishmentId, required this.establishmentName});
+
+  const ServicesScreen(
+      {super.key,
+      required this.establishmentId,
+      required this.establishmentName});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncServices = ref.watch(servicesByEstablishmentProvider(establishmentId));
+    final asyncServices =
+        ref.watch(servicesByEstablishmentProvider(establishmentId));
 
     return Scaffold(
-      appBar: AppBar(title: Text('Services • $establishmentName')),
-      body: asyncServices.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur: $e')),
-        data: (data) => ListView.separated(
-          itemCount: data.length,
-          separatorBuilder: (_, __) => const Divider(height: 0),
-          itemBuilder: (_, i) {
-            final s = data[i];
-            final color = s.status == 'open' ? Colors.green : Colors.red;
-            return ListTile(
-              leading: Icon(Icons.confirmation_number, color: color),
-              title: Text(s.name),
-              subtitle: Text('Temps moyen: ${s.avgServiceTimeMinutes} min'),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(.1),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: color.withOpacity(.3)),
-                ),
-                child: Text(s.status, style: TextStyle(color: color)),
+      backgroundColor: AppTheme.backgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          // Header with establishment info
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                right: 16,
+                bottom: 24,
               ),
-              onTap: () => Navigator.pushNamed(context, AppRouter.serviceDetail, arguments: {
-                'serviceId': s.id,
-                'serviceName': s.name,
-              }),
-            );
-          },
-        ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button and title
+                  Row(
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop(context),
+                        child: const Icon(
+                          CupertinoIcons.back,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          establishmentName,
+                          style: AppTheme.title1.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Address and rating
+                  Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.location,
+                        size: 16,
+                        color: AppTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '123 Main Street, City',
+                        style: AppTheme.callout.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.star_fill,
+                            color: AppTheme.warningColor,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '4.5',
+                            style: AppTheme.callout.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Services available title
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Services available',
+                style: AppTheme.headline.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+          // Services list
+          asyncServices.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            ),
+            error: (e, _) => SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  'Error: $e',
+                  style: AppTheme.body.copyWith(color: AppTheme.errorColor),
+                ),
+              ),
+            ),
+            data: (services) {
+              if (services.isEmpty) {
+                return const SliverFillRemaining(
+                  child: Center(
+                    child: Text(
+                      'No services available',
+                      style: AppTheme.body,
+                    ),
+                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final service = services[index];
+                      final isOpen = service.status == 'open';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: CupertinoCard(
+                          onTap: isOpen
+                              ? () => Navigator.pushNamed(
+                                    context,
+                                    AppRouter.serviceDetail,
+                                    arguments: {
+                                      'serviceId': service.id,
+                                      'serviceName': service.name,
+                                    },
+                                  )
+                              : null,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Service name and status
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      service.name,
+                                      style: AppTheme.headline.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isOpen
+                                          ? AppTheme.successColor
+                                              .withOpacity(0.1)
+                                          : AppTheme.errorColor
+                                              .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isOpen
+                                            ? AppTheme.successColor
+                                                .withOpacity(0.3)
+                                            : AppTheme.errorColor
+                                                .withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      isOpen ? 'Open' : 'Closed',
+                                      style: AppTheme.caption1.copyWith(
+                                        color: isOpen
+                                            ? AppTheme.successColor
+                                            : AppTheme.errorColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Waiting time and button
+                              Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.time,
+                                    size: 16,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Waiting: ${service.avgServiceTimeMinutes} min',
+                                    style: AppTheme.callout.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (isOpen)
+                                    SizedBox(
+                                      width: 120,
+                                      child: CupertinoButtonCustom(
+                                        onPressed: () => Navigator.pushNamed(
+                                          context,
+                                          AppRouter.takeTicket,
+                                          arguments: {
+                                            'serviceId': service.id,
+                                            'serviceName': service.name,
+                                          },
+                                        ),
+                                        filled: true,
+                                        child: Text(
+                                          'Take Ticket',
+                                          style: AppTheme.caption1.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    childCount: services.length,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

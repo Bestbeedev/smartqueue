@@ -13,12 +13,12 @@ class EstablishmentCard extends StatelessWidget {
   String _getAffluenceText(String affluence) {
     switch (affluence.toLowerCase()) {
       case 'low':
-        return 'Peu fréquenté';
+        return 'Low';
       case 'high':
-        return 'Très fréquenté';
+        return 'High';
       case 'medium':
       default:
-        return 'Fréquentation moyenne';
+        return 'Medium';
     }
   }
 
@@ -45,111 +45,127 @@ class EstablishmentCard extends StatelessWidget {
           'establishmentName': establishment.name,
         },
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo/Icon style iOS
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
-            ),
-            child: Icon(
-              CupertinoIcons.building_2_fill,
-              size: 28,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          // Header with name and rating
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   establishment.name,
-                  style: AppTheme.headline,
-                  maxLines: 2,
+                  style: AppTheme.headline.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                if (establishment.address != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6.0),
-                    child: Text(
-                      establishment.address!,
-                      style: AppTheme.footnote.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(width: 8),
+              // Rating stars
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    CupertinoIcons.star_fill,
+                    color: AppTheme.warningColor,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    '4.5',
+                    style: AppTheme.caption1.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                Row(
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Address
+          if (establishment.address != null)
+            Text(
+              establishment.address!,
+              style: AppTheme.callout.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+
+          const SizedBox(height: 12),
+
+          // Stats row
+          Row(
+            children: [
+              // Waiting time
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getAffluenceColor(establishment.affluence)
-                            .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _getAffluenceColor(establishment.affluence),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        _getAffluenceText(establishment.affluence),
-                        style: AppTheme.caption1.copyWith(
-                          color: _getAffluenceColor(establishment.affluence),
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Icon(
+                      CupertinoIcons.time,
+                      size: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Waiting: ${15 + (establishment.peopleWaiting ?? 0)} min',
+                      style: AppTheme.caption1.copyWith(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (establishment.distance != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              CupertinoIcons.location,
-                              size: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${establishment.distance!.toStringAsFixed(1)} km',
-                              style: AppTheme.caption1.copyWith(
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-              ],
-            ),
-          ),
-          Icon(
-            CupertinoIcons.chevron_forward,
-            color: AppTheme.textSecondary.withOpacity(0.5),
-            size: 16,
+              ),
+
+              const SizedBox(width: 8),
+
+              // People in queue
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppTheme.dividerColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      CupertinoIcons.person_2,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${establishment.peopleWaiting ?? 5} people in queue',
+                      style: AppTheme.caption1.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -35,26 +35,32 @@ class CupertinoBottomNavigationBar extends StatelessWidget {
               _buildTabItem(
                 icon: CupertinoIcons.house,
                 activeIcon: CupertinoIcons.house_fill,
-                label: 'Accueil',
+                label: 'Home',
                 index: 0,
+              ),
+              _buildTabItem(
+                icon: CupertinoIcons.list_bullet,
+                activeIcon: CupertinoIcons.list_bullet,
+                label: 'Queues',
+                index: 1,
               ),
               _buildTabItem(
                 icon: CupertinoIcons.ticket,
                 activeIcon: CupertinoIcons.ticket_fill,
-                label: 'Tickets',
-                index: 1,
+                label: 'Ticket',
+                index: 2,
               ),
               _buildTabItem(
                 icon: CupertinoIcons.bell,
                 activeIcon: CupertinoIcons.bell_fill,
                 label: 'Notifications',
-                index: 2,
+                index: 3,
               ),
               _buildTabItem(
                 icon: CupertinoIcons.person,
                 activeIcon: CupertinoIcons.person_fill,
-                label: 'Profil',
-                index: 3,
+                label: 'Profile',
+                index: 4,
               ),
             ],
           ),
@@ -73,9 +79,8 @@ class CupertinoBottomNavigationBar extends StatelessWidget {
 
     return GestureDetector(
       onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
