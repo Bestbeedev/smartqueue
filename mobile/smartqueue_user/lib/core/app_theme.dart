@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
   // Couleurs iOS Cupertino
@@ -19,14 +19,14 @@ class AppTheme {
       Color(0xF9FFFFFF); // Blanc avec transparence
 
   // Dégradés iOS
-  static LinearGradient primaryGradient = LinearGradient(
+  static final LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [primaryColor.withOpacity(0.9), primaryColor],
   );
 
   // Thème Cupertino iOS
-  static ThemeData cupertinoTheme = ThemeData(
+  static final ThemeData cupertinoTheme = ThemeData(
     useMaterial3: false,
     brightness: Brightness.light,
     primarySwatch: Colors.blue,
@@ -52,7 +52,7 @@ class AppTheme {
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -264,7 +264,7 @@ class AppTheme {
   static const double borderRadiusXL = 24.0;
 
   // Ombres iOS (très légères)
-  static List<BoxShadow> cardShadow = [
+  static final List<BoxShadow> cardShadow = [
     BoxShadow(
       color: Colors.black.withOpacity(0.04),
       blurRadius: 8,
@@ -277,7 +277,7 @@ class AppTheme {
     ),
   ];
 
-  static List<BoxShadow> navigationShadow = [
+  static final List<BoxShadow> navigationShadow = [
     BoxShadow(
       color: Colors.black.withOpacity(0.08),
       blurRadius: 10,
