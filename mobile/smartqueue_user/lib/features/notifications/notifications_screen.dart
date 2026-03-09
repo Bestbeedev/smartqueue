@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smartqueue_user/core/app_theme.dart';
-import 'package:smartqueue_user/core/app_router.dart';
+import 'package:smartqueue_user/core/widgets/cupertino_widgets.dart';
 import 'package:smartqueue_user/features/notifications/notifications_provider.dart';
 import 'package:smartqueue_user/data/api_client.dart';
 import 'package:smartqueue_user/data/repositories/notifications_repository.dart';
+import 'package:smartqueue_user/core/app_router.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -14,213 +16,230 @@ class NotificationsScreen extends ConsumerWidget {
     final asyncNotifications = ref.watch(notificationsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.refresh(notificationsProvider),
-          ),
-        ],
-      ),
-      body: asyncNotifications.when(
-        data: (notifications) {
-          if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: AppTheme.backgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          // Header
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                right: 16,
+                bottom: 16,
+              ),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.notifications_off_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    'Aucune notification',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    'Notifications',
+                    style: AppTheme.title1.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Vous n\'avez pas encore de notifications',
-                    style: AppTheme.bodyMedium,
+                  const Spacer(),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => ref.refresh(notificationsProvider),
+                    child: const Icon(
+                      CupertinoIcons.refresh,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                 ],
               ),
-            );
-          }
+            ),
+          ),
 
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(notificationsProvider.future),
-            child: ListView.builder(
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return Dismissible(
-                  key: ValueKey(notification.id),
-                  background: Container(
-                    color: AppTheme.errorColor,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    child: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.white,
-                    ),
-                  ),
-                  direction: DismissDirection.endToStart,
-                  confirmDismiss: (direction) async {
-                    try {
-                      final api = await ApiClient.create();
-                      final repo = NotificationsRepository(api);
-                      await repo.delete(notification.id);
-                      // Rafraîchir la liste après suppression
-                      ref.refresh(notificationsProvider);
-                      return true;
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Suppression impossible: ${e.toString().replaceFirst('Exception: ', '')}')),
-                      );
-                      return false;
-                    }
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 8,
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _getNotificationColor(notification.type)
-                              .withOpacity(0.1),
-                          shape: BoxShape.circle,
+          // Content
+          asyncNotifications.when(
+            data: (notifications) {
+              if (notifications.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          CupertinoIcons.bell_slash,
+                          size: 80,
+                          color: AppTheme.textSecondary,
                         ),
-                        child: Icon(
-                          _getNotificationIcon(notification.type),
-                          color: _getNotificationColor(notification.type),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No notifications',
+                          style: AppTheme.title3,
                         ),
-                      ),
-                      title: Text(
-                        notification.title,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(notification.body ?? ''),
-                          const SizedBox(height: 4),
-                          Text(
-                            _relativeTime(notification.createdAt),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'You don\'t have any notifications yet',
+                          style: AppTheme.callout.copyWith(
+                            color: AppTheme.textSecondary,
                           ),
-                        ],
-                      ),
-                      onTap: () async {
-                        try {
-                          final api = await ApiClient.create();
-                          final repo = NotificationsRepository(api);
-                          await repo.markAsRead(notification.id);
-                        } catch (_) {}
-
-                        // Routage selon le type (rediriger vers Détail pour contourner l'API realtime instable)
-                        final type = notification.type ?? '';
-                        final ticketId = notification.ticketId;
-                        final serviceName = notification.serviceName ?? 'Service';
-
-                        if ((type == 'ticket_called' || type == 'ticket_updated') && ticketId != null) {
-                          if (!context.mounted) return;
-                          Navigator.pushNamed(
-                            context,
-                            AppRouter.ticketDetail,
-                            arguments: {
-                              'ticketId': ticketId,
-                              'serviceName': serviceName,
-                            },
-                          );
-                        } else {
-                          // Par défaut, rien de spécial
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Notification ouverte')),
-                          );
-                        }
-
-                        // rafraîchir l'état après ouverture
-                        ref.refresh(notificationsProvider);
-                      },
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
                 );
-              },
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final notification = notifications[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: NotificationCard(
+                          notification: notification,
+                          onTap: () => _handleNotificationTap(
+                              context, ref, notification),
+                          onDelete: () =>
+                              _deleteNotification(context, ref, notification),
+                        ),
+                      );
+                    },
+                    childCount: notifications.length,
+                  ),
+                ),
+              );
+            },
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 48,
-                color: AppTheme.errorColor,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Erreur de chargement',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppTheme.textSecondary),
+            error: (error, _) => SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.exclamationmark_triangle,
+                      color: AppTheme.errorColor,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading error',
+                      style: AppTheme.title3.copyWith(
+                        color: AppTheme.errorColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Text(
+                        error.toString(),
+                        textAlign: TextAlign.center,
+                        style: AppTheme.callout.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    CupertinoButtonCustom(
+                      onPressed: () => ref.refresh(notificationsProvider),
+                      filled: true,
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => ref.refresh(notificationsProvider),
-                child: const Text('Réessayer'),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
+  void _handleNotificationTap(
+      BuildContext context, WidgetRef ref, dynamic notification) async {
+    try {
+      final api = await ApiClient.create();
+      final repo = NotificationsRepository(api);
+      await repo.markAsRead(notification.id);
+    } catch (_) {}
+
+    // Handle navigation based on notification type
+    final type = notification.type ?? '';
+    final ticketId = notification.ticketId;
+    final serviceName = notification.serviceName ?? 'Service';
+
+    if ((type == 'ticket_called' || type == 'ticket_updated') &&
+        ticketId != null) {
+      if (!context.mounted) return;
+      Navigator.pushNamed(
+        context,
+        AppRouter.ticketDetail,
+        arguments: {
+          'ticketId': ticketId,
+          'serviceName': serviceName,
+        },
+      );
+    } else {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notification opened')),
+      );
+    }
+
+    // Refresh after opening
+    ref.refresh(notificationsProvider);
+  }
+
+  Future<void> _deleteNotification(
+      BuildContext context, WidgetRef ref, dynamic notification) async {
+    try {
+      final api = await ApiClient.create();
+      final repo = NotificationsRepository(api);
+      await repo.delete(notification.id);
+      // Refresh list after deletion
+      ref.refresh(notificationsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Delete failed: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
+  }
+}
+
+class NotificationCard extends StatelessWidget {
+  final dynamic notification;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const NotificationCard({
+    super.key,
+    required this.notification,
+    required this.onTap,
+    required this.onDelete,
+  });
+
   IconData _getNotificationIcon(String? type) {
     switch (type) {
       case 'ticket_called':
-        return Icons.notifications_active_outlined;
+        return CupertinoIcons.bell_fill;
       case 'ticket_updated':
-        return Icons.update_outlined;
+        return CupertinoIcons.refresh;
       case 'announcement':
-        return Icons.announcement_outlined;
+        return CupertinoIcons.speaker_2_fill;
       default:
-        return Icons.notifications_none_outlined;
+        return CupertinoIcons.bell;
     }
   }
 
   Color _getNotificationColor(String? type) {
     switch (type) {
       case 'ticket_called':
-        return Colors.green;
+        return AppTheme.successColor;
       case 'ticket_updated':
-        return Colors.blue;
+        return AppTheme.primaryColor;
       case 'announcement':
-        return Colors.orange;
+        return AppTheme.warningColor;
       default:
         return AppTheme.primaryColor;
     }
@@ -230,10 +249,91 @@ class NotificationsScreen extends ConsumerWidget {
     if (dt == null) return '';
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return "à l'instant";
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours} h';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays} j';
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    if (diff.inSeconds < 60) return "just now";
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} h ago';
+    if (diff.inDays < 7) return '${diff.inDays} d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _getNotificationColor(notification.type);
+
+    return Dismissible(
+      key: ValueKey(notification.id),
+      background: Container(
+        color: AppTheme.errorColor,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(
+          CupertinoIcons.delete,
+          color: Colors.white,
+        ),
+      ),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        onDelete();
+        return true;
+      },
+      child: CupertinoCard(
+        onTap: onTap,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                _getNotificationIcon(notification.type),
+                color: color,
+                size: 20,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title,
+                    style: AppTheme.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  if (notification.body != null)
+                    Text(
+                      notification.body,
+                      style: AppTheme.callout.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _relativeTime(notification.createdAt),
+                    style: AppTheme.caption1.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -43,15 +43,21 @@ class _RealtimeScreenState extends ConsumerState<RealtimeScreen> {
 
     if (initial != null) {
       // Merge realtime update payload if it targets the displayed ticket
-      if (rt != null && rt['ticket_id']?.toString() == widget.ticketId.toString()) {
+      if (rt != null &&
+          rt['ticket_id']?.toString() == widget.ticketId.toString()) {
         initial = Ticket(
           id: initial.id,
-          ticketNumber: initial.ticketNumber,
+          number: initial.ticketNumber,
           status: (rt['status'] as String?) ?? initial.status,
-          serviceId: initial.serviceId,
-          position: (rt['position'] is int) ? rt['position'] as int : int.tryParse(rt['position']?.toString() ?? ''),
-          etaMinutes: (rt['eta_minutes'] is int) ? rt['eta_minutes'] as int : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
-          serviceName: initial.serviceName,
+          position: (rt['position'] is int)
+              ? rt['position'] as int
+              : int.tryParse(rt['position']?.toString() ?? ''),
+          etaMinutes: (rt['eta_minutes'] is int)
+              ? rt['eta_minutes'] as int
+              : int.tryParse(rt['eta_minutes']?.toString() ?? ''),
+          service: initial.service,
+          establishment: initial.establishment,
+          createdAt: initial.createdAt,
           updatedAt: DateTime.now(),
         );
       }
@@ -182,7 +188,8 @@ class _RealtimeScreenState extends ConsumerState<RealtimeScreen> {
                 onPressed: () async {
                   try {
                     // Try fetching live data; on success, reload screen without initialTicket
-                    await ref.read(ticketRealtimeProvider(widget.ticketId).future);
+                    await ref
+                        .read(ticketRealtimeProvider(widget.ticketId).future);
                     if (context.mounted) {
                       Navigator.pushReplacementNamed(
                         context,
@@ -196,7 +203,9 @@ class _RealtimeScreenState extends ConsumerState<RealtimeScreen> {
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Impossible d\'obtenir les données en temps réel.')),
+                        SnackBar(
+                            content: Text(
+                                'Impossible d\'obtenir les données en temps réel.')),
                       );
                     }
                   }
@@ -398,7 +407,8 @@ class _RealtimeScreenState extends ConsumerState<RealtimeScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => ref.refresh(ticketRealtimeProvider(widget.ticketId)),
+                onPressed: () =>
+                    ref.refresh(ticketRealtimeProvider(widget.ticketId)),
                 child: const Text('Réessayer'),
               ),
             ],

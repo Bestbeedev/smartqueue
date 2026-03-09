@@ -1,35 +1,61 @@
-// Modèle d'établissement (utilisateur)
+// Modèle d'établissement (utilisateur) - aligné avec API backend
 class Establishment {
   final int id;
   final String name;
-  final double latitude;
-  final double longitude;
   final String? address;
-  final String affluence; // low | medium | high
-  final int? peopleWaiting;
-  final double? distance;
+  final double? lat; // backend renvoie 'lat'
+  final double? lng; // backend renvoie 'lng'
+  final String? openAt;
+  final String? closeAt;
+  final bool isActive;
+  final int? distanceM; // distance en mètres depuis backend
+  final String? crowdLevel; // low | medium | high depuis backend
+  final int? peopleWaiting; // nombre de personnes en attente depuis backend
 
   Establishment({
     required this.id,
     required this.name,
-    required this.latitude,
-    required this.longitude,
     this.address,
-    required this.affluence,
+    this.lat,
+    this.lng,
+    this.openAt,
+    this.closeAt,
+    required this.isActive,
+    this.distanceM,
+    this.crowdLevel,
     this.peopleWaiting,
-    this.distance,
   });
 
   factory Establishment.fromJson(Map<String, dynamic> j) => Establishment(
-        id: j['id'] is int ? j['id'] as int : int.tryParse('${j['id']}') ?? -1,
-        name: (j['name'] as String?) ?? (j['title'] as String?) ?? 'Établissement',
-        latitude: _toDouble(j['latitude'] ?? j['lat']),
-        longitude: _toDouble(j['longitude'] ?? j['lng']),
-        address: (j['address'] as String?) ?? (j['location'] as String?),
-        affluence: (j['crowd_level'] as String?) ?? (j['affluence'] as String?) ?? 'medium',
-        peopleWaiting: _toIntOrNull(j['people_waiting'] ?? j['peopleWaiting']),
-        distance: _toDoubleOrNull(j['distance'] ?? j['distance_km'] ?? j['distanceKm']),
+        id: _toInt(j['id']),
+        name: j['name']?.toString() ?? '',
+        address: j['address']?.toString(),
+        lat: _toDoubleOrNull(j['lat']),
+        lng: _toDoubleOrNull(j['lng']),
+        openAt: j['open_at']?.toString(),
+        closeAt: j['close_at']?.toString(),
+        isActive: j['is_active'] is bool
+            ? j['is_active']
+            : (j['is_active']?.toString() == '1'),
+        distanceM: _toIntOrNull(j['distance_m']),
+        crowdLevel: j['crowd_level']?.toString(),
+        peopleWaiting: _toIntOrNull(j['people_waiting']),
       );
+
+  // Helper getters pour compatibilité avec code existant
+  double get latitude => lat ?? 0.0;
+  double get longitude => lng ?? 0.0;
+  String get affluence => crowdLevel ?? 'medium';
+  double? get distance =>
+      distanceM != null ? (distanceM! / 1000.0) : null; // convertir en km
+
+  static int _toInt(Object? v) => int.tryParse(v?.toString() ?? '') ?? -1;
+  static int? _toIntOrNull(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
+  }
 
   static double _toDouble(Object? v) {
     if (v is num) return v.toDouble();
@@ -40,12 +66,5 @@ class Establishment {
     if (v == null) return null;
     if (v is num) return v.toDouble();
     return double.tryParse(v.toString());
-  }
-
-  static int? _toIntOrNull(Object? v) {
-    if (v == null) return null;
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    return int.tryParse(v.toString());
   }
 }

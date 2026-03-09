@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:smartqueue_user/core/app_theme.dart';
 import 'package:smartqueue_user/features/auth/login_screen.dart';
 
-
 /// Splash screen style iOS Cupertino avec animations
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,7 +16,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _logoController;
   late AnimationController _textController;
   late AnimationController _fadeController;
-  
+
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _logoRotationAnimation;
   late Animation<Offset> _textSlideAnimation;
@@ -27,19 +26,19 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Logo animation controller
     _logoController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     // Text animation controller
     _textController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     // Overall fade controller
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -98,23 +97,24 @@ class _SplashScreenState extends State<SplashScreen>
   void _startAnimations() async {
     // Start logo animation
     _logoController.forward();
-    
+
     // Wait for logo animation to complete, then start text animation
     await Future.delayed(const Duration(milliseconds: 800));
     _textController.forward();
-    
+
     // Wait for all animations to complete, then navigate
     await Future.delayed(const Duration(milliseconds: 2000));
-    
+
     // Start fade out
     _fadeController.forward();
-    
+
     // Navigate to login screen
     await Future.delayed(const Duration(milliseconds: 300));
     if (mounted) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const LoginScreen(),
           transitionDuration: const Duration(milliseconds: 500),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
@@ -173,19 +173,37 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          CupertinoIcons.ticket_fill,
-                          color: Colors.white,
-                          size: 60,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'VQS',
+                              style: AppTheme.largeTitle.copyWith(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Smart Queue System',
+                              style: AppTheme.caption1.copyWith(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   );
                 },
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Text animation
               AnimatedBuilder(
                 animation: _textController,
@@ -197,15 +215,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Column(
                         children: [
                           Text(
-                            'SmartQueue',
-                            style: AppTheme.largeTitle.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'La fin des files d\'attente',
+                            'Loading...',
                             style: AppTheme.callout.copyWith(
                               color: AppTheme.textSecondary,
                             ),
@@ -216,9 +226,9 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
               ),
-              
+
               const SizedBox(height: 60),
-              
+
               // Loading indicator
               AnimatedBuilder(
                 animation: _textController,
