@@ -92,7 +92,7 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                           ),
                           const Spacer(),
                           Text(
-                            'YOUR TICKET',
+                            'VOTRE TICKET',
                             style: AppTheme.title3.copyWith(
                               fontWeight: FontWeight.w900,
                               letterSpacing: 2,
@@ -219,8 +219,7 @@ class _ActiveTicketsScreenState extends ConsumerState<ActiveTicketsScreen> {
                                   ),
                                 ),
                                 if (_lastUpdate != null &&
-                                    _lastUpdate!.type ==
-                                        'position_update') ...[
+                                    _lastUpdate!.type == 'position_update') ...[
                                   const SizedBox(width: 8),
                                   Icon(
                                     CupertinoIcons.arrow_up,

@@ -113,7 +113,7 @@ class HistoryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Loading error',
+                      'Erreur de chargement',
                       style: AppTheme.title3.copyWith(
                         color: AppTheme.errorColor,
                       ),
@@ -130,10 +130,9 @@ class HistoryScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    CupertinoButtonCustom(
+                    ElevatedButton(
                       onPressed: () => ref.refresh(historyTicketsProvider),
-                      filled: true,
-                      child: const Text('Retry'),
+                      child: const Text('Réessayer'),
                     ),
                   ],
                 ),

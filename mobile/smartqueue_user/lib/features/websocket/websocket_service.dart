@@ -8,17 +8,18 @@ import '../../data/models/ticket.dart';
 class WebSocketService {
   static WebSocketService? _instance;
   static WebSocketService get instance => _instance ??= WebSocketService._();
-  
+
   WebSocketService._();
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
-  final StreamController<TicketUpdate> _updateController = StreamController<TicketUpdate>.broadcast();
-  
+  final StreamController<TicketUpdate> _updateController =
+      StreamController<TicketUpdate>.broadcast();
+
   Stream<TicketUpdate> get ticketUpdates => _updateController.stream;
-  
+
   bool get isConnected => _channel != null;
-  
+
   Future<void> connect(String ticketId) async {
     if (_channel != null) {
       await disconnect();
@@ -28,14 +29,14 @@ class WebSocketService {
       // Connect to WebSocket server
       final uri = Uri.parse('ws://localhost:8080/ws/ticket/$ticketId');
       _channel = WebSocketChannel.connect(uri);
-      
+
       _subscription = _channel!.stream.listen(
         _handleMessage,
         onError: _handleError,
         onDone: _handleDone,
         cancelOnError: false,
       );
-      
+
       if (kDebugMode) {
         print('WebSocket connected for ticket: $ticketId');
       }
@@ -47,25 +48,25 @@ class WebSocketService {
       _simulateRealTimeUpdates(ticketId);
     }
   }
-  
+
   Future<void> disconnect() async {
     _subscription?.cancel();
     _subscription = null;
-    
+
     await _channel?.sink.close();
     _channel = null;
-    
+
     if (kDebugMode) {
       print('WebSocket disconnected');
     }
   }
-  
+
   void _handleMessage(dynamic message) {
     try {
       final data = json.decode(message);
       final update = TicketUpdate.fromJson(data);
       _updateController.add(update);
-      
+
       if (kDebugMode) {
         print('Received WebSocket update: ${update.type}');
       }
@@ -75,13 +76,13 @@ class WebSocketService {
       }
     }
   }
-  
+
   void _handleError(dynamic error) {
     if (kDebugMode) {
       print('WebSocket error: $error');
     }
   }
-  
+
   void _handleDone() {
     if (kDebugMode) {
       print('WebSocket connection closed');
@@ -89,7 +90,7 @@ class WebSocketService {
     _channel = null;
     _subscription = null;
   }
-  
+
   void _simulateRealTimeUpdates(String ticketId) {
     // Simulate real-time updates for demo purposes
     Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -97,10 +98,10 @@ class WebSocketService {
         timer.cancel();
         return;
       }
-      
+
       final random = DateTime.now().millisecond % 100;
       TicketUpdate update;
-      
+
       if (random < 30) {
         // Position update
         update = TicketUpdate(
@@ -122,7 +123,7 @@ class WebSocketService {
           type: 'status_update',
           ticketId: ticketId,
           status: 'called',
-          message: 'Your ticket is being called!',
+          message: 'Votre ticket est appelé !',
         );
       } else {
         // Queue info
@@ -133,11 +134,11 @@ class WebSocketService {
           avgWaitTime: (random % 20) + 10,
         );
       }
-      
+
       _updateController.add(update);
     });
   }
-  
+
   void dispose() {
     disconnect();
     _updateController.close();
@@ -177,9 +178,8 @@ class TicketUpdate {
       message: json['message'],
       peopleAhead: json['peopleAhead'],
       avgWaitTime: json['avgWaitTime'],
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
-          : null,
+      timestamp:
+          json['timestamp'] != null ? DateTime.parse(json['timestamp']) : null,
     );
   }
 

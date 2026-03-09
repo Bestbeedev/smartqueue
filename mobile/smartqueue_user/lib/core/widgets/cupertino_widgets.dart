@@ -323,7 +323,7 @@ class CupertinoListTile extends StatelessWidget {
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     DefaultTextStyle(
-                      style: AppTheme.footnote,
+                      style: AppTheme.callout,
                       child: subtitle!,
                     ),
                   ],

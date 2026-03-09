@@ -35,12 +35,12 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
   @override
   void initState() {
     super.initState();
-    
+
     _pulseController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     );
-    
+
     _shimmerController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -99,7 +99,8 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
     return GestureDetector(
       onTap: widget.onTap,
       child: AnimatedBuilder(
-        animation: isWaiting ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+        animation:
+            isWaiting ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
         builder: (context, child) {
           return Transform.scale(
             scale: isWaiting ? _pulseAnimation.value : 1.0,
@@ -125,9 +126,11 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                       builder: (context, child) {
                         return Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
+                            borderRadius: BorderRadius.circular(
+                                AppTheme.borderRadiusLarge),
                             gradient: LinearGradient(
-                              begin: Alignment(-1.0 + _shimmerAnimation.value, 0),
+                              begin:
+                                  Alignment(-1.0 + _shimmerAnimation.value, 0),
                               end: Alignment(1.0 + _shimmerAnimation.value, 0),
                               colors: [
                                 Colors.transparent,
@@ -139,7 +142,7 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                         );
                       },
                     ),
-                  
+
                   // Content
                   Padding(
                     padding: const EdgeInsets.all(20),
@@ -184,7 +187,9 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                                       height: 8,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                statusColor),
                                       ),
                                     ),
                                     const SizedBox(width: 4),
@@ -200,9 +205,9 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                               ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Service name
                         if (widget.serviceName != null) ...[
                           Text(
@@ -213,7 +218,7 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                           ),
                           const SizedBox(height: 12),
                         ],
-                        
+
                         // Details
                         Row(
                           children: [
@@ -221,7 +226,9 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                               _buildDetailChip(
                                 icon: CupertinoIcons.list_number,
                                 label: 'Position ${widget.position}',
-                                color: isWaiting ? statusColor : AppTheme.textSecondary,
+                                color: isWaiting
+                                    ? statusColor
+                                    : AppTheme.textSecondary,
                               ),
                               const SizedBox(width: 8),
                             ],
@@ -229,7 +236,9 @@ class _AnimatedTicketCardState extends State<AnimatedTicketCard>
                               _buildDetailChip(
                                 icon: CupertinoIcons.time,
                                 label: '${widget.etaMinutes} min',
-                                color: isWaiting ? statusColor : AppTheme.textSecondary,
+                                color: isWaiting
+                                    ? statusColor
+                                    : AppTheme.textSecondary,
                               ),
                           ],
                         ),
@@ -326,7 +335,7 @@ class _QueueProgressIndicatorState extends State<QueueProgressIndicator>
   @override
   Widget build(BuildContext context) {
     final color = widget.color ?? AppTheme.primaryColor;
-    final progress = widget.totalAhead > 0 
+    final progress = widget.totalAhead > 0
         ? (widget.totalAhead - widget.currentPosition + 1) / widget.totalAhead
         : 1.0;
 
@@ -351,7 +360,7 @@ class _QueueProgressIndicatorState extends State<QueueProgressIndicator>
               ),
               Text(
                 '${widget.currentPosition} personne${widget.currentPosition > 1 ? 's' : ''} devant vous',
-                style: AppTheme.footnote.copyWith(
+                style: AppTheme.caption1.copyWith(
                   color: AppTheme.textSecondary,
                 ),
               ),

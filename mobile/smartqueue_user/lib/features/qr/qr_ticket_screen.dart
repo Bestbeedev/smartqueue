@@ -49,7 +49,7 @@ class _QRTicketScreenState extends ConsumerState<QRTicketScreen> {
 
     if (update.type == 'status_update' && update.status == 'called') {
       _showNotification(
-          'Ticket Called!', update.message ?? 'Your ticket is being called!');
+          'Ticket Appelé !', update.message ?? 'Votre ticket est appelé !');
     }
   }
 
