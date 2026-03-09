@@ -129,43 +129,18 @@ class AppTheme {
       labelStyle: const TextStyle(color: textSecondary, fontSize: 15),
       hintStyle: const TextStyle(color: textSecondary, fontSize: 15),
     ),
-    listTileTheme: const ListTileThemeData(
-      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      titleTextStyle: TextStyle(
-        color: textPrimary,
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
-      ),
-      subtitleTextStyle: TextStyle(
-        color: textSecondary,
-        fontSize: 13,
-        fontWeight: FontWeight.w400,
-      ),
-    ),
-    dividerTheme: const DividerThemeData(
-      color: dividerColor,
-      thickness: 0.5,
-      space: 1,
-    ),
-    chipTheme: ChipThemeData(
-      backgroundColor: surfaceColor,
-      selectedColor: primaryColor.withOpacity(0.1),
-      disabledColor: backgroundColor,
-      labelStyle: const TextStyle(color: textPrimary),
-      secondaryLabelStyle: const TextStyle(color: primaryColor),
-      brightness: Brightness.light,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: dividerColor.withOpacity(0.3)),
-      ),
-    ),
   );
 
-  // Thème clair (maintenant compatible avec iOS)
-  static ThemeData lightTheme = cupertinoTheme;
+  // Bordures
+  static const double borderRadiusSmall = 8.0;
+  static const double borderRadiusMedium = 12.0;
+  static const double borderRadiusLarge = 16.0;
 
-  // Styles de texte iOS
+  // Animations
+  static const Duration defaultAnimationDuration = Duration(milliseconds: 300);
+  static const Curve defaultAnimationCurve = Curves.easeInOut;
+
+  // Text styles
   static const TextStyle largeTitle = TextStyle(
     fontSize: 30,
     fontWeight: FontWeight.bold,
@@ -177,63 +152,40 @@ class AppTheme {
     fontSize: 24,
     fontWeight: FontWeight.bold,
     color: textPrimary,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle title2 = TextStyle(
-    fontSize: 19,
-    fontWeight: FontWeight.bold,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
     color: textPrimary,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle title3 = TextStyle(
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: FontWeight.w600,
     color: textPrimary,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle headline = TextStyle(
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: FontWeight.w600,
     color: textPrimary,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle body = TextStyle(
-    fontSize: 15,
+    fontSize: 16,
     color: textPrimary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle callout = TextStyle(
     fontSize: 14,
-    color: textPrimary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle subheadline = TextStyle(
-    fontSize: 13,
-    color: textPrimary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle footnote = TextStyle(
-    fontSize: 12,
     color: textSecondary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle caption1 = TextStyle(
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
     color: textSecondary,
-    fontWeight: FontWeight.w400,
-    letterSpacing: -0.5,
   );
 
   static const TextStyle caption2 = TextStyle(
@@ -258,9 +210,6 @@ class AppTheme {
   static const double paddingXL = 32.0;
 
   // Rayons des bordures iOS
-  static const double borderRadiusSmall = 6.0;
-  static const double borderRadiusMedium = 12.0;
-  static const double borderRadiusLarge = 16.0;
   static const double borderRadiusXL = 24.0;
 
   // Ombres iOS (très légères)
@@ -286,8 +235,6 @@ class AppTheme {
   ];
 
   // Animations iOS
-  static const Duration defaultAnimationDuration = Duration(milliseconds: 250);
-  static const Curve defaultAnimationCurve = Curves.easeOutCubic;
   static const Curve springAnimationCurve = Curves.elasticOut;
 
   // Composants Cupertino helpers

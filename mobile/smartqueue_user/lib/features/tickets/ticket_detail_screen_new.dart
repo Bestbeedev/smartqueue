@@ -360,7 +360,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen>
               children: [
                 Text(
                   title,
-                  style: AppTheme.footnote.copyWith(
+                  style: AppTheme.caption1.copyWith(
                     color: AppTheme.textSecondary,
                   ),
                 ),

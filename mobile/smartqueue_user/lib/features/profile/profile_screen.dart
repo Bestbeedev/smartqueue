@@ -358,15 +358,16 @@ class ProfileScreen extends ConsumerWidget {
                             },
                           ),
                           _buildSettingTile(
-                            icon: CupertinoIcons.shield_lefthalf_fill,
-                            title: 'Privacy Policy',
+                            icon: CupertinoIcons.moon,
+                            title: 'Thème',
+                            subtitle: 'Clair',
                             trailing: const Icon(
                               CupertinoIcons.chevron_forward,
                               size: 16,
                               color: AppTheme.textSecondary,
                             ),
                             onTap: () {
-                              // TODO: Implement privacy policy
+                              // TODO: Implémenter le switch thème clair/sombre
                             },
                           ),
                           _buildSettingTile(

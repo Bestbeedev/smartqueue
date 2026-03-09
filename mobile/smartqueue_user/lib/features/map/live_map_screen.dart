@@ -273,7 +273,7 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
             left: 0,
             right: 0,
             child: Container(
-              height: 100,
+              height: 160,
               decoration: BoxDecoration(
                 color: AppTheme.surfaceColor,
                 borderRadius: const BorderRadius.only(
@@ -349,58 +349,71 @@ class _LiveMapScreenState extends ConsumerState<LiveMapScreen> {
                           ),
                         ),
                         data: (establishments) {
-                          return ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: establishments.take(5).length,
-                            itemBuilder: (context, index) {
-                              final establishment = establishments[index];
-                              return Container(
-                                width: 120,
-                                margin: const EdgeInsets.only(right: 12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.backgroundColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.dividerColor.withOpacity(0.3),
+                          return SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              scrollDirection: Axis.horizontal,
+                              itemCount: establishments.take(5).length,
+                              itemBuilder: (context, index) {
+                                final establishment = establishments[index];
+                                return Container(
+                                  width: 120,
+                                  margin: const EdgeInsets.only(right: 12),
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppTheme.dividerColor
+                                          .withOpacity(0.3),
+                                    ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 30,
-                                      height: 30,
-                                      decoration: BoxDecoration(
-                                        color: _getWaitColor(establishment.affluence).withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(8),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 26,
+                                        height: 26,
+                                        decoration: BoxDecoration(
+                                          color: _getWaitColor(
+                                                  establishment.affluence)
+                                              .withOpacity(0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          CupertinoIcons.building_2_fill,
+                                          size: 14,
+                                          color: _getWaitColor(
+                                              establishment.affluence),
+                                        ),
                                       ),
-                                      child: Icon(
-                                        CupertinoIcons.building_2_fill,
-                                        size: 16,
-                                        color: _getWaitColor(establishment.affluence),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        establishment.name,
+                                        style: AppTheme.caption2.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      establishment.name,
-                                      style: AppTheme.caption1.copyWith(
-                                        fontWeight: FontWeight.w600,
+                                      Text(
+                                        '${establishment.peopleWaiting ?? 5} waiting',
+                                        style: AppTheme.caption2.copyWith(
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      '${establishment.peopleWaiting ?? 5} waiting',
-                                      style: AppTheme.caption2.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           );
                         },
                       ),

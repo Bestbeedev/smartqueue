@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'SmartQueue',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.cupertinoTheme,
       navigatorKey: AppRouter.navigatorKey,
       initialRoute: AppRouter.splash,
       onGenerateRoute: AppRouter.generateRoute,

@@ -1,6 +1,7 @@
 // features/home/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
@@ -112,8 +113,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Expanded(
                               child: CupertinoCard(
                                 onTap: () {
-                                  Navigator.pushNamed(
-                                      context, AppRouter.liveMap);
+                                  debugPrint('Home feature tap: liveMap');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Live Map')),
+                                  );
+                                  AppRouter.navigatorKey.currentState
+                                      ?.pushNamed(AppRouter.liveMap);
                                 },
                                 child: Column(
                                   children: [
@@ -123,7 +128,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       decoration: BoxDecoration(
                                         color: AppTheme.primaryColor
                                             .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius:
+                                            BorderRadius.circular(16),
                                       ),
                                       child: const Icon(
                                         CupertinoIcons.location,
@@ -137,6 +143,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       style: AppTheme.callout.copyWith(
                                         fontWeight: FontWeight.w600,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 ),
@@ -147,8 +156,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Expanded(
                               child: CupertinoCard(
                                 onTap: () {
-                                  Navigator.pushNamed(
-                                      context, AppRouter.predictiveWaiting);
+                                  debugPrint(
+                                      'Home feature tap: predictiveWaiting');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('IA Prédictions')),
+                                  );
+                                  AppRouter.navigatorKey.currentState
+                                      ?.pushNamed(AppRouter.predictiveWaiting);
                                 },
                                 child: Column(
                                   children: [
@@ -158,7 +173,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       decoration: BoxDecoration(
                                         color: AppTheme.warningColor
                                             .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius:
+                                            BorderRadius.circular(16),
                                       ),
                                       child: const Icon(
                                         CupertinoIcons.chart_bar,
@@ -172,11 +188,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       style: AppTheme.callout.copyWith(
                                         fontWeight: FontWeight.w600,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            // QR Scanner
+                            Expanded(
+                              child: CupertinoCard(
+                                onTap: () {
+                                  debugPrint('Home feature tap: qr');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Scanner QR')),
+                                  );
+                                  AppRouter.navigatorKey.currentState
+                                      ?.pushNamed(AppRouter.qr);
+                                },
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.successColor
+                                            .withOpacity(0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.qrcode_viewfinder,
+                                        color: AppTheme.successColor,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Scanner QR',
+                                      style: AppTheme.callout.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(child: SizedBox.shrink()),
                           ],
                         ),
                       ],
