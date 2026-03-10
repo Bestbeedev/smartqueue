@@ -19,6 +19,7 @@ class EstablishmentResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'address' => $this->address,
+            'category' => $this->category,
             // Coordonnées (décimales)
             'lat' => $this->lat,
             'lng' => $this->lng,

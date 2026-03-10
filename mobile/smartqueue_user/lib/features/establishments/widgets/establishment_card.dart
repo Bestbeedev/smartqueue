@@ -10,12 +10,14 @@ class EstablishmentCard extends StatelessWidget {
   final Establishment establishment;
   final double? userLat;
   final double? userLng;
+  final bool compact;
 
   const EstablishmentCard({
     super.key,
     required this.establishment,
     this.userLat,
     this.userLng,
+    this.compact = false,
   });
 
   String _getAffluenceText(String affluence) {
@@ -56,6 +58,82 @@ class EstablishmentCard extends StatelessWidget {
           )
         : null;
     final etas = distanceM != null ? GeoUtils.etaMinutesAllModes(distanceM) : null;
+
+    if (compact) {
+      return CupertinoCard(
+        onTap: () => Navigator.pushNamed(
+          context,
+          AppRouter.establishmentDetail,
+          arguments: {
+            'establishmentId': establishment.id,
+          },
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    establishment.name,
+                    style: AppTheme.headline.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getAffluenceColor(establishment.affluence)
+                        .withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _getAffluenceColor(establishment.affluence)
+                          .withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    _getAffluenceText(establishment.affluence),
+                    style: AppTheme.caption1.copyWith(
+                      color: _getAffluenceColor(establishment.affluence),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (establishment.address != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                establishment.address!,
+                style: AppTheme.callout.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (distanceM != null && etas != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${(distanceM / 1000).toStringAsFixed(1)} km • ${etas[TravelModeHeuristic.walk]} min à pied',
+                style: AppTheme.caption1.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ],
+        ),
+      );
+    }
 
     return CupertinoCard(
       onTap: () => Navigator.pushNamed(

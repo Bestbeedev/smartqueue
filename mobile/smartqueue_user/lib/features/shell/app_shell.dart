@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../home/home_screen.dart';
-import '../tickets/my_tickets_screen.dart';
-import '../notifications/notifications_screen.dart';
+import '../tickets/active_tickets_screen.dart';
+import '../history/history_screen.dart';
 import '../profile/profile_screen.dart';
 import '../services/services_screen.dart';
 import '../service_detail/service_detail_screen.dart';
 import '../ticket/take_ticket_screen.dart';
 import '../realtime/realtime_screen.dart';
-import '../queues/queues_screen.dart';
 import '../../core/app_theme.dart';
-import '../../core/widgets/cupertino_widgets.dart';
+import '../../core/widgets/cupertino_bottom_nav.dart';
 import '../../core/app_router.dart';
 
 /// Conteneur avec Bottom Navigation Bar style iOS Cupertino - 5 tabs
@@ -126,12 +125,10 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                   key: homeNavKey,
                   onGenerateRoute: (settings) => _homeOnGenerate(settings),
                 ),
-                // Queues - Available queues
-                const QueuesScreen(),
-                // Mes billets
-                const MyTicketsScreen(),
-                // Notifications
-                const NotificationsScreen(),
+                // Tickets (actifs)
+                const ActiveTicketsScreen(),
+                // Historique
+                const HistoryScreen(),
                 // Profile
                 const ProfileScreen(),
               ],
