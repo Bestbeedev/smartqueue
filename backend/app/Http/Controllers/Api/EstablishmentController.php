@@ -19,9 +19,17 @@ class EstablishmentController extends Controller
         $lat = $request->query('lat');
         $lng = $request->query('lng');
         $radius = (int) ($request->query('radius', 5000)); // mètres
+        $category = $request->query('category');
+        $allowedCategories = ['banking', 'health', 'public', 'social'];
+        if ($category !== null && $category !== '' && !in_array($category, $allowedCategories, true)) {
+            $category = null;
+        }
 
         $query = Establishment::query()
             ->where('is_active', true)
+            ->when($category !== null && $category !== '', function ($q) use ($category) {
+                $q->where('establishments.category', $category);
+            })
             ->leftJoin('services', 'services.establishment_id', '=', 'establishments.id')
             ->leftJoin('tickets', function ($join) {
                 $join->on('tickets.service_id', '=', 'services.id')

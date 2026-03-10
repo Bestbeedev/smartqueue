@@ -13,6 +13,7 @@ class Establishment extends Model
     protected $fillable = [
         'name',
         'address',
+        'category',
         'lat',
         'lng',
         'open_at',

@@ -8,7 +8,7 @@ class EstablishmentsRepository {
   final ApiClient _client;
   EstablishmentsRepository(this._client);
 
-  Future<List<Establishment>> nearby(double lat, double lng, {int? radius, int? perPage}) async {
+  Future<List<Establishment>> nearby(double lat, double lng, {int? radius, int? perPage, String? category}) async {
     try {
       final res = await _client.dio.get(
         AppConfig.establishments,
@@ -17,6 +17,7 @@ class EstablishmentsRepository {
           'lng': lng,
           if (radius != null) 'radius': radius,
           if (perPage != null) 'per_page': perPage,
+          if (category != null) 'category': category,
         },
       );
       final data = res.data is Map && res.data['data'] is List ? res.data['data'] : res.data;
@@ -28,6 +29,7 @@ class EstablishmentsRepository {
           AppConfig.establishments,
           queryParameters: {
             if (perPage != null) 'per_page': perPage,
+            if (category != null) 'category': category,
           },
         );
         final data2 = res2.data is Map && res2.data['data'] is List ? res2.data['data'] : res2.data;

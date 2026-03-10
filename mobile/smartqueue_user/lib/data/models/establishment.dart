@@ -3,6 +3,7 @@ class Establishment {
   final int id;
   final String name;
   final String? address;
+  final String? category;
   final double? lat; // backend renvoie 'lat'
   final double? lng; // backend renvoie 'lng'
   final String? openAt;
@@ -16,6 +17,7 @@ class Establishment {
     required this.id,
     required this.name,
     this.address,
+    this.category,
     this.lat,
     this.lng,
     this.openAt,
@@ -30,6 +32,7 @@ class Establishment {
         id: _toInt(j['id']),
         name: j['name']?.toString() ?? '',
         address: j['address']?.toString(),
+        category: j['category']?.toString(),
         lat: _toDoubleOrNull(j['lat']),
         lng: _toDoubleOrNull(j['lng']),
         openAt: j['open_at']?.toString(),

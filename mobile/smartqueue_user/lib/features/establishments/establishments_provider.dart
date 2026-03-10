@@ -8,6 +8,19 @@ import '../../data/models/establishment.dart';
 
 final locationServiceProvider = Provider((ref) => LocationService());
 
+class SelectedEstablishmentCategoryNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+  void clear() => state = null;
+}
+
+final selectedEstablishmentCategoryProvider =
+    NotifierProvider<SelectedEstablishmentCategoryNotifier, String?>(
+  SelectedEstablishmentCategoryNotifier.new,
+);
+
 enum NearbyEstablishmentsStatus {
   ok,
   locationServiceDisabled,
@@ -27,10 +40,13 @@ class NearbyEstablishmentsResult {
   });
 }
 
-final nearbyEstablishmentsProvider = FutureProvider.autoDispose<NearbyEstablishmentsResult>((ref) async {
+final nearbyEstablishmentsProvider =
+    FutureProvider.autoDispose<NearbyEstablishmentsResult>((ref) async {
   final api = await ApiClient.create();
   final repo = EstablishmentsRepository(api);
   final loc = ref.read(locationServiceProvider);
+
+  final category = ref.watch(selectedEstablishmentCategoryProvider);
 
   final enabled = await loc.isLocationServiceEnabled();
   if (!enabled) {
@@ -59,7 +75,8 @@ final nearbyEstablishmentsProvider = FutureProvider.autoDispose<NearbyEstablishm
     );
   }
 
-  final list = await repo.nearby(pos.latitude, pos.longitude);
+  final list =
+      await repo.nearby(pos.latitude, pos.longitude, category: category);
   return NearbyEstablishmentsResult(
     status: NearbyEstablishmentsStatus.ok,
     position: pos,

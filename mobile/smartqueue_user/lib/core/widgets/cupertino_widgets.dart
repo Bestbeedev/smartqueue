@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 
+export 'cupertino_bottom_nav.dart';
+
 
 /// Navigation bar style iOS Cupertino pour les app bars
 class CupertinoNavigationBar extends StatelessWidget
