@@ -147,10 +147,9 @@ class _TicketContent extends StatelessWidget {
 
                       Navigator.pushNamed(
                         context,
-                        AppRouter.services,
+                        AppRouter.establishmentDetail,
                         arguments: {
                           'establishmentId': s.establishmentId,
-                          'establishmentName': estName,
                         },
                       );
                     }

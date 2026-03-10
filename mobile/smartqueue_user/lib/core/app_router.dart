@@ -94,6 +94,7 @@ import 'package:smartqueue_user/features/ai/predictive_waiting_screen.dart';
 import 'package:smartqueue_user/features/realtime/realtime_screen.dart';
 import 'package:smartqueue_user/features/services/services_screen.dart';
 import 'package:smartqueue_user/features/service_detail/service_detail_screen.dart';
+import 'package:smartqueue_user/features/establishment_detail/establishment_detail_screen.dart';
 import 'package:smartqueue_user/features/splash/splash_screen.dart';
 import 'package:smartqueue_user/features/ticket/take_ticket_screen.dart';
 import 'package:smartqueue_user/features/shell/app_shell.dart';
@@ -108,6 +109,7 @@ class AppRouter {
   static const String register = '/register';
   static const String home = '/home';
   static const String services = '/services';
+  static const String establishmentDetail = '/establishment/detail';
   static const String serviceDetail = '/service_detail';
   static const String takeTicket = '/ticket/take';
   static const String realtime = '/ticket/realtime';
@@ -136,6 +138,13 @@ class AppRouter {
           builder: (_) => ServicesScreen(
             establishmentId: establishment['establishmentId'] as int,
             establishmentName: establishment['establishmentName'] as String,
+          ),
+        );
+      case establishmentDetail:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => EstablishmentDetailScreen(
+            establishmentId: args['establishmentId'] as int,
           ),
         );
       case serviceDetail:
