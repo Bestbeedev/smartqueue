@@ -107,21 +107,64 @@ export default function Settings() {
   const handleSaveEstablishment = async () => {
     setLoading(true);
     try {
-      await api.put(`/api/admin/establishments/${user.establishment_id}`, {
+      const payload = {
         name: establishmentData.name,
         address: establishmentData.address,
         phone: establishmentData.phone,
         email: establishmentData.email,
+        // Compat: certains backends attendent lat/lng plutôt que latitude/longitude
         latitude: establishmentData.latitude,
         longitude: establishmentData.longitude,
+        lat: establishmentData.latitude,
+        lng: establishmentData.longitude,
         capacity: establishmentData.capacity,
         avg_service_time_minutes: establishmentData.avgServiceTime,
         priority_queues: establishmentData.priorityQueues,
         public_display: establishmentData.publicDisplay
-      });
+      }
+
+      const { data } = await api.put(
+        `/api/admin/establishments/${user.establishment_id}`,
+        payload,
+      );
       setIsEditing(false);
-      // Recharger les données
-      await loadEstablishment();
+
+      // Utiliser la réponse si elle contient l'établissement (évite un état transitoire "vide")
+      const est = (data && (data.data ?? data)) as any;
+      if (est && typeof est === 'object') {
+        setEstablishmentData({
+          name: est.name || establishmentData.name || '',
+          address: est.address || establishmentData.address || '',
+          phone: est.phone || establishmentData.phone || '',
+          email: est.email || establishmentData.email || '',
+          latitude:
+            typeof est.lat === 'number'
+              ? est.lat
+              : typeof est.latitude === 'number'
+                ? est.latitude
+                : establishmentData.latitude,
+          longitude:
+            typeof est.lng === 'number'
+              ? est.lng
+              : typeof est.longitude === 'number'
+                ? est.longitude
+                : establishmentData.longitude,
+          capacity: est.capacity || establishmentData.capacity || 50,
+          avgServiceTime:
+            est.avg_service_time_minutes || establishmentData.avgServiceTime || 15,
+          priorityQueues:
+            typeof est.priority_queues === 'boolean'
+              ? est.priority_queues
+              : establishmentData.priorityQueues,
+          publicDisplay:
+            typeof est.public_display === 'boolean'
+              ? est.public_display
+              : establishmentData.publicDisplay,
+        });
+      } else {
+        // Fallback: Recharger les données
+        await loadEstablishment();
+      }
     } catch (error) {
       console.error('Erreur sauvegarde établissement:', error);
     } finally {
