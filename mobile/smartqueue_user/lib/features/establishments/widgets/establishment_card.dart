@@ -55,15 +55,14 @@ class EstablishmentCard extends StatelessWidget {
             lng2: establishment.lng!,
           )
         : null;
-    final etaMin = distanceM != null ? GeoUtils.etaMinutesHeuristic(distanceM) : null;
+    final etas = distanceM != null ? GeoUtils.etaMinutesAllModes(distanceM) : null;
 
     return CupertinoCard(
       onTap: () => Navigator.pushNamed(
         context,
-        AppRouter.services,
+        AppRouter.establishmentDetail,
         arguments: {
           'establishmentId': establishment.id,
-          'establishmentName': establishment.name,
         },
       ),
       child: Column(
@@ -117,10 +116,10 @@ class EstablishmentCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
 
-          if (distanceM != null && etaMin != null) ...[
+          if (distanceM != null && etas != null) ...[
             const SizedBox(height: 8),
             Text(
-              '${(distanceM / 1000).toStringAsFixed(1)} km • ~${etaMin} min',
+              '${(distanceM / 1000).toStringAsFixed(1)} km • à pied: ${etas[TravelModeHeuristic.walk]} min • moto: ${etas[TravelModeHeuristic.moto]} min • voiture: ${etas[TravelModeHeuristic.car]} min',
               style: AppTheme.caption1.copyWith(
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w600,
