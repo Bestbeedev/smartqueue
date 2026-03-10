@@ -99,6 +99,7 @@ import 'package:smartqueue_user/features/splash/splash_screen.dart';
 import 'package:smartqueue_user/features/ticket/take_ticket_screen.dart';
 import 'package:smartqueue_user/features/shell/app_shell.dart';
 import 'package:smartqueue_user/features/tickets/ticket_detail_screen.dart';
+import 'package:smartqueue_user/features/tickets/my_tickets_screen.dart';
 import 'package:smartqueue_user/data/models/ticket.dart';
 
 class AppRouter {
@@ -114,6 +115,7 @@ class AppRouter {
   static const String takeTicket = '/ticket/take';
   static const String realtime = '/ticket/realtime';
   static const String ticketDetail = '/ticket/detail';
+  static const String myTickets = '/tickets';
   static const String history = '/history';
   static const String notifications = '/notifications';
   static const String profile = '/profile';
@@ -180,6 +182,10 @@ class AppRouter {
             serviceName: args['serviceName'] as String?,
             initialTicket: args['ticket'] as Ticket?,
           ),
+        );
+      case myTickets:
+        return MaterialPageRoute(
+          builder: (_) => const MyTicketsScreen(),
         );
       case qrTicket:
         final args = settings.arguments as Map<String, dynamic>;

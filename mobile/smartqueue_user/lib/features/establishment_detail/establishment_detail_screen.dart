@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:smartqueue_user/core/app_router.dart';
 import 'package:smartqueue_user/core/app_theme.dart';
 import 'package:smartqueue_user/core/geo_utils.dart';
@@ -20,6 +21,45 @@ class EstablishmentDetailScreen extends ConsumerWidget {
   final int establishmentId;
 
   const EstablishmentDetailScreen({super.key, required this.establishmentId});
+
+  Widget _specCard({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return CupertinoCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppTheme.primaryColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTheme.caption1.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: AppTheme.body.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +89,7 @@ class EstablishmentDetailScreen extends ConsumerWidget {
                 userPos != null && est.lat != null && est.lng != null;
             final distanceM = canComputeDistance
                 ? GeoUtils.distanceMeters(
-                    lat1: userPos!.latitude,
+                    lat1: userPos.latitude,
                     lng1: userPos.longitude,
                     lat2: est.lat!,
                     lng2: est.lng!,
@@ -104,62 +144,77 @@ class EstablishmentDetailScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                         ],
-                        CupertinoCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Localisation',
-                                style: AppTheme.headline.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              if (distanceM != null)
-                                Text(
-                                  'Distance: ${(distanceM / 1000).toStringAsFixed(2)} km',
-                                  style: AppTheme.body,
-                                )
-                              else
-                                Text(
-                                  'Distance: indisponible',
-                                  style: AppTheme.body.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              if (etas != null) ...[
-                                Text(
-                                  'À pied: ${etas[TravelModeHeuristic.walk]} min',
-                                  style: AppTheme.body,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Moto: ${etas[TravelModeHeuristic.moto]} min',
-                                  style: AppTheme.body,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Voiture: ${etas[TravelModeHeuristic.car]} min',
-                                  style: AppTheme.body,
-                                ),
-                              ] else
-                                Text(
-                                  'Temps: indisponible',
-                                  style: AppTheme.body.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              if (est.lat != null && est.lng != null)
-                                Text(
-                                  'Coordonnées: ${est.lat!.toStringAsFixed(6)}, ${est.lng!.toStringAsFixed(6)}',
-                                  style: AppTheme.caption1.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                            ],
+                        Text(
+                          'Localisation',
+                          style: AppTheme.headline.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth >= 560;
+                            final itemWidth = isWide
+                                ? (constraints.maxWidth - 12) / 2
+                                : constraints.maxWidth;
+
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _specCard(
+                                    icon: CupertinoIcons.location,
+                                    title: 'Distance',
+                                    value: distanceM != null
+                                        ? '${(distanceM / 1000).toStringAsFixed(2)} km'
+                                        : 'Indisponible',
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _specCard(
+                                    icon: CupertinoIcons.person,
+                                    title: 'À pied',
+                                    value: etas != null
+                                        ? '${etas[TravelModeHeuristic.walk]} min'
+                                        : 'Indisponible',
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _specCard(
+                                    icon: Icons.two_wheeler_outlined,
+                                    title: 'Moto',
+                                    value: etas != null
+                                        ? '${etas[TravelModeHeuristic.moto]} min'
+                                        : 'Indisponible',
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _specCard(
+                                    icon: CupertinoIcons.car,
+                                    title: 'Voiture',
+                                    value: etas != null
+                                        ? '${etas[TravelModeHeuristic.car]} min'
+                                        : 'Indisponible',
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: _specCard(
+                                    icon: CupertinoIcons.map_pin_ellipse,
+                                    title: 'Coordonnées',
+                                    value: (est.lat != null && est.lng != null)
+                                        ? '${est.lat!.toStringAsFixed(6)}, ${est.lng!.toStringAsFixed(6)}'
+                                        : 'Indisponible',
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
