@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../home/home_screen.dart';
-import '../tickets/active_tickets_screen.dart';
+import '../tickets/my_tickets_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../services/services_screen.dart';
@@ -128,8 +128,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                 ),
                 // Queues - Available queues
                 const QueuesScreen(),
-                // Active Ticket - Main core screen
-                const ActiveTicketsScreen(),
+                // Mes billets
+                const MyTicketsScreen(),
                 // Notifications
                 const NotificationsScreen(),
                 // Profile

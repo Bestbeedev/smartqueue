@@ -7,6 +7,43 @@ class TicketsRepository {
   final ApiClient _client;
   TicketsRepository(this._client);
 
+  bool _looksLikeAlreadyHasTicket422(dynamic body) {
+    if (body is! Map) return false;
+    final m = body.cast<String, dynamic>();
+    final msg = (m['message'] is String) ? (m['message'] as String) : '';
+    final low = msg.toLowerCase();
+    if (low.contains('already') || low.contains('exists')) return true;
+    if (low.contains('déjà') || low.contains('deja')) return true;
+
+    final errors = m['errors'];
+    if (errors is Map) {
+      final err = errors.cast<String, dynamic>();
+      for (final v in err.values) {
+        if (v is List && v.isNotEmpty) {
+          final s = v.first.toString().toLowerCase();
+          if (s.contains('already') || s.contains('exists')) return true;
+          if (s.contains('déjà') || s.contains('deja')) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  String _extractBackendMessage(dynamic body) {
+    if (body is! Map) return 'Une erreur est survenue.';
+    final m = body.cast<String, dynamic>();
+    if (m['message'] is String) return m['message'] as String;
+    if (m['errors'] is Map) {
+      final err = (m['errors'] as Map).cast<String, dynamic>();
+      final lines = <String>[];
+      err.forEach((k, v) {
+        if (v is List && v.isNotEmpty) lines.add('${k}: ${v.first}');
+      });
+      if (lines.isNotEmpty) return lines.join('\n');
+    }
+    return 'Une erreur est survenue.';
+  }
+
   Future<Ticket> create(
     int serviceId, {
     double? lat,
@@ -27,33 +64,29 @@ class TicketsRepository {
           : res.data;
       return Ticket.fromJson((responseData as Map).cast<String, dynamic>());
     } on DioException catch (e) {
-      // If backend returns 422, surface a friendly message and try alt key
+      // If backend returns 422, surface a friendly message
       if (e.response?.statusCode == 422) {
         final body = e.response?.data;
-        String msg = 'Impossible de prendre un ticket (422).';
-        if (body is Map) {
-          final m = body.cast<String, dynamic>();
-          if (m['message'] is String) msg = m['message'] as String;
-          if (m['errors'] is Map) {
-            final err = (m['errors'] as Map).cast<String, dynamic>();
-            final lines = <String>[];
-            err.forEach((k, v) {
-              if (v is List && v.isNotEmpty) lines.add('${k}: ${v.first}');
-            });
-            if (lines.isNotEmpty) msg = lines.join('\n');
+        if (_looksLikeAlreadyHasTicket422(body)) {
+          try {
+            final activeTickets = await active();
+            // Prefer a waiting/called ticket, otherwise the first active ticket
+            final existing = activeTickets.firstWhere(
+              (t) => t.status == 'waiting' || t.status == 'called',
+              orElse: () => activeTickets.first,
+            );
+            throw Exception(
+              'Vous avez déjà un ticket en cours. Ouvrez votre ticket actif pour le suivre.\nexistingTicketId:${existing.id}',
+            );
+          } catch (_) {
+            throw Exception(
+              'Vous avez déjà un ticket en cours. Ouvrez votre ticket actif pour le suivre.',
+            );
           }
         }
-        // Try alternate payload key once
-        try {
-          final res2 = await _client.dio
-              .post(AppConfig.createTicket, data: {'serviceId': serviceId});
-          final data2 = res2.data is Map && res2.data['data'] != null
-              ? res2.data['data']
-              : res2.data;
-          return Ticket.fromJson((data2 as Map).cast<String, dynamic>());
-        } catch (_) {
-          throw Exception(msg);
-        }
+
+        final msg = _extractBackendMessage(body);
+        throw Exception(msg);
       }
       rethrow;
     }

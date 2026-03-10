@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/app_theme.dart';
 import '../../core/widgets/cupertino_widgets.dart';
 import '../establishments/establishments_provider.dart';
+import '../profile/profile_provider.dart';
 import '../../core/app_router.dart';
 import '../establishments/widgets/establishment_card.dart';
 
@@ -30,6 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncNearby = ref.watch(nearbyEstablishmentsProvider);
+    final asyncUser = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -55,7 +57,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     // Greeting
                     Text(
-                      'Bonjour Josué 👋',
+                      'Bonjour ${asyncUser.when(
+                        data: (user) => user?.name ?? 'Josué',
+                        loading: () => '...',
+                        error: (_, __) => 'Josué',
+                      )}',
                       style: AppTheme.title1.copyWith(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
