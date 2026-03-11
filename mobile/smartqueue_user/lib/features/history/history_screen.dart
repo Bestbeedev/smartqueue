@@ -18,30 +18,56 @@ class HistoryScreen extends ConsumerWidget {
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // Header
+          // Header with iOS style
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                right: 16,
-                bottom: 16,
+                left: 20,
+                right: 20,
+                bottom: 20,
               ),
               child: Row(
                 children: [
-                  Text(
-                    'Ticket History',
-                    style: AppTheme.title1.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ticket History',
+                          style: AppTheme.title1.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your completed and cancelled tickets',
+                          style: AppTheme.callout.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => ref.refresh(historyTicketsProvider),
-                    child: const Icon(
-                      CupertinoIcons.refresh,
-                      color: AppTheme.primaryColor,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppTheme.dividerColor.withOpacity(0.2),
+                        ),
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.refresh,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -83,13 +109,15 @@ class HistoryScreen extends ConsumerWidget {
               }
 
               return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final ticket = tickets[index];
+                      final isLast = index == tickets.length - 1;
+                      
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
                         child: HistoryTicketCard(ticket: ticket),
                       );
                     },

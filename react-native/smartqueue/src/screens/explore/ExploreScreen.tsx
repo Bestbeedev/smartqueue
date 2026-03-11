@@ -19,6 +19,7 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import { Badge } from "../../components/ui/Badge";
 import { CustomBottomSheet } from "../../components/ui/BottomSheet";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from 'expo-router';
 import "../../../global.css";
 import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/native-stack/types";
 
@@ -235,9 +236,13 @@ export const ExploreScreen: React.FC = () => {
 
   // Gérer le tap sur une carte
   const handleEstablishmentPress = (establishment: Establishment) => {
-    navigation.navigate("ServiceDetails" as any, {
-      establishmentId: establishment.id,
-      establishmentName: establishment.name,
+    router.push({
+      pathname: '/service-details',
+      params: {
+        establishmentId: String(establishment.id),
+        serviceId: '',
+        fromQr: 'false',
+      },
     });
   };
 

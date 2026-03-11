@@ -67,8 +67,25 @@ export interface TicketStats {
 export const ticketsApi = {
   // Créer un nouveau ticket
   createTicket: async (data: CreateTicketData): Promise<Ticket> => {
-    const response = await axiosClient.post('/tickets', data);
-    return response.data;
+    // Backend only needs service_id, not establishment_id
+    const payload = {
+      service_id: data.service_id,
+      from_qr: data.from_qr !== undefined ? String(data.from_qr) : undefined,
+      lat: data.lat,
+      lng: data.lng,
+    };
+    console.log('[ticketsApi] createTicket - payload:', JSON.stringify(payload));
+    
+    try {
+      const response = await axiosClient.post('/tickets', payload);
+      console.log('[ticketsApi] createTicket - success:', response.status, JSON.stringify(response.data));
+      // API may return {data: {...}} or just {...}
+      const ticket = response.data?.data || response.data;
+      return ticket;
+    } catch (error: any) {
+      console.log('[ticketsApi] createTicket - error:', error.response?.status, JSON.stringify(error.response?.data));
+      throw error;
+    }
   },
 
   // Obtenir le ticket actif de l'utilisateur

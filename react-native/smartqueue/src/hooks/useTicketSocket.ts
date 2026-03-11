@@ -77,7 +77,8 @@ export const useTicketSocket = (ticketId: string | number | null) => {
       // Create Echo instance with Pusher broadcaster connecting to Reverb
       echoInstance.current = new Echo({
         broadcaster: 'reverb', // 'reverb' is essentially 'pusher' but forces the config
-        key: process.env.EXPO_PUBLIC_REVERB_APP_KEY || 'app-key', // Reverb default is usually app-key if not set
+        key: process.env.EXPO_PUBLIC_REVERB_APP_KEY || 'smartqueue_key',
+        appid: process.env.EXPO_PUBLIC_REVERB_APP_ID || 'smartqueue_id',
         wsHost: host,
         wsPort: port,
         wssPort: port,
@@ -88,11 +89,14 @@ export const useTicketSocket = (ticketId: string | number | null) => {
         authorizer: (channel: any, options: any) => {
           return {
             authorize: (socketId: string, callback: Function) => {
+              console.log('[Echo] authorizing channel:', channel.name, 'socket_id:', socketId);
               axiosClient.post('/broadcasting/auth', {
                 socket_id: socketId,
                 channel_name: channel.name
               })
               .then(response => {
+                console.log('[Echo] auth response:', JSON.stringify(response.data));
+                // Pusher/Echo expects {auth: "key:signature"} format
                 callback(false, response.data);
               })
               .catch(error => {

@@ -7,22 +7,18 @@ import {
   Alert,
   Animated,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTicket } from '../../store/ticketStore';
 import { useTicketSocket } from '../../hooks/useTicketSocket';
 
-
-
-interface RouteParams {
-  ticketId: number;
+interface LiveTicketScreenProps {
+  ticketId?: string;
 }
 
-export const LiveTicketScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { ticketId } = route.params as RouteParams;
+export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) => {
+  const numericTicketId = ticketId ? Number(ticketId) : null;
 
   const {
     activeTicket,
@@ -34,7 +30,9 @@ export const LiveTicketScreen: React.FC = () => {
   } = useTicket();
 
   // WebSocket connection
-  useTicketSocket(ticketId?.toString() || null);
+  useTicketSocket(numericTicketId?.toString() || null);
+  
+  console.log('[LiveTicketScreen] ticketId:', numericTicketId, 'position:', position);
 
   // Flash animation for "called" state
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -81,8 +79,8 @@ export const LiveTicketScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await cancelTicket(ticketId);
-              navigation.goBack();
+              await cancelTicket(numericTicketId!);
+              router.back();
             } catch {
               Alert.alert('Erreur', 'Impossible d\'annuler le ticket.');
             }
@@ -107,7 +105,7 @@ export const LiveTicketScreen: React.FC = () => {
           <Text className="text-xl font-bold text-gray-900">Detail Ticket</Text>
           <TouchableOpacity 
             className="w-10 h-10 items-center justify-center rounded-full bg-gray-200"
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <Ionicons name="close" size={24} color="#111827" />
           </TouchableOpacity>
@@ -139,7 +137,7 @@ export const LiveTicketScreen: React.FC = () => {
           <View className="w-full gap-4">
             <View className="flex-row justify-between">
               <Text className="text-gray-400 font-medium">Ticket ID</Text>
-              <Text className="text-gray-900 font-bold">{activeTicket?.number || `TKT-${ticketId}`}</Text>
+              <Text className="text-gray-900 font-bold">{activeTicket?.number || `TKT-${numericTicketId}`}</Text>
             </View>
             <View className="flex-row justify-between">
               <Text className="text-gray-400 font-medium">Est. Wait Time</Text>

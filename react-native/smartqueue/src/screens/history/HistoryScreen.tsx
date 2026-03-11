@@ -35,9 +35,14 @@ export const HistoryScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTickets, setExpandedTickets] = useState<Set<number>>(new Set());
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Refs pour éviter les boucles de dépendances
+  const pageRef = React.useRef(1);
+  const hasMoreRef = React.useRef(true);
+  const isLoadingRef = React.useRef(false);
+  const onEndReachedCalledDuringMomentumRef = React.useRef(true);
+  const lastEndReachedAtRef = React.useRef(0);
 
   // Filtres disponibles
   const filters: FilterOption[] = [
@@ -90,16 +95,19 @@ export const HistoryScreen: React.FC = () => {
     return { startDate, endDate };
   }, [selectedFilter]);
 
-  // Charger les tickets
+  // Charger les tickets - version stable sans dépendances changeantes
   const loadTickets = useCallback(async (reset: boolean = false) => {
-    if (isLoading || (!hasMore && !reset)) return;
+    // Utiliser une ref pour vérifier l'état sans causer de re-render
+    if (isLoadingRef.current) return;
+    if (!reset && !hasMoreRef.current) return;
 
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
     
     try {
       const { startDate, endDate } = getFilterDates();
-      const currentPage = reset ? 1 : page;
+      const currentPage = reset ? 1 : pageRef.current;
       
       const response = await ticketsApi.getTicketHistory({
         from: startDate,
@@ -112,31 +120,43 @@ export const HistoryScreen: React.FC = () => {
       
       if (reset) {
         setTickets(newTickets);
-        setPage(2);
+        pageRef.current = 2;
       } else {
         setTickets(prev => [...prev, ...newTickets]);
-        setPage(prev => prev + 1);
+        pageRef.current = currentPage + 1;
       }
       
-      setHasMore(response.pagination.current_page < response.pagination.last_page);
+      // API returns pagination in 'meta' (Laravel standard), not 'pagination'
+      const pagination = response.meta || response.pagination;
+      hasMoreRef.current = pagination ? pagination.current_page < pagination.last_page : false;
     } catch (error: any) {
       console.error('Error loading tickets:', error);
       const errorMessage = error.response?.data?.message || 'Impossible de charger l\'historique des tickets.';
       setError(errorMessage);
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [isLoading, hasMore, page, getFilterDates]);
+  }, [getFilterDates]);
 
   // Effet pour charger les tickets au montage et quand le filtre change
   useEffect(() => {
+    // Réinitialiser les refs quand le filtre change
+    pageRef.current = 1;
+    hasMoreRef.current = true;
+    isLoadingRef.current = false;
+    onEndReachedCalledDuringMomentumRef.current = true;
+    lastEndReachedAtRef.current = 0;
     loadTickets(true);
-  }, [selectedFilter, loadTickets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFilter]);
 
   // Rafraîchir les données
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      onEndReachedCalledDuringMomentumRef.current = true;
+      lastEndReachedAtRef.current = 0;
       await loadTickets(true);
     } catch (error) {
       console.error('Error refreshing tickets:', error);
@@ -147,7 +167,13 @@ export const HistoryScreen: React.FC = () => {
 
   // Charger plus de tickets (infinite scroll)
   const handleLoadMore = () => {
-    if (!isLoading && hasMore) {
+    if (onEndReachedCalledDuringMomentumRef.current) return;
+    const now = Date.now();
+    if (now - lastEndReachedAtRef.current < 800) return;
+    lastEndReachedAtRef.current = now;
+
+    if (!isLoadingRef.current && hasMoreRef.current) {
+      onEndReachedCalledDuringMomentumRef.current = true;
       loadTickets(false);
     }
   };
@@ -220,7 +246,7 @@ export const HistoryScreen: React.FC = () => {
 
   // Rendu du footer
   const renderFooter = () => {
-    if (!hasMore) return null;
+    if (!hasMoreRef.current) return null;
     
     return (
       <View className="py-8 items-center">
@@ -301,6 +327,9 @@ export const HistoryScreen: React.FC = () => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        onMomentumScrollBegin={() => {
+          onEndReachedCalledDuringMomentumRef.current = false;
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

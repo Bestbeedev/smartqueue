@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usersApi, UserPreferences, NotificationPreferences } from '../api/usersApi';
+import { getToken } from '../api/axiosClient';
 
 // Types pour le store de paramètres
 export interface SettingsState {
@@ -165,6 +166,11 @@ export const useSettingsStore = create<SettingsState>()(
         set({ isLoading: true, error: null });
 
         try {
+          const token = await getToken();
+          if (!token) {
+            set({ isLoading: false, error: null });
+            return;
+          }
           const [userPreferences, notificationPreferences] = await Promise.all([
             usersApi.getPreferences(),
             usersApi.getNotificationPreferences(),
@@ -184,7 +190,7 @@ export const useSettingsStore = create<SettingsState>()(
             isLoading: false,
             error: errorMessage,
           });
-          throw error;
+          return;
         }
       },
 
