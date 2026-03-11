@@ -302,7 +302,7 @@ export const ExploreScreen: React.FC = () => {
       {/* Search Header - iOS Style */}
       <View className="px-5 pt-12 pb-4 bg-white shadow-sm">
         <View className="flex-row items-center justify-between mb-4">
-          <TouchableOpacity className="flex-row items-center bg-gray-100 px-3 py-2 rounded-full">
+          <TouchableOpacity className="flex-row items-center bg-blue-200/50 border-blue-200 border px-3 py-2 rounded-full">
             <Ionicons name="location-sharp" size={16} color={colors.primary} />
             <Text
               className="ml-1 text-sm font-semibold"
@@ -319,7 +319,7 @@ export const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full"
+            className="w-10 h-10 items-center justify-center bg-blue-200/50 border-blue-200 border rounded-full"
             onPress={() => router.push('/notifications' as any)}
           >
             <Ionicons
@@ -332,7 +332,7 @@ export const ExploreScreen: React.FC = () => {
         </View>
 
         {/* Search Input Container */}
-        <View className="flex-row items-center bg-gray-100 rounded-2xl px-4 py-3">
+        <View className="flex-row items-center bg-gray-100 rounded-2xl px-4">
           <Ionicons
             name="search-outline"
             size={20}
@@ -461,9 +461,11 @@ export const ExploreScreen: React.FC = () => {
       <View
         className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg"
         style={{
-          marginTop: -20,
+          marginTop: -50,
           elevation: 15,
           shadowColor: "#000",
+          borderWidth: 1,
+          borderColor: "#E5E5E5",
           shadowOffset: { width: 0, height: -5 },
           shadowOpacity: 0.1,
           shadowRadius: 10,
