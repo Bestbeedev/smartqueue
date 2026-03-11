@@ -33,17 +33,17 @@ class TicketResource extends JsonResource
             'service_id' => $this->service_id,
             'counter_id' => $this->counter_id,
             // Résumé du service
-            'service' => [
+            'service' => $this->service ? [
                 'id' => $this->service->id,
                 'name' => $this->service->name,
                 'status' => $this->service->status,
                 'avg_service_time_minutes' => $this->service->avg_service_time_minutes,
-            ],
+            ] : null,
             // Résumé de l'établissement
-            'establishment' => [
+            'establishment' => ($this->service && $this->service->establishment) ? [
                 'id' => $this->service->establishment->id,
                 'name' => $this->service->establishment->name,
-            ],
+            ] : null,
         ];
     }
 }
