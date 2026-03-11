@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_DEFAULT} from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
 import { Theme } from "../../theme";
@@ -438,11 +438,12 @@ export const ExploreScreen: React.FC = () => {
 
       <View className="flex-1 bg-gray-200 mt-2">
         <MapView
+          provider={PROVIDER_DEFAULT}
           ref={mapRef}
-          className="flex-1"
+          style={{ flex: 1 }}
           region={mapRegion}
           showsUserLocation={true}
-          showsMyLocationButton={false}
+          showsMyLocationButton={true}
           followsUserLocation={!!location}
         >
           {filteredEstablishments.map(renderMarker)}
