@@ -152,9 +152,12 @@ export const ticketsApi = {
 
   // Obtenir l'historique des tickets
   getTicketHistory: async (params: TicketHistoryParams = {}): Promise<TicketHistoryResponse> => {
+    console.log('[ticketsApi] getTicketHistory - params:', JSON.stringify(params));
     const response = await axiosClient.get('/tickets/history', { params });
+    console.log('[ticketsApi] getTicketHistory - raw response:', JSON.stringify(response.data).substring(0, 1000));
+    console.log('[ticketsApi] getTicketHistory - data array:', response.data.data ? 'exists, length: ' + response.data.data.length : 'no data key');
     // Laravel Resource collection returns: {data: [...], meta: {pagination info}}
-    return {
+    const result = {
       data: response.data.data || response.data,
       pagination: response.data.meta || response.data.pagination || {
         current_page: 1,
@@ -163,6 +166,8 @@ export const ticketsApi = {
         total: 0,
       },
     };
+    console.log('[ticketsApi] getTicketHistory - result data length:', result.data?.length || 0);
+    return result;
   },
 
   // Obtenir les statistiques des tickets de l'utilisateur

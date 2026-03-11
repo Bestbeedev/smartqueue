@@ -14,11 +14,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ticketsApi, Ticket } from '../../api/ticketsApi';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
+import { useTicket } from '../../store/ticketStore';
+import { router } from 'expo-router';
 
 type HistoryNavigationProp = NativeStackNavigationProp<TabParamList, 'History'>;
 
 // Types pour les filtres
 type FilterType = 'weekly' | 'monthly' | 'custom';
+type StatusFilter = 'all' | 'active' | 'waiting' | 'called' | 'completed' | 'cancelled' | 'expired';
 
 interface FilterOption {
   id: FilterType;
@@ -26,12 +29,20 @@ interface FilterOption {
   icon: React.ReactNode;
 }
 
+interface StatusOption {
+  id: StatusFilter;
+  label: string;
+  color: string;
+}
+
 // Composant HistoryScreen
 export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<HistoryNavigationProp>();
+  const { hasActiveTicket, activeTicket, position, isCalled, counterNumber } = useTicket();
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('weekly');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTickets, setExpandedTickets] = useState<Set<number>>(new Set());
@@ -61,6 +72,17 @@ export const HistoryScreen: React.FC = () => {
       label: 'Custom',
       icon: <Ionicons name="options-outline" size={16} />,
     },
+  ];
+
+  // Status filter options
+  const statusOptions: StatusOption[] = [
+    { id: 'all', label: 'Tous', color: '#6B7280' },
+    { id: 'active', label: 'Actifs', color: '#2563EB' },
+    { id: 'waiting', label: 'En attente', color: '#F59E0B' },
+    { id: 'called', label: 'Appelés', color: '#10B981' },
+    { id: 'completed', label: 'Terminés', color: '#059669' },
+    { id: 'cancelled', label: 'Annulés', color: '#EF4444' },
+    { id: 'expired', label: 'Expirés', color: '#6B7280' },
   ];
 
   // Obtenir les dates selon le filtre
@@ -109,15 +131,22 @@ export const HistoryScreen: React.FC = () => {
       const { startDate, endDate } = getFilterDates();
       const currentPage = reset ? 1 : pageRef.current;
       
+      console.log('[HistoryScreen] Loading tickets:', { startDate, endDate, page: currentPage, status: selectedStatus });
+      
       const response = await ticketsApi.getTicketHistory({
         from: startDate,
         to: endDate,
         page: currentPage,
         per_page: 20,
+        status: selectedStatus === 'all' ? undefined : selectedStatus,
       });
+
+      console.log('[HistoryScreen] Response:', JSON.stringify(response).substring(0, 500));
 
       // Laravel API wraps data in 'data' key
       const newTickets = response.data || [];
+      
+      console.log('[HistoryScreen] Tickets found:', newTickets.length);
       
       if (reset) {
         setTickets(newTickets);
@@ -131,14 +160,14 @@ export const HistoryScreen: React.FC = () => {
       const pagination = response.meta || (response as any).pagination;
       hasMoreRef.current = pagination ? pagination.current_page < pagination.last_page : false;
     } catch (error: any) {
-      console.error('Error loading tickets:', error);
+      console.error('[HistoryScreen] Error:', error.response?.status, error.response?.data, error.message);
       const errorMessage = error.response?.data?.message || 'Impossible de charger l\'historique des tickets.';
       setError(errorMessage);
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [getFilterDates]);
+  }, [getFilterDates, selectedStatus]);
 
   // Effet pour charger les tickets au montage et quand le filtre change
   useEffect(() => {
@@ -150,7 +179,7 @@ export const HistoryScreen: React.FC = () => {
     lastEndReachedAtRef.current = 0;
     loadTickets(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFilter]);
+  }, [selectedFilter, selectedStatus]);
 
   // Rafraîchir les données
   const handleRefresh = async () => {
@@ -271,20 +300,83 @@ export const HistoryScreen: React.FC = () => {
         color="#E5E7EB"
       />
       <Text className="text-xl font-bold text-gray-900 mt-6 mb-2 text-center">
-        No tickets found
+        Aucun ticket terminé
       </Text>
       <Text className="text-gray-500 text-center mb-10">
-        You haven&apos;t joined any queues in this period.
+        Les tickets apparaissent ici une fois servis, annulés ou expirés.
       </Text>
-      <TouchableOpacity 
-        className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
-        onPress={() => navigation.navigate('tickets' as any)}
-      >
-        <Ionicons name="qr-code-outline" size={20} color="white" />
-        <Text className="text-white font-bold ml-2">Scan QR Code</Text>
-      </TouchableOpacity>
+      {hasActiveTicket && activeTicket ? (
+        <TouchableOpacity 
+          className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+          onPress={() => router.push('/(tabs)/live-ticket')}
+        >
+          <Ionicons name="ticket-outline" size={20} color="white" />
+          <Text className="text-white font-bold ml-2">Voir mon ticket actif</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity 
+          className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+          onPress={() => router.push('/(tabs)/tickets')}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="white" />
+          <Text className="text-white font-bold ml-2">Scanner un QR Code</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
+
+  // Active ticket card component
+  const renderActiveTicketCard = () => {
+    console.log('[HistoryScreen] renderActiveTicketCard - hasActiveTicket:', hasActiveTicket, 'activeTicket:', activeTicket?.id);
+    if (!hasActiveTicket || !activeTicket) return null;
+    
+    return (
+      <TouchableOpacity 
+        className="mx-5 mb-4 bg-blue-600 rounded-3xl p-5 shadow-lg"
+        onPress={() => router.push('/(tabs)/live-ticket')}
+        style={{ backgroundColor: '#2563EB' }}
+      >
+        <View className="flex-row justify-between items-start mb-3">
+          <View className="flex-1">
+            <Text className="text-white/80 text-xs font-semibold uppercase tracking-wider">
+              Ticket actif
+            </Text>
+            <Text className="text-white text-xl font-bold mt-1">
+              {activeTicket.establishment?.name || 'Établissement'}
+            </Text>
+            <Text className="text-white/80 text-sm mt-1">
+              {activeTicket.service?.name || 'Service'}
+            </Text>
+          </View>
+          <View className="bg-white/20 px-3 py-1 rounded-full">
+            <Text className="text-white font-bold text-lg">{activeTicket.number}</Text>
+          </View>
+        </View>
+        
+        <View className="flex-row items-center justify-between bg-white/10 rounded-2xl p-3 mt-2">
+          <View className="items-center flex-1">
+            <Ionicons name="people" size={18} color="white" />
+            <Text className="text-white font-bold text-lg mt-1">{position}</Text>
+            <Text className="text-white/60 text-xs">Position</Text>
+          </View>
+          <View className="items-center flex-1">
+            <Ionicons name={isCalled ? "notifications" : "hourglass"} size={18} color="white" />
+            <Text className="text-white font-bold text-lg mt-1">
+              {isCalled ? 'Appelé!' : 'En attente'}
+            </Text>
+            <Text className="text-white/60 text-xs">
+              {isCalled ? `Guichet ${counterNumber || ''}` : 'Statut'}
+            </Text>
+          </View>
+          <View className="items-center flex-1">
+            <Ionicons name="arrow-forward" size={18} color="white" />
+            <Text className="text-white font-bold text-lg mt-1">Voir</Text>
+            <Text className="text-white/60 text-xs">Détails</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -320,13 +412,42 @@ export const HistoryScreen: React.FC = () => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Status Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-3"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingRight: 40 }}
+        >
+          {statusOptions.map((status) => (
+            <TouchableOpacity
+              key={status.id}
+              className={`px-4 py-2 rounded-full mr-2 ${
+                selectedStatus === status.id 
+                  ? 'bg-gray-800' 
+                  : 'bg-gray-100'
+              }`}
+              onPress={() => {
+                setSelectedStatus(status.id);
+                setExpandedTickets(new Set());
+              }}
+            >
+              <Text className={`font-semibold ${
+                selectedStatus === status.id ? 'text-white' : 'text-gray-600'
+              }`}>
+                {status.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Tickets List */}
       <FlatList
         data={tickets}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         onMomentumScrollBegin={() => {
           onEndReachedCalledDuringMomentumRef.current = false;
@@ -341,31 +462,56 @@ export const HistoryScreen: React.FC = () => {
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        ListHeaderComponent={
+          selectedStatus === 'all' && hasActiveTicket && activeTicket ? (
+            <>
+              {renderActiveTicketCard()}
+              {tickets.length > 0 && (
+                <Text className="text-lg font-bold text-gray-900 mb-3 mx-5 mt-2">Tous les tickets</Text>
+              )}
+            </>
+          ) : tickets.length > 0 ? (
+            <Text className="text-lg font-bold text-gray-900 mb-3 mx-5 mt-4">
+              {selectedStatus === 'active' ? 'Tickets actifs' :
+               selectedStatus === 'completed' ? 'Tickets terminés' :
+               selectedStatus === 'waiting' ? 'En attente' :
+               selectedStatus === 'called' ? 'Appelés' :
+               selectedStatus === 'cancelled' ? 'Annulés' :
+               selectedStatus === 'expired' ? 'Expirés' : 'Tickets'}
+            </Text>
+          ) : null
+        }
         ListFooterComponent={renderFooter}
-        ListEmptyComponent={error ? () => (
-          <View className="items-center py-20 px-10">
-            <Ionicons name="alert-circle-outline" size={80} color="#EF4444" />
-            <Text className="text-xl font-bold text-gray-900 mt-6 mb-2 text-center">
-              Oups ! Une erreur est survenue
-            </Text>
-            <Text className="text-gray-500 text-center mb-10">
-              {error.includes('401') ? 'Veuillez vous reconnecter pour voir votre historique.' : error}
-            </Text>
-            <TouchableOpacity 
-              className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
-              onPress={() => loadTickets(true)}
-            >
-              <Ionicons name="refresh-outline" size={20} color="white" />
-              <Text className="text-white font-bold ml-2">Réessayer</Text>
-            </TouchableOpacity>
-          </View>
-        ) : renderEmptyState}
+        ListEmptyComponent={
+          isLoading ? () => (
+            <View className="items-center py-20">
+              <ActivityIndicator size="large" color="#2563EB" />
+            </View>
+          ) : error ? (
+            <View className="items-center py-20 px-10">
+              <Ionicons name="alert-circle-outline" size={80} color="#EF4444" />
+              <Text className="text-xl font-bold text-gray-900 mt-6 mb-2 text-center">
+                Oups ! Une erreur est survenue
+              </Text>
+              <Text className="text-gray-500 text-center mb-10">
+                {error.includes('401') ? 'Veuillez vous reconnecter pour voir votre historique.' : error}
+              </Text>
+              <TouchableOpacity 
+                className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+                onPress={() => loadTickets(true)}
+              >
+                <Ionicons name="refresh-outline" size={20} color="white" />
+                <Text className="text-white font-bold ml-2">Réessayer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (selectedStatus === 'all' && hasActiveTicket && activeTicket) ? null : renderEmptyState
+        }
         renderItem={({ item: ticket }) => {
           const isExpanded = expandedTickets.has(ticket.id);
           const waitTime = getWaitTime(ticket);
           
           return (
-            <View className="bg-white rounded-3xl p-5 mb-4 shadow-sm border border-gray-100">
+            <View className="bg-white rounded-3xl p-5 mb-4 mx-5 shadow-sm border border-gray-100">
               <TouchableOpacity
                 className="flex-row justify-between items-start"
                 onPress={() => toggleTicketExpansion(ticket.id)}
