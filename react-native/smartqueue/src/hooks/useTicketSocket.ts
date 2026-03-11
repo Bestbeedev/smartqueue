@@ -142,7 +142,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
         .listen('.ticket.called', (data: TicketCalledEvent) => {
           console.log('Ticket called event received:', data);
           if (data.ticket_id === Number(ticketId)) {
-            markAsCalled();
+            markAsCalled(data.counter?.toString());
             updateTicketStatus('called');
             setLastUpdate(new Date());
             triggerNotification("C'est votre tour !", data.message || 'Votre ticket est appelé');
