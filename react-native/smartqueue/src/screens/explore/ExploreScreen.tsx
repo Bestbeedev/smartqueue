@@ -25,15 +25,6 @@ import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/n
 import { useTicket } from "../../store/ticketStore";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 
-// Types pour les filtres
-type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
-
-interface FilterOption {
-  id: FilterType;
-  label: string;
-  icon: React.ReactNode;
-}
-
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<TabParamList, "Explore">>();
@@ -45,7 +36,6 @@ export const ExploreScreen: React.FC = () => {
   const [filteredEstablishments, setFilteredEstablishments] = useState<
     Establishment[]
   >([]);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState({
@@ -71,64 +61,12 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [location]);
 
-  // Filtres disponibles
-  const filters: FilterOption[] = [
-    {
-      id: "all",
-      label: "Tous",
-      icon: (
-        <Ionicons
-          name="grid-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "banks",
-      label: "Banques",
-      icon: (
-        <Ionicons
-          name="business-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "clinics",
-      label: "Cliniques",
-      icon: (
-        <Ionicons
-          name="medical-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "pharmacies",
-      label: "Pharmacies",
-      icon: (
-        <Ionicons
-          name="medkit-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "gov",
-      label: "Services",
-      icon: (
-        <Ionicons
-          name="build-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-  ];
+  // Get unique establishment names for quick access chips
+  const establishmentChips = establishments.slice(0, 8).map(est => ({
+    id: est.id,
+    name: est.name,
+    establishment: est,
+  }));
 
   // Charger les établissements
   const loadEstablishments = useCallback(async () => {
@@ -157,7 +95,6 @@ export const ExploreScreen: React.FC = () => {
       const data = await establishmentsApi.getEstablishments({
         lat: currentLat,
         lng: currentLng,
-        type: selectedFilter === "all" ? undefined : selectedFilter,
         q: searchQuery || undefined,
       });
 
@@ -182,7 +119,7 @@ export const ExploreScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [location, selectedFilter, searchQuery, getCurrentPosition]);
+  }, [location, searchQuery, getCurrentPosition]);
 
   // Effet initial pour charger la position si non disponible
   useEffect(() => {
@@ -194,16 +131,11 @@ export const ExploreScreen: React.FC = () => {
   // Effet pour charger les établissements quand la position ou les filtres changent
   useEffect(() => {
     loadEstablishments();
-  }, [location?.latitude, location?.longitude, selectedFilter, searchQuery, loadEstablishments]);
+  }, [location?.latitude, location?.longitude, searchQuery, loadEstablishments]);
 
   // Effet pour filtrer les établissements
   useEffect(() => {
     let filtered = establishments;
-
-    // Filtrer par type
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter((est) => est.category === selectedFilter);
-    }
 
     // Filtrer par recherche
     if (searchQuery.trim()) {
@@ -215,7 +147,7 @@ export const ExploreScreen: React.FC = () => {
     }
 
     setFilteredEstablishments(filtered);
-  }, [establishments, selectedFilter, searchQuery]);
+  }, [establishments, searchQuery]);
 
   // Obtenir la couleur du marqueur selon le niveau d'affluence
   const getMarkerColor = (crowdLevel?: string) => {
@@ -361,7 +293,10 @@ export const ExploreScreen: React.FC = () => {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full"
+            onPress={() => router.push('/notifications' as any)}
+          >
             <Ionicons
               name="notifications-outline"
               size={20}
@@ -388,48 +323,29 @@ export const ExploreScreen: React.FC = () => {
           />
         </View>
 
-        {/* Categories / Filters */}
+        {/* Categories / Filters - Shows actual establishment names */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-4"
           contentContainerStyle={{ paddingRight: 20 }}
         >
-          {filters.map((filter) => (
+          {establishmentChips.map((chip) => (
             <TouchableOpacity
-              key={filter.id}
-              onPress={() => setSelectedFilter(filter.id)}
-              className={`flex-row items-center px-4 py-2 rounded-full mr-2 border ${
-                selectedFilter === filter.id
-                  ? "bg-blue-600 border-blue-600"
-                  : "bg-white border-gray-200"
-              }`}
+              key={chip.id}
+              onPress={() => handleEstablishmentPress(chip.establishment)}
+              className="flex-row items-center px-4 py-2 rounded-full mr-2 border bg-white border-gray-200"
             >
               <Ionicons
-                name={
-                  filter.id === "all"
-                    ? "grid-outline"
-                    : filter.id === "banks"
-                      ? "business-outline"
-                      : filter.id === "clinics"
-                        ? "medical-outline"
-                        : filter.id === "pharmacies"
-                          ? "medkit-outline"
-                          : "build-outline"
-                }
+                name="business-outline"
                 size={16}
-                color={
-                  selectedFilter === filter.id
-                    ? "#FFFFFF"
-                    : colors.textSecondary
-                }
+                color={colors.textSecondary}
               />
               <Text
-                className={`ml-2 font-medium ${
-                  selectedFilter === filter.id ? "text-white" : "text-gray-600"
-                }`}
+                className="ml-2 font-medium text-gray-600"
+                numberOfLines={1}
               >
-                {filter.label}
+                {chip.name}
               </Text>
             </TouchableOpacity>
           ))}
