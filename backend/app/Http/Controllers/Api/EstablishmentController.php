@@ -91,9 +91,6 @@ class EstablishmentController extends Controller
                     $q2->where('status', 'waiting');
                 }]);
             }])
-            ->withCount(['services.tickets as total_people_waiting' => function ($q) {
-                $q->where('status', 'waiting');
-            }])
             ->findOrFail($id);
         
         // Calculate total people waiting across all services
