@@ -116,7 +116,8 @@ export const HistoryScreen: React.FC = () => {
         per_page: 20,
       });
 
-      const newTickets = response.data;
+      // Laravel API wraps data in 'data' key
+      const newTickets = response.data || [];
       
       if (reset) {
         setTickets(newTickets);
@@ -126,8 +127,8 @@ export const HistoryScreen: React.FC = () => {
         pageRef.current = currentPage + 1;
       }
       
-      // API returns pagination in 'meta' (Laravel standard), not 'pagination'
-      const pagination = response.meta || response.pagination;
+      // Laravel pagination is in 'meta' key
+      const pagination = response.meta || (response as any).pagination;
       hasMoreRef.current = pagination ? pagination.current_page < pagination.last_page : false;
     } catch (error: any) {
       console.error('Error loading tickets:', error);

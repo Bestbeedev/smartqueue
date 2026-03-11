@@ -54,6 +54,12 @@ export interface TicketHistoryResponse {
     per_page: number;
     total: number;
   };
+  meta?: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
 }
 
 export interface TicketStats {
@@ -147,7 +153,16 @@ export const ticketsApi = {
   // Obtenir l'historique des tickets
   getTicketHistory: async (params: TicketHistoryParams = {}): Promise<TicketHistoryResponse> => {
     const response = await axiosClient.get('/tickets/history', { params });
-    return response.data;
+    // Laravel Resource collection returns: {data: [...], meta: {pagination info}}
+    return {
+      data: response.data.data || response.data,
+      pagination: response.data.meta || response.data.pagination || {
+        current_page: 1,
+        last_page: 1,
+        per_page: 20,
+        total: 0,
+      },
+    };
   },
 
   // Obtenir les statistiques des tickets de l'utilisateur

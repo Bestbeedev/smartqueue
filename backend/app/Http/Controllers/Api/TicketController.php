@@ -56,9 +56,13 @@ class TicketController extends Controller
     public function history(Request $request)
     {
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+        
+        // Include all completed/non-active statuses
+        $completedStatuses = ['closed', 'canceled', 'cancelled', 'served', 'expired', 'absent'];
+        
         $query = Ticket::query()
             ->where('user_id', $request->user()->id)
-            ->whereIn('status', ['closed','canceled'])
+            ->whereIn('status', $completedStatuses)
             ->with(['service.establishment'])
             ->orderByDesc('created_at');
 

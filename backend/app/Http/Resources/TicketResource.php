@@ -27,6 +27,11 @@ class TicketResource extends JsonResource
             'position' => $this->position,
             'eta_minutes' => $eta,
             'called_at' => $this->called_at,
+            'closed_at' => $this->closed_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'service_id' => $this->service_id,
+            'counter_id' => $this->counter_id,
             // Résumé du service
             'service' => [
                 'id' => $this->service->id,
