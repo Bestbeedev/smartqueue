@@ -18,7 +18,7 @@ interface ErrorResponse {
 // Création du client Axios
 const axiosClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // Increased to 30s for Railway cold starts
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -83,8 +83,9 @@ axiosClient.interceptors.response.use(
       const baseURL = error.config?.baseURL || '';
       const url = error.config?.url || '';
       const status = error.response?.status;
-      console.log('[axios]', method, baseURL + url, '->', status || 'NO_STATUS');
+      console.log('[axios]', method, baseURL + url, '->', status || 'NO_STATUS', error.code || '', error.message || '');
     }
+    
     // Si l'erreur est 401 (Non autorisé)
     if (error.response?.status === 401) {
       const hadAuthHeader = !!(error.config?.headers as any)?.Authorization;
