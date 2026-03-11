@@ -1,0 +1,268 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Image,
+  Share,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme } from '../../theme';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import { establishmentsApi, Establishment } from '../../api/establishmentsApi';
+import { ticketsApi } from '../../api/ticketsApi';
+import { useAuth } from '../../store/authStore';
+import { useTicket } from '../../store/ticketStore';
+
+interface RouteParams {
+  establishmentId: number;
+  serviceId?: number;
+  fromQr?: boolean;
+}
+
+export const ServiceDetailsScreen: React.FC = () => {
+  const navigation = useNavigation();
+  const colors = useThemeColors();
+  const route = useRoute();
+  const { establishmentId, serviceId, fromQr } = route.params as RouteParams;
+  const { isAuthenticated } = useAuth();
+  const { hasActiveTicket, refreshActiveTicket } = useTicket();
+
+  const [establishment, setEstablishment] = useState<Establishment | null>(null);
+  const [services, setServices] = useState<any[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(serviceId || null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [estData, servicesData] = await Promise.all([
+        establishmentsApi.getEstablishment(establishmentId),
+        establishmentsApi.getEstablishmentServices(establishmentId),
+      ]);
+      setEstablishment(estData);
+      setServices(Array.isArray(servicesData) ? servicesData : (servicesData as any)?.data || []);
+      if (!selectedServiceId && servicesData && (servicesData as any[]).length > 0) {
+        const firstOpen = (servicesData as any[]).find(s => s.status === 'open');
+        if (firstOpen) setSelectedServiceId(firstOpen.id);
+      }
+    } catch (error) {
+      console.error('Error loading establishment:', error);
+      Alert.alert('Erreur', 'Impossible de charger les détails de l\'établissement.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [establishmentId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleJoinQueue = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Connexion requise',
+        'Vous devez être connecté pour rejoindre une file d\'attente.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => navigation.navigate('Login' as never) },
+        ]
+      );
+      return;
+    }
+
+    if (hasActiveTicket) {
+      Alert.alert(
+        'Ticket actif',
+        'Vous avez déjà un ticket actif. Vous ne pouvez pas rejoindre une nouvelle file.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (!selectedServiceId) {
+      Alert.alert('Sélection requise', 'Veuillez choisir un service avant de rejoindre la file.');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      const ticket = await ticketsApi.createTicket({
+        establishment_id: establishmentId,
+        service_id: selectedServiceId,
+        from_qr: fromQr,
+      });
+      await refreshActiveTicket();
+
+      navigation.navigate('LiveTicket' as never, {
+        ticketId: ticket.id,
+      } as never);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Impossible de rejoindre la file.';
+      Alert.alert('Erreur', message);
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleGetDirections = () => {
+    if (!establishment) return;
+    const { lat, lng, address } = establishment;
+    const url = Platform.OS === 'ios'
+      ? `maps:0,0?q=${address}&ll=${lat},${lng}`
+      : `geo:${lat},${lng}?q=${address}`;
+    Linking.openURL(url);
+  };
+
+  const handleShare = async () => {
+    if (!establishment) return;
+    try {
+      await Share.share({
+        title: establishment.name,
+        message: `Rejoignez la file d'attente virtuelle de ${establishment.name} sur SmartQueue!`,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const isOpenNow = (establishment: Establishment) => {
+    if (!establishment.open_at || !establishment.close_at) return null;
+    const now = new Date();
+    const [openH, openM] = establishment.open_at.split(':').map(Number);
+    const [closeH, closeM] = establishment.close_at.split(':').map(Number);
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const openTime = openH * 60 + openM;
+    const closeTime = closeH * 60 + closeM;
+    return currentTime >= openTime && currentTime <= closeTime;
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!establishment) return null;
+
+  const isOpen = isOpenNow(establishment);
+
+  return (
+    <View className="flex-1 bg-white">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} bounces>
+        {/* Banner Image Section */}
+        <View className="relative h-80 bg-gray-200">
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80' }} // Simulated clinical image
+            className="w-full h-full"
+            resizeMode="cover"
+          />
+          <View className="absolute inset-x-0 top-0 pt-12 px-5 flex-row justify-between z-10">
+            <TouchableOpacity 
+              className="w-10 h-10 items-center justify-center rounded-full bg-white/30" 
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity className="w-10 h-10 items-center justify-center rounded-full bg-white/30">
+              <Ionicons name="heart-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Content Section with Rounded Corners */}
+        <View className="bg-white -mt-8 rounded-t-3xl px-5 pt-8">
+          <View className="flex-row justify-between items-start mb-2">
+            <View className="flex-1">
+              <Text className="text-2xl font-bold text-gray-900">{establishment.name}</Text>
+              <Text className="text-gray-400 text-sm mt-1">{establishment.address}</Text>
+            </View>
+          </View>
+
+          {/* Crowd level indicator row */}
+          <View className="flex-row mt-6 mb-8 justify-between">
+            {['low', 'moderate', 'high'].map((level) => (
+              <View 
+                key={level}
+                className={`flex-1 mx-1 p-3 rounded-2xl items-center border ${
+                  establishment.crowd_level === level 
+                    ? level === 'low' ? 'bg-green-50 border-green-200' : level === 'moderate' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'
+                    : 'bg-gray-50 border-gray-100'
+                }`}
+              >
+                <View className={`w-2 h-2 rounded-full mb-1 ${
+                  level === 'low' ? 'bg-green-500' : level === 'moderate' ? 'bg-yellow-500' : 'bg-red-500'
+                }`} />
+                <Text className={`text-[10px] font-bold uppercase tracking-wider ${
+                  establishment.crowd_level === level 
+                    ? level === 'low' ? 'text-green-600' : level === 'moderate' ? 'text-yellow-600' : 'text-red-600'
+                    : 'text-gray-400'
+                }`}>
+                  {level}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Join Queue Button */}
+          <TouchableOpacity 
+            className={`w-full h-16 rounded-2xl flex-row items-center justify-center mb-8 ${isJoining ? 'bg-blue-400' : 'bg-blue-600 shadow-lg shadow-blue-300'}`}
+            onPress={handleJoinQueue}
+            disabled={isJoining}
+          >
+            {isJoining ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons name="enter-outline" size={24} color="white" className="mr-2" />
+                <Text className="text-white font-bold text-lg ml-2">Join Queue</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* General Information Section */}
+          <View className="mb-10">
+            <Text className="text-xl font-bold text-gray-900 mb-4">General Information</Text>
+            
+            <View className="bg-gray-50 rounded-2xl p-4">
+              <TouchableOpacity className="flex-row items-center border-b border-gray-100 pb-4 mb-4">
+                <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-4">
+                  <Ionicons name="call-outline" size={20} color="#2563EB" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-semibold">Phone Number</Text>
+                  <Text className="text-gray-500 text-sm">{(establishment as any).phone || '+33 1 23 45 67 89'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity className="flex-row items-center">
+                <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-4">
+                  <Ionicons name="globe-outline" size={20} color="#2563EB" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-semibold">Website</Text>
+                  <Text className="text-gray-500 text-sm">{(establishment as any).website || 'www.centralclinic.com'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+export default ServiceDetailsScreen;
