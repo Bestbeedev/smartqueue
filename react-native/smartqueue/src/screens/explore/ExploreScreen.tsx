@@ -25,15 +25,6 @@ import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/n
 import { useTicket } from "../../store/ticketStore";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 
-// Types pour les filtres
-type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
-
-interface FilterOption {
-  id: FilterType;
-  label: string;
-  icon: React.ReactNode;
-}
-
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
   const navigation =
@@ -46,7 +37,6 @@ export const ExploreScreen: React.FC = () => {
   const [filteredEstablishments, setFilteredEstablishments] = useState<
     Establishment[]
   >([]);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
@@ -180,30 +170,45 @@ export const ExploreScreen: React.FC = () => {
       const data = await establishmentsApi.getEstablishments({
         lat: currentLat,
         lng: currentLng,
-        type: selectedFilter === "all" ? undefined : selectedFilter,
         q: searchQuery || undefined,
       });
 
-      setEstablishments(data);
-      setFilteredEstablishments(data);
+      if (data && data.length > 0) {
+        setEstablishments(data);
+        setFilteredEstablishments(data);
+      } else {
+        // Empty response - still set empty arrays
+        setEstablishments([]);
+        setFilteredEstablishments([]);
+      }
 
-      setMapRegion({
-        latitude: currentLat,
-        longitude: currentLng,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
-    } catch (error) {
-      console.error("Error loading establishments:", error);
-
-      Alert.alert(
-        "Erreur",
-        "Impossible de charger les établissements. Veuillez réessayer.",
-      );
+      // Mettre à jour la région de la carte
+      if (data.length > 0 || location) { // Update map region if data is available or location is known
+        setMapRegion({
+          latitude: currentLat,
+          longitude: currentLng,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error loading establishments:", error?.response?.status, error?.message);
+      // Only show alert if it's a network/auth error, not if it's a backend issue
+      if (error?.response?.status === 401 || error?.code === 'NETWORK_ERROR' || !error?.response) {
+        Alert.alert(
+          "Erreur",
+          "Impossible de charger les établissements. Vérifiez votre connexion.",
+        );
+      } else {
+        // For other errors (500, 404, etc), just log and show empty state
+        setEstablishments([]);
+        setFilteredEstablishments([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [location, selectedFilter, searchQuery, getCurrentPosition]);
+  }, [location, searchQuery, getCurrentPosition]);
+
   // Effet initial pour charger la position si non disponible
   useEffect(() => {
     if (!location) {
@@ -214,22 +219,11 @@ export const ExploreScreen: React.FC = () => {
   // Effet pour charger les établissements quand la position ou les filtres changent
   useEffect(() => {
     loadEstablishments();
-  }, [
-    location?.latitude,
-    location?.longitude,
-    selectedFilter,
-    searchQuery,
-    loadEstablishments,
-  ]);
+  }, [location?.latitude, location?.longitude, searchQuery, loadEstablishments]);
 
   // Effet pour filtrer les établissements
   useEffect(() => {
     let filtered = establishments;
-
-    // Filtrer par type
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter((est) => est.category === selectedFilter);
-    }
 
     // Filtrer par recherche
     if (searchQuery.trim()) {
@@ -241,7 +235,7 @@ export const ExploreScreen: React.FC = () => {
     }
 
     setFilteredEstablishments(filtered);
-  }, [establishments, selectedFilter, searchQuery]);
+  }, [establishments, searchQuery]);
 
   // Obtenir la couleur du marqueur selon le niveau d'affluence
   const getMarkerColor = (crowdLevel?: string) => {
@@ -387,7 +381,10 @@ export const ExploreScreen: React.FC = () => {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full"
+            onPress={() => router.push('/notifications' as any)}
+          >
             <Ionicons
               name="notifications-outline"
               size={20}
@@ -414,7 +411,7 @@ export const ExploreScreen: React.FC = () => {
           />
         </View>
 
-        {/* Categories / Filters */}
+        {/* Categories / Filters - Shows actual establishment names */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
