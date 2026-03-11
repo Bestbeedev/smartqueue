@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Theme } from '../../src/theme';
 import '../../global.css';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 
@@ -14,39 +13,31 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: -2,
+        },
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 30 : 20,
-          left: '10%',
-          right: '10%',
-          width: '90%',
-          height: 64,
-          borderRadius: 32,
-          backgroundColor: Platform.OS === 'ios' ? colors.tabBackground : colors.background,
+          bottom: Platform.OS === 'ios' ? 0 : 0,
+          left: 20,
+          right: 20,
+          height: 70,
+          borderRadius: 0,
+          backgroundColor: colors.background,
           borderTopWidth: 0,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
-          shadowRadius: 12,
+          shadowRadius: 8,
           elevation: 8,
-          paddingBottom: 0,
-          alignSelf: 'center',
-          ...Platform.select({
-            ios: {
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.15,
-              shadowRadius: 20,
-            },
-            android: {
-              elevation: 10,
-            },
-          }),
+          paddingBottom: 5,
+          paddingTop: 5,
         },
         tabBarItemStyle: {
-          height: 64,
-          paddingVertical: 10,
+          paddingVertical: 5,
         },
       }}
     >
@@ -54,57 +45,72 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Explorer',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View className={`items-center justify-center w-12 h-12 rounded-full ${focused ? 'bg-blue-50' : ''}`}>
-              <Ionicons name={focused ? "map" : "map-outline"} size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? "map" : "map-outline"} 
+              size={focused ? 26 : 22} 
+              color={color} 
+            />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="scan"
         options={{
           title: 'Scanner',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View className={`items-center justify-center w-12 h-12 rounded-full ${focused ? 'bg-blue-50' : ''}`}>
-              <Ionicons name={focused ? "qr-code" : "qr-code-outline"} size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? "qr-code" : "qr-code-outline"} 
+              size={focused ? 26 : 22} 
+              color={color} 
+            />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="tickets"
         options={{
           title: 'Tickets',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View className={`items-center justify-center w-12 h-12 rounded-full ${focused ? 'bg-blue-50' : ''}`}>
-              <Ionicons name={focused ? "ticket" : "ticket-outline"} size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? "ticket" : "ticket-outline"} 
+              size={focused ? 26 : 22} 
+              color={color} 
+            />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="history"
         options={{
           title: 'Historique',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View className={`items-center justify-center w-12 h-12 rounded-full ${focused ? 'bg-blue-50' : ''}`}>
-              <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? "time" : "time-outline"} 
+              size={focused ? 26 : 22} 
+              color={color} 
+            />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View className={`items-center justify-center w-12 h-12 rounded-full ${focused ? 'bg-blue-50' : ''}`}>
-              <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? "person" : "person-outline"} 
+              size={focused ? 26 : 22} 
+              color={color} 
+            />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="live-ticket"
         options={{
