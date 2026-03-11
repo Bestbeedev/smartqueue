@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../store/authStore';
 import { useSettings } from '../../store/settingsStore';
+import { useAlertPreferencesStore } from '../../store/alertPreferencesStore';
+import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel } from '../../types/alertPreferences';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -38,19 +40,38 @@ export const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { 
     isDarkMode, 
-    setDarkMode, 
-    pushNotificationsEnabled,
-    setPushNotificationsEnabled,
+    setDarkMode,
+    preferences,
+    updatePreferences,
     loadPreferences 
   } = useSettings();
+  
+  const {
+    channels,
+    marginMinutes,
+    marginOption,
+    enableSafetyAlert,
+    phoneNumber,
+    preferredTransportMode,
+    setChannels,
+    setMarginMinutes,
+    setEnableSafetyAlert,
+    setPhoneNumber,
+    setPreferredTransportMode,
+    loadPreferences: loadAlertPreferences,
+  } = useAlertPreferencesStore();
   
   const [isLoading] = useState(false);
   const [avatarUri] = useState<string | null>(null);
 
   // Charger les préférences au montage
-  React.useEffect(() => {
+  useEffect(() => {
     loadPreferences();
-  }, [loadPreferences]);
+    loadAlertPreferences();
+  }, [loadPreferences, loadAlertPreferences]);
+  
+  // Push notifications enabled from preferences
+  const pushNotificationsEnabled = preferences.push_notifications_enabled;
 
   // Gérer la déconnexion
   const handleLogout = () => {
@@ -101,7 +122,70 @@ export const ProfileScreen: React.FC = () => {
       ] as MenuItem[],
     },
     {
-      title: 'Preferences',
+      title: 'Alert Preferences',
+      items: [
+        {
+          id: 'alertChannels',
+          title: 'Alert Channels',
+          subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push only',
+          icon: 'notifications-outline',
+          iconBg: 'bg-orange-100',
+          onPress: () => {
+            Alert.alert(
+              'Alert Channels',
+              'Choose how to receive alerts',
+              [
+                { text: 'Push only', onPress: () => setChannels(['push']) },
+                { text: 'SMS only', onPress: () => setChannels(['sms']) },
+                { text: 'Push & SMS', onPress: () => setChannels(['push', 'sms']) },
+                { text: 'Cancel', style: 'cancel' },
+              ]
+            );
+          },
+        },
+        {
+          id: 'alertMargin',
+          title: 'Alert Timing',
+          subtitle: `${marginMinutes} min before turn`,
+          icon: 'time-outline',
+          iconBg: 'bg-blue-100',
+          onPress: () => {
+            const options = MARGIN_OPTIONS.map(opt => ({
+              text: opt.label,
+              onPress: () => setMarginMinutes(opt.value === 'custom' ? marginMinutes : opt.value as number, opt.value),
+            }));
+            Alert.alert('Alert Timing', 'When to alert before your turn', [...options, { text: 'Cancel', style: 'cancel' }]);
+          },
+        },
+        {
+          id: 'transportMode',
+          title: 'Transport Mode',
+          subtitle: TRANSPORT_MODE_OPTIONS.find(o => o.value === preferredTransportMode)?.label || 'Moto',
+          icon: 'car-outline',
+          iconBg: 'bg-purple-100',
+          onPress: () => {
+            const options = TRANSPORT_MODE_OPTIONS.map(opt => ({
+              text: opt.label,
+              onPress: () => setPreferredTransportMode(opt.value),
+            }));
+            Alert.alert('Transport Mode', 'For travel time calculation', [...options, { text: 'Cancel', style: 'cancel' }]);
+          },
+        },
+        {
+          id: 'safetyAlert',
+          title: 'Safety Alert',
+          subtitle: enableSafetyAlert ? '2nd alert 2 min before' : 'Disabled',
+          icon: 'shield-checkmark-outline',
+          iconBg: 'bg-green-100',
+          onPress: () => {},
+          toggle: true,
+          toggleValue: enableSafetyAlert,
+          onToggle: setEnableSafetyAlert,
+        },
+      ] as MenuItem[],
+    },
+    {
+      title: 'App Preferences',
       items: [
         {
           id: 'notifications',
@@ -111,7 +195,7 @@ export const ProfileScreen: React.FC = () => {
           onPress: () => {},
           toggle: true,
           toggleValue: pushNotificationsEnabled,
-          onToggle: setPushNotificationsEnabled,
+          onToggle: (value: boolean) => updatePreferences({ push_notifications_enabled: value }),
         },
         {
           id: 'darkMode',

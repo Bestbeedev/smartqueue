@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Api\Admin\CounterController as AdminCounterController;
+use App\Http\Controllers\Api\AlertPreferenceController;
+use App\Http\Controllers\Api\TicketRecallController;
 use App\Http\Controllers\Api\Admin\ReportExportController as AdminReportExportController;
 use App\Http\Controllers\Api\Saas\EstablishmentController as SaasEstablishmentController;
 use App\Http\Controllers\Api\Saas\SubscriptionController as SaasSubscriptionController;
@@ -145,6 +147,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('subscriptions', [SaasSubscriptionController::class, 'index']);
         Route::put('establishments/{establishment}/subscription', [SaasSubscriptionController::class, 'upsert']);
         Route::get('monitoring/overview', [SaasMonitoringController::class, 'overview']);
+    });
+
+    // User alert preferences
+    Route::prefix('user')->group(function () {
+        Route::get('alert-preferences', [AlertPreferenceController::class, 'show']);
+        Route::put('alert-preferences', [AlertPreferenceController::class, 'update']);
+        Route::post('alert-preferences/reset', [AlertPreferenceController::class, 'reset']);
+    });
+
+    // Ticket recall (seconde chance)
+    Route::prefix('tickets')->group(function () {
+        Route::post('{ticket}/recall', [TicketRecallController::class, 'recall']);
+        Route::post('{ticket}/en-route', [TicketRecallController::class, 'enRoute']);
+        Route::get('{ticket}/countdown', [TicketRecallController::class, 'countdown']);
     });
 });
 

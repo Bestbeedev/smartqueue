@@ -22,6 +22,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from 'expo-router';
 import "../../../global.css";
 import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/native-stack/types";
+import { useTicket } from "../../store/ticketStore";
+import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
@@ -37,6 +39,7 @@ export const ExploreScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<TabParamList, "Explore">>();
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
+  const { hasActiveTicket, activeTicket } = useTicket();
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [filteredEstablishments, setFilteredEstablishments] = useState<
@@ -475,6 +478,16 @@ export const ExploreScreen: React.FC = () => {
       </View>
       {/* Liste des établissements (always visible below map) */}
       <View className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg" style={{ marginTop: -20, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10 }}>
+        {/* Active Ticket Card - shows if user has active ticket */}
+        {hasActiveTicket && activeTicket && (
+          <ActiveTicketCard
+            onPress={() => router.push({
+              pathname: '/(tabs)/live-ticket',
+              params: { ticketId: String(activeTicket.id) },
+            })}
+          />
+        )}
+        
         <View className="px-5 pb-2 mb-2">
           <View className="flex-row justify-between items-center mb-1">
             <Text className="text-xl font-bold text-gray-900">

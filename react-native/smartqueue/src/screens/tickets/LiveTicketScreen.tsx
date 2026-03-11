@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTicket } from '../../store/ticketStore';
 import { useTicketSocket } from '../../hooks/useTicketSocket';
+import { useDistanceTracking } from '../../hooks/useDistanceTracking';
+import { formatDistance, formatTravelTime } from '../../utils/distance';
+import { CalledTicketOverlay } from '../../components/CalledTicketOverlay';
+import axiosClient from '../../api/axiosClient';
 
 interface LiveTicketScreenProps {
   ticketId?: string;
@@ -27,12 +31,64 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     isAlmostThere,
     isCalled,
     cancelTicket,
+    hasActiveTicket,
+    hasRecalled,
+    counterNumber,
+    setRecalled,
+    markAsCalled,
   } = useTicket();
 
   // WebSocket connection
   useTicketSocket(numericTicketId?.toString() || null);
   
+  // Distance tracking - use establishment coordinates from active ticket
+  const { distanceInfo, hasPermission: hasLocationPermission } = useDistanceTracking({
+    targetCoordinates: activeTicket?.establishment ? {
+      latitude: (activeTicket.establishment as any).lat || 0,
+      longitude: (activeTicket.establishment as any).lng || 0,
+    } : null,
+    enabled: !!activeTicket?.establishment && hasActiveTicket,
+  });
+  
+  // Countdown state
+  const [countdownSeconds, setCountdownSeconds] = useState(180);
+  
   console.log('[LiveTicketScreen] ticketId:', numericTicketId, 'position:', position);
+  
+  // Handle recall action
+  const handleRecall = useCallback(async () => {
+    if (!numericTicketId || hasRecalled) return;
+    
+    try {
+      const response = await axiosClient.post(`/tickets/${numericTicketId}/recall`);
+      setRecalled();
+      setCountdownSeconds(response.data.countdown_seconds || 180);
+    } catch (error: any) {
+      Alert.alert('Erreur', error.response?.data?.error || 'Impossible d\'envoyer le rappel');
+    }
+  }, [numericTicketId, hasRecalled, setRecalled]);
+  
+  // Handle "en route" action
+  const handleEnRoute = useCallback(async () => {
+    if (!numericTicketId) return;
+    
+    try {
+      await axiosClient.post(`/tickets/${numericTicketId}/en-route`, {
+        lat: distanceInfo ? null : undefined, // Will use last known location
+        lng: distanceInfo ? null : undefined,
+        estimated_travel_minutes: distanceInfo?.travelTimes?.car,
+      });
+      // Navigate back to ticket view or show confirmation
+      Alert.alert('Confirmation', 'L\'agent a été notifié que vous êtes en route');
+    } catch (error: any) {
+      Alert.alert('Erreur', error.response?.data?.error || 'Impossible de confirmer');
+    }
+  }, [numericTicketId, distanceInfo]);
+  
+  // Handle dismiss (expired)
+  const handleDismiss = useCallback(() => {
+    router.replace('/(tabs)/explore');
+  }, []);
 
   // Flash animation for "called" state
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -133,6 +189,48 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
 
           <View className="w-full h-px bg-gray-100 mb-8" />
 
+          {/* Distance Info */}
+          {distanceInfo && hasLocationPermission && (
+            <View className="w-full mb-6 bg-blue-50 rounded-2xl p-4 border border-blue-100">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="location" size={18} color="#3B82F6" />
+                <Text className="text-blue-600 font-bold ml-2 text-sm">
+                  {activeTicket?.establishment?.name || 'Établissement'}
+                </Text>
+              </View>
+              <View className="flex-row justify-between">
+                <View className="items-center flex-1">
+                  <Ionicons name="navigate" size={16} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold mt-1">
+                    {formatDistance(distanceInfo.kilometers)}
+                  </Text>
+                  <Text className="text-gray-400 text-[10px]">Distance</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="walk" size={16} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.walking)}
+                  </Text>
+                  <Text className="text-gray-400 text-[10px]">À pied</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="bicycle" size={16} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.motorcycle)}
+                  </Text>
+                  <Text className="text-gray-400 text-[10px]">Moto</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="car" size={16} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.car)}
+                  </Text>
+                  <Text className="text-gray-400 text-[10px]">Voiture</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Info Details */}
           <View className="w-full gap-4">
             <View className="flex-row justify-between">
@@ -164,6 +262,18 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
           <Text className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cancel Ticket</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Called Ticket Overlay - shows when ticket is called */}
+      <CalledTicketOverlay
+        visible={isCalled}
+        counterNumber={counterNumber || undefined}
+        distanceInfo={distanceInfo}
+        countdownSeconds={countdownSeconds}
+        hasRecalled={hasRecalled}
+        onEnRoute={handleEnRoute}
+        onRecall={handleRecall}
+        onDismiss={handleDismiss}
+      />
     </View>
   );
 };

@@ -12,6 +12,11 @@ export interface TicketState {
   isAlmostThere: boolean;
   isCalled: boolean;
   
+  // Rappel (seconde chance)
+  hasRecalled: boolean;
+  countdownExpiry: Date | null;
+  counterNumber: string | null;
+  
   // État de connexion WebSocket
   isConnected: boolean;
   lastUpdate: Date | null;
@@ -23,7 +28,7 @@ export interface TicketState {
   // Actions
   setActiveTicket: (ticket: Ticket | null) => void;
   updatePosition: (position: number, etaMinutes: number) => void;
-  markAsCalled: () => void;
+  markAsCalled: (counterNumber?: string) => void;
   markAsAlmostThere: () => void;
   clearActiveTicket: () => void;
   setLoading: (loading: boolean) => void;
@@ -34,6 +39,11 @@ export interface TicketState {
   updateTicketStatus: (status: Ticket['status']) => void;
   setWebSocketConnected: (connected: boolean) => void;
   setLastUpdate: (date: Date) => void;
+  
+  // Rappel actions
+  setRecalled: () => void;
+  resetRecall: () => void;
+  setCountdownExpiry: (expiry: Date | null) => void;
 }
 
 // Store de tickets avec Zustand
@@ -46,6 +56,9 @@ export const useTicketStore = create<TicketState>()(
       etaMinutes: 0,
       isAlmostThere: false,
       isCalled: false,
+      hasRecalled: false,
+      countdownExpiry: null,
+      counterNumber: null,
       isConnected: false,
       lastUpdate: null,
       isLoading: false,
@@ -76,10 +89,14 @@ export const useTicketStore = create<TicketState>()(
       },
 
       // Marquer comme appelé
-      markAsCalled: () => {
+      markAsCalled: (counterNumber?: string) => {
+        // Set countdown expiry to 3 minutes from now
+        const expiry = new Date(Date.now() + 3 * 60 * 1000);
         set({
           isCalled: true,
           isAlmostThere: false,
+          counterNumber: counterNumber || null,
+          countdownExpiry: expiry,
           lastUpdate: new Date(),
         });
       },
@@ -100,6 +117,9 @@ export const useTicketStore = create<TicketState>()(
           etaMinutes: 0,
           isAlmostThere: false,
           isCalled: false,
+          hasRecalled: false,
+          countdownExpiry: null,
+          counterNumber: null,
           lastUpdate: new Date(),
         });
       },
@@ -225,14 +245,33 @@ export const useTicketStore = create<TicketState>()(
         }
       },
 
-      // Définir l'état de connexion WebSocket
       setWebSocketConnected: (connected: boolean) => {
         set({ isConnected: connected });
       },
 
-      // Définir la date de dernière mise à jour
       setLastUpdate: (date: Date) => {
         set({ lastUpdate: date });
+      },
+
+      // Rappel actions
+      setRecalled: () => {
+        // Reset countdown to another 3 minutes
+        const expiry = new Date(Date.now() + 3 * 60 * 1000);
+        set({
+          hasRecalled: true,
+          countdownExpiry: expiry,
+        });
+      },
+
+      resetRecall: () => {
+        set({
+          hasRecalled: false,
+          countdownExpiry: null,
+        });
+      },
+
+      setCountdownExpiry: (expiry: Date | null) => {
+        set({ countdownExpiry: expiry });
       },
     }),
     {
@@ -244,6 +283,7 @@ export const useTicketStore = create<TicketState>()(
         etaMinutes: state.etaMinutes,
         isAlmostThere: state.isAlmostThere,
         isCalled: state.isCalled,
+        hasRecalled: state.hasRecalled,
       }),
     }
   )
@@ -260,6 +300,9 @@ export const useTicket = () => {
     etaMinutes: ticketStore.etaMinutes,
     isAlmostThere: ticketStore.isAlmostThere,
     isCalled: ticketStore.isCalled,
+    hasRecalled: ticketStore.hasRecalled,
+    countdownExpiry: ticketStore.countdownExpiry,
+    counterNumber: ticketStore.counterNumber,
     isConnected: ticketStore.isConnected,
     lastUpdate: ticketStore.lastUpdate,
     isLoading: ticketStore.isLoading,
@@ -279,6 +322,9 @@ export const useTicket = () => {
     updateTicketStatus: ticketStore.updateTicketStatus,
     setWebSocketConnected: ticketStore.setWebSocketConnected,
     setLastUpdate: ticketStore.setLastUpdate,
+    setRecalled: ticketStore.setRecalled,
+    resetRecall: ticketStore.resetRecall,
+    setCountdownExpiry: ticketStore.setCountdownExpiry,
     
     // Computed properties
     hasActiveTicket: ticketStore.activeTicket !== null,

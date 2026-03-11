@@ -21,6 +21,8 @@ import { establishmentsApi, Establishment } from '../../api/establishmentsApi';
 import { ticketsApi } from '../../api/ticketsApi';
 import { useAuth } from '../../store/authStore';
 import { useTicket } from '../../store/ticketStore';
+import { useDistanceTracking } from '../../hooks/useDistanceTracking';
+import { formatDistance, formatTravelTime } from '../../utils/distance';
 
 interface RouteParams {
   establishmentId: number;
@@ -36,13 +38,22 @@ export const ServiceDetailsScreen: React.FC = () => {
   const serviceId = params.serviceId ? Number(params.serviceId) : undefined;
   const fromQr = params.fromQr === 'true';
   const { isAuthenticated } = useAuth();
-  const { hasActiveTicket, refreshActiveTicket } = useTicket();
+  const { hasActiveTicket, activeTicket, refreshActiveTicket } = useTicket();
 
   const [establishment, setEstablishment] = useState<Establishment | null>(null);
   const [services, setServices] = useState<any[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(serviceId || null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+
+  // Distance tracking
+  const { distanceInfo, hasPermission: hasLocationPermission } = useDistanceTracking({
+    targetCoordinates: establishment && establishment.lat != null && establishment.lng != null ? {
+      latitude: establishment.lat,
+      longitude: establishment.lng,
+    } : null,
+    enabled: !!establishment && establishment.lat != null && establishment.lng != null,
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -82,11 +93,20 @@ export const ServiceDetailsScreen: React.FC = () => {
       return;
     }
 
-    if (hasActiveTicket) {
+    if (hasActiveTicket && activeTicket) {
       Alert.alert(
         'Ticket actif',
-        'Vous avez déjà un ticket actif. Vous ne pouvez pas rejoindre une nouvelle file.',
-        [{ text: 'OK' }]
+        'Vous avez déjà un ticket actif. Voulez-vous le suivre ?',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { 
+            text: 'Voir mon ticket', 
+            onPress: () => router.push({
+              pathname: '/(tabs)/live-ticket',
+              params: { ticketId: String(activeTicket.id) },
+            })
+          }
+        ]
       );
       return;
     }
@@ -225,6 +245,46 @@ export const ServiceDetailsScreen: React.FC = () => {
               </View>
             ))}
           </View>
+
+          {/* Distance Info */}
+          {distanceInfo && hasLocationPermission && (
+            <View className="mb-6 bg-blue-50 rounded-2xl p-4 border border-blue-100">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="location" size={20} color="#3B82F6" />
+                <Text className="text-blue-600 font-bold ml-2">Distance</Text>
+              </View>
+              <View className="flex-row justify-between">
+                <View className="items-center flex-1">
+                  <Ionicons name="navigate" size={18} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                    {formatDistance(distanceInfo.kilometers)}
+                  </Text>
+                  <Text className="text-gray-400 text-xs">Distance</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="walk" size={18} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.walking)}
+                  </Text>
+                  <Text className="text-gray-400 text-xs">À pied</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="bicycle" size={18} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.motorcycle)}
+                  </Text>
+                  <Text className="text-gray-400 text-xs">Moto</Text>
+                </View>
+                <View className="items-center flex-1">
+                  <Ionicons name="car" size={18} color="#6B7280" />
+                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                    {formatTravelTime(distanceInfo.travelTimes.car)}
+                  </Text>
+                  <Text className="text-gray-400 text-xs">Voiture</Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Service Selection */}
           {services.length > 0 && (
