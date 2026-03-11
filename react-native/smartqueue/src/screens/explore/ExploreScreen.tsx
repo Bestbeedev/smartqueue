@@ -478,16 +478,6 @@ export const ExploreScreen: React.FC = () => {
       </View>
       {/* Liste des établissements (always visible below map) */}
       <View className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg" style={{ marginTop: -20, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10 }}>
-        {/* Active Ticket Card - shows if user has active ticket */}
-        {hasActiveTicket && activeTicket && (
-          <ActiveTicketCard
-            onPress={() => router.push({
-              pathname: '/(tabs)/live-ticket',
-              params: { ticketId: String(activeTicket.id) },
-            })}
-          />
-        )}
-        
         <View className="px-5 pb-2 mb-2">
           <View className="flex-row justify-between items-center mb-1">
             <Text className="text-xl font-bold text-gray-900">
@@ -511,6 +501,18 @@ export const ExploreScreen: React.FC = () => {
           ItemSeparatorComponent={() => (
             <View className="h-px bg-gray-100 w-full" />
           )}
+          ListHeaderComponent={
+            hasActiveTicket && activeTicket ? (
+              <View className="mb-4">
+                <ActiveTicketCard
+                  onPress={() => router.push({
+                    pathname: '/(tabs)/live-ticket',
+                    params: { ticketId: String(activeTicket.id) },
+                  })}
+                />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View className="py-10 items-center px-10">
               <Ionicons
