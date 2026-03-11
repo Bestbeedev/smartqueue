@@ -90,7 +90,7 @@ export default function ScanScreen() {
     if (permission && !permission.granted && permission.canAskAgain) {
       requestPermission();
     }
-  }, [permission]);
+  }, [permission, requestPermission]);
 
   // Permission not granted
   if (!permission) {
@@ -109,11 +109,11 @@ export default function ScanScreen() {
       <View style={styles.container}>
         <View style={styles.centerContent}>
           <View style={styles.permissionIconContainer}>
-            <Ionicons name="camera-off-outline" size={64} color="#FF3B30" />
+            <Ionicons name="camera-outline" size={64} color="#FF3B30" />
           </View>
           <Text style={styles.permissionTitle}>Accès à la caméra requis</Text>
           <Text style={styles.permissionText}>
-            Pour scanner des QR codes, SmartQueue a besoin d'accéder à votre caméra.
+            Pour scanner des QR codes, SmartQueue a besoin d&apos;accéder à votre caméra.
           </Text>
           <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
             <Text style={styles.permissionButtonText}>Autoriser la caméra</Text>
@@ -141,7 +141,7 @@ export default function ScanScreen() {
       <CameraView
         style={styles.camera}
         facing="back"
-        flashMode={flashEnabled ? 'on' : 'off'}
+        enableTorch={flashEnabled}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],
@@ -195,7 +195,7 @@ export default function ScanScreen() {
               <View style={styles.instructionIcon}>
                 <Ionicons name="sunny-outline" size={20} color="#007AFF" />
               </View>
-              <Text style={styles.instructionText}>Assurez-vous d'avoir suffisamment de lumière</Text>
+              <Text style={styles.instructionText}>Assurez-vous d&apos;avoir suffisamment de lumière</Text>
             </View>
             <View style={styles.instructionItem}>
               <View style={styles.instructionIcon}>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   instructions: {
     backgroundColor: 'rgba(0,0,0,0.7)',
     marginHorizontal: 20,
-    marginBottom: 40,
+    marginBottom: 60,
     borderRadius: 16,
     padding: 20,
   },
