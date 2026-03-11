@@ -13,6 +13,7 @@ import { useTicket } from '../store/ticketStore';
 import { useDistanceTracking } from '../hooks/useDistanceTracking';
 import { useAlertPreferencesStore } from '../store/alertPreferencesStore';
 import { formatDistance, formatTravelTime, DistanceInfo } from '../utils/distance';
+import "../../global.css";
 import axiosClient from '../api/axiosClient';
 
 interface ActiveTicketCardProps {
@@ -183,7 +184,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Ionicons name="notifications" size={48} color="white" />
           </Animated.View>
           
-          <Text style={styles.calledTitle}>C'EST VOTRE TOUR</Text>
+          <Text style={styles.calledTitle}>C&apos;EST VOTRE TOUR</Text>
           
           {counterNumber && (
             <View style={styles.counterBadge}>
@@ -196,8 +197,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </Text>
         </View>
 
-        <View style={styles.calledActions}>
+        <View className='flex-wrap flex-col justify-between gap-2' style={styles.calledActions}>
           <TouchableOpacity
+          className='w-full'
             style={styles.confirmButton}
             onPress={handleConfirmPresence}
             activeOpacity={0.8}
@@ -282,7 +284,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Temps d'attente estimé</Text>
+          <Text style={styles.statLabel}>Temps d&apos;attente estimé</Text>
           <Text style={styles.statValue}>
             ≈ <Text style={styles.statHighlight}>{etaMinutes}</Text> minutes
           </Text>
@@ -510,14 +512,14 @@ const styles = StyleSheet.create({
   },
   distanceRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingVertical: 12,
     marginBottom: 12,
   },
   distanceItem: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
   },
   distanceValue: {

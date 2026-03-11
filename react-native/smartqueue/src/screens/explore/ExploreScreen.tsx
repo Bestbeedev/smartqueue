@@ -8,18 +8,18 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import MapView, { Marker, PROVIDER_DEFAULT} from "react-native-maps";
+import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
 import { Theme } from "../../theme";
 import { TabParamList } from "../../navigation/types";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { Badge } from "../../components/ui/Badge";
-import { CustomBottomSheet } from "../../components/ui/BottomSheet";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from 'expo-router';
+import { router } from "expo-router";
 import "../../../global.css";
 import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/native-stack/types";
 import { useTicket } from "../../store/ticketStore";
@@ -36,7 +36,8 @@ interface FilterOption {
 
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<TabParamList, "Explore">>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<TabParamList, "Explore">>();
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
   const { hasActiveTicket, activeTicket } = useTicket();
@@ -48,12 +49,7 @@ export const ExploreScreen: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mapRegion, setMapRegion] = useState({
-    latitude: 48.8566, // Paris par défaut
-    longitude: 2.3522,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  });
+  const [mapRegion, setMapRegion] = useState<Region | null>(null);
   const [selectedEstablishment, setSelectedEstablishment] =
     useState<Establishment | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
@@ -62,14 +58,43 @@ export const ExploreScreen: React.FC = () => {
   // Recenter on user
   const recenter = useCallback(() => {
     if (location && mapRef.current) {
-      mapRef.current.animateToRegion({
+      mapRef.current.animateToRegion(
+        {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        1000,
+      );
+    }
+  }, [location]);
+
+  //Effet recuperer region par default
+  useEffect(() => {
+    if (location) {
+      setMapRegion({
         latitude: location.latitude,
         longitude: location.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-      }, 1000);
+      });
     }
   }, [location]);
+
+  //rafraichir la page entirere
+  const handleRefresh = async () => {
+    setIsLoading(true);
+
+    try {
+      await loadEstablishments();
+      await getCurrentPosition(); // refresh location
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filtres disponibles
   const filters: FilterOption[] = [
@@ -132,27 +157,25 @@ export const ExploreScreen: React.FC = () => {
 
   // Charger les établissements
   const loadEstablishments = useCallback(async () => {
-    let currentLat = 48.8566; // Default to Paris
-    let currentLng = 2.3522;
+    let currentLocation = location;
 
-    if (!location) {
-      const currentLocation = await getCurrentPosition();
-      if (currentLocation) {
-        currentLat = currentLocation.latitude;
-        currentLng = currentLocation.longitude;
-      } else {
-        Alert.alert(
-          "Localisation requise",
-          "Veuillez autoriser la localisation pour trouver les établissements proches.",
-        );
-        // Continue with default location if permission denied or location not available
-      }
-    } else {
-      currentLat = location.latitude;
-      currentLng = location.longitude;
+    if (!currentLocation) {
+      currentLocation = await getCurrentPosition();
     }
 
+    if (!currentLocation) {
+      Alert.alert(
+        "Localisation requise",
+        "Veuillez autoriser la localisation pour trouver les établissements proches.",
+      );
+      return;
+    }
+
+    const currentLat = currentLocation.latitude;
+    const currentLng = currentLocation.longitude;
+
     setIsLoading(true);
+
     try {
       const data = await establishmentsApi.getEstablishments({
         lat: currentLat,
@@ -164,17 +187,15 @@ export const ExploreScreen: React.FC = () => {
       setEstablishments(data);
       setFilteredEstablishments(data);
 
-      // Mettre à jour la région de la carte
-      if (data.length > 0 || location) { // Update map region if data is available or location is known
-        setMapRegion({
-          latitude: currentLat,
-          longitude: currentLng,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        });
-      }
+      setMapRegion({
+        latitude: currentLat,
+        longitude: currentLng,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
     } catch (error) {
       console.error("Error loading establishments:", error);
+
       Alert.alert(
         "Erreur",
         "Impossible de charger les établissements. Veuillez réessayer.",
@@ -183,7 +204,6 @@ export const ExploreScreen: React.FC = () => {
       setIsLoading(false);
     }
   }, [location, selectedFilter, searchQuery, getCurrentPosition]);
-
   // Effet initial pour charger la position si non disponible
   useEffect(() => {
     if (!location) {
@@ -194,7 +214,13 @@ export const ExploreScreen: React.FC = () => {
   // Effet pour charger les établissements quand la position ou les filtres changent
   useEffect(() => {
     loadEstablishments();
-  }, [location?.latitude, location?.longitude, selectedFilter, searchQuery, loadEstablishments]);
+  }, [
+    location?.latitude,
+    location?.longitude,
+    selectedFilter,
+    searchQuery,
+    loadEstablishments,
+  ]);
 
   // Effet pour filtrer les établissements
   useEffect(() => {
@@ -240,11 +266,11 @@ export const ExploreScreen: React.FC = () => {
   // Gérer le tap sur une carte
   const handleEstablishmentPress = (establishment: Establishment) => {
     router.push({
-      pathname: '/service-details',
+      pathname: "/service-details",
       params: {
         establishmentId: String(establishment.id),
-        serviceId: '',
-        fromQr: 'false',
+        serviceId: "",
+        fromQr: "false",
       },
     });
   };
@@ -395,41 +421,57 @@ export const ExploreScreen: React.FC = () => {
           className="mt-4"
           contentContainerStyle={{ paddingRight: 20 }}
         >
-          {filters.map((filter) => (
-            <TouchableOpacity
-              key={filter.id}
-              onPress={() => setSelectedFilter(filter.id)}
-              className={`flex-row items-center px-4 py-2 rounded-full mr-2 border ${
-                selectedFilter === filter.id
-                  ? "bg-blue-600 border-blue-600"
-                  : "bg-white border-gray-200"
+          {/* Filtre “Tous” */}
+          <TouchableOpacity
+            onPress={() => setSelectedFilter("all")}
+            className={`flex-row items-center px-4 py-2 rounded-full mr-2 border ${
+              selectedFilter === "all"
+                ? "bg-blue-600 border-blue-600"
+                : "bg-white border-gray-200"
+            }`}
+          >
+            <Ionicons
+              name="grid-outline"
+              size={16}
+              color={
+                selectedFilter === "all" ? "#FFFFFF" : colors.textSecondary
+              }
+            />
+            <Text
+              className={`ml-2 font-medium ${
+                selectedFilter === "all" ? "text-white" : "text-gray-600"
               }`}
             >
+              Tous
+            </Text>
+          </TouchableOpacity>
+
+          {/* Filtre dynamique : établissements proches */}
+          {filteredEstablishments.map((est) => (
+            <TouchableOpacity
+              key={est.id}
+              onPress={() =>
+                router.push({
+                  pathname: "/service-details",
+                  params: {
+                    establishmentId: String(est.id),
+                    serviceId: "",
+                    fromQr: "false",
+                  },
+                })
+              }
+              className="flex-row items-center px-4 py-2 rounded-full mr-2 border bg-white border-gray-200"
+            >
               <Ionicons
-                name={
-                  filter.id === "all"
-                    ? "grid-outline"
-                    : filter.id === "banks"
-                      ? "business-outline"
-                      : filter.id === "clinics"
-                        ? "medical-outline"
-                        : filter.id === "pharmacies"
-                          ? "medkit-outline"
-                          : "build-outline"
-                }
+                name="location-outline"
                 size={16}
-                color={
-                  selectedFilter === filter.id
-                    ? "#FFFFFF"
-                    : colors.textSecondary
-                }
+                color={colors.textSecondary}
               />
               <Text
-                className={`ml-2 font-medium ${
-                  selectedFilter === filter.id ? "text-white" : "text-gray-600"
-                }`}
+                className="ml-2 font-medium text-gray-600"
+                numberOfLines={1}
               >
-                {filter.label}
+                {est.name}
               </Text>
             </TouchableOpacity>
           ))}
@@ -437,30 +479,34 @@ export const ExploreScreen: React.FC = () => {
       </View>
 
       <View className="flex-1 bg-gray-200 mt-2">
-        <MapView
-          provider={PROVIDER_DEFAULT}
-          ref={mapRef}
-          style={{ flex: 1 }}
-          region={mapRegion}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
-          followsUserLocation={!!location}
-        >
-          {filteredEstablishments.map(renderMarker)}
+        {mapRegion && (
+          <MapView
+            provider={PROVIDER_DEFAULT}
+            ref={mapRef}
+            style={{ flex: 1 }}
+            region={mapRegion}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            followsUserLocation={!!location}
+          >
+            {filteredEstablishments.map(renderMarker)}
 
-          {(!location || isNaN(Number(location.latitude)) || isNaN(Number(location.longitude))) ? null : (
-            <Marker
-              coordinate={{
-                latitude: Number(location.latitude),
-                longitude: Number(location.longitude),
-              }}
-              pinColor={Theme.colors.primary}
-            />
-          )}
-        </MapView>
+            {!location ||
+            isNaN(Number(location.latitude)) ||
+            isNaN(Number(location.longitude)) ? null : (
+              <Marker
+                coordinate={{
+                  latitude: Number(location.latitude),
+                  longitude: Number(location.longitude),
+                }}
+                pinColor={Theme.colors.primary}
+              />
+            )}
+          </MapView>
+        )}
 
         {/* Floating actions on map */}
-        <View style={{ position: 'absolute', right: 20, top: 20 }}>
+        <View style={{ position: "absolute", right: 20, top: 20 }}>
           <TouchableOpacity
             onPress={recenter}
             className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-lg"
@@ -478,7 +524,17 @@ export const ExploreScreen: React.FC = () => {
         )}
       </View>
       {/* Liste des établissements (always visible below map) */}
-      <View className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg" style={{ marginTop: -20, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10 }}>
+      <View
+        className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg"
+        style={{
+          marginTop: -20,
+          elevation: 15,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -5 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
+        }}
+      >
         <View className="px-5 pb-2 mb-2">
           <View className="flex-row justify-between items-center mb-1">
             <Text className="text-xl font-bold text-gray-900">
@@ -506,10 +562,12 @@ export const ExploreScreen: React.FC = () => {
             hasActiveTicket && activeTicket ? (
               <View className="mb-4">
                 <ActiveTicketCard
-                  onPress={() => router.push({
-                    pathname: '/(tabs)/live-ticket',
-                    params: { ticketId: String(activeTicket.id) },
-                  })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/live-ticket",
+                      params: { ticketId: String(activeTicket.id) },
+                    })
+                  }
                 />
               </View>
             ) : null
