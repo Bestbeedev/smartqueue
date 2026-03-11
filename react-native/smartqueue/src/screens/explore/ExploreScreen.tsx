@@ -98,8 +98,14 @@ export const ExploreScreen: React.FC = () => {
         q: searchQuery || undefined,
       });
 
-      setEstablishments(data);
-      setFilteredEstablishments(data);
+      if (data && data.length > 0) {
+        setEstablishments(data);
+        setFilteredEstablishments(data);
+      } else {
+        // Empty response - still set empty arrays
+        setEstablishments([]);
+        setFilteredEstablishments([]);
+      }
 
       // Mettre à jour la région de la carte
       if (data.length > 0 || location) { // Update map region if data is available or location is known
@@ -110,12 +116,19 @@ export const ExploreScreen: React.FC = () => {
           longitudeDelta: 0.0421,
         });
       }
-    } catch (error) {
-      console.error("Error loading establishments:", error);
-      Alert.alert(
-        "Erreur",
-        "Impossible de charger les établissements. Veuillez réessayer.",
-      );
+    } catch (error: any) {
+      console.error("Error loading establishments:", error?.response?.status, error?.message);
+      // Only show alert if it's a network/auth error, not if it's a backend issue
+      if (error?.response?.status === 401 || error?.code === 'NETWORK_ERROR' || !error?.response) {
+        Alert.alert(
+          "Erreur",
+          "Impossible de charger les établissements. Vérifiez votre connexion.",
+        );
+      } else {
+        // For other errors (500, 404, etc), just log and show empty state
+        setEstablishments([]);
+        setFilteredEstablishments([]);
+      }
     } finally {
       setIsLoading(false);
     }

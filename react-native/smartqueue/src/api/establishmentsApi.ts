@@ -76,30 +76,69 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 export const establishmentsApi = {
   // Lister les établissements avec filtres et fallback intelligent
   getEstablishments: async (params: EstablishmentsParams = {}): Promise<Establishment[]> => {
-    try {
-      const response = await axiosClient.get('/establishments', { params });
-      return response.data;
-    } catch (error: any) {
-      // Fallback si le backend (ex: SQLite) échoue sur les calculs trigonométriques distance (Error 500)
-      if (error.response?.status === 500 && params.lat && params.lng) {
-        console.warn('Backend distance calculation failed. Retrying without geo-params and sorting client-side.');
+    let lastError: any = null;
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    // Helper function to make request with retry
+    const makeRequest = async (requestParams: EstablishmentsParams, attempt: number): Promise<Establishment[]> => {
+      try {
+        const response = await axiosClient.get('/establishments', { params: requestParams });
+        return response.data;
+      } catch (error: any) {
+        // Retry on network errors (ECONNABORTED, ETIMEDOUT, Network Error)
+        const isNetworkError = !error.response && (
+          error.code === 'ECONNABORTED' ||
+          error.code === 'ETIMEDOUT' ||
+          error.code === 'ERR_NETWORK' ||
+          error.message?.includes('Network Error')
+        );
         
-        // On réessaie sans les paramètres de localisation pour obtenir la liste brute
-        const { lat, lng, radius, ...otherParams } = params;
-        const fallbackResponse = await axiosClient.get('/establishments', { params: otherParams });
-        let data = fallbackResponse.data;
-
-        // Si la réponse est paginée, on extrait le tableau
-        const establishments = Array.isArray(data) ? data : data.data || [];
-
-        // On trie par distance côté client
-        return establishments.sort((a: Establishment, b: Establishment) => {
-          const distA = calculateDistance(params.lat!, params.lng!, Number(a.lat), Number(a.lng));
-          const distB = calculateDistance(params.lat!, params.lng!, Number(b.lat), Number(b.lng));
-          return distA - distB;
-        });
+        if (isNetworkError && attempt < maxRetries) {
+          console.warn(`Network error on attempt ${attempt}, retrying in ${attempt * 1000}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          return makeRequest(requestParams, attempt + 1);
+        }
+        throw error;
       }
-      throw error;
+    };
+    
+    // Try 1: With all params
+    try {
+      return await makeRequest(params, 1);
+    } catch (error: any) {
+      lastError = error;
+      console.warn('Establishments fetch attempt 1 failed:', error.response?.status, error.code, error.message);
+      
+      // Try 2: Without geo params (fallback for SQLite distance calculation issues)
+      if (params.lat && params.lng) {
+        try {
+          const { lat, lng, radius, ...otherParams } = params;
+          const data = await makeRequest(otherParams, 1);
+          const establishments = Array.isArray(data) ? data : data.data || [];
+
+          // Sort by distance client-side
+          return establishments.sort((a: Establishment, b: Establishment) => {
+            const distA = calculateDistance(params.lat!, params.lng!, Number(a.lat) || 0, Number(a.lng) || 0);
+            const distB = calculateDistance(params.lat!, params.lng!, Number(b.lat) || 0, Number(b.lng) || 0);
+            return distA - distB;
+          });
+        } catch (fallbackError: any) {
+          lastError = fallbackError;
+          console.warn('Establishments fetch attempt 2 (no geo) failed:', fallbackError.code, fallbackError.message);
+        }
+      }
+      
+      // Try 3: Minimal request (just fetch all, no params)
+      try {
+        const data = await makeRequest({}, 1);
+        const establishments = Array.isArray(data) ? data : data.data || [];
+        console.log('Establishments fetch attempt 3 (minimal) succeeded:', establishments.length, 'items');
+        return establishments;
+      } catch (minimalError: any) {
+        console.error('All establishment fetch attempts failed:', minimalError.code, minimalError.message);
+        throw lastError || minimalError;
+      }
     }
   },
 
