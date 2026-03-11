@@ -24,6 +24,14 @@ import "../../../global.css";
 import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/native-stack/types";
 import { useTicket } from "../../store/ticketStore";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
+// Types pour les filtres
+type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
+
+interface FilterOption {
+  id: FilterType;
+  label: string;
+  icon: React.ReactNode;
+}
 
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
@@ -37,6 +45,7 @@ export const ExploreScreen: React.FC = () => {
   const [filteredEstablishments, setFilteredEstablishments] = useState<
     Establishment[]
   >([]);
+    const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
@@ -72,78 +81,6 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [location]);
 
-  //rafraichir la page entirere
-  const handleRefresh = async () => {
-    setIsLoading(true);
-
-    try {
-      await loadEstablishments();
-      await getCurrentPosition(); // refresh location
-    } catch (error) {
-      console.error("Refresh error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Filtres disponibles
-  const filters: FilterOption[] = [
-    {
-      id: "all",
-      label: "Tous",
-      icon: (
-        <Ionicons
-          name="grid-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "banks",
-      label: "Banques",
-      icon: (
-        <Ionicons
-          name="business-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "clinics",
-      label: "Cliniques",
-      icon: (
-        <Ionicons
-          name="medical-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "pharmacies",
-      label: "Pharmacies",
-      icon: (
-        <Ionicons
-          name="medkit-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-    {
-      id: "gov",
-      label: "Services",
-      icon: (
-        <Ionicons
-          name="build-outline"
-          size={16}
-          color={Theme.colors.textSecondary}
-        />
-      ),
-    },
-  ];
 
   // Charger les établissements
   const loadEstablishments = useCallback(async () => {
