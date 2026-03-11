@@ -84,7 +84,34 @@ class EstablishmentController extends Controller
     /** Détail d'un établissement. */
     public function show(int $id)
     {
-        $est = Establishment::findOrFail($id);
-        return new EstablishmentResource($est);
+        $est = Establishment::query()
+            ->where('id', $id)
+            ->with(['services' => function ($q) {
+                $q->withCount(['tickets as people_waiting' => function ($q2) {
+                    $q2->where('status', 'waiting');
+                }]);
+            }])
+            ->withCount(['services.tickets as total_people_waiting' => function ($q) {
+                $q->where('status', 'waiting');
+            }])
+            ->findOrFail($id);
+        
+        // Calculate total people waiting across all services
+        $totalPeopleWaiting = $est->services->sum('people_waiting');
+        
+        $resource = new EstablishmentResource($est);
+        $data = $resource->resolve(request());
+        $data['total_people_waiting'] = $totalPeopleWaiting;
+        $data['services'] = $est->services->map(function ($service) {
+            return [
+                'id' => $service->id,
+                'name' => $service->name,
+                'status' => $service->status,
+                'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
+                'people_waiting' => (int) ($service->people_waiting ?? 0),
+            ];
+        });
+        
+        return response()->json($data);
     }
 }
