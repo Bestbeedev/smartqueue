@@ -1,6 +1,7 @@
-import { View, Text } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { LiveTicketScreen as VQSLiveTicketScreen } from '../../src/screens/tickets/LiveTicketScreen';
 
 export default function LiveTicket() {
-  return <VQSLiveTicketScreen />;
+  const { ticketId } = useLocalSearchParams<{ ticketId: string }>();
+  return <VQSLiveTicketScreen ticketId={ticketId} />;
 }

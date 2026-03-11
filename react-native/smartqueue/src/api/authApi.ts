@@ -45,13 +45,27 @@ export interface DeviceData {
 export const authApi = {
   // Connexion
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await axiosClient.post('/auth/login', credentials);
-    const authData = response.data;
+    console.log('[authApi] login - sending credentials:', JSON.stringify({ email: credentials.email, password: '***' }));
+    console.log('[authApi] login - endpoint: POST /auth/login');
     
-    // Sauvegarder les tokens
-    await saveTokens(authData);
-    
-    return authData;
+    try {
+      const response = await axiosClient.post('/auth/login', credentials);
+      console.log('[authApi] login - response status:', response.status);
+      console.log('[authApi] login - response data:', JSON.stringify(response.data));
+      
+      const authData = response.data;
+      
+      // Sauvegarder les tokens
+      await saveTokens(authData);
+      console.log('[authApi] login - token saved successfully');
+      
+      return authData;
+    } catch (error: any) {
+      console.log('[authApi] login - error:', error.message);
+      console.log('[authApi] login - error response:', JSON.stringify(error.response?.data));
+      console.log('[authApi] login - error status:', error.response?.status);
+      throw error;
+    }
   },
 
   // Inscription

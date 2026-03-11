@@ -13,7 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -29,10 +29,12 @@ interface RouteParams {
 }
 
 export const ServiceDetailsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const params = useLocalSearchParams();
   const colors = useThemeColors();
-  const route = useRoute();
-  const { establishmentId, serviceId, fromQr } = route.params as RouteParams;
+
+  const establishmentId = Number(params.establishmentId);
+  const serviceId = params.serviceId ? Number(params.serviceId) : undefined;
+  const fromQr = params.fromQr === 'true';
   const { isAuthenticated } = useAuth();
   const { hasActiveTicket, refreshActiveTicket } = useTicket();
 
@@ -74,7 +76,7 @@ export const ServiceDetailsScreen: React.FC = () => {
         'Vous devez être connecté pour rejoindre une file d\'attente.',
         [
           { text: 'Annuler', style: 'cancel' },
-          { text: 'Se connecter', onPress: () => navigation.navigate('Login' as never) },
+          { text: 'Se connecter', onPress: () => router.push('/onboarding') },
         ]
       );
       return;
@@ -101,13 +103,22 @@ export const ServiceDetailsScreen: React.FC = () => {
         service_id: selectedServiceId,
         from_qr: fromQr,
       });
-      await refreshActiveTicket();
+      
+      // Extract ticket data (API wraps in {data: ...})
+      const ticketData = (ticket as any)?.data || ticket;
+      
+      // Update store with ticket data so position is set correctly
+      const { useTicketStore } = require('../../store/ticketStore');
+      useTicketStore.getState().setActiveTicket(ticketData);
 
-      navigation.navigate('LiveTicket' as never, {
-        ticketId: ticket.id,
-      } as never);
+      router.push({
+        pathname: '/(tabs)/live-ticket',
+        params: { ticketId: String(ticketData.id) },
+      });
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Impossible de rejoindre la file.';
+      // API returns errors in format: {error: {message: ...}} or {message: ...}
+      const apiError = error?.response?.data?.error || error?.response?.data;
+      const message = apiError?.message || error?.message || 'Impossible de rejoindre la file.';
       Alert.alert('Erreur', message);
     } finally {
       setIsJoining(false);
@@ -148,7 +159,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -171,7 +182,7 @@ export const ServiceDetailsScreen: React.FC = () => {
           <View className="absolute inset-x-0 top-0 pt-12 px-5 flex-row justify-between z-10">
             <TouchableOpacity 
               className="w-10 h-10 items-center justify-center rounded-full bg-white/30" 
-              onPress={() => navigation.goBack()}
+              onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
@@ -191,7 +202,7 @@ export const ServiceDetailsScreen: React.FC = () => {
           </View>
 
           {/* Crowd level indicator row */}
-          <View className="flex-row mt-6 mb-8 justify-between">
+          <View className="flex-row mt-6 mb-6 justify-between">
             {['low', 'moderate', 'high'].map((level) => (
               <View 
                 key={level}
@@ -214,6 +225,48 @@ export const ServiceDetailsScreen: React.FC = () => {
               </View>
             ))}
           </View>
+
+          {/* Service Selection */}
+          {services.length > 0 && (
+            <View className="mb-6">
+              <Text className="text-lg font-bold text-gray-900 mb-3">Select a Service</Text>
+              {services.map((service) => (
+                <TouchableOpacity
+                  key={service.id}
+                  className={`flex-row items-center p-4 rounded-xl mb-2 border ${
+                    selectedServiceId === service.id
+                      ? 'bg-blue-50 border-blue-300'
+                      : 'bg-gray-50 border-gray-100'
+                  }`}
+                  onPress={() => setSelectedServiceId(service.id)}
+                >
+                  <View className="flex-1">
+                    <Text className={`font-semibold ${selectedServiceId === service.id ? 'text-blue-600' : 'text-gray-900'}`}>
+                      {service.name}
+                    </Text>
+                    {service.description && (
+                      <Text className="text-gray-500 text-sm mt-1">{service.description}</Text>
+                    )}
+                    <View className="flex-row items-center mt-2">
+                      <Ionicons name="people-outline" size={14} color="#6B7280" />
+                      <Text className="text-gray-500 text-xs ml-1">
+                        {service.queue_count || 0} in queue
+                      </Text>
+                      {service.avg_wait_time && (
+                        <>
+                          <Ionicons name="time-outline" size={14} color="#6B7280" className="ml-3" />
+                          <Text className="text-gray-500 text-xs ml-1">~{service.avg_wait_time} min</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                  {selectedServiceId === service.id && (
+                    <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Join Queue Button */}
           <TouchableOpacity 

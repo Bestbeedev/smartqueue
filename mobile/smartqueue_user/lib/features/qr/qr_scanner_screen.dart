@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:smartqueue_user/core/app_theme.dart';
 import 'package:smartqueue_user/core/app_router.dart';
 import 'package:smartqueue_user/data/api_client.dart';
 import 'package:smartqueue_user/data/repositories/tickets_repository.dart';
@@ -130,8 +132,208 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scanner un QR Code')),
-      body: MobileScanner(key: keyQR, controller: controller),
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Scanner
+          MobileScanner(key: keyQR, controller: controller),
+          
+          // Overlay gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.7),
+                ],
+                stops: const [0.0, 0.2, 0.8, 1.0],
+              ),
+            ),
+          ),
+          
+          // Header
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.pop(context),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.back,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Scan QR Code',
+                    style: AppTheme.headline.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 36),
+                ],
+              ),
+            ),
+          ),
+          
+          // Scan frame
+          Center(
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.8),
+                  width: 2,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Corner markers
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: AppTheme.primaryColor, width: 4),
+                          left: BorderSide(color: AppTheme.primaryColor, width: 4),
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: AppTheme.primaryColor, width: 4),
+                          right: BorderSide(color: AppTheme.primaryColor, width: 4),
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppTheme.primaryColor, width: 4),
+                          left: BorderSide(color: AppTheme.primaryColor, width: 4),
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppTheme.primaryColor, width: 4),
+                          right: BorderSide(color: AppTheme.primaryColor, width: 4),
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Instructions
+          Positioned(
+            bottom: 120,
+            left: 0,
+            right: 0,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Scan the QR code at the establishment\nto join the queue instantly',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.callout.copyWith(
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Manual entry option
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                onPressed: () {
+                  // TODO: Implement manual entry
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Manual entry coming soon')),
+                  );
+                },
+                child: Text(
+                  'Manual Entry',
+                  style: AppTheme.body.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

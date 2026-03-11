@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../../theme';
@@ -21,7 +21,6 @@ const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.65;
 
 export const ScanScreen: React.FC = () => {
-  const navigation = useNavigation();
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -93,11 +92,14 @@ export const ScanScreen: React.FC = () => {
       }
 
       if (qrData.establishment_id) {
-        navigation.navigate('ServiceDetails' as never, {
-          establishmentId: qrData.establishment_id,
-          serviceId: qrData.service_id,
-          fromQr: true,
-        } as never);
+        router.push({
+          pathname: '/service-details',
+          params: {
+            establishmentId: String(qrData.establishment_id),
+            serviceId: qrData.service_id ? String(qrData.service_id) : '',
+            fromQr: 'true',
+          },
+        });
       } else {
         Alert.alert('QR invalide', 'Ce QR code n\'est pas reconnu par SmartQueue.', [
           { text: 'OK', onPress: () => setIsProcessing(false) },
@@ -128,7 +130,7 @@ export const ScanScreen: React.FC = () => {
       <View className="absolute top-0 left-0 right-0 z-10 px-5 pt-12 pb-6 flex-row items-center justify-between">
         <TouchableOpacity 
           className="w-10 h-10 items-center justify-center rounded-full bg-white/20" 
-          onPress={() => navigation.goBack()}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>

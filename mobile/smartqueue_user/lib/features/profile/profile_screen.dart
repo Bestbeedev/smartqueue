@@ -21,20 +21,33 @@ class ProfileScreen extends ConsumerWidget {
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // Header
+          // Header with iOS style
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                right: 16,
-                bottom: 16,
+                left: 20,
+                right: 20,
+                bottom: 24,
               ),
-              child: Text(
-                'Profile',
-                style: AppTheme.title1.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profile',
+                    style: AppTheme.title1.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage your account and preferences',
+                    style: AppTheme.callout.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -72,25 +85,25 @@ class ProfileScreen extends ConsumerWidget {
 
               return SliverList(
                 delegate: SliverChildListDelegate([
-                  // Profile card
+                  // Profile card with improved design
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: CupertinoCard(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(20),
                       child: Row(
                         children: [
-                          // Avatar
+                          // Avatar with shadow
                           Container(
-                            width: 80,
-                            height: 80,
+                            width: 70,
+                            height: 70,
                             decoration: BoxDecoration(
                               gradient: AppTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(40),
+                              borderRadius: BorderRadius.circular(35),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppTheme.primaryColor.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
+                                  color: AppTheme.primaryColor.withOpacity(0.4),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
                             ),
@@ -100,12 +113,12 @@ class ProfileScreen extends ConsumerWidget {
                                 style: AppTheme.title1.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 32,
+                                  fontSize: 28,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 16),
                           // User info
                           Expanded(
                             child: Column(
@@ -115,6 +128,7 @@ class ProfileScreen extends ConsumerWidget {
                                   name,
                                   style: AppTheme.title2.copyWith(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 20,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -122,6 +136,29 @@ class ProfileScreen extends ConsumerWidget {
                                   email,
                                   style: AppTheme.callout.copyWith(
                                     color: AppTheme.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.successColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppTheme.successColor.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Active Member',
+                                    style: AppTheme.caption1.copyWith(
+                                      color: AppTheme.successColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -132,26 +169,37 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  // Settings section
+                  // Settings section header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Settings',
-                      style: AppTheme.headline.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.bell,
+                          size: 20,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Notifications',
+                          style: AppTheme.headline.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                  const SizedBox(height: 16),
-
                   // Notification preferences
                   if (user != null) ...[
+                    const SizedBox(height: 16),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: CupertinoCard(
+                        padding: const EdgeInsets.all(4),
                         child: prefsAsync.when(
                           loading: () => Padding(
                             padding: const EdgeInsets.all(16),
@@ -194,6 +242,7 @@ class ProfileScreen extends ConsumerWidget {
                               // Push notifications
                               _buildSettingTile(
                                 icon: CupertinoIcons.bell,
+                                iconColor: AppTheme.primaryColor,
                                 title: 'Push Notifications',
                                 subtitle: 'Receive alerts about queue progress',
                                 trailing: CupertinoSwitch(
@@ -210,6 +259,7 @@ class ProfileScreen extends ConsumerWidget {
                               // SMS notifications
                               _buildSettingTile(
                                 icon: CupertinoIcons.phone,
+                                iconColor: AppTheme.successColor,
                                 title: 'SMS Notifications',
                                 subtitle:
                                     'Receive SMS when your turn approaches',
@@ -227,6 +277,7 @@ class ProfileScreen extends ConsumerWidget {
                               // Position alert
                               _buildSettingTile(
                                 icon: CupertinoIcons.list_number,
+                                iconColor: AppTheme.warningColor,
                                 title: 'Alert when position ≤',
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -265,6 +316,7 @@ class ProfileScreen extends ConsumerWidget {
                               // Time alert
                               _buildSettingTile(
                                 icon: CupertinoIcons.time,
+                                iconColor: AppTheme.errorColor,
                                 title: 'Alert when ETA ≤ (minutes)',
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -307,7 +359,7 @@ class ProfileScreen extends ConsumerWidget {
                   ] else ...[
                     // Not logged in message
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: CupertinoCard(
                         padding: const EdgeInsets.all(24),
                         child: Column(
@@ -336,18 +388,41 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ],
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
 
-                  // Other settings
+                  // Other settings header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.gear,
+                          size: 20,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Settings',
+                          style: AppTheme.headline.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: CupertinoCard(
+                      padding: const EdgeInsets.all(4),
                       child: Column(
                         children: [
                           _buildSettingTile(
                             icon: CupertinoIcons.globe,
+                            iconColor: AppTheme.secondaryColor,
                             title: 'Language',
-                            subtitle: 'English',
                             trailing: const Icon(
                               CupertinoIcons.chevron_forward,
                               size: 16,
@@ -359,8 +434,9 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           _buildSettingTile(
                             icon: CupertinoIcons.moon,
-                            title: 'Thème',
-                            subtitle: 'Clair',
+                            iconColor: AppTheme.warningColor,
+                            title: 'Theme',
+                            subtitle: 'Light',
                             trailing: const Icon(
                               CupertinoIcons.chevron_forward,
                               size: 16,
@@ -372,6 +448,7 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           _buildSettingTile(
                             icon: CupertinoIcons.doc_text,
+                            iconColor: AppTheme.textSecondary,
                             title: 'Terms of Service',
                             trailing: const Icon(
                               CupertinoIcons.chevron_forward,
@@ -437,6 +514,7 @@ class ProfileScreen extends ConsumerWidget {
 
   Widget _buildSettingTile({
     required IconData icon,
+    Color? iconColor,
     required String title,
     String? subtitle,
     Widget? trailing,
@@ -460,7 +538,7 @@ class ProfileScreen extends ConsumerWidget {
             Icon(
               icon,
               size: 20,
-              color: AppTheme.primaryColor,
+              color: iconColor ?? AppTheme.primaryColor,
             ),
             const SizedBox(width: 12),
             Expanded(

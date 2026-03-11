@@ -13,14 +13,14 @@ use App\Models\Ticket;
 */
 
 // Canal privé pour un ticket donné: réservé au propriétaire du ticket + agents/admins
-Broadcast::channel('private-ticket.{ticketId}', function ($user, int $ticketId) {
+Broadcast::channel('ticket.{ticketId}', function ($user, int $ticketId) {
     // Autoriser si l'utilisateur est propriétaire du ticket ou si c'est un agent/admin
     $isOwner = Ticket::where('id', $ticketId)->where('user_id', $user->id)->exists();
     return $isOwner || in_array($user->role, ['agent','admin'], true);
 });
 
 // Canal privé pour l'utilisateur: réservé à l'utilisateur lui-même
-Broadcast::channel('private-user.{userId}', function ($user, int $userId) {
+Broadcast::channel('user.{userId}', function ($user, int $userId) {
     return (int) $user->id === (int) $userId;
 });
 

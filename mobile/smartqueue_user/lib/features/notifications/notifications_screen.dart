@@ -19,30 +19,56 @@ class NotificationsScreen extends ConsumerWidget {
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
         slivers: [
-          // Header
+          // Header with iOS style
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                right: 16,
-                bottom: 16,
+                left: 20,
+                right: 20,
+                bottom: 20,
               ),
               child: Row(
                 children: [
-                  Text(
-                    'Notifications',
-                    style: AppTheme.title1.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Notifications',
+                          style: AppTheme.title1.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Stay updated on your queue status',
+                          style: AppTheme.callout.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => ref.refresh(notificationsProvider),
-                    child: const Icon(
-                      CupertinoIcons.refresh,
-                      color: AppTheme.primaryColor,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppTheme.dividerColor.withOpacity(0.2),
+                        ),
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.refresh,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -84,13 +110,15 @@ class NotificationsScreen extends ConsumerWidget {
               }
 
               return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final notification = notifications[index];
+                      final isLast = index == notifications.length - 1;
+                      
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
                         child: NotificationCard(
                           notification: notification,
                           onTap: () => _handleNotificationTap(

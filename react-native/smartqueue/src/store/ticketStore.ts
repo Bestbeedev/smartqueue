@@ -121,18 +121,21 @@ export const useTicketStore = create<TicketState>()(
         try {
           const ticket = await ticketsApi.createTicket(data);
           
+          // Handle API response that may be wrapped in {data: {...}}
+          const ticketData = (ticket as any)?.data || ticket;
+          
           set({
-            activeTicket: ticket,
-            position: ticket.position,
-            etaMinutes: ticket.eta_minutes,
-            isAlmostThere: ticket.position <= 2,
-            isCalled: ticket.status === 'called',
+            activeTicket: ticketData,
+            position: ticketData.position || 0,
+            etaMinutes: ticketData.eta_minutes || 0,
+            isAlmostThere: ticketData.position ? ticketData.position <= 2 : false,
+            isCalled: ticketData.status === 'called',
             isLoading: false,
             error: null,
             lastUpdate: new Date(),
           });
 
-          return ticket;
+          return ticketData;
         } catch (error: any) {
           const errorMessage = error.response?.data?.message || 'Erreur lors de la création du ticket';
           set({

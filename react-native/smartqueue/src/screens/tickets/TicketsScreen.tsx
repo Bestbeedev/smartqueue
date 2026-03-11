@@ -20,6 +20,7 @@ import Badge from '../../components/ui/Badge';
 import ProgressCircle from '../../components/ui/ProgressCircle';
 import Button from '../../components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 type TicketsNavigationProp = NativeStackNavigationProp<TabParamList, 'Tickets'>;
 
@@ -83,18 +84,19 @@ export const TicketsScreen: React.FC = () => {
 
   // Navigation vers les différentes fonctionnalités
   const handleScanQR = () => {
-    navigation.navigate('ScanScreen' as any);
+    router.push('/(tabs)/scan');
   };
 
   const handleViewLiveTicket = () => {
     if (!activeTicket) return;
-    navigation.navigate('LiveTicket' as any, {
-      ticketId: activeTicket.id,
+    router.push({
+      pathname: '/(tabs)/live-ticket',
+      params: { ticketId: String(activeTicket.id) },
     });
   };
 
   const handleViewHistory = () => {
-    navigation.navigate('history' as any);
+    router.push('/(tabs)/history');
   };
 
   // Rendu du ticket actif
@@ -261,7 +263,7 @@ export const TicketsScreen: React.FC = () => {
         title: 'Carte',
         subtitle: 'Établissements proches',
         icon: <Ionicons name="map-outline" size={24} color={colors.success} />,
-        onPress: () => navigation.navigate('Explore' as any),
+        onPress: () => router.push('/(tabs)'),
         color: colors.success,
       },
     ];

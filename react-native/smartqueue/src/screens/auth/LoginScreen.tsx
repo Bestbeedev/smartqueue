@@ -10,17 +10,13 @@ import {
   Alert,
   Animated,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
 import { Theme } from '../../theme';
-import { RootStackParamList } from '../../navigation/types';
 // eslint-disable-next-line import/no-named-as-default
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { Ionicons } from '@expo/vector-icons';
-
-type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 // Types pour le formulaire
 interface LoginFormData {
@@ -36,7 +32,6 @@ interface FormErrors {
 
 // Composant LoginScreen
 export const LoginScreen: React.FC = () => {
-  const navigation = useNavigation<LoginNavigationProp>();
   const { login, isLoading, error, clearError } = useAuth();
   
   const [formData, setFormData] = useState<LoginFormData>({
@@ -108,6 +103,7 @@ export const LoginScreen: React.FC = () => {
         email: formData.email.trim(),
         password: formData.password,
       });
+      router.replace('/(tabs)');
     } catch (error) {
       // L'erreur est gérée dans le store
       console.error('Login error:', error);
@@ -125,7 +121,7 @@ export const LoginScreen: React.FC = () => {
 
   // Navigation vers l'inscription
   const handleGoToRegister = () => {
-    navigation.navigate('Register');
+    router.push('/onboarding');
   };
 
   // Mot de passe oublié
