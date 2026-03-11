@@ -13,44 +13,55 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         headerShown: false,
-        tabBarShowLabel: true,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-          marginTop: -2,
-        },
+        tabBarShowLabel: false,
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 0 : 0,
-          left: 20,
-          right: 20,
-          height: 70,
-          borderRadius: 0,
+          bottom: Platform.OS === 'ios' ? 30 : 20,
+          marginHorizontal: 20,
+          height: 60,
+          borderRadius: 30,
           backgroundColor: colors.background,
           borderTopWidth: 0,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 8,
-          paddingBottom: 5,
-          paddingTop: 5,
+          shadowOffset: { width: 0, height: 15 },
+          shadowOpacity: 0.15,
+          shadowRadius: 25,
+          elevation: 15,
+          padding:80,
+          paddingHorizontal: 30,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(0,0,0,0.05)',
         },
         tabBarItemStyle: {
-          paddingVertical: 5,
+          height: 50,
+          width: 44,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 10,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Explorer',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "map" : "map-outline"} 
-              size={focused ? 26 : 22} 
-              color={color} 
-            />
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: focused ? colors.primary : 'transparent',
+              transform: [{ scale: focused ? 1.1 : 1 }],
+            }}>
+              <Ionicons 
+                name="map-outline" 
+                size={22} 
+                color={focused ? '#FFFFFF' : color} 
+              />
+            </View>
           ),
         }}
       />
@@ -58,13 +69,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Scanner',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "qr-code" : "qr-code-outline"} 
-              size={focused ? 26 : 22} 
-              color={color} 
-            />
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: focused ? colors.primary : 'transparent',
+              transform: [{ scale: focused ? 1.1 : 1 }],
+            }}>
+              <Ionicons 
+                name="qr-code-outline" 
+                size={22} 
+                color={focused ? '#FFFFFF' : color} 
+              />
+            </View>
           ),
         }}
       />
@@ -72,13 +92,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tickets"
         options={{
-          title: 'Tickets',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "ticket" : "ticket-outline"} 
-              size={focused ? 26 : 22} 
-              color={color} 
-            />
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: focused ? colors.primary : 'transparent',
+              transform: [{ scale: focused ? 1.1 : 1 }],
+            }}>
+              <Ionicons 
+                name="ticket-outline" 
+                size={22} 
+                color={focused ? '#FFFFFF' : color} 
+              />
+            </View>
           ),
         }}
       />
@@ -86,13 +115,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'Historique',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "time" : "time-outline"} 
-              size={focused ? 26 : 22} 
-              color={color} 
-            />
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: focused ? colors.primary : 'transparent',
+              transform: [{ scale: focused ? 1.1 : 1 }],
+            }}>
+              <Ionicons 
+                name="time-outline" 
+                size={22} 
+                color={focused ? '#FFFFFF' : color} 
+              />
+            </View>
           ),
         }}
       />
@@ -100,13 +138,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "person" : "person-outline"} 
-              size={focused ? 26 : 22} 
-              color={color} 
-            />
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: focused ? colors.primary : 'transparent',
+              transform: [{ scale: focused ? 1.1 : 1 }],
+            }}>
+              <Ionicons 
+                name="person-outline" 
+                size={22} 
+                color={focused ? '#FFFFFF' : color} 
+              />
+            </View>
           ),
         }}
       />

@@ -316,7 +316,7 @@ export const ExploreScreen: React.FC = () => {
             <View className="flex-row items-center">
               <Ionicons name="people-outline" size={14} color="#6B7280" />
               <Text className="text-xs text-gray-500 ml-1">
-                {item.people_waiting} waiting
+                {item.people_waiting} personne dans le rang
               </Text>
             </View>
           )}
