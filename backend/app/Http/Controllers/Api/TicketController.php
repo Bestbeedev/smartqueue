@@ -51,24 +51,33 @@ class TicketController extends Controller
     }
 
     /**
-     * Historique paginé des tickets (clos/annulés), avec filtres.
+     * Historique paginé des tickets de l'utilisateur, avec filtres.
+     * Par défaut retourne tous les tickets, ou filtré par status si spécifié.
      */
     public function history(Request $request)
     {
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
         
-        // Include all completed/non-active statuses
-        $completedStatuses = ['closed', 'canceled', 'cancelled', 'served', 'expired', 'absent'];
-        
         $query = Ticket::query()
             ->where('user_id', $request->user()->id)
-            ->whereIn('status', $completedStatuses)
             ->with(['service.establishment'])
             ->orderByDesc('created_at');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->query('status'));
+        // Status filter - can be 'active', 'completed', or specific status
+        $statusFilter = $request->query('status');
+        
+        if ($statusFilter === 'active') {
+            // Active tickets: waiting, called, created
+            $query->whereIn('status', ['waiting', 'called', 'created']);
+        } elseif ($statusFilter === 'completed') {
+            // Completed tickets: closed, canceled, served, expired, absent
+            $query->whereIn('status', ['closed', 'canceled', 'cancelled', 'served', 'expired', 'absent']);
+        } elseif ($statusFilter && $statusFilter !== 'all') {
+            // Specific status filter
+            $query->where('status', $statusFilter);
         }
+        // If status is 'all' or not specified, show all tickets
+        
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->query('from'));
         }
