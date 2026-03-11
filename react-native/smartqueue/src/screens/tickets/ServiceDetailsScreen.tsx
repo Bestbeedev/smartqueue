@@ -24,10 +24,17 @@ import { useTicket } from '../../store/ticketStore';
 import { useDistanceTracking } from '../../hooks/useDistanceTracking';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 
-interface RouteParams {
-  establishmentId: number;
-  serviceId?: number;
-  fromQr?: boolean;
+interface ServiceData {
+  id: number;
+  name: string;
+  status: string;
+  avg_service_time_minutes: number;
+  people_waiting: number;
+}
+
+interface EstablishmentData extends Establishment {
+  total_people_waiting?: number;
+  services?: ServiceData[];
 }
 
 export const ServiceDetailsScreen: React.FC = () => {
@@ -40,8 +47,8 @@ export const ServiceDetailsScreen: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { hasActiveTicket, activeTicket, refreshActiveTicket } = useTicket();
 
-  const [establishment, setEstablishment] = useState<Establishment | null>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [establishment, setEstablishment] = useState<EstablishmentData | null>(null);
+  const [services, setServices] = useState<ServiceData[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(serviceId || null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -63,9 +70,11 @@ export const ServiceDetailsScreen: React.FC = () => {
         establishmentsApi.getEstablishmentServices(establishmentId),
       ]);
       setEstablishment(estData);
-      setServices(Array.isArray(servicesData) ? servicesData : (servicesData as any)?.data || []);
-      if (!selectedServiceId && servicesData && (servicesData as any[]).length > 0) {
-        const firstOpen = (servicesData as any[]).find(s => s.status === 'open');
+      // Services are now embedded in establishment response
+      const servicesList = estData.services || servicesData || [];
+      setServices(Array.isArray(servicesList) ? servicesList : (servicesList as any)?.data || []);
+      if (!selectedServiceId && servicesList && (servicesList as ServiceData[]).length > 0) {
+        const firstOpen = (servicesList as ServiceData[]).find(s => s.status === 'open');
         if (firstOpen) setSelectedServiceId(firstOpen.id);
       }
     } catch (error) {
@@ -222,7 +231,7 @@ export const ServiceDetailsScreen: React.FC = () => {
           </View>
 
           {/* Crowd level indicator row */}
-          <View className="flex-row mt-6 mb-6 justify-between">
+          <View className="flex-row mt-6 mb-4 justify-between">
             {['low', 'moderate', 'high'].map((level) => (
               <View 
                 key={level}
@@ -244,6 +253,29 @@ export const ServiceDetailsScreen: React.FC = () => {
                 </Text>
               </View>
             ))}
+          </View>
+
+          {/* Total People in Queue */}
+          <View className="mb-6 bg-orange-50 rounded-2xl p-4 border border-orange-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 rounded-full bg-orange-100 items-center justify-center">
+                  <Ionicons name="people" size={24} color="#F97316" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-gray-500 text-sm">Personnes en file</Text>
+                  <Text className="text-2xl font-bold text-gray-900">
+                    {establishment.total_people_waiting ?? 0}
+                  </Text>
+                </View>
+              </View>
+              <View className="items-end">
+                <Text className="text-gray-400 text-xs">dans tout l'établissement</Text>
+                <Text className="text-orange-600 font-semibold text-sm">
+                  {services.length} service{services.length > 1 ? 's' : ''} actif{services.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Distance Info */}
@@ -310,12 +342,12 @@ export const ServiceDetailsScreen: React.FC = () => {
                     <View className="flex-row items-center mt-2">
                       <Ionicons name="people-outline" size={14} color="#6B7280" />
                       <Text className="text-gray-500 text-xs ml-1">
-                        {service.queue_count || 0} in queue
+                        {service.people_waiting ?? 0} en file
                       </Text>
-                      {service.avg_wait_time && (
+                      {service.avg_service_time_minutes && (
                         <>
                           <Ionicons name="time-outline" size={14} color="#6B7280" className="ml-3" />
-                          <Text className="text-gray-500 text-xs ml-1">~{service.avg_wait_time} min</Text>
+                          <Text className="text-gray-500 text-xs ml-1">~{service.avg_service_time_minutes} min/service</Text>
                         </>
                       )}
                     </View>
