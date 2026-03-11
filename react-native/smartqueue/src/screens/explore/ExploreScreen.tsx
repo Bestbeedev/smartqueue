@@ -153,7 +153,6 @@ export const ExploreScreen: React.FC = () => {
       const data = await establishmentsApi.getEstablishments({
         lat: currentLat,
         lng: currentLng,
-        radius: 5000,
         type: selectedFilter === "all" ? undefined : selectedFilter,
         q: searchQuery || undefined,
       });
@@ -429,43 +428,27 @@ export const ExploreScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* Carte */}
       <View className="flex-1 bg-gray-200 mt-2">
-        {location ? (
-          <MapView
-            ref={mapRef}
-            className="flex-1"
-            region={mapRegion}
-            showsUserLocation
-            showsMyLocationButton={false}
-            followsUserLocation
-          >
-            {/* Marqueurs des établissements */}
-            {filteredEstablishments.map(renderMarker)}
+        <MapView
+          ref={mapRef}
+          className="flex-1"
+          region={mapRegion}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
+          followsUserLocation={!!location}
+        >
+          {filteredEstablishments.map(renderMarker)}
 
-            {/* Marqueur de position utilisateur */}
-            {location && !isNaN(Number(location.latitude)) && !isNaN(Number(location.longitude)) && (
-              <Marker
-                coordinate={{
-                  latitude: Number(location.latitude),
-                  longitude: Number(location.longitude),
-                }}
-                pinColor={Theme.colors.primary}
-              />
-            )}
-          </MapView>
-        ) : (
-          <View className="flex-1 items-center justify-center bg-gray-100 p-10">
-            <Ionicons
-              name="location-outline"
-              size={48}
-              color={Theme.colors.textTertiary}
+          {(!location || isNaN(Number(location.latitude)) || isNaN(Number(location.longitude))) ? null : (
+            <Marker
+              coordinate={{
+                latitude: Number(location.latitude),
+                longitude: Number(location.longitude),
+              }}
+              pinColor={Theme.colors.primary}
             />
-            <Text className="text-gray-500 mt-4 text-center">
-              Chargement de la carte...
-            </Text>
-          </View>
-        )}
+          )}
+        </MapView>
 
         {/* Floating actions on map */}
         <View style={{ position: 'absolute', right: 20, top: 20 }}>
@@ -485,52 +468,48 @@ export const ExploreScreen: React.FC = () => {
           </View>
         )}
       </View>
-
-      <CustomBottomSheet
-        isVisible={showBottomSheet}
-        onClose={() => setShowBottomSheet(false)}
-        snapPoints={["35%", "65%", "90%"]}
-        headerComponent={
-          <View className="px-5 pt-4 pb-2 bg-white rounded-t-3xl border-b border-gray-100 mb-2">
-            <View className="flex-row justify-between items-center mb-1">
-              <Text className="text-xl font-bold text-gray-900">
-                Nearby Centers
-              </Text>
-              <TouchableOpacity>
-                <Text className="text-blue-600 font-semibold">See All</Text>
-              </TouchableOpacity>
-            </View>
-            <Text className="text-sm text-gray-400">
-              {filteredEstablishments.length} centers found near you
+      {/* Liste des établissements (always visible below map) */}
+      <View className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg" style={{ marginTop: -20, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10 }}>
+        <View className="px-5 pb-2 mb-2">
+          <View className="flex-row justify-between items-center mb-1">
+            <Text className="text-xl font-bold text-gray-900">
+              Établissements
             </Text>
+            <TouchableOpacity>
+              <Text className="text-blue-600 font-semibold">Trier</Text>
+            </TouchableOpacity>
           </View>
-        }
-      >
+          <Text className="text-sm text-gray-400">
+            {filteredEstablishments.length} résultats trouvés
+          </Text>
+        </View>
+
         <FlatList
           data={filteredEstablishments}
           renderItem={renderEstablishment}
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
           ItemSeparatorComponent={() => (
             <View className="h-px bg-gray-100 w-full" />
           )}
           ListEmptyComponent={
-            <View className="py-20 items-center px-10">
+            <View className="py-10 items-center px-10">
               <Ionicons
                 name="search-outline"
                 size={48}
                 color={colors.textTertiary}
               />
               <Text className="text-lg font-bold text-gray-900 mt-4 text-center">
-                Aucun établissement trouvé
+                Aucun établissement
               </Text>
               <Text className="text-gray-500 text-center mt-2 px-5">
-                Essayez de modifier votre recherche ou vos filtres
+                Essayez de modifier votre recherche
               </Text>
             </View>
           }
         />
-      </CustomBottomSheet>
+      </View>
     </View>
   );
 };
