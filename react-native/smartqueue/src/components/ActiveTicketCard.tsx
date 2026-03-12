@@ -405,7 +405,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           activeOpacity={0.8}
         >
           <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
-          <Text style={styles.confirmPresenceText}>Confirmer ma présence</Text>
+          <Text style={styles.confirmPresenceText}>Je suis présent</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

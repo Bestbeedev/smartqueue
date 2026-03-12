@@ -20,7 +20,7 @@ export default function TabLayout() {
           marginHorizontal: 20,
           height: 60,
           borderRadius: 30,
-          backgroundColor: 'rgba(255,255,255,0.9)',
+          backgroundColor: 'rgba(255,255,255,0.9)', // translucide
           borderTopWidth: 0,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 15 },
@@ -28,12 +28,11 @@ export default function TabLayout() {
           shadowRadius: 25,
           elevation: 15,
           backdropFilter: 'blur(100px)',
-          padding:80,
           paddingHorizontal: 30,
           justifyContent: 'space-between',
           alignItems: 'center',
           borderWidth: 1,
-          borderColor: 'rgba(0,0,0,0.05)',
+          borderColor: 'rgba(255,255,255,0.9)'
         },
         tabBarItemStyle: {
           height: 50,
