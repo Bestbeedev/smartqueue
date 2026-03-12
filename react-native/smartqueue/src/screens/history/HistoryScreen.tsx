@@ -581,7 +581,7 @@ export const HistoryScreen: React.FC = () => {
                     onPress={() => handleRejoinQueue(ticket)}
                   >
                     <Ionicons name="refresh-outline" size={18} color="#2563EB" />
-                    <Text className="text-blue-600 font-bold ml-2">Rejoin Queue</Text>
+                    <Text className="text-blue-600 font-bold ml-2">Joindre la file</Text>
                   </TouchableOpacity>
                 </View>
               )}

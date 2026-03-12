@@ -341,7 +341,7 @@ export const ExploreScreen: React.FC = () => {
           <TextInput
             className="flex-1 ml-2 text-base"
             style={{ color: colors.textPrimary } as any}
-            placeholder="Search banks, clinics..."
+            placeholder="Rechercher un etablissement ..."
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
