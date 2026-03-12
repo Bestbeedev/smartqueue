@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   Animated,
   Dimensions,
   Platform,
@@ -16,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.65;
@@ -23,6 +23,7 @@ const SCAN_SIZE = width * 0.65;
 export const ScanScreen: React.FC = () => {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { AlertComponent, showError, showInfo } = useCustomAlert();
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -101,14 +102,10 @@ export const ScanScreen: React.FC = () => {
           },
         });
       } else {
-        Alert.alert('QR invalide', 'Ce QR code n\'est pas reconnu par SmartQueue.', [
-          { text: 'OK', onPress: () => setIsProcessing(false) },
-        ]);
+        showError('QR invalide', 'Ce QR code n\'est pas reconnu par SmartQueue.', 'OK', () => setIsProcessing(false));
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de traiter ce QR code.', [
-        { text: 'OK', onPress: () => setIsProcessing(false) },
-      ]);
+      showError('Erreur', 'Impossible de traiter ce QR code.', 'OK', () => setIsProcessing(false));
     }
   };
 
@@ -217,6 +214,7 @@ export const ScanScreen: React.FC = () => {
           </View>
         </View>
       )}
+      {AlertComponent}
     </View>
   );
 };

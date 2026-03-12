@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Platform,
   RefreshControl,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { useTicket } from '../../store/ticketStore';
 import { Theme } from '../../theme';
 import { TabParamList } from '../../navigation/types';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import ProgressCircle from '../../components/ui/ProgressCircle';
@@ -39,6 +39,7 @@ export const TicketsScreen: React.FC = () => {
     refreshActiveTicket,
     cancelTicket,
   } = useTicket();
+  const { AlertComponent, showWarning, showError } = useCustomAlert();
   
   const [refreshing, setRefreshing] = useState(false);
 
@@ -58,27 +59,19 @@ export const TicketsScreen: React.FC = () => {
   const handleCancelTicket = () => {
     if (!activeTicket) return;
 
-    Alert.alert(
+    showWarning(
       'Annuler le ticket',
       'Êtes-vous sûr de vouloir annuler votre ticket ? Vous perdrez votre place dans la file.',
-      [
-        {
-          text: 'Non',
-          style: 'cancel',
-        },
-        {
-          text: 'Oui, annuler',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelTicket(activeTicket.id);
-            } catch (error) {
-              console.error('Error canceling ticket:', error);
-              Alert.alert('Erreur', 'Impossible d\'annuler le ticket. Veuillez réessayer.');
-            }
-          },
-        },
-      ]
+      'Oui, annuler',
+      async () => {
+        try {
+          await cancelTicket(activeTicket.id);
+        } catch (error) {
+          console.error('Error canceling ticket:', error);
+          showError('Erreur', 'Impossible d\'annuler le ticket. Veuillez réessayer.');
+        }
+      },
+      'Non'
     );
   };
 
@@ -385,6 +378,7 @@ export const TicketsScreen: React.FC = () => {
           <View style={styles.bottomSpace} />
         </View>
       )}
+      {AlertComponent}
     </ScrollView>
   );
 };

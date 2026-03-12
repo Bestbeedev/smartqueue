@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Linking,
   Platform,
@@ -22,6 +20,7 @@ import { ticketsApi } from '../../api/ticketsApi';
 import { useAuth } from '../../store/authStore';
 import { useTicket } from '../../store/ticketStore';
 import { useDistanceTracking } from '../../hooks/useDistanceTracking';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 
 interface ServiceData {
@@ -47,6 +46,7 @@ export const ServiceDetailsScreen: React.FC = () => {
   const fromQr = params.fromQr === 'true';
   const { isAuthenticated } = useAuth();
   const { hasActiveTicket, activeTicket, refreshActiveTicket } = useTicket();
+  const { AlertComponent, showError, showInfo, showWarning } = useCustomAlert();
 
   const [establishment, setEstablishment] = useState<EstablishmentData | null>(null);
   const [services, setServices] = useState<ServiceData[]>([]);
@@ -80,11 +80,11 @@ export const ServiceDetailsScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading establishment:', error);
-      Alert.alert('Erreur', 'Impossible de charger les détails de l\'établissement.');
+      showError('Erreur', 'Impossible de charger les détails de l\'établissement.');
     } finally {
       setIsLoading(false);
     }
-  }, [establishmentId]);
+  }, [establishmentId, showError]);
 
   useEffect(() => {
     loadData();
@@ -92,37 +92,31 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   const handleJoinQueue = async () => {
     if (!isAuthenticated) {
-      Alert.alert(
+      showInfo(
         'Connexion requise',
         'Vous devez être connecté pour rejoindre une file d\'attente.',
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Se connecter', onPress: () => router.push('/onboarding') },
-        ]
+        'Se connecter',
+        () => router.push('/onboarding')
       );
       return;
     }
 
     if (hasActiveTicket && activeTicket) {
-      Alert.alert(
+      showWarning(
         'Ticket actif',
         'Vous avez déjà un ticket actif. Voulez-vous le suivre ?',
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { 
-            text: 'Voir mon ticket', 
-            onPress: () => router.push({
-              pathname: '/(tabs)/live-ticket',
-              params: { ticketId: String(activeTicket.id) },
-            })
-          }
-        ]
+        'Voir mon ticket',
+        () => router.push({
+          pathname: '/(tabs)/live-ticket',
+          params: { ticketId: String(activeTicket.id) },
+        }),
+        'Annuler'
       );
       return;
     }
 
     if (!selectedServiceId) {
-      Alert.alert('Sélection requise', 'Veuillez choisir un service avant de rejoindre la file.');
+      showError('Sélection requise', 'Veuillez choisir un service avant de rejoindre la file.');
       return;
     }
 
@@ -149,7 +143,7 @@ export const ServiceDetailsScreen: React.FC = () => {
       // API returns errors in format: {error: {message: ...}} or {message: ...}
       const apiError = error?.response?.data?.error || error?.response?.data;
       const message = apiError?.message || error?.message || 'Impossible de rejoindre la file.';
-      Alert.alert('Erreur', message);
+      showError('Erreur', message);
     } finally {
       setIsJoining(false);
     }
@@ -201,6 +195,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   return (
     <View className="flex-1 bg-white">
+      {AlertComponent}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} bounces>
         {/* Banner Image Section */}
         <View className="relative h-80 bg-gray-200">
