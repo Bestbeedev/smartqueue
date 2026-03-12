@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../store/authStore';
 import { useSettings } from '../../store/settingsStore';
 import { useAlertPreferencesStore } from '../../store/alertPreferencesStore';
-import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel } from '../../types/alertPreferences';
+import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel, MarginOption } from '../../types/alertPreferences';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +23,9 @@ import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { CustomActionSheet, Option } from '../../components/ui/CustomActionSheet';
 
 type ProfileNavigationProp = NativeStackNavigationProp<TabParamList, 'Profile'>;
+
+// Types pour les options de menu
+// ...imports restent inchangés
 
 // Types pour les options de menu
 interface MenuItem {
@@ -68,15 +71,15 @@ export const ProfileScreen: React.FC = () => {
   const [isLoading] = useState(false);
   const [avatarUri] = useState<string | null>(null);
 
-  // Action sheets visibility state
+  // Etats des action sheets
   const [alertChannelsVisible, setAlertChannelsVisible] = useState(false);
   const [alertTimingVisible, setAlertTimingVisible] = useState(false);
   const [transportModeVisible, setTransportModeVisible] = useState(false);
 
-  // Options for action sheets
+  // Options pour les action sheets
   const alertChannelOptions: Option[] = [
-    { label: 'Push only', value: 'push', icon: 'notifications-outline' },
-    { label: 'SMS only', value: 'sms', icon: 'chatbubble-outline' },
+    { label: 'Push uniquement', value: 'push', icon: 'notifications-outline' },
+    { label: 'SMS uniquement', value: 'sms', icon: 'chatbubble-outline' },
     { label: 'Push & SMS', value: 'push_sms', icon: 'notifications-circle-outline' },
   ];
 
@@ -91,7 +94,7 @@ export const ProfileScreen: React.FC = () => {
     icon: opt.value === 'walking' ? 'walk' : opt.value === 'motorcycle' ? 'bicycle' : 'car',
   }));
 
-  // Handle selections
+  // Gérer les sélections
   const handleSelectAlertChannel = (value: string | number) => {
     if (value === 'push') setChannels(['push']);
     else if (value === 'sms') setChannels(['sms']);
@@ -99,11 +102,14 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleSelectAlertTiming = (value: string | number) => {
-    setMarginMinutes(value as number, String(value));
+    const predefinedOptions: MarginOption[] = [5, 10, 15, 20];
+    const numericValue = value as number;
+    const isPredefined = predefinedOptions.includes(numericValue as MarginOption);
+    setMarginMinutes(numericValue, isPredefined ? (numericValue as MarginOption) : 'custom');
   };
 
   const handleSelectTransportMode = (value: string | number) => {
-    setPreferredTransportMode(value as string);
+    setPreferredTransportMode(value as 'walking' | 'motorcycle' | 'car');
   };
 
   // Charger les préférences au montage
@@ -112,72 +118,63 @@ export const ProfileScreen: React.FC = () => {
     loadAlertPreferences();
   }, [loadPreferences, loadAlertPreferences]);
   
-  // Push notifications enabled from preferences
   const pushNotificationsEnabled = preferences.push_notifications_enabled;
 
-  // Gérer la déconnexion
+  // Déconnexion
   const handleLogout = () => {
     showWarning(
-      'Log Out',
-      'Are you sure you want to log out?',
-      'Log Out',
+      'Déconnexion',
+      'Voulez-vous vraiment vous déconnecter ?',
+      'Déconnexion',
       async () => {
         try {
           await logout();
           router.push('/login');
         } catch (error) {
-          console.error('Logout error:', error);
+          console.error('Erreur de déconnexion :', error);
         }
       },
-      'Cancel'
+      'Annuler'
     );
   };
 
   // Sections du menu
   const menuSections = [
     {
-      title: 'Account Settings',
+      title: 'Paramètres du compte',
       items: [
         {
           id: 'personalInfo',
-          title: 'Personal Information',
-          subtitle: 'Name, email, phone',
+          title: 'Informations personnelles',
+          subtitle: 'Nom, email, téléphone',
           icon: 'person-outline',
           iconBg: 'bg-blue-100',
           onPress: () => router.push('/personal-info'),
         },
-        {
-          id: 'paymentMethods',
-          title: 'Payment Methods',
-          subtitle: 'Manage your cards',
-          icon: 'card-outline',
-          iconBg: 'bg-green-100',
-          onPress: () => router.push('/payment-methods'),
-        },
       ] as MenuItem[],
     },
     {
-      title: 'Alert Preferences',
+      title: 'Préférences des alertes',
       items: [
         {
           id: 'alertChannels',
-          title: 'Alert Channels',
-          subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push only',
+          title: 'Canaux d’alerte',
+          subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push uniquement',
           icon: 'notifications-outline',
           iconBg: 'bg-orange-100',
           onPress: () => setAlertChannelsVisible(true),
         },
         {
           id: 'alertMargin',
-          title: 'Alert Timing',
-          subtitle: `${marginMinutes} min before turn`,
+          title: 'Timing des alertes',
+          subtitle: `${marginMinutes} min avant le tour`,
           icon: 'time-outline',
           iconBg: 'bg-blue-100',
           onPress: () => setAlertTimingVisible(true),
         },
         {
           id: 'transportMode',
-          title: 'Transport Mode',
+          title: 'Mode de transport',
           subtitle: TRANSPORT_MODE_OPTIONS.find(o => o.value === preferredTransportMode)?.label || 'Moto',
           icon: 'car-outline',
           iconBg: 'bg-purple-100',
@@ -185,8 +182,8 @@ export const ProfileScreen: React.FC = () => {
         },
         {
           id: 'safetyAlert',
-          title: 'Safety Alert',
-          subtitle: enableSafetyAlert ? '2nd alert 2 min before' : 'Disabled',
+          title: 'Alerte de sécurité',
+          subtitle: enableSafetyAlert ? '2e alerte 2 min avant' : 'Désactivé',
           icon: 'shield-checkmark-outline',
           iconBg: 'bg-green-100',
           onPress: () => {},
@@ -197,7 +194,7 @@ export const ProfileScreen: React.FC = () => {
       ] as MenuItem[],
     },
     {
-      title: 'App Preferences',
+      title: 'Préférences de l’application',
       items: [
         {
           id: 'notifications',
@@ -211,7 +208,7 @@ export const ProfileScreen: React.FC = () => {
         },
         {
           id: 'darkMode',
-          title: 'Dark Mode',
+          title: 'Mode sombre',
           icon: 'moon-outline',
           iconBg: 'bg-indigo-100',
           onPress: () => {},
@@ -222,18 +219,18 @@ export const ProfileScreen: React.FC = () => {
       ] as MenuItem[],
     },
     {
-      title: 'Support & About',
+      title: 'Support & À propos',
       items: [
         {
           id: 'help',
-          title: 'Help & Support',
+          title: 'Aide & support',
           icon: 'help-circle-outline',
           iconBg: 'bg-purple-100',
           onPress: () => router.push('/help-support'),
         },
         {
           id: 'about',
-          title: 'About SmartQueue',
+          title: 'À propos de SmartQueue',
           icon: 'information-circle-outline',
           iconBg: 'bg-gray-100',
           onPress: () => router.push('/about'),
@@ -242,17 +239,17 @@ export const ProfileScreen: React.FC = () => {
     },
   ];
 
-  // Formater la date d'inscription
+  // Formater la date d’inscription
   const getMemberSince = () => {
-    if (!user?.created_at) return 'Recently';
+    if (!user?.created_at) return 'Récemment';
     try {
       const date = new Date(user.created_at);
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('fr-FR', {
         month: 'long',
         year: 'numeric',
       });
     } catch (error) {
-      return 'Recently';
+      return 'Récemment';
     }
   };
 
@@ -353,7 +350,7 @@ export const ProfileScreen: React.FC = () => {
           </View>
         ))}
 
-        {/* Log Out Button */}
+        {/* Bouton déconnexion */}
         <TouchableOpacity 
           style={styles.logoutButton}
           onPress={handleLogout}
@@ -366,7 +363,7 @@ export const ProfileScreen: React.FC = () => {
             style={styles.logoutGradient}
           >
             <Ionicons name="log-out-outline" size={22} color="#DC2626" />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>Deconnexion</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -374,11 +371,11 @@ export const ProfileScreen: React.FC = () => {
       </View>
       {AlertComponent}
 
-      {/* Custom Action Sheets */}
+      {/* Action Sheets personnalisés */}
       <CustomActionSheet
         visible={alertChannelsVisible}
-        title="Alert Channels"
-        message="Choose how to receive alerts"
+        title="Canaux d’alerte"
+        message="Choisissez comment recevoir les alertes"
         options={alertChannelOptions}
         selectedValue={channels.includes('sms') ? (channels.includes('push') ? 'push_sms' : 'sms') : 'push'}
         onSelect={handleSelectAlertChannel}
@@ -388,8 +385,8 @@ export const ProfileScreen: React.FC = () => {
 
       <CustomActionSheet
         visible={alertTimingVisible}
-        title="Alert Timing"
-        message="When to alert before your turn"
+        title="Timing des alertes"
+        message="Quand être alerté avant votre tour"
         options={alertTimingOptions}
         selectedValue={marginMinutes}
         onSelect={handleSelectAlertTiming}
@@ -399,8 +396,8 @@ export const ProfileScreen: React.FC = () => {
 
       <CustomActionSheet
         visible={transportModeVisible}
-        title="Transport Mode"
-        message="For travel time calculation"
+        title="Mode de transport"
+        message="Pour le calcul du temps de trajet"
         options={transportModeOptions}
         selectedValue={preferredTransportMode}
         onSelect={handleSelectTransportMode}
@@ -534,7 +531,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 0.5,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
@@ -587,7 +584,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 1,
   },
   logoutGradient: {
     flexDirection: 'row',
@@ -607,6 +604,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 24,
+    marginBottom:100,
   },
 });
 

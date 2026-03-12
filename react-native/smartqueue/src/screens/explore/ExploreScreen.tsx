@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import * as Location from "expo-location";
 import {
   View,
   Text,
@@ -6,39 +7,31 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  ScrollView,
-  RefreshControl,
+  ScrollView 
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
 import { Theme } from "../../theme";
-import { TabParamList } from "../../navigation/types";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { Badge } from "../../components/ui/Badge";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import "../../../global.css";
-import { NativeStackNavigationProp } from "react-native-screens/lib/typescript/native-stack/types";
 import { useTicket } from "../../store/ticketStore";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 
-interface FilterOption {
-  id: FilterType;
-  label: string;
-  icon: React.ReactNode;
-}
+
 
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<TabParamList, "Explore">>();
+
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
+  const [placeName, setPlaceName] = useState<string | null>(null);
   const { hasActiveTicket, activeTicket } = useTicket();
   const { AlertComponent, showError, showInfo } = useCustomAlert();
 
@@ -81,6 +74,55 @@ export const ExploreScreen: React.FC = () => {
       });
     }
   }, [location]);
+
+//Ajouter le reverse geocoding
+useEffect(() => {
+  const fetchPlaceName = async () => {
+    if (!location) return;
+
+    try {
+      const result = await Location.reverseGeocodeAsync({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+
+      if (result.length > 0) {
+        const place = result[0];
+
+        const normalize = (str?: string) =>
+          str
+            ? str.toLowerCase().replace(/[-\s]+/g, "").trim()
+            : "";
+
+        const city = place.city?.trim();
+        const subregion = place.subregion?.trim();
+        const district = place.district?.trim();
+        const region = place.region?.trim();
+        const primary = district || subregion || city;
+        const secondary = city || region;
+
+        let name = "";
+
+        if (
+          primary &&
+          secondary &&
+          normalize(primary) !== normalize(secondary)
+        ) {
+          name = `${primary}, ${secondary}`;
+        } else {
+          name = primary || secondary || place.country || "Ma position";
+        }
+
+        setPlaceName(name);
+      }
+    } catch (error) {
+      console.log("Reverse geocode error", error);
+      setPlaceName("Ma position");
+    }
+  };
+
+  fetchPlaceName();
+}, [location]);
 
 
   // Charger les établissements
@@ -145,7 +187,7 @@ export const ExploreScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [location, searchQuery, getCurrentPosition]);
+  }, [location, getCurrentPosition, showError, searchQuery]);
 
   // Effet initial pour charger la position si non disponible
   useEffect(() => {
@@ -303,13 +345,14 @@ export const ExploreScreen: React.FC = () => {
       {/* Search Header - iOS Style */}
       <View className="px-5 pt-12 pb-4 bg-white shadow-sm">
         <View className="flex-row items-center justify-between mb-4">
-          <TouchableOpacity className="flex-row items-center bg-blue-200/50 border-blue-200 border px-3 py-2 rounded-full">
+          <TouchableOpacity onPress={()=>getCurrentPosition()} className="flex-row items-center bg-blue-200/50 border-blue-200 border px-3 py-2 rounded-full">
             <Ionicons name="location-sharp" size={16} color={colors.primary} />
             <Text
               className="ml-1 text-sm font-semibold"
               style={{ color: colors.textPrimary }}
             >
-              {location ? "Ma position" : "Localisation..."}
+              {/* {location ? "Ma position" : "Localisation..."} */}
+              {placeName || "Localisation en cours..."}
             </Text>
             <Ionicons
               name="chevron-down"

@@ -404,7 +404,6 @@ const styles = StyleSheet.create({
   noTicketTitle: {
     fontSize: 34,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto',
     lineHeight: 41,
     letterSpacing: 0.37,
     marginTop: Theme.spacing.lg,
@@ -413,7 +412,6 @@ const styles = StyleSheet.create({
   noTicketSubtitle: {
     fontSize: 17,
     fontWeight: '400',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
     lineHeight: 22,
     letterSpacing: -0.43,
     textAlign: 'center',
@@ -436,7 +434,6 @@ const styles = StyleSheet.create({
   ticketTitle: {
     fontSize: 17,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto',
     lineHeight: 22,
     letterSpacing: -0.43,
     marginRight: Theme.spacing.sm,
@@ -455,7 +452,6 @@ const styles = StyleSheet.create({
   positionLabel: {
     fontSize: 16,
     fontWeight: '400',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
     lineHeight: 21,
     letterSpacing: -0.32,
     marginTop: Theme.spacing.sm,
@@ -474,14 +470,13 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 16,
     fontWeight: '400',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
     lineHeight: 21,
     letterSpacing: -0.32,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
+    
     lineHeight: 21,
     letterSpacing: -0.32,
   },
@@ -497,7 +492,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto',
     lineHeight: 22,
     letterSpacing: -0.43,
     marginBottom: Theme.spacing.lg,
@@ -523,7 +517,7 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
+    
     lineHeight: 21,
     letterSpacing: -0.32,
     textAlign: 'center',
@@ -532,7 +526,7 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
+    
     lineHeight: 18,
     letterSpacing: -0.08,
     textAlign: 'center',
@@ -550,14 +544,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 28,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'Roboto',
     lineHeight: 34,
     letterSpacing: 0.36,
   },
   statLabel: {
     fontSize: 13,
     fontWeight: '400',
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
+    
     lineHeight: 18,
     letterSpacing: -0.08,
     marginTop: Theme.spacing.xs,
