@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   Switch,
+  StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +17,7 @@ import { useAlertPreferencesStore } from '../../store/alertPreferencesStore';
 import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel } from '../../types/alertPreferences';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { CustomActionSheet, Option } from '../../components/ui/CustomActionSheet';
@@ -251,18 +253,18 @@ export const ProfileScreen: React.FC = () => {
   const renderItem = (item: MenuItem) => (
     <TouchableOpacity
       key={item.id}
-      className="flex-row items-center justify-between py-4"
+      style={styles.menuItem}
       onPress={item.onPress}
       disabled={item.toggle || isLoading}
       activeOpacity={0.7}
     >
-      <View className="flex-row items-center flex-1">
-        <View className={`w-10 h-10 ${item.iconBg} rounded-xl items-center justify-center mr-4`}>
-          <Ionicons name={item.icon} size={22} color={item.destructive ? '#EF4444' : '#1F2937'} />
+      <View style={styles.menuItemLeft}>
+        <View style={[styles.iconContainer, { backgroundColor: item.iconBg.replace('bg-', '').replace('100', '50') }]}>
+          <Ionicons name={item.icon} size={22} color={item.destructive ? '#EF4444' : getIconColor(item.iconBg)} />
         </View>
-        <View className="flex-1">
-          <Text className={`text-base font-semibold ${item.destructive ? 'text-red-500' : 'text-gray-900'}`}>{item.title}</Text>
-          {item.subtitle && <Text className="text-gray-400 text-xs mt-0.5">{item.subtitle}</Text>}
+        <View style={styles.menuItemText}>
+          <Text style={[styles.menuItemTitle, item.destructive && styles.destructiveText]}>{item.title}</Text>
+          {item.subtitle && <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>}
         </View>
       </View>
       
@@ -274,51 +276,71 @@ export const ProfileScreen: React.FC = () => {
           thumbColor={Platform.OS === 'ios' ? undefined : '#FFFFFF'}
         />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+        <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
       )}
     </TouchableOpacity>
   );
 
-  return (
-    <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
-      {/* En-tête du profil */}
-      <View className="bg-white px-5 pt-16 pb-8 items-center border-b border-gray-100">
-        <TouchableOpacity className="relative mb-4">
-          <View className="w-24 h-24 rounded-full bg-blue-600 items-center justify-center">
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} className="w-24 h-24 rounded-full" />
-            ) : (
-              <Text className="text-white text-3xl font-bold">
-                {(user?.name || 'U').charAt(0).toUpperCase()}
-              </Text>
-            )}
-          </View>
-          <View className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full items-center justify-center shadow-md border border-gray-50">
-            <Ionicons name="camera" size={16} color="#4B5563" />
-          </View>
-        </TouchableOpacity>
-        
-        <Text className="text-2xl font-bold text-gray-900">{user?.name || 'Profil utilisateur'}</Text>
-        <Text className="text-gray-500 font-medium mb-1">{user?.email || 'user@example.com'}</Text>
-        <View className="bg-gray-100 px-3 py-1 rounded-full mt-2">
-          <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-            Membre depuis {getMemberSince()}
-          </Text>
-        </View>
-      </View>
+  const getIconColor = (iconBg: string) => {
+    const colorMap: Record<string, string> = {
+      'bg-blue-100': '#3B82F6',
+      'bg-green-100': '#10B981',
+      'bg-orange-100': '#F97316',
+      'bg-purple-100': '#8B5CF6',
+      'bg-indigo-100': '#6366F1',
+      'bg-gray-100': '#6B7280',
+    };
+    return colorMap[iconBg] || '#1F2937';
+  };
 
-      {/* Sections du menu */}
-      <View className="px-5 mt-6 pb-12">
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Elegant Gradient Header */}
+      <LinearGradient
+        colors={['#1E40AF', '#3B82F6', '#60A5FA']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          {/* Avatar */}
+          <View style={styles.avatarWrapper}>
+            <View style={styles.avatarContainer}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {(user?.name || 'U').charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+              <Ionicons name="camera" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
+          {/* User Info */}
+          <Text style={styles.userName}>{user?.name || 'User Profile'}</Text>
+          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
+          
+          {/* Member Badge */}
+          <View style={styles.memberBadge}>
+            <Ionicons name="shield-checkmark" size={12} color="#3B82F6" />
+            <Text style={styles.memberText}>Member since {getMemberSince()}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Menu Sections */}
+      <View style={styles.menuContainer}>
         {menuSections.map((section, idx) => (
-          <View key={idx} className="mb-8">
-            <Text className="text-gray-400 font-bold uppercase tracking-widest text-[11px] mb-3 ml-1">
-              {section.title}
-            </Text>
-            <View className="bg-white rounded-[32px] px-5 shadow-sm border border-gray-100">
+          <View key={idx} style={styles.section}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.card}>
               {section.items.map((item, itemIdx) => (
                 <View key={item.id}>
                   {renderItem(item)}
-                  {itemIdx < section.items.length - 1 && <View className="h-px bg-gray-50 w-full" />}
+                  {itemIdx < section.items.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
             </View>
@@ -327,16 +349,22 @@ export const ProfileScreen: React.FC = () => {
 
         {/* Bouton déconnexion */}
         <TouchableOpacity 
-          className="flex-row items-center justify-center bg-red-50 h-16 rounded-3xl border border-red-100"
+          style={styles.logoutButton}
           onPress={handleLogout}
+          activeOpacity={0.8}
         >
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text className="text-red-500 font-bold ml-2 text-base">Déconnexion</Text>
+          <LinearGradient
+            colors={['#FEE2E2', '#FECACA']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.logoutGradient}
+          >
+            <Ionicons name="log-out-outline" size={22} color="#DC2626" />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
-        <Text className="text-center text-gray-300 text-xs mt-8 mb-4">
-          SmartQueue v1.0.0 • Fait avec amour
-        </Text>
+        <Text style={styles.versionText}>SmartQueue v1.0.0 • Built with Love</Text>
       </View>
       {AlertComponent}
 
@@ -376,5 +404,204 @@ export const ProfileScreen: React.FC = () => {
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  headerGradient: {
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    paddingTop: 60,
+    paddingBottom: 30,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarText: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#3B82F6',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userName: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  userEmail: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  memberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backdropFilter: 'blur(10px)',
+  },
+  memberText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginLeft: 6,
+    textTransform: 'capitalize',
+  },
+  menuContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  menuItemText: {
+    flex: 1,
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 3,
+  },
+  menuItemSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  destructiveText: {
+    color: '#DC2626',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 60,
+  },
+  logoutButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  logoutGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 10,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  versionText: {
+    textAlign: 'center',
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 24,
+  },
+});
 
 export default ProfileScreen;

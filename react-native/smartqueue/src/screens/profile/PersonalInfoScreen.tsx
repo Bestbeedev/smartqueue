@@ -6,27 +6,26 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../store/authStore';
 import { usersApi } from '../../api/usersApi';
-import { Theme } from '../../theme';
-import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
-import { Button } from '../../components/ui/Button';
+import { router } from 'expo-router';
 
 export const PersonalInfoScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const colors = useThemeColors();
-  const { user, setUser } = useAuth();
-  const { AlertComponent, showError, showSuccess, showInfo } = useCustomAlert();
+  const { user, updateUser } = useAuth();
+  const { AlertComponent, showError, showSuccess } = useCustomAlert();
   
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -37,8 +36,10 @@ export const PersonalInfoScreen: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await usersApi.updateProfile({ name, phone });
-      setUser(response.data || response);
-      showSuccess('Succès', 'Votre profil a été mis à jour.', 'OK', () => navigation.goBack());
+      updateUser({ name, phone });
+      showSuccess('Succès', 'Votre profil a été mis à jour.', 'OK', () => {
+        setIsEditing(false);
+      });
     } catch (error) {
       console.error('Update profile error:', error);
       showError('Erreur', 'Impossible de mettre à jour le profil.');
@@ -47,128 +48,364 @@ export const PersonalInfoScreen: React.FC = () => {
     }
   };
 
+  const getInitials = () => {
+    return (name || user?.name || 'U').charAt(0).toUpperCase();
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.separator, paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Informations personnelles</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Nom complet</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.separator }]}
-            value={name}
-            onChangeText={setName}
-            placeholder="Votre nom"
-            placeholderTextColor={colors.textTertiary}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Email (non modifiable)</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput, { backgroundColor: colors.surfaceSecondary, color: colors.textTertiary, borderColor: colors.separator }]}
-            value={user?.email || ''}
-            editable={false}
-            selectTextOnFocus={false}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Téléphone</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.separator }]}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="Votre numéro de téléphone"
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        <Button
-          title="Enregistrer les modifications"
-          onPress={handleSave}
-          isLoading={isLoading}
-          variant="primary"
-          style={styles.saveButton}
-        />
-        
-        <View style={styles.dangerZone}>
-          <TouchableOpacity onPress={() => showInfo('Supprimer mon compte', 'Cette action est irréversible. Contactez le support pour supprimer votre compte.')}>
-            <Text style={[styles.dangerText, { color: colors.danger }]}>Supprimer mon compte</Text>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        style={[styles.header, { paddingTop: insets.top + 20 }]}
+      >
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.iconButton}
+            activeOpacity={0.8}
+          >
+            <View style={styles.iconButtonBg}>
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Profil</Text>
+          <TouchableOpacity 
+            onPress={() => setIsEditing(!isEditing)}
+            style={styles.iconButton}
+            activeOpacity={0.8}
+          >
+            <View style={styles.iconButtonBg}>
+              <Ionicons name={isEditing ? "close" : "pencil"} size={22} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
         </View>
+
+        {/* Avatar Section */}
+        <View style={styles.avatarSection}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials()}</Text>
+            </View>
+            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+              <Ionicons name="camera" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userName}>{user?.name || 'Utilisateur'}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Content */}
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Info Cards */}
+        <View style={styles.formContainer}>
+          {/* Name Field */}
+          <View style={styles.fieldContainer}>
+            <View style={styles.fieldIconContainer}>
+              <Ionicons name="person" size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldLabel}>Nom complet</Text>
+              <TextInput
+                style={[styles.fieldInput, !isEditing && styles.fieldInputDisabled]}
+                value={name}
+                onChangeText={setName}
+                placeholder="Votre nom"
+                placeholderTextColor="#9CA3AF"
+                editable={isEditing}
+              />
+            </View>
+          </View>
+
+          {/* Email Field */}
+          <View style={styles.fieldContainer}>
+            <View style={[styles.fieldIconContainer, { backgroundColor: '#F3E8FF' }]}>
+              <Ionicons name="mail" size={20} color="#9333EA" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput
+                style={[styles.fieldInput, styles.fieldInputDisabled]}
+                value={user?.email || ''}
+                editable={false}
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+            </View>
+          </View>
+
+          {/* Phone Field */}
+          <View style={styles.fieldContainer}>
+            <View style={[styles.fieldIconContainer, { backgroundColor: '#ECFDF5' }]}>
+              <Ionicons name="call" size={20} color="#10B981" />
+            </View>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldLabel}>Téléphone</Text>
+              <TextInput
+                style={[styles.fieldInput, !isEditing && styles.fieldInputDisabled]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+33 6 12 34 56 78"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                editable={isEditing}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Save Button */}
+        {isEditing && (
+          <TouchableOpacity
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#3B82F6', '#2563EB']}
+              style={styles.saveButtonGradient}
+            >
+              {isLoading ? (
+                <Ionicons name="sync" size={24} color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={24} color="#FFFFFF" />
+                  <Text style={styles.saveButtonText}>Enregistrer</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* Delete Account Section */}
+        <View style={styles.dangerSection}>
+          <Text style={styles.dangerTitle}>Zone de danger</Text>
+          <TouchableOpacity 
+            style={styles.dangerButton}
+            onPress={() => showError('Supprimer mon compte', 'Cette action est irréversible. Contactez le support à support@smartqueue.com pour supprimer votre compte.', 'J\'ai compris')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            <Text style={styles.dangerButtonText}>Supprimer mon compte</Text>
+            <Ionicons name="chevron-forward" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+
         {AlertComponent}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
   header: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: Theme.colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Theme.colors.separator,
+    marginBottom: 20,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-  },
-  content: {
-    padding: 20,
-  },
-  section: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  input: {
+  iconButton: {
+    width: 44,
     height: 44,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: Theme.colors.textPrimary,
-    marginBottom: 16,
-    borderWidth: 0.5,
-    borderColor: Theme.colors.separator,
   },
-  disabledInput: {
-    backgroundColor: Theme.colors.surfaceSecondary,
-    color: Theme.colors.textTertiary,
-  },
-  saveButton: {
-    marginTop: 10,
-  },
-  dangerZone: {
-    marginTop: 40,
+  iconButtonBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  dangerText: {
-    color: Theme.colors.danger,
-    fontSize: 15,
-    fontWeight: '500',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  avatarSection: {
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarText: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  formContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  fieldContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  fieldIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  fieldContent: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  fieldInput: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    padding: 0,
+    height: 24,
+  },
+  fieldInputDisabled: {
+    color: '#94A3B8',
+  },
+  verifiedBadge: {
+    marginLeft: 8,
+  },
+  saveButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 8,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  dangerSection: {
+    marginTop: 10,
+  },
+  dangerTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  dangerButtonText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: 12,
   },
 });
 
