@@ -610,6 +610,7 @@ const styles = StyleSheet.create({
   // Quick Actions
   quickActionsSection: {
     marginTop: 20,
+    marginBottom:100,
   },
   quickActionsGrid: {
     flexDirection: 'row',
