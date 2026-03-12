@@ -18,6 +18,7 @@ import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { CustomActionSheet, Option } from '../../components/ui/CustomActionSheet';
 
 type ProfileNavigationProp = NativeStackNavigationProp<TabParamList, 'Profile'>;
 
@@ -60,10 +61,48 @@ export const ProfileScreen: React.FC = () => {
     setPreferredTransportMode,
     loadPreferences: loadAlertPreferences,
   } = useAlertPreferencesStore();
-  const { AlertComponent, showInfo, showWarning, showSuccess } = useCustomAlert();
+  const { AlertComponent, showWarning } = useCustomAlert();
   
   const [isLoading] = useState(false);
   const [avatarUri] = useState<string | null>(null);
+
+  // Action sheets visibility state
+  const [alertChannelsVisible, setAlertChannelsVisible] = useState(false);
+  const [alertTimingVisible, setAlertTimingVisible] = useState(false);
+  const [transportModeVisible, setTransportModeVisible] = useState(false);
+
+  // Options for action sheets
+  const alertChannelOptions: Option[] = [
+    { label: 'Push only', value: 'push', icon: 'notifications-outline' },
+    { label: 'SMS only', value: 'sms', icon: 'chatbubble-outline' },
+    { label: 'Push & SMS', value: 'push_sms', icon: 'notifications-circle-outline' },
+  ];
+
+  const alertTimingOptions: Option[] = MARGIN_OPTIONS.map(opt => ({
+    label: opt.label,
+    value: opt.value === 'custom' ? marginMinutes : (opt.value as number),
+  }));
+
+  const transportModeOptions: Option[] = TRANSPORT_MODE_OPTIONS.map(opt => ({
+    label: opt.label,
+    value: opt.value,
+    icon: opt.value === 'walking' ? 'walk' : opt.value === 'motorcycle' ? 'bicycle' : 'car',
+  }));
+
+  // Handle selections
+  const handleSelectAlertChannel = (value: string | number) => {
+    if (value === 'push') setChannels(['push']);
+    else if (value === 'sms') setChannels(['sms']);
+    else if (value === 'push_sms') setChannels(['push', 'sms']);
+  };
+
+  const handleSelectAlertTiming = (value: string | number) => {
+    setMarginMinutes(value as number, String(value));
+  };
+
+  const handleSelectTransportMode = (value: string | number) => {
+    setPreferredTransportMode(value as string);
+  };
 
   // Charger les préférences au montage
   useEffect(() => {
@@ -103,7 +142,7 @@ export const ProfileScreen: React.FC = () => {
           subtitle: 'Name, email, phone',
           icon: 'person-outline',
           iconBg: 'bg-blue-100',
-          onPress: () => navigation.navigate('PersonalInfo' as any),
+          onPress: () => router.push('/personal-info'),
         },
         {
           id: 'paymentMethods',
@@ -111,7 +150,7 @@ export const ProfileScreen: React.FC = () => {
           subtitle: 'Manage your cards',
           icon: 'card-outline',
           iconBg: 'bg-green-100',
-          onPress: () => navigation.navigate('PaymentMethods' as any),
+          onPress: () => router.push('/payment-methods'),
         },
       ] as MenuItem[],
     },
@@ -124,13 +163,7 @@ export const ProfileScreen: React.FC = () => {
           subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push only',
           icon: 'notifications-outline',
           iconBg: 'bg-orange-100',
-          onPress: () => {
-            showInfo(
-              'Alert Channels',
-              'Choose how to receive alerts',
-              'OK'
-            );
-          },
+          onPress: () => setAlertChannelsVisible(true),
         },
         {
           id: 'alertMargin',
@@ -138,9 +171,7 @@ export const ProfileScreen: React.FC = () => {
           subtitle: `${marginMinutes} min before turn`,
           icon: 'time-outline',
           iconBg: 'bg-blue-100',
-          onPress: () => {
-            showInfo('Alert Timing', 'When to alert before your turn');
-          },
+          onPress: () => setAlertTimingVisible(true),
         },
         {
           id: 'transportMode',
@@ -148,9 +179,7 @@ export const ProfileScreen: React.FC = () => {
           subtitle: TRANSPORT_MODE_OPTIONS.find(o => o.value === preferredTransportMode)?.label || 'Moto',
           icon: 'car-outline',
           iconBg: 'bg-purple-100',
-          onPress: () => {
-            showInfo('Transport Mode', 'For travel time calculation');
-          },
+          onPress: () => setTransportModeVisible(true),
         },
         {
           id: 'safetyAlert',
@@ -198,14 +227,14 @@ export const ProfileScreen: React.FC = () => {
           title: 'Help & Support',
           icon: 'help-circle-outline',
           iconBg: 'bg-purple-100',
-          onPress: () => navigation.navigate('HelpSupport' as any),
+          onPress: () => router.push('/help-support'),
         },
         {
           id: 'about',
           title: 'About SmartQueue',
           icon: 'information-circle-outline',
           iconBg: 'bg-gray-100',
-          onPress: () => navigation.navigate('AboutApp' as any),
+          onPress: () => router.push('/about'),
         },
       ] as MenuItem[],
     },
@@ -316,6 +345,40 @@ export const ProfileScreen: React.FC = () => {
         </Text>
       </View>
       {AlertComponent}
+
+      {/* Custom Action Sheets */}
+      <CustomActionSheet
+        visible={alertChannelsVisible}
+        title="Alert Channels"
+        message="Choose how to receive alerts"
+        options={alertChannelOptions}
+        selectedValue={channels.includes('sms') ? (channels.includes('push') ? 'push_sms' : 'sms') : 'push'}
+        onSelect={handleSelectAlertChannel}
+        onClose={() => setAlertChannelsVisible(false)}
+        type="warning"
+      />
+
+      <CustomActionSheet
+        visible={alertTimingVisible}
+        title="Alert Timing"
+        message="When to alert before your turn"
+        options={alertTimingOptions}
+        selectedValue={marginMinutes}
+        onSelect={handleSelectAlertTiming}
+        onClose={() => setAlertTimingVisible(false)}
+        type="info"
+      />
+
+      <CustomActionSheet
+        visible={transportModeVisible}
+        title="Transport Mode"
+        message="For travel time calculation"
+        options={transportModeOptions}
+        selectedValue={preferredTransportMode}
+        onSelect={handleSelectTransportMode}
+        onClose={() => setTransportModeVisible(false)}
+        type="info"
+      />
     </ScrollView>
   );
 };
