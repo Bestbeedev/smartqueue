@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { useAuth } from '../../store/authStore';
 import { usersApi } from '../../api/usersApi';
 import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { Button } from '../../components/ui/Button';
 
 export const PersonalInfoScreen: React.FC = () => {
@@ -22,6 +22,7 @@ export const PersonalInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const colors = useThemeColors();
   const { user, setUser } = useAuth();
+  const { AlertComponent, showError, showSuccess, showInfo } = useCustomAlert();
   
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -29,7 +30,7 @@ export const PersonalInfoScreen: React.FC = () => {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Erreur', 'Le nom est obligatoire.');
+      showError('Erreur', 'Le nom est obligatoire.');
       return;
     }
 
@@ -37,11 +38,10 @@ export const PersonalInfoScreen: React.FC = () => {
     try {
       const response = await usersApi.updateProfile({ name, phone });
       setUser(response.data || response);
-      Alert.alert('Succès', 'Votre profil a été mis à jour.');
-      navigation.goBack();
+      showSuccess('Succès', 'Votre profil a été mis à jour.', 'OK', () => navigation.goBack());
     } catch (error) {
       console.error('Update profile error:', error);
-      Alert.alert('Erreur', 'Impossible de mettre à jour le profil.');
+      showError('Erreur', 'Impossible de mettre à jour le profil.');
     } finally {
       setIsLoading(false);
     }
@@ -97,10 +97,11 @@ export const PersonalInfoScreen: React.FC = () => {
         />
         
         <View style={styles.dangerZone}>
-          <TouchableOpacity onPress={() => Alert.alert('Supprimer mon compte', 'Cette action est irréversible. Contactez le support pour supprimer votre compte.')}>
+          <TouchableOpacity onPress={() => showInfo('Supprimer mon compte', 'Cette action est irréversible. Contactez le support pour supprimer votre compte.')}>
             <Text style={[styles.dangerText, { color: colors.danger }]}>Supprimer mon compte</Text>
           </TouchableOpacity>
         </View>
+        {AlertComponent}
       </ScrollView>
     </View>
   );
