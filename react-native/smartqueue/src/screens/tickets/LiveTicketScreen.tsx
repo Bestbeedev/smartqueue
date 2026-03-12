@@ -5,9 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTicket } from '../../store/ticketStore';
 import { useTicketSocket } from '../../hooks/useTicketSocket';
@@ -16,6 +19,8 @@ import { formatDistance, formatTravelTime } from '../../utils/distance';
 import { CalledTicketOverlay } from '../../components/CalledTicketOverlay';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import axiosClient from '../../api/axiosClient';
+
+const { width } = Dimensions.get('window');
 
 interface LiveTicketScreenProps {
   ticketId?: string;
@@ -43,7 +48,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   // WebSocket connection
   useTicketSocket(numericTicketId?.toString() || null);
   
-  // Distance tracking - use establishment coordinates from active ticket
+  // Distance tracking
   const { distanceInfo, hasPermission: hasLocationPermission } = useDistanceTracking({
     targetCoordinates: activeTicket?.establishment ? {
       latitude: (activeTicket.establishment as any).lat || 0,
@@ -55,7 +60,56 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   // Countdown state
   const [countdownSeconds, setCountdownSeconds] = useState(180);
   
-  console.log('[LiveTicketScreen] ticketId:', numericTicketId, 'position:', position);
+  // Animations
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const positionAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Entry animation
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Pulse animation for live status
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  // Position animation
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(positionAnim, { toValue: 0.8, duration: 150, useNativeDriver: true }),
+      Animated.spring(positionAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+  }, [position]);
   
   // Handle recall action
   const handleRecall = useCallback(async () => {
@@ -76,55 +130,20 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     
     try {
       await axiosClient.post(`/tickets/${numericTicketId}/en-route`, {
-        lat: distanceInfo ? null : undefined, // Will use last known location
+        lat: distanceInfo ? null : undefined,
         lng: distanceInfo ? null : undefined,
         estimated_travel_minutes: distanceInfo?.travelTimes?.car,
       });
-      // Navigate back to ticket view or show confirmation
       showSuccess('Confirmation', 'L\'agent a été notifié que vous êtes en route');
     } catch (error: any) {
       showError('Erreur', error.response?.data?.error || 'Impossible de confirmer');
     }
   }, [numericTicketId, distanceInfo, showSuccess, showError]);
   
-  // Handle dismiss (expired)
+  // Handle dismiss
   const handleDismiss = useCallback(() => {
     return router.replace('/(tabs)');
   }, []);
-
-  // Flash animation for "called" state
-  const flashAnim = useRef(new Animated.Value(0)).current;
-  const positionAnim = useRef(new Animated.Value(1)).current;
-
-  // Flash animation when "called"
-  useEffect(() => {
-    if (isCalled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const flashLoop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(flashAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
-          Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: false }),
-        ]),
-        { iterations: 3 }
-      );
-      flashLoop.start();
-    }
-  }, [flashAnim, isCalled]); // flashAnim is a ref, so it's stable and doesn't need to be in dependencies
-
-  // Haptic when "almost"
-  useEffect(() => {
-    if (isAlmostThere && !isCalled) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  }, [isAlmostThere, isCalled]);
-
-  // Animate position number change
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(positionAnim, { toValue: 0.7, duration: 200, useNativeDriver: true }),
-      Animated.spring(positionAnim, { toValue: 1, useNativeDriver: true }),
-    ]).start();
-  }, [position, positionAnim]); // positionAnim is a ref, so it's stable and doesn't need to be in dependencies
 
   const handleCancelTicket = () => {
     showWarning(
@@ -148,120 +167,196 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     return `${n}ème`;
   };
 
-  // ── CALLED STATE ──────────────────────────────────────
+  const getStatusColor = () => {
+    if (isCalled) return ['#EF4444', '#DC2626'];
+    if (position <= 3) return ['#F59E0B', '#D97706'];
+    return ['#10B981', '#059669'];
+  };
+
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={styles.container}>
       {AlertComponent}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Header */}
-        <View className="px-5 pt-12 pb-6 flex-row items-center justify-between">
-          <View className="w-10" />
-          <Text className="text-xl font-bold text-gray-900">Detail Ticket</Text>
+      
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
           <TouchableOpacity 
-            className="w-10 h-10 items-center justify-center rounded-full bg-gray-200"
+            style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="close" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
-
-        {/* Ticket Card */}
-        <View className="mx-5 bg-white rounded-[40px] p-8 items-center shadow-xl shadow-gray-200 border border-gray-100 mb-8">
-          {/* QR Code Section */}
-          <View className="bg-gray-50 p-6 rounded-[32px] mb-8 border border-gray-100">
-            <Ionicons name="qr-code" size={180} color="#111827" />
-          </View>
-
-          <Text className="text-2xl font-bold text-gray-900 mb-2">You are almost there!</Text>
           
-          <View className="flex-row items-center bg-green-50 px-3 py-1 rounded-full mb-6">
-            <View className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-            <Text className="text-green-600 text-xs font-bold uppercase tracking-widest">Mini-Status LIVE</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Ma File</Text>
+            <View style={styles.liveBadge}>
+              <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
           </View>
+          
+          <View style={styles.placeholder} />
+        </View>
+      </LinearGradient>
 
-          {/* Large Position */}
-          <View className="items-center mb-8">
-            <Text className="text-6xl font-black text-blue-600">{getOrdinal(position)}</Text>
-            <Text className="text-gray-400 font-bold uppercase tracking-tighter mt-1">in the line</Text>
-          </View>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Main Ticket Card */}
+        <Animated.View 
+          style={[
+            styles.ticketCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Status Banner */}
+          <LinearGradient
+            colors={getStatusColor() as [string, string]}
+            style={styles.statusBanner}
+          >
+            <Ionicons name="time-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.statusText}>
+              {isCalled ? 'C\'est votre tour !' : position <= 3 ? 'Bientôt votre tour' : 'En attente'}
+            </Text>
+          </LinearGradient>
 
-          <View className="w-full h-px bg-gray-100 mb-8" />
+          {/* Ticket Info */}
+          <View style={styles.ticketContent}>
+            {/* QR Code */}
+            <View style={styles.qrContainer}>
+              <View style={styles.qrBackground}>
+                <Ionicons name="qr-code" size={140} color="#1F2937" />
+              </View>
+              <Text style={styles.ticketNumber}>{activeTicket?.number || `TKT-${numericTicketId}`}</Text>
+            </View>
 
-          {/* Distance Info */}
-          {distanceInfo && hasLocationPermission && (
-            <View className="w-full mb-6 bg-blue-50 rounded-2xl p-4 border border-blue-100">
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="location" size={18} color="#3B82F6" />
-                <Text className="text-blue-600 font-bold ml-2 text-sm">
+            {/* Position Display */}
+            <View style={styles.positionContainer}>
+              <Text style={styles.positionLabel}>Votre position</Text>
+              <Animated.View style={{ transform: [{ scale: positionAnim }] }}>
+                <Text style={styles.positionNumber}>{getOrdinal(position)}</Text>
+              </Animated.View>
+              <Text style={styles.positionSubtitle}>dans la file</Text>
+            </View>
+
+            {/* Divider */}
+            <View style={styles.divider} />
+
+            {/* Info Grid */}
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <View style={[styles.infoIconContainer, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="business-outline" size={20} color="#3B82F6" />
+                </View>
+                <Text style={styles.infoLabel}>Établissement</Text>
+                <Text style={styles.infoValue} numberOfLines={1}>
                   {activeTicket?.establishment?.name || 'Établissement'}
                 </Text>
               </View>
-              <View className="flex-row justify-between">
-                <View className="items-center flex-1">
-                  <Ionicons name="navigate" size={16} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold mt-1">
-                    {formatDistance(distanceInfo.kilometers)}
-                  </Text>
-                  <Text className="text-gray-400 text-[10px]">Distance</Text>
+
+              <View style={styles.infoItem}>
+                <View style={[styles.infoIconContainer, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="time-outline" size={20} color="#10B981" />
                 </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="walk" size={16} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold mt-1">
-                    {formatTravelTime(distanceInfo.travelTimes.walking)}
-                  </Text>
-                  <Text className="text-gray-400 text-[10px]">À pied</Text>
-                </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="bicycle" size={16} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold mt-1">
-                    {formatTravelTime(distanceInfo.travelTimes.motorcycle)}
-                  </Text>
-                  <Text className="text-gray-400 text-[10px]">Moto</Text>
-                </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="car" size={16} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold mt-1">
-                    {formatTravelTime(distanceInfo.travelTimes.car)}
-                  </Text>
-                  <Text className="text-gray-400 text-[10px]">Voiture</Text>
-                </View>
+                <Text style={styles.infoLabel}>Temps estimé</Text>
+                <Text style={styles.infoValue}>{etaMinutes} min</Text>
               </View>
             </View>
-          )}
 
-          {/* Info Details */}
-          <View className="w-full gap-4">
-            <View className="flex-row justify-between">
-              <Text className="text-gray-400 font-medium">Ticket ID</Text>
-              <Text className="text-gray-900 font-bold">{activeTicket?.number || `TKT-${numericTicketId}`}</Text>
-            </View>
-            <View className="flex-row justify-between">
-              <Text className="text-gray-400 font-medium">Est. Wait Time</Text>
-              <Text className="text-gray-900 font-bold">{etaMinutes} mins</Text>
-            </View>
+            {/* Distance Info Card */}
+            {distanceInfo && hasLocationPermission && (
+              <View style={styles.distanceCard}>
+                <View style={styles.distanceHeader}>
+                  <Ionicons name="location-outline" size={18} color="#3B82F6" />
+                  <Text style={styles.distanceTitle}>Votre position</Text>
+                </View>
+                
+                <View style={styles.distanceGrid}>
+                  <View style={styles.distanceItem}>
+                    <Ionicons name="navigate-outline" size={20} color="#6B7280" />
+                    <Text style={styles.distanceValue}>{formatDistance(distanceInfo.kilometers)}</Text>
+                    <Text style={styles.distanceLabel}>Distance</Text>
+                  </View>
+                  
+                  <View style={styles.distanceDivider} />
+                  
+                  <View style={styles.distanceItem}>
+                    <Ionicons name="walk-outline" size={20} color="#6B7280" />
+                    <Text style={styles.distanceValue}>
+                      {formatTravelTime(distanceInfo.travelTimes.walking)}
+                    </Text>
+                    <Text style={styles.distanceLabel}>À pied</Text>
+                  </View>
+                  
+                  <View style={styles.distanceDivider} />
+                  
+                  <View style={styles.distanceItem}>
+                    <Ionicons name="car-outline" size={20} color="#6B7280" />
+                    <Text style={styles.distanceValue}>
+                      {formatTravelTime(distanceInfo.travelTimes.car)}
+                    </Text>
+                    <Text style={styles.distanceLabel}>Voiture</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
-        </View>
+        </Animated.View>
 
         {/* Action Buttons */}
-        <View className="px-5 gap-3">
-          <TouchableOpacity className="flex-row items-center justify-center bg-blue-600 h-16 rounded-2xl shadow-lg shadow-blue-200">
-            <Ionicons name="map-outline" size={20} color="white" className="mr-2" />
-            <Text className="text-white font-bold text-base ml-2">Open Navigation</Text>
+        <Animated.View 
+          style={[
+            styles.actionsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity style={styles.primaryButton}>
+            <LinearGradient
+              colors={['#3B82F6', '#2563EB']}
+              style={styles.primaryButtonGradient}
+            >
+              <Ionicons name="navigate-circle-outline" size={22} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Ouvrir Navigation</Text>
+            </LinearGradient>
           </TouchableOpacity>
-          
-          <TouchableOpacity className="flex-row items-center justify-center bg-black h-16 rounded-2xl">
-            <Ionicons name="card-outline" size={20} color="white" className="mr-2" />
-            <Text className="text-white font-bold text-base ml-2">Add to Wallet</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Cancel Ticket Link */}
-        <TouchableOpacity className="py-8 items-center" onPress={handleCancelTicket}>
-          <Text className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cancel Ticket</Text>
-        </TouchableOpacity>
+          <View style={styles.secondaryButtons}>
+            <TouchableOpacity style={styles.secondaryButton}>
+              <View style={styles.secondaryButtonIcon}>
+                <Ionicons name="wallet-outline" size={20} color="#1F2937" />
+              </View>
+              <Text style={styles.secondaryButtonText}>Wallet</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton}>
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="share-outline" size={20} color="#D97706" />
+              </View>
+              <Text style={styles.secondaryButtonText}>Partager</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleCancelTicket}>
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: '#FEE2E2' }]}>
+                <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+              </View>
+              <Text style={[styles.secondaryButtonText, { color: '#EF4444' }]}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </ScrollView>
 
-      {/* Called Ticket Overlay - shows when ticket is called */}
+      {/* Called Ticket Overlay */}
       <CalledTicketOverlay
         visible={isCalled}
         counterNumber={counterNumber || undefined}
@@ -276,5 +371,266 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   );
 };
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  headerGradient: {
+    paddingTop: 50,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    marginRight: 6,
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  placeholder: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  ticketCard: {
+    marginHorizontal: 16,
+    marginTop: -20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  ticketContent: {
+    padding: 24,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  qrBackground: {
+    backgroundColor: '#F3F4F6',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  ticketNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 2,
+  },
+  positionContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  positionLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  positionNumber: {
+    fontSize: 72,
+    fontWeight: '800',
+    color: '#1F2937',
+    lineHeight: 80,
+  },
+  positionSubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 20,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  infoItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  distanceCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  distanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  distanceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3B82F6',
+  },
+  distanceGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  distanceItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  distanceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  distanceLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  distanceDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E2E8F0',
+  },
+  actionsContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    gap: 12,
+  },
+  primaryButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  primaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  secondaryButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  secondaryButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  secondaryButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+});
 
 export default LiveTicketScreen;
