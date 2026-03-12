@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Alert,
   ActivityIndicator,
   ScrollView,
   RefreshControl,
@@ -13,6 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
 import { Theme } from "../../theme";
 import { TabParamList } from "../../navigation/types";
@@ -40,6 +40,7 @@ export const ExploreScreen: React.FC = () => {
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
   const { hasActiveTicket, activeTicket } = useTicket();
+  const { AlertComponent, showError, showInfo } = useCustomAlert();
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [filteredEstablishments, setFilteredEstablishments] = useState<
@@ -91,7 +92,7 @@ export const ExploreScreen: React.FC = () => {
     }
 
     if (!currentLocation) {
-      Alert.alert(
+      showError(
         "Localisation requise",
         "Veuillez autoriser la localisation pour trouver les établissements proches.",
       );
@@ -132,7 +133,7 @@ export const ExploreScreen: React.FC = () => {
       console.error("Error loading establishments:", error?.response?.status, error?.message);
       // Only show alert if it's a network/auth error, not if it's a backend issue
       if (error?.response?.status === 401 || error?.code === 'NETWORK_ERROR' || !error?.response) {
-        Alert.alert(
+        showError(
           "Erreur",
           "Impossible de charger les établissements. Vérifiez votre connexion.",
         );
@@ -525,6 +526,7 @@ export const ExploreScreen: React.FC = () => {
           }
         />
       </View>
+      {AlertComponent}
     </View>
   );
 };

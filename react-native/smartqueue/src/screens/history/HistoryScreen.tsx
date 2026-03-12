@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Alert,
   RefreshControl,
   ActivityIndicator,
   ScrollView,
@@ -15,6 +14,7 @@ import { ticketsApi, Ticket } from '../../api/ticketsApi';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useTicket } from '../../store/ticketStore';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { router } from 'expo-router';
 
 type HistoryNavigationProp = NativeStackNavigationProp<TabParamList, 'History'>;
@@ -38,7 +38,8 @@ interface StatusOption {
 // Composant HistoryScreen
 export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<HistoryNavigationProp>();
-  const { hasActiveTicket, activeTicket, position, isCalled, counterNumber } = useTicket();
+  const { hasActiveTicket, activeTicket, setActiveTicket, isCalled, counterNumber } = useTicket();
+  const { AlertComponent, showSuccess, showError } = useCustomAlert();
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('weekly');
@@ -258,19 +259,15 @@ export const HistoryScreen: React.FC = () => {
     
     try {
       const newTicket = await ticketsApi.rejoinQueue(ticket.service_id);
-      Alert.alert(
+      showSuccess(
         'Ticket Created',
         `Your ticket ${newTicket.number} was created for ${ticket.service?.name || 'Service'}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('tickets' as any),
-          },
-        ]
+        'OK',
+        () => navigation.navigate('tickets' as any)
       );
     } catch (error) {
       console.error('Error rejoining queue:', error);
-      Alert.alert('Error', 'Impossible de rejoindre la file.');
+      showError('Error', 'Impossible de rejoindre la file.');
     }
   };
 
@@ -356,7 +353,7 @@ export const HistoryScreen: React.FC = () => {
         <View className="flex-row items-center justify-between bg-white/10 rounded-2xl p-3 mt-2">
           <View className="items-center flex-1">
             <Ionicons name="people" size={18} color="white" />
-            <Text className="text-white font-bold text-lg mt-1">{position}</Text>
+            <Text className="text-white font-bold text-lg mt-1">{activeTicket.position || '-'}</Text>
             <Text className="text-white/60 text-xs">Position</Text>
           </View>
           <View className="items-center flex-1">

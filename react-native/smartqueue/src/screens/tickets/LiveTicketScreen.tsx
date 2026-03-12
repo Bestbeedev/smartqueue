@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Animated,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -15,6 +14,7 @@ import { useTicketSocket } from '../../hooks/useTicketSocket';
 import { useDistanceTracking } from '../../hooks/useDistanceTracking';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 import { CalledTicketOverlay } from '../../components/CalledTicketOverlay';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import axiosClient from '../../api/axiosClient';
 
 interface LiveTicketScreenProps {
@@ -37,6 +37,8 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     setRecalled,
     markAsCalled,
   } = useTicket();
+
+  const { AlertComponent, showError, showSuccess, showWarning } = useCustomAlert();
 
   // WebSocket connection
   useTicketSocket(numericTicketId?.toString() || null);
@@ -64,9 +66,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       setRecalled();
       setCountdownSeconds(response.data.countdown_seconds || 180);
     } catch (error: any) {
-      Alert.alert('Erreur', error.response?.data?.error || 'Impossible d\'envoyer le rappel');
+      showError('Erreur', error.response?.data?.error || 'Impossible d\'envoyer le rappel');
     }
-  }, [numericTicketId, hasRecalled, setRecalled]);
+  }, [numericTicketId, hasRecalled, setRecalled, showError]);
   
   // Handle "en route" action
   const handleEnRoute = useCallback(async () => {
@@ -79,11 +81,11 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
         estimated_travel_minutes: distanceInfo?.travelTimes?.car,
       });
       // Navigate back to ticket view or show confirmation
-      Alert.alert('Confirmation', 'L\'agent a été notifié que vous êtes en route');
+      showSuccess('Confirmation', 'L\'agent a été notifié que vous êtes en route');
     } catch (error: any) {
-      Alert.alert('Erreur', error.response?.data?.error || 'Impossible de confirmer');
+      showError('Erreur', error.response?.data?.error || 'Impossible de confirmer');
     }
-  }, [numericTicketId, distanceInfo]);
+  }, [numericTicketId, distanceInfo, showSuccess, showError]);
   
   // Handle dismiss (expired)
   const handleDismiss = useCallback(() => {
@@ -125,24 +127,19 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   }, [position]); // positionAnim is a ref, so it's stable and doesn't need to be in dependencies
 
   const handleCancelTicket = () => {
-    Alert.alert(
+    showWarning(
       'Quitter la file ?',
       'Vous perdrez votre place dans la file d\'attente. Cette action est irréversible.',
-      [
-        { text: 'Rester', style: 'cancel' },
-        {
-          text: 'Quitter',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelTicket(numericTicketId!);
-              router.back();
-            } catch {
-              Alert.alert('Erreur', 'Impossible d\'annuler le ticket.');
-            }
-          },
-        },
-      ]
+      'Quitter',
+      async () => {
+        try {
+          await cancelTicket(numericTicketId!);
+          router.back();
+        } catch {
+          showError('Erreur', 'Impossible d\'annuler le ticket.');
+        }
+      },
+      'Rester'
     );
   };
 
@@ -154,6 +151,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   // ── CALLED STATE ──────────────────────────────────────
   return (
     <View className="flex-1 bg-gray-50">
+      {AlertComponent}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View className="px-5 pt-12 pb-6 flex-row items-center justify-between">

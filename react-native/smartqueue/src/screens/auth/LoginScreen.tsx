@@ -7,15 +7,14 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Animated,
+  ScrollView,
+  SafeAreaView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
-import { Theme } from '../../theme';
-// eslint-disable-next-line import/no-named-as-default
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types pour le formulaire
@@ -33,6 +32,7 @@ interface FormErrors {
 // Composant LoginScreen
 export const LoginScreen: React.FC = () => {
   const { login, isLoading, error, clearError } = useAuth();
+  const { AlertComponent, showInfo, showWarning } = useCustomAlert();
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -41,23 +41,22 @@ export const LoginScreen: React.FC = () => {
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   
   // Animation du formulaire
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   // Animation au montage
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 600,
+        duration: 500,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 600,
+        duration: 500,
         useNativeDriver: true,
       }),
     ]).start();
@@ -84,8 +83,6 @@ export const LoginScreen: React.FC = () => {
     // Validation mot de passe
     if (!formData.password) {
       newErrors.password = 'Le mot de passe est requis';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
     }
 
     setErrors(newErrors);
@@ -121,206 +118,163 @@ export const LoginScreen: React.FC = () => {
 
   // Navigation vers l'inscription
   const handleGoToRegister = () => {
-    router.push('/onboarding');
+    router.push('/register');
+  };
+
+  // Social login (placeholder)
+  const handleGoogleLogin = () => {
+    showInfo('Info', 'Connexion avec Google à venir');
   };
 
   // Mot de passe oublié
   const handleForgotPassword = () => {
-    Alert.alert(
+    showWarning(
       'Mot de passe oublié',
       'Entrez votre adresse email pour recevoir un lien de réinitialisation.',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Envoyer',
-          onPress: () => {
-            // TODO: Implémenter la réinitialisation du mot de passe
-            console.log('Send password reset to:', formData.email);
-          },
-        },
-      ]
+      'Envoyer',
+      () => {
+        // TODO: Implémenter la réinitialisation du mot de passe
+        console.log('Send password reset to:', formData.email);
+      },
+      'Annuler'
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={[styles.content, { backgroundColor: Theme.colors.background }]}>
-        {/* Animation du contenu */}
-        <Animated.View
-          style={[
-            styles.formContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: Theme.colors.textPrimary }]}>
-              Connexion
-            </Text>
-            <Text style={[styles.subtitle, { color: Theme.colors.textSecondary }]}>
-              Accédez à votre file d'attente virtuelle
-            </Text>
-          </View>
+          {/* Header with Gradient */}
+          <LinearGradient
+            colors={['#60A5FA', '#3B82F6', '#2563EB']}
+            style={styles.headerGradient}
+          >
+            <Text style={styles.logoText}>VQS</Text>
+            <Text style={styles.welcomeText}>Welcome Back</Text>
+          </LinearGradient>
 
-          {/* Formulaire */}
-          <Card variant="default" style={styles.formCard}>
-            {/* Champ Email */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color={Theme.colors.textTertiary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: Theme.colors.textPrimary },
-                    errors.email && styles.inputError,
-                  ]}
-                  placeholder="Adresse email"
-                  placeholderTextColor={Theme.colors.textTertiary}
-                  value={formData.email}
-                  onChangeText={(value) => handleInputChange('email', value)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                />
-              </View>
-              {errors.email && (
-                <Text style={[styles.errorText, { color: Theme.colors.danger }]}>
-                  {errors.email}
-                </Text>
-              )}
+          {/* Form Section */}
+          <Animated.View
+            style={[
+              styles.formContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            {/* Email Input */}
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#9CA3AF"
+                value={formData.email}
+                onChangeText={(value) => handleInputChange('email', value)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
             </View>
+            {errors.email && (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            )}
 
-            {/* Champ Mot de passe */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color={Theme.colors.textTertiary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: Theme.colors.textPrimary },
-                    errors.password && styles.inputError,
-                  ]}
-                  placeholder="Mot de passe"
-                  placeholderTextColor={Theme.colors.textTertiary}
-                  value={formData.password}
-                  onChangeText={(value) => handleInputChange('password', value)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Theme.colors.textTertiary}
-                  />
-                </TouchableOpacity>
-              </View>
-              {errors.password && (
-                <Text style={[styles.errorText, { color: Theme.colors.danger }]}>
-                  {errors.password}
-                </Text>
-              )}
-            </View>
-
-            {/* Options */}
-            <View style={styles.options}>
+            {/* Password Input */}
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                value={formData.password}
+                onChangeText={(value) => handleInputChange('password', value)}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
               <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() => setRememberMe(!rememberMe)}
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
               >
-                <View style={[
-                  styles.checkbox,
-                  rememberMe && { backgroundColor: Theme.colors.primary },
-                ]}>
-                  {rememberMe && (
-                    <Ionicons
-                      name="checkmark"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                  )}
-                </View>
-                <Text style={[styles.checkboxLabel, { color: Theme.colors.textSecondary }]}>
-                  Se souvenir de moi
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleForgotPassword}
-                disabled={isLoading}
-              >
-                <Text style={[styles.forgotPassword, { color: Theme.colors.primary }]}>
-                  Mot de passe oublié?
-                </Text>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#9CA3AF"
+                />
               </TouchableOpacity>
             </View>
+            {errors.password && (
+              <Text style={styles.errorText}>{errors.password}</Text>
+            )}
 
-            {/* Erreur générale */}
+            {/* Forgot Password */}
+            <TouchableOpacity
+              onPress={handleForgotPassword}
+              disabled={isLoading}
+              style={styles.forgotPasswordContainer}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {/* Error Message */}
             {error && (
-              <View style={[styles.errorContainer, { backgroundColor: Theme.colors.danger + '10' }]}>
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={20}
-                  color={Theme.colors.danger}
-                />
-                <Text style={[styles.errorText, { color: Theme.colors.danger }]}>
-                  {error}
-                </Text>
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
+                <Text style={styles.errorContainerText}>{error}</Text>
               </View>
             )}
 
-            {/* Bouton de connexion */}
-            <Button
-              title="Se connecter"
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
               onPress={handleSubmit}
-              loading={isLoading}
               disabled={isLoading}
-              variant="primary"
-              fullWidth
-              style={styles.loginButton}
-            />
-          </Card>
-
-          {/* Lien vers l'inscription */}
-          <View style={styles.registerContainer}>
-            <Text style={[styles.registerText, { color: Theme.colors.textSecondary }]}>
-              Pas encore de compte?{' '}
-            </Text>
-            <TouchableOpacity onPress={handleGoToRegister} disabled={isLoading}>
-              <Text style={[styles.registerLink, { color: Theme.colors.primary }]}>
-                S'inscrire
-              </Text>
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <Text style={styles.signInButtonText}>Connexion...</Text>
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    </KeyboardAvoidingView>
+
+            {/* Social Login Section */}
+            <View style={styles.socialSection}>
+              <Text style={styles.socialTitle}>Social Login</Text>
+              
+              <TouchableOpacity
+                style={styles.googleButton}
+                onPress={handleGoogleLogin}
+                activeOpacity={0.8}
+              >
+                <View style={styles.googleIconContainer}>
+                  <Text style={styles.googleIcon}>G</Text>
+                </View>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sign Up Link */}
+            <View style={styles.signUpContainer}>
+              <Text style={styles.signUpText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={handleGoToRegister} disabled={isLoading}>
+                <Text style={styles.signUpLink}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+          {AlertComponent}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -328,113 +282,162 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  content: {
+  keyboardView: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Theme.spacing.lg,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 80,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  logoText: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    letterSpacing: 2,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   formContainer: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: Theme.spacing.xxxl,
-  },
-  title: {
-    ...Theme.typography.textStyles.largeTitle,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  subtitle: {
-    ...Theme.typography.textStyles.body,
-    textAlign: 'center',
-  },
-  formCard: {
-    marginBottom: Theme.spacing.xl,
-  },
-  inputContainer: {
-    marginBottom: Theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    marginTop: -40,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 40,
+    flex: 1,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: '#E5E7EB',
     borderRadius: 12,
-    paddingHorizontal: Theme.spacing.md,
-    backgroundColor: Theme.colors.inputBackground,
-  },
-  inputError: {
-    borderColor: Theme.colors.danger,
-  },
-  inputIcon: {
-    marginRight: Theme.spacing.sm,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#F9FAFB',
+    height: 52,
   },
   input: {
     flex: 1,
-    ...Theme.typography.textStyles.body,
-    paddingVertical: Theme.spacing.md,
-    minHeight: 44,
+    fontSize: 16,
+    color: '#111827',
+    height: '100%',
   },
   eyeIcon: {
-    padding: Theme.spacing.sm,
+    padding: 4,
   },
   errorText: {
-    ...Theme.typography.textStyles.footnote,
-    marginTop: Theme.spacing.xs,
-    marginLeft: Theme.spacing.sm,
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: -12,
+    marginBottom: 12,
+    marginLeft: 4,
   },
-  options: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Theme.spacing.sm,
-  },
-  checkboxLabel: {
-    ...Theme.typography.textStyles.callout,
-  },
-  forgotPassword: {
-    ...Theme.typography.textStyles.callout,
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#2563EB',
     fontWeight: '500',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Theme.spacing.sm,
+    backgroundColor: '#FEF2F2',
+    padding: 12,
     borderRadius: 8,
-    marginBottom: Theme.spacing.lg,
+    marginBottom: 16,
   },
-  loginButton: {
-    marginTop: Theme.spacing.md,
+  errorContainerText: {
+    fontSize: 14,
+    color: '#EF4444',
+    marginLeft: 8,
+    flex: 1,
   },
-  registerContainer: {
+  signInButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  signInButtonDisabled: {
+    opacity: 0.7,
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  socialSection: {
+    marginBottom: 24,
+  },
+  socialTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    height: 48,
+    backgroundColor: '#FFFFFF',
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  googleIcon: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  signUpContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
-  registerText: {
-    ...Theme.typography.textStyles.body,
+  signUpText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
-  registerLink: {
-    ...Theme.typography.textStyles.body,
+  signUpLink: {
+    fontSize: 14,
+    color: '#2563EB',
     fontWeight: '600',
   },
 });

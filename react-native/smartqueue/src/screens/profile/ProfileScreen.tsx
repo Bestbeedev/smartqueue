@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   Image,
   ScrollView,
   Platform,
@@ -17,6 +16,8 @@ import { useAlertPreferencesStore } from '../../store/alertPreferencesStore';
 import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel } from '../../types/alertPreferences';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 type ProfileNavigationProp = NativeStackNavigationProp<TabParamList, 'Profile'>;
 
@@ -45,7 +46,6 @@ export const ProfileScreen: React.FC = () => {
     updatePreferences,
     loadPreferences 
   } = useSettings();
-  
   const {
     channels,
     marginMinutes,
@@ -60,6 +60,7 @@ export const ProfileScreen: React.FC = () => {
     setPreferredTransportMode,
     loadPreferences: loadAlertPreferences,
   } = useAlertPreferencesStore();
+  const { AlertComponent, showInfo, showWarning, showSuccess } = useCustomAlert();
   
   const [isLoading] = useState(false);
   const [avatarUri] = useState<string | null>(null);
@@ -75,26 +76,19 @@ export const ProfileScreen: React.FC = () => {
 
   // Gérer la déconnexion
   const handleLogout = () => {
-    Alert.alert(
+    showWarning(
       'Log Out',
       'Are you sure you want to log out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
+      'Log Out',
+      async () => {
+        try {
+          await logout();
+          router.push('/login');
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      },
+      'Cancel'
     );
   };
 
@@ -131,15 +125,10 @@ export const ProfileScreen: React.FC = () => {
           icon: 'notifications-outline',
           iconBg: 'bg-orange-100',
           onPress: () => {
-            Alert.alert(
+            showInfo(
               'Alert Channels',
               'Choose how to receive alerts',
-              [
-                { text: 'Push only', onPress: () => setChannels(['push']) },
-                { text: 'SMS only', onPress: () => setChannels(['sms']) },
-                { text: 'Push & SMS', onPress: () => setChannels(['push', 'sms']) },
-                { text: 'Cancel', style: 'cancel' },
-              ]
+              'OK'
             );
           },
         },
@@ -150,11 +139,7 @@ export const ProfileScreen: React.FC = () => {
           icon: 'time-outline',
           iconBg: 'bg-blue-100',
           onPress: () => {
-            const options = MARGIN_OPTIONS.map(opt => ({
-              text: opt.label,
-              onPress: () => setMarginMinutes(opt.value === 'custom' ? marginMinutes : opt.value as number, opt.value),
-            }));
-            Alert.alert('Alert Timing', 'When to alert before your turn', [...options, { text: 'Cancel', style: 'cancel' }]);
+            showInfo('Alert Timing', 'When to alert before your turn');
           },
         },
         {
@@ -164,11 +149,7 @@ export const ProfileScreen: React.FC = () => {
           icon: 'car-outline',
           iconBg: 'bg-purple-100',
           onPress: () => {
-            const options = TRANSPORT_MODE_OPTIONS.map(opt => ({
-              text: opt.label,
-              onPress: () => setPreferredTransportMode(opt.value),
-            }));
-            Alert.alert('Transport Mode', 'For travel time calculation', [...options, { text: 'Cancel', style: 'cancel' }]);
+            showInfo('Transport Mode', 'For travel time calculation');
           },
         },
         {
@@ -334,6 +315,7 @@ export const ProfileScreen: React.FC = () => {
           SmartQueue v1.0.0 • Built with Love
         </Text>
       </View>
+      {AlertComponent}
     </ScrollView>
   );
 };

@@ -5,17 +5,16 @@ import {
   TouchableOpacity,
   Animated,
   StyleSheet,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTicket } from "../store/ticketStore";
 import { useDistanceTracking } from "../hooks/useDistanceTracking";
 import { useAlertPreferencesStore } from "../store/alertPreferencesStore";
+import { useCustomAlert } from "../hooks/useCustomAlert";
 import {
   formatDistance,
   formatTravelTime,
-  DistanceInfo,
 } from "../utils/distance";
 import "../../global.css";
 import axiosClient from "../api/axiosClient";
@@ -43,6 +42,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   } = useTicket();
 
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
+  const { AlertComponent, showWarning, showError, showInfo } = useCustomAlert();
 
   // Distance tracking
   const { distanceInfo } = useDistanceTracking({
@@ -124,29 +124,24 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
   // Handle cancel ticket
   const handleCancel = useCallback(() => {
-    Alert.alert(
+    showWarning(
       "Annuler le ticket",
       "Êtes-vous sûr de vouloir annuler votre ticket ?",
-      [
-        { text: "Non", style: "cancel" },
-        {
-          text: "Oui, annuler",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              if (activeTicket?.id) {
-                await axiosClient.delete(`/tickets/${activeTicket.id}`);
-              }
-              clearActiveTicket();
-              onCancel?.();
-            } catch (error: any) {
-              Alert.alert("Erreur", "Impossible d'annuler le ticket");
-            }
-          },
-        },
-      ],
+      "Oui, annuler",
+      async () => {
+        try {
+          if (activeTicket?.id) {
+            await axiosClient.delete(`/tickets/${activeTicket.id}`);
+          }
+          clearActiveTicket();
+          onCancel?.();
+        } catch (error: any) {
+          showError("Erreur", "Impossible d'annuler le ticket");
+        }
+      },
+      "Non"
     );
-  }, [activeTicket, clearActiveTicket, onCancel]);
+  }, [activeTicket, clearActiveTicket, onCancel, showWarning, showError]);
 
   // Handle confirm presence
   const handleConfirmPresence = useCallback(async () => {
@@ -158,14 +153,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onConfirmPresence?.();
     } catch (error: any) {
-      Alert.alert("Erreur", "Impossible de confirmer");
+      showError("Erreur", "Impossible de confirmer");
     }
-  }, [activeTicket, distanceInfo, preferredTransportMode, onConfirmPresence]);
+  }, [activeTicket, distanceInfo, preferredTransportMode, onConfirmPresence, showError]);
 
   // Handle recall
   const handleRecall = useCallback(async () => {
     if (hasRecalled) {
-      Alert.alert("Info", "Le rappel a déjà été utilisé");
+      showInfo("Info", "Le rappel a déjà été utilisé");
       return;
     }
 
@@ -174,21 +169,23 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       setRecalled();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch (error: any) {
-      Alert.alert(
+      showError(
         "Erreur",
-        error.response?.data?.error || "Impossible d'envoyer le rappel",
+        error.response?.data?.error || "Impossible d'envoyer le rappel"
       );
     }
-  }, [activeTicket, hasRecalled, setRecalled]);
+  }, [activeTicket, hasRecalled, setRecalled, showInfo, showError]);
 
   if (!activeTicket) return null;
 
   // Called state - dramatic transformation
   if (isCalled) {
     return (
-      <Animated.View
-        style={[styles.calledContainer, { transform: [{ scale: pulseAnim }] }]}
-      >
+      <>
+        {AlertComponent}
+        <Animated.View
+          style={[styles.calledContainer, { transform: [{ scale: pulseAnim }] }]}
+        >
         <View style={styles.calledContent}>
           <Animated.View
             style={[styles.calledIcon, { transform: [{ scale: pulseAnim }] }]}
@@ -253,171 +250,175 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </TouchableOpacity>
         </View>
       </Animated.View>
+    </>
     );
   }
 
   // Normal state
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={onPress}
-      activeOpacity={0.95}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.establishmentInfo}>
-          <Ionicons name="business" size={18} color="#3B82F6" />
-          <Text style={styles.establishmentName}>
-            {activeTicket.establishment?.name || "Établissement"}
-          </Text>
+    <>
+      <TouchableOpacity
+        style={styles.container}
+        onPress={onPress}
+        activeOpacity={0.95}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.establishmentInfo}>
+            <Ionicons name="business" size={18} color="#3B82F6" />
+            <Text style={styles.establishmentName}>
+              {activeTicket.establishment?.name || "Établissement"}
+            </Text>
+          </View>
+          <View style={styles.statusBadge}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>File ouverte</Text>
+          </View>
         </View>
-        <View style={styles.statusBadge}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>File ouverte</Text>
-        </View>
-      </View>
 
-      {/* Ticket Info */}
-      <View style={styles.ticketSection}>
-        <View style={styles.ticketNumberContainer}>
-          <Text style={styles.ticketLabel}>VOTRE TICKET</Text>
-          <View style={styles.ticketNumberBox}>
-            <Text style={styles.ticketNumber}>
-              N°{activeTicket.number?.split("-").pop() || position}
+        {/* Ticket Info */}
+        <View style={styles.ticketSection}>
+          <View style={styles.ticketNumberContainer}>
+            <Text style={styles.ticketLabel}>VOTRE TICKET</Text>
+            <View style={styles.ticketNumberBox}>
+              <Text style={styles.ticketNumber}>
+                N°{activeTicket.number?.split("-").pop() || position}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.serviceInfo}>
+            <Text style={styles.serviceName}>
+              {activeTicket.service?.name || "Service"}
+            </Text>
+            <Text style={styles.ticketTime}>
+              Pris à{" "}
+              {new Date(activeTicket.created_at || Date.now()).toLocaleTimeString(
+                "fr-FR",
+                { hour: "2-digit", minute: "2-digit" },
+              )}
             </Text>
           </View>
         </View>
-        <View style={styles.serviceInfo}>
-          <Text style={styles.serviceName}>
-            {activeTicket.service?.name || "Service"}
-          </Text>
-          <Text style={styles.ticketTime}>
-            Pris à{" "}
-            {new Date(activeTicket.created_at || Date.now()).toLocaleTimeString(
-              "fr-FR",
-              { hour: "2-digit", minute: "2-digit" },
-            )}
-          </Text>
-        </View>
-      </View>
 
-      {/* Position & ETA */}
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Position dans la file</Text>
-          <Text style={styles.statValue}>
-            <Text style={styles.statHighlight}>{position}ème</Text> /{" "}
-            {queueLength}
-          </Text>
+        {/* Position & ETA */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Position dans la file</Text>
+            <Text style={styles.statValue}>
+              <Text style={styles.statHighlight}>{position}ème</Text> /{" "}
+              {queueLength}
+            </Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Temps d&apos;attente estimé</Text>
+            <Text style={styles.statValue}>
+              ≈ <Text style={styles.statHighlight}>{etaMinutes}</Text> minutes
+            </Text>
+          </View>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Temps d&apos;attente estimé</Text>
-          <Text style={styles.statValue}>
-            ≈ <Text style={styles.statHighlight}>{etaMinutes}</Text> minutes
-          </Text>
-        </View>
-      </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressSection}>
-        <View style={styles.progressBar}>
-          <Animated.View
-            style={[
-              styles.progressFill,
+        {/* Progress Bar */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressBar}>
+            <Animated.View
+              style={[
+                styles.progressFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {processedCount} / {queueLength} traités
+          </Text>
+        </View>
+
+        {/* Distance Block */}
+        {distanceInfo && (
+          <View style={styles.distanceGrid}>
+            {[
               {
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["0%", "100%"],
-                }),
+                icon: "navigate",
+                label: "Distance",
+                value: formatDistance(distanceInfo.kilometers),
               },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {processedCount} / {queueLength} traités
-        </Text>
-      </View>
+              {
+                icon: "walk",
+                label: "À pied",
+                value: formatTravelTime(distanceInfo.travelTimes.walking),
+              },
+              {
+                icon: "bicycle",
+                label: "Moto",
+                value: formatTravelTime(distanceInfo.travelTimes.motorcycle),
+              },
+              {
+                icon: "car",
+                label: "Voiture",
+                value: formatTravelTime(distanceInfo.travelTimes.car),
+              },
+            ].map((item, index) => (
+              <View key={index} style={styles.distanceCard}>
+                <Ionicons name={item.icon as any} size={24} color="#6B7280" />
+                <Text style={styles.distanceValue}>{item.value}</Text>
+                <Text style={styles.distanceLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
-      {/* Distance Block */}
-      {distanceInfo && (
-        <View style={styles.distanceGrid}>
-          {[
-            {
-              icon: "navigate",
-              label: "Distance",
-              value: formatDistance(distanceInfo.kilometers),
-            },
-            {
-              icon: "walk",
-              label: "À pied",
-              value: formatTravelTime(distanceInfo.travelTimes.walking),
-            },
-            {
-              icon: "bicycle",
-              label: "Moto",
-              value: formatTravelTime(distanceInfo.travelTimes.motorcycle),
-            },
-            {
-              icon: "car",
-              label: "Voiture",
-              value: formatTravelTime(distanceInfo.travelTimes.car),
-            },
-          ].map((item, index) => (
-            <View key={index} style={styles.distanceCard}>
-              <Ionicons name={item.icon as any} size={24} color="#6B7280" />
-              <Text style={styles.distanceValue}>{item.value}</Text>
-              <Text style={styles.distanceLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* When to Leave Alert */}
-      {whenToLeave && (
-        <View
-          style={[
-            styles.leaveAlert,
-            whenToLeave.urgent && styles.leaveAlertUrgent,
-          ]}
-        >
-          <Ionicons
-            name={whenToLeave.urgent ? "warning" : "time"}
-            size={16}
-            color={whenToLeave.urgent ? "#DC2626" : "#F59E0B"}
-          />
-          <Text
+        {/* When to Leave Alert */}
+        {whenToLeave && (
+          <View
             style={[
-              styles.leaveText,
-              whenToLeave.urgent && styles.leaveTextUrgent,
+              styles.leaveAlert,
+              whenToLeave.urgent && styles.leaveAlertUrgent,
             ]}
           >
-            {whenToLeave.message}
-          </Text>
+            <Ionicons
+              name={whenToLeave.urgent ? "warning" : "time"}
+              size={16}
+              color={whenToLeave.urgent ? "#DC2626" : "#F59E0B"}
+            />
+            <Text
+              style={[
+                styles.leaveText,
+                whenToLeave.urgent && styles.leaveTextUrgent,
+              ]}
+            >
+              {whenToLeave.message}
+            </Text>
+          </View>
+        )}
+
+        {/* Actions */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.confirmPresenceButton}
+            onPress={handleConfirmPresence}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+            <Text style={styles.confirmPresenceText}>Je suis présent</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelTicketButton}
+            onPress={handleCancel}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close-circle" size={18} color="#EF4444" />
+            <Text style={styles.cancelTicketText}>Annuler</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      {/* Actions */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.confirmPresenceButton}
-          onPress={handleConfirmPresence}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
-          <Text style={styles.confirmPresenceText}>Je suis présent</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.cancelTicketButton}
-          onPress={handleCancel}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="close-circle" size={18} color="#EF4444" />
-          <Text style={styles.cancelTicketText}>Annuler</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {AlertComponent}
+    </>
   );
 };
 

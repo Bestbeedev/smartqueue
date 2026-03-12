@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useSettings } from '../../store/settingsStore';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 export const NotificationPrefsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const colors = useThemeColors();
   const { pushNotificationsEnabled, setPushNotificationsEnabled } = useSettings();
+  const { AlertComponent, showError } = useCustomAlert();
   
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [ticketUpdates, setTicketUpdates] = useState(true);
@@ -30,7 +31,7 @@ export const NotificationPrefsScreen: React.FC = () => {
     try {
       await setPushNotificationsEnabled(value);
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de mettre à jour les préférences.');
+      showError('Erreur', 'Impossible de mettre à jour les préférences.');
     }
   };
 
@@ -100,9 +101,10 @@ export const NotificationPrefsScreen: React.FC = () => {
           </View>
         </View>
 
-        <Text style={[styles.hintText, { color: colors.textTertiary }]}>
+        <Text style={[styles.hintText, { color: colors.textTertiary }]}
           Nous vous recommandons de garder les notifications activées pour ne pas manquer votre tour dans la file d'attente.
         </Text>
+        {AlertComponent}
       </ScrollView>
     </View>
   );
