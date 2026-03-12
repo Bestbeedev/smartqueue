@@ -10,10 +10,12 @@ import {
   Animated,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types pour le formulaire
@@ -35,7 +37,8 @@ interface FormErrors {
 // Composant RegisterScreen
 export const RegisterScreen: React.FC = () => {
   const { register, isLoading, error, clearError } = useAuth();
-  const { AlertComponent, showInfo } = useCustomAlert();
+  const { AlertComponent, showInfo, showError, showSuccess } = useCustomAlert();
+  const { isLoading: googleLoading, handleGoogleRegister } = useGoogleAuth();
   
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
@@ -148,9 +151,15 @@ export const RegisterScreen: React.FC = () => {
     router.push('/login');
   };
 
-  // Social login (placeholder)
-  const handleGoogleRegister = () => {
-    showInfo('Info', 'Inscription avec Google à venir');
+  // Social login with Google
+  const handleGoogleRegisterPress = async () => {
+    const result = await handleGoogleRegister(formData.phone || undefined);
+    if (result.success) {
+      showSuccess('Succès', 'Inscription Google réussie !');
+      router.replace('/(tabs)');
+    } else if (result.error) {
+      showError('Erreur', result.error);
+    }
   };
 
   // Afficher les conditions d'utilisation
@@ -331,14 +340,21 @@ export const RegisterScreen: React.FC = () => {
 
             {/* Google Sign Up Button */}
             <TouchableOpacity
-              style={styles.googleButton}
-              onPress={handleGoogleRegister}
+              style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
+              onPress={handleGoogleRegisterPress}
               activeOpacity={0.8}
+              disabled={googleLoading || isLoading}
             >
-              <View style={styles.googleIconContainer}>
-                <Text style={styles.googleIcon}>G</Text>
-              </View>
-              <Text style={styles.googleButtonText}>Sign Up with Google</Text>
+              {googleLoading ? (
+                <ActivityIndicator size="small" color="#4285F4" />
+              ) : (
+                <>
+                  <View style={styles.googleIconContainer}>
+                    <Ionicons name="logo-google" size={18} color="#4285F4" />
+                  </View>
+                  <Text style={styles.googleButtonText}>Sign Up with Google</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Login Link */}
@@ -511,6 +527,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginBottom: 24,
   },
+  googleButtonLoading: {
+    opacity: 0.7,
+  },
   googleIconContainer: {
     width: 20,
     height: 20,
@@ -519,11 +538,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-  },
-  googleIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4285F4',
   },
   googleButtonText: {
     fontSize: 14,

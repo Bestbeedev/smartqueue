@@ -8,6 +8,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
@@ -73,5 +74,150 @@ class AuthController extends Controller
     {
         $request->user()?->currentAccessToken()?->delete();
         return response()->json(['message' => 'Logged out']);
+    }
+
+    /**
+     * Connexion avec Google
+     */
+    public function googleLogin(Request $request)
+    {
+        $request->validate([
+            'id_token' => 'required|string',
+        ]);
+
+        // Vérifier le token Google
+        $googleResponse = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $request->id_token,
+        ]);
+
+        if (!$googleResponse->ok()) {
+            return response()->json([
+                'message' => 'Invalid Google token',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $googleUser = $googleResponse->json();
+        
+        // Vérifier que l'email est vérifié par Google
+        if (!isset($googleUser['email_verified']) || !$googleUser['email_verified']) {
+            return response()->json([
+                'message' => 'Google email not verified',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Chercher ou créer l'utilisateur
+        $user = User::where('email', $googleUser['email'])->first();
+
+        if (!$user) {
+            // Créer un nouvel utilisateur automatiquement
+            $user = User::create([
+                'name' => $googleUser['name'] ?? explode('@', $googleUser['email'])[0],
+                'email' => $googleUser['email'],
+                'password' => Hash::make(uniqid()), // Mot de passe aléatoire
+                'phone' => null,
+                'role' => 'user',
+                'google_id' => $googleUser['sub'] ?? null,
+                'avatar' => $googleUser['picture'] ?? null,
+            ]);
+        } else {
+            // Mettre à jour les infos Google si nécessaire
+            if (empty($user->google_id)) {
+                $user->update([
+                    'google_id' => $googleUser['sub'] ?? null,
+                    'avatar' => $googleUser['picture'] ?? null,
+                ]);
+            }
+        }
+
+        $token = $user->createToken('api')->plainTextToken;
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+            ],
+            'token' => $token,
+        ]);
+    }
+
+    /**
+     * Inscription avec Google (avec phone optionnel)
+     */
+    public function googleRegister(Request $request)
+    {
+        $request->validate([
+            'id_token' => 'required|string',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        // Vérifier le token Google
+        $googleResponse = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $request->id_token,
+        ]);
+
+        if (!$googleResponse->ok()) {
+            return response()->json([
+                'message' => 'Invalid Google token',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $googleUser = $googleResponse->json();
+        
+        // Vérifier que l'email est vérifié par Google
+        if (!isset($googleUser['email_verified']) || !$googleUser['email_verified']) {
+            return response()->json([
+                'message' => 'Google email not verified',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Vérifier si l'utilisateur existe déjà
+        $existingUser = User::where('email', $googleUser['email'])->first();
+        
+        if ($existingUser) {
+            // Mettre à jour le phone si fourni
+            if ($request->phone && !$existingUser->phone) {
+                $existingUser->update(['phone' => $request->phone]);
+            }
+            
+            $token = $existingUser->createToken('api')->plainTextToken;
+            
+            return response()->json([
+                'user' => [
+                    'id' => $existingUser->id,
+                    'name' => $existingUser->name,
+                    'email' => $existingUser->email,
+                    'phone' => $existingUser->phone,
+                    'role' => $existingUser->role,
+                ],
+                'token' => $token,
+            ]);
+        }
+
+        // Créer un nouvel utilisateur
+        $user = User::create([
+            'name' => $googleUser['name'] ?? explode('@', $googleUser['email'])[0],
+            'email' => $googleUser['email'],
+            'password' => Hash::make(uniqid()),
+            'phone' => $request->phone,
+            'role' => 'user',
+            'google_id' => $googleUser['sub'] ?? null,
+            'avatar' => $googleUser['picture'] ?? null,
+        ]);
+
+        $token = $user->createToken('api')->plainTextToken;
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+            ],
+            'token' => $token,
+        ], Response::HTTP_CREATED);
     }
 }

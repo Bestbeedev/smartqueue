@@ -10,11 +10,13 @@ import {
   Animated,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types pour le formulaire
@@ -32,7 +34,8 @@ interface FormErrors {
 // Composant LoginScreen
 export const LoginScreen: React.FC = () => {
   const { login, isLoading, error, clearError } = useAuth();
-  const { AlertComponent, showInfo, showWarning } = useCustomAlert();
+  const { AlertComponent, showInfo, showWarning, showError, showSuccess } = useCustomAlert();
+  const { isLoading: googleLoading, handleGoogleLogin } = useGoogleAuth();
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -121,9 +124,15 @@ export const LoginScreen: React.FC = () => {
     router.push('/register');
   };
 
-  // Social login (placeholder)
-  const handleGoogleLogin = () => {
-    showInfo('Info', 'Connexion avec Google à venir');
+  // Social login with Google
+  const handleGoogleLoginPress = async () => {
+    const result = await handleGoogleLogin();
+    if (result.success) {
+      showSuccess('Succès', 'Connexion Google réussie !');
+      router.replace('/(tabs)');
+    } else if (result.error) {
+      showError('Erreur', result.error);
+    }
   };
 
   // Mot de passe oublié
@@ -252,14 +261,21 @@ export const LoginScreen: React.FC = () => {
               <Text style={styles.socialTitle}>Social Login</Text>
               
               <TouchableOpacity
-                style={styles.googleButton}
-                onPress={handleGoogleLogin}
+                style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
+                onPress={handleGoogleLoginPress}
                 activeOpacity={0.8}
+                disabled={googleLoading || isLoading}
               >
-                <View style={styles.googleIconContainer}>
-                  <Text style={styles.googleIcon}>G</Text>
-                </View>
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color="#4285F4" />
+                ) : (
+                  <>
+                    <View style={styles.googleIconContainer}>
+                      <Ionicons name="logo-google" size={18} color="#4285F4" />
+                    </View>
+                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -404,6 +420,9 @@ const styles = StyleSheet.create({
     height: 48,
     backgroundColor: '#FFFFFF',
   },
+  googleButtonLoading: {
+    opacity: 0.7,
+  },
   googleIconContainer: {
     width: 24,
     height: 24,
@@ -412,13 +431,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  googleIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4285F4',
   },
   googleButtonText: {
     fontSize: 14,

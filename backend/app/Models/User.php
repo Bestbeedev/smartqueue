@@ -28,6 +28,9 @@ class User extends Authenticatable
         'role',
         'establishment_id',
         'pending_subscription',
+        // Google OAuth
+        'google_id',
+        'avatar',
     ];
 
     /**
