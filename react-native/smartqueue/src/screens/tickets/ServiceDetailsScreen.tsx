@@ -25,6 +25,7 @@ import { useDistanceTracking } from '../../hooks/useDistanceTracking';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 
 interface ServiceData {
+  description: ReactNode;
   id: number;
   name: string;
   status: string;
@@ -196,7 +197,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   if (!establishment) return null;
 
-  const isOpen = isOpenNow(establishment);
+  //const isOpen = isOpenNow(establishment);
 
   return (
     <View className="flex-1 bg-white">
@@ -263,14 +264,14 @@ export const ServiceDetailsScreen: React.FC = () => {
                   <Ionicons name="people" size={24} color="#F97316" />
                 </View>
                 <View className="ml-3">
-                  <Text className="text-gray-500 text-sm">Personnes en file</Text>
+                  <Text className="text-gray-500 text-sm">Personnes en rang</Text>
                   <Text className="text-2xl font-bold text-gray-900">
                     {establishment.total_people_waiting ?? 0}
                   </Text>
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-gray-400 text-xs">dans tout l'établissement</Text>
+                <Text className="text-gray-400 text-xs">dans tout l&apos;établissement</Text>
                 <Text className="text-orange-600 font-semibold text-sm">
                   {services.length} service{services.length > 1 ? 's' : ''} actif{services.length > 1 ? 's' : ''}
                 </Text>
@@ -321,7 +322,7 @@ export const ServiceDetailsScreen: React.FC = () => {
           {/* Service Selection */}
           {services.length > 0 && (
             <View className="mb-6">
-              <Text className="text-lg font-bold text-gray-900 mb-3">Select a Service</Text>
+              <Text className="text-lg font-bold text-gray-900 mb-3">Choisissez un service</Text>
               {services.map((service) => (
                 <TouchableOpacity
                   key={service.id}
@@ -342,7 +343,7 @@ export const ServiceDetailsScreen: React.FC = () => {
                     <View className="flex-row items-center mt-2">
                       <Ionicons name="people-outline" size={14} color="#6B7280" />
                       <Text className="text-gray-500 text-xs ml-1">
-                        {service.people_waiting ?? 0} en file
+                        {service.people_waiting ?? 0} dans la file d&apos;attente
                       </Text>
                       {service.avg_service_time_minutes && (
                         <>
@@ -371,14 +372,14 @@ export const ServiceDetailsScreen: React.FC = () => {
             ) : (
               <>
                 <Ionicons name="enter-outline" size={24} color="white" className="mr-2" />
-                <Text className="text-white font-bold text-lg ml-2">Join Queue</Text>
+                <Text className="text-white font-bold text-lg ml-2">Joindre la file</Text>
               </>
             )}
           </TouchableOpacity>
 
           {/* General Information Section */}
           <View className="mb-10">
-            <Text className="text-xl font-bold text-gray-900 mb-4">General Information</Text>
+            <Text className="text-xl font-bold text-gray-900 mb-4">Information Generale </Text>
             
             <View className="bg-gray-50 rounded-2xl p-4">
               <TouchableOpacity className="flex-row items-center border-b border-gray-100 pb-4 mb-4">
@@ -386,7 +387,7 @@ export const ServiceDetailsScreen: React.FC = () => {
                   <Ionicons name="call-outline" size={20} color="#2563EB" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-gray-900 font-semibold">Phone Number</Text>
+                  <Text className="text-gray-900 font-semibold">Telephone</Text>
                   <Text className="text-gray-500 text-sm">{(establishment as any).phone || '+33 1 23 45 67 89'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
@@ -397,7 +398,7 @@ export const ServiceDetailsScreen: React.FC = () => {
                   <Ionicons name="globe-outline" size={20} color="#2563EB" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-gray-900 font-semibold">Website</Text>
+                  <Text className="text-gray-900 font-semibold">Site web</Text>
                   <Text className="text-gray-500 text-sm">{(establishment as any).website || 'www.centralclinic.com'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
