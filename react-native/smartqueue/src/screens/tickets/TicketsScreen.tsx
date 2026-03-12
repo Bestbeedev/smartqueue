@@ -92,6 +92,10 @@ export const TicketsScreen: React.FC = () => {
     router.push('/(tabs)/history');
   };
 
+  const handleNotifications = () => {
+    router.push('/notifications');
+  };
+
   const getStatusColor = () => {
     if (isCalled) return ['#EF4444', '#DC2626'];
     if (isAlmostThere) return ['#F59E0B', '#D97706'];
@@ -303,7 +307,7 @@ export const TicketsScreen: React.FC = () => {
             <Text style={styles.headerTitle}>Ma File</Text>
             <Text style={styles.headerSubtitle}>Gérez vos tickets</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleNotifications}>
             <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
             {hasActiveTicket && (
               <View style={styles.notificationBadge}>
