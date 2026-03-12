@@ -48,6 +48,9 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
     // Enregistrement / mise à jour du device FCM pour notifications push
     Route::middleware('auth:sanctum')->post('devices/register', [DeviceController::class, 'register']);
+    // Google OAuth
+    Route::post('google', [AuthController::class, 'googleLogin']);
+    Route::post('google/register', [AuthController::class, 'googleRegister']);
 });
 
 // Onboarding SaaS (établissement -> abonnement)

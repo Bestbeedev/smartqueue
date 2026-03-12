@@ -41,6 +41,18 @@ export interface DeviceData {
   token: string; // FCM token
 }
 
+export interface GoogleAuthData {
+  id_token: string;
+  access_token?: string;
+}
+
+export interface GoogleUserInfo {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
 // Fonctions API d'authentification
 export const authApi = {
   // Connexion
@@ -121,6 +133,57 @@ export const authApi = {
       password,
       password_confirmation,
     });
+  },
+
+  // Connexion avec Google
+  googleLogin: async (googleData: GoogleAuthData): Promise<AuthResponse> => {
+    console.log('[authApi] googleLogin - sending id_token');
+    
+    try {
+      const response = await axiosClient.post('/auth/google', {
+        id_token: googleData.id_token,
+        access_token: googleData.access_token,
+      });
+      console.log('[authApi] googleLogin - response status:', response.status);
+      
+      const authData = response.data;
+      
+      // Sauvegarder les tokens
+      await saveTokens(authData);
+      console.log('[authApi] googleLogin - token saved successfully');
+      
+      return authData;
+    } catch (error: any) {
+      console.log('[authApi] googleLogin - error:', error.message);
+      console.log('[authApi] googleLogin - error response:', JSON.stringify(error.response?.data));
+      throw error;
+    }
+  },
+
+  // Inscription avec Google
+  googleRegister: async (googleData: GoogleAuthData, phone?: string): Promise<AuthResponse> => {
+    console.log('[authApi] googleRegister - sending id_token');
+    
+    try {
+      const response = await axiosClient.post('/auth/google/register', {
+        id_token: googleData.id_token,
+        access_token: googleData.access_token,
+        phone,
+      });
+      console.log('[authApi] googleRegister - response status:', response.status);
+      
+      const authData = response.data;
+      
+      // Sauvegarder les tokens
+      await saveTokens(authData);
+      console.log('[authApi] googleRegister - token saved successfully');
+      
+      return authData;
+    } catch (error: any) {
+      console.log('[authApi] googleRegister - error:', error.message);
+      console.log('[authApi] googleRegister - error response:', JSON.stringify(error.response?.data));
+      throw error;
+    }
   },
 };
 
