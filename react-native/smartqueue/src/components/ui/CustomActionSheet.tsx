@@ -134,7 +134,7 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
               onPress={onClose}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: '#3B82F6',
   },
   optionButtonBorder: {
-    borderBottomWidth: 0,
+    borderColor: '#3B82F6',
   },
   optionLeft: {
     flexDirection: 'row',

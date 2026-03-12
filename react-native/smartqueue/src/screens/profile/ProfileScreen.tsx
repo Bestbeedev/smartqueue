@@ -23,6 +23,9 @@ import { CustomActionSheet, Option } from '../../components/ui/CustomActionSheet
 type ProfileNavigationProp = NativeStackNavigationProp<TabParamList, 'Profile'>;
 
 // Types pour les options de menu
+// ...imports restent inchangés
+
+// Types pour les options de menu
 interface MenuItem {
   id: string;
   title: string;
@@ -66,15 +69,15 @@ export const ProfileScreen: React.FC = () => {
   const [isLoading] = useState(false);
   const [avatarUri] = useState<string | null>(null);
 
-  // Action sheets visibility state
+  // Etats des action sheets
   const [alertChannelsVisible, setAlertChannelsVisible] = useState(false);
   const [alertTimingVisible, setAlertTimingVisible] = useState(false);
   const [transportModeVisible, setTransportModeVisible] = useState(false);
 
-  // Options for action sheets
+  // Options pour les action sheets
   const alertChannelOptions: Option[] = [
-    { label: 'Push only', value: 'push', icon: 'notifications-outline' },
-    { label: 'SMS only', value: 'sms', icon: 'chatbubble-outline' },
+    { label: 'Push uniquement', value: 'push', icon: 'notifications-outline' },
+    { label: 'SMS uniquement', value: 'sms', icon: 'chatbubble-outline' },
     { label: 'Push & SMS', value: 'push_sms', icon: 'notifications-circle-outline' },
   ];
 
@@ -89,7 +92,7 @@ export const ProfileScreen: React.FC = () => {
     icon: opt.value === 'walking' ? 'walk' : opt.value === 'motorcycle' ? 'bicycle' : 'car',
   }));
 
-  // Handle selections
+  // Gérer les sélections
   const handleSelectAlertChannel = (value: string | number) => {
     if (value === 'push') setChannels(['push']);
     else if (value === 'sms') setChannels(['sms']);
@@ -110,72 +113,63 @@ export const ProfileScreen: React.FC = () => {
     loadAlertPreferences();
   }, [loadPreferences, loadAlertPreferences]);
   
-  // Push notifications enabled from preferences
   const pushNotificationsEnabled = preferences.push_notifications_enabled;
 
-  // Gérer la déconnexion
+  // Déconnexion
   const handleLogout = () => {
     showWarning(
-      'Log Out',
-      'Are you sure you want to log out?',
-      'Log Out',
+      'Déconnexion',
+      'Voulez-vous vraiment vous déconnecter ?',
+      'Déconnexion',
       async () => {
         try {
           await logout();
           router.push('/login');
         } catch (error) {
-          console.error('Logout error:', error);
+          console.error('Erreur de déconnexion :', error);
         }
       },
-      'Cancel'
+      'Annuler'
     );
   };
 
   // Sections du menu
   const menuSections = [
     {
-      title: 'Account Settings',
+      title: 'Paramètres du compte',
       items: [
         {
           id: 'personalInfo',
-          title: 'Personal Information',
-          subtitle: 'Name, email, phone',
+          title: 'Informations personnelles',
+          subtitle: 'Nom, email, téléphone',
           icon: 'person-outline',
           iconBg: 'bg-blue-100',
           onPress: () => router.push('/personal-info'),
         },
-        {
-          id: 'paymentMethods',
-          title: 'Payment Methods',
-          subtitle: 'Manage your cards',
-          icon: 'card-outline',
-          iconBg: 'bg-green-100',
-          onPress: () => router.push('/payment-methods'),
-        },
       ] as MenuItem[],
     },
     {
-      title: 'Alert Preferences',
+      title: 'Préférences des alertes',
       items: [
         {
           id: 'alertChannels',
-          title: 'Alert Channels',
-          subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push only',
+          title: 'Canaux d’alerte',
+          subtitle: channels.includes('sms') ? 'Push & SMS' : 'Push uniquement',
           icon: 'notifications-outline',
           iconBg: 'bg-orange-100',
           onPress: () => setAlertChannelsVisible(true),
         },
         {
           id: 'alertMargin',
-          title: 'Alert Timing',
-          subtitle: `${marginMinutes} min before turn`,
+          title: 'Timing des alertes',
+          subtitle: `${marginMinutes} min avant le tour`,
           icon: 'time-outline',
           iconBg: 'bg-blue-100',
           onPress: () => setAlertTimingVisible(true),
         },
         {
           id: 'transportMode',
-          title: 'Transport Mode',
+          title: 'Mode de transport',
           subtitle: TRANSPORT_MODE_OPTIONS.find(o => o.value === preferredTransportMode)?.label || 'Moto',
           icon: 'car-outline',
           iconBg: 'bg-purple-100',
@@ -183,8 +177,8 @@ export const ProfileScreen: React.FC = () => {
         },
         {
           id: 'safetyAlert',
-          title: 'Safety Alert',
-          subtitle: enableSafetyAlert ? '2nd alert 2 min before' : 'Disabled',
+          title: 'Alerte de sécurité',
+          subtitle: enableSafetyAlert ? '2e alerte 2 min avant' : 'Désactivé',
           icon: 'shield-checkmark-outline',
           iconBg: 'bg-green-100',
           onPress: () => {},
@@ -195,7 +189,7 @@ export const ProfileScreen: React.FC = () => {
       ] as MenuItem[],
     },
     {
-      title: 'App Preferences',
+      title: 'Préférences de l’application',
       items: [
         {
           id: 'notifications',
@@ -209,7 +203,7 @@ export const ProfileScreen: React.FC = () => {
         },
         {
           id: 'darkMode',
-          title: 'Dark Mode',
+          title: 'Mode sombre',
           icon: 'moon-outline',
           iconBg: 'bg-indigo-100',
           onPress: () => {},
@@ -220,18 +214,18 @@ export const ProfileScreen: React.FC = () => {
       ] as MenuItem[],
     },
     {
-      title: 'Support & About',
+      title: 'Support & À propos',
       items: [
         {
           id: 'help',
-          title: 'Help & Support',
+          title: 'Aide & support',
           icon: 'help-circle-outline',
           iconBg: 'bg-purple-100',
           onPress: () => router.push('/help-support'),
         },
         {
           id: 'about',
-          title: 'About SmartQueue',
+          title: 'À propos de SmartQueue',
           icon: 'information-circle-outline',
           iconBg: 'bg-gray-100',
           onPress: () => router.push('/about'),
@@ -240,17 +234,17 @@ export const ProfileScreen: React.FC = () => {
     },
   ];
 
-  // Formater la date d'inscription
+  // Formater la date d’inscription
   const getMemberSince = () => {
-    if (!user?.created_at) return 'Recently';
+    if (!user?.created_at) return 'Récemment';
     try {
       const date = new Date(user.created_at);
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('fr-FR', {
         month: 'long',
         year: 'numeric',
       });
     } catch (error) {
-      return 'Recently';
+      return 'Récemment';
     }
   };
 
@@ -287,7 +281,7 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
-      {/* Profile Header */}
+      {/* En-tête du profil */}
       <View className="bg-white px-5 pt-16 pb-8 items-center border-b border-gray-100">
         <TouchableOpacity className="relative mb-4">
           <View className="w-24 h-24 rounded-full bg-blue-600 items-center justify-center">
@@ -304,16 +298,16 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
         
-        <Text className="text-2xl font-bold text-gray-900">{user?.name || 'User Profile'}</Text>
+        <Text className="text-2xl font-bold text-gray-900">{user?.name || 'Profil utilisateur'}</Text>
         <Text className="text-gray-500 font-medium mb-1">{user?.email || 'user@example.com'}</Text>
         <View className="bg-gray-100 px-3 py-1 rounded-full mt-2">
           <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-            Member since {getMemberSince()}
+            Membre depuis {getMemberSince()}
           </Text>
         </View>
       </View>
 
-      {/* Menu Sections */}
+      {/* Sections du menu */}
       <View className="px-5 mt-6 pb-12">
         {menuSections.map((section, idx) => (
           <View key={idx} className="mb-8">
@@ -331,26 +325,26 @@ export const ProfileScreen: React.FC = () => {
           </View>
         ))}
 
-        {/* Log Out Button */}
+        {/* Bouton déconnexion */}
         <TouchableOpacity 
           className="flex-row items-center justify-center bg-red-50 h-16 rounded-3xl border border-red-100"
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text className="text-red-500 font-bold ml-2 text-base">Log Out</Text>
+          <Text className="text-red-500 font-bold ml-2 text-base">Déconnexion</Text>
         </TouchableOpacity>
 
         <Text className="text-center text-gray-300 text-xs mt-8 mb-4">
-          SmartQueue v1.0.0 • Built with Love
+          SmartQueue v1.0.0 • Fait avec amour
         </Text>
       </View>
       {AlertComponent}
 
-      {/* Custom Action Sheets */}
+      {/* Action Sheets personnalisés */}
       <CustomActionSheet
         visible={alertChannelsVisible}
-        title="Alert Channels"
-        message="Choose how to receive alerts"
+        title="Canaux d’alerte"
+        message="Choisissez comment recevoir les alertes"
         options={alertChannelOptions}
         selectedValue={channels.includes('sms') ? (channels.includes('push') ? 'push_sms' : 'sms') : 'push'}
         onSelect={handleSelectAlertChannel}
@@ -360,8 +354,8 @@ export const ProfileScreen: React.FC = () => {
 
       <CustomActionSheet
         visible={alertTimingVisible}
-        title="Alert Timing"
-        message="When to alert before your turn"
+        title="Timing des alertes"
+        message="Quand être alerté avant votre tour"
         options={alertTimingOptions}
         selectedValue={marginMinutes}
         onSelect={handleSelectAlertTiming}
@@ -371,8 +365,8 @@ export const ProfileScreen: React.FC = () => {
 
       <CustomActionSheet
         visible={transportModeVisible}
-        title="Transport Mode"
-        message="For travel time calculation"
+        title="Mode de transport"
+        message="Pour le calcul du temps de trajet"
         options={transportModeOptions}
         selectedValue={preferredTransportMode}
         onSelect={handleSelectTransportMode}
