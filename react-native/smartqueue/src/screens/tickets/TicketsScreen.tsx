@@ -5,29 +5,20 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
+  Animated,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTicket } from '../../store/ticketStore';
-import { Theme } from '../../theme';
-import { TabParamList } from '../../navigation/types';
-import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
-import Card from '../../components/ui/Card';
-import Badge from '../../components/ui/Badge';
-import ProgressCircle from '../../components/ui/ProgressCircle';
-import Button from '../../components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-type TicketsNavigationProp = NativeStackNavigationProp<TabParamList, 'Tickets'>;
+const { width } = Dimensions.get('window');
 
 // Composant TicketsScreen
 export const TicketsScreen: React.FC = () => {
-  const navigation = useNavigation<TicketsNavigationProp>();
-  const colors = useThemeColors();
   const {
     hasActiveTicket,
     activeTicket,
@@ -42,6 +33,15 @@ export const TicketsScreen: React.FC = () => {
   const { AlertComponent, showWarning, showError } = useCustomAlert();
   
   const [refreshing, setRefreshing] = useState(false);
+  const fadeAnim = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   // Rafraîchir les données
   const handleRefresh = async () => {
@@ -92,143 +92,129 @@ export const TicketsScreen: React.FC = () => {
     router.push('/(tabs)/history');
   };
 
+  const getStatusColor = () => {
+    if (isCalled) return ['#EF4444', '#DC2626'];
+    if (isAlmostThere) return ['#F59E0B', '#D97706'];
+    return ['#3B82F6', '#2563EB'];
+  };
+
+  const getStatusText = () => {
+    if (isCalled) return 'APPELÉ';
+    if (isAlmostThere) return 'BIENTÔT VOTRE TOUR';
+    return 'EN ATTENTE';
+  };
+
   // Rendu du ticket actif
   const renderActiveTicket = () => {
     if (!hasActiveTicket) {
       return (
-        <Card variant="default" style={styles.noTicketCard}>
+        <Animated.View style={[styles.noTicketCard, { opacity: fadeAnim }]}>
           <View style={styles.noTicketContent}>
-            <Ionicons
-              name="ticket-outline"
-              size={64}
-              color={colors.textTertiary}
-            />
-            <Text style={[styles.noTicketTitle, { color: colors.textPrimary }]}>
+            <View style={styles.noTicketIconContainer}>
+              <Ionicons name="ticket-outline" size={48} color="#3B82F6" />
+            </View>
+            <Text style={styles.noTicketTitle}>
               Aucun ticket actif
             </Text>
-            <Text style={[styles.noTicketSubtitle, { color: colors.textSecondary }]}>
+            <Text style={styles.noTicketSubtitle}>
               Scannez un QR code ou rejoignez une file pour obtenir un ticket
             </Text>
-            <Button
-              title="Scanner un QR code"
-              onPress={handleScanQR}
-              variant="primary"
-              icon={<Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />}
-              style={styles.scanButton}
-            />
+            <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
+              <LinearGradient
+                colors={['#3B82F6', '#2563EB']}
+                style={styles.scanButtonGradient}
+              >
+                <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.scanButtonText}>Scanner un QR code</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-        </Card>
+        </Animated.View>
       );
     }
 
     return (
-      <Card variant="elevated" style={styles.activeTicketCard}>
-        {/* Header du ticket */}
-        <View style={styles.ticketHeader}>
-          <View style={styles.ticketHeaderLeft}>
-            <Text style={[styles.ticketTitle, { color: colors.textPrimary }]}>
-              Ticket Actif
-            </Text>
-            {isCalled && (
-              <Badge variant="success" size="small">
-                APPELÉ
-              </Badge>
-            )}
-            {isAlmostThere && !isCalled && (
-              <Badge variant="warning" size="small">
-                BIENTÔT VOTRE TOUR
-              </Badge>
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={handleRefresh}
-            disabled={refreshing}
-          >
-            <Ionicons
-              name="refresh-outline"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
+      <Animated.View style={[styles.activeTicketCard, { opacity: fadeAnim }]}>
+        {/* Status Banner */}
+        <LinearGradient
+          colors={getStatusColor() as [string, string]}
+          style={styles.statusBanner}
+        >
+          <Ionicons name="time-outline" size={16} color="#FFFFFF" />
+          <Text style={styles.statusText}>{getStatusText()}</Text>
+        </LinearGradient>
 
-        {/* Contenu principal du ticket */}
         <View style={styles.ticketContent}>
-          {/* Cercle de progression */}
-          <View style={styles.progressContainer}>
-            <ProgressCircle
-              progress={position > 0 ? Math.max(0, (1 - position / 10) * 100) : 100}
-              size={150}
-              strokeWidth={12}
-              showText={true}
-              text={position.toString()}
-              textColor={isCalled ? colors.success : colors.textPrimary}
-              progressColor={isCalled ? colors.success : colors.primary}
-              animated={true}
-            />
-            <Text style={[styles.positionLabel, { color: colors.textSecondary }]}>
-              {isCalled ? 'Appelé' : `${position}ème dans la file`}
-            </Text>
+          {/* Position */}
+          <View style={styles.positionSection}>
+            <Text style={styles.positionNumber}>{position}</Text>
+            <Text style={styles.positionLabel}>ème position</Text>
           </View>
 
-          {/* Informations du ticket */}
+          {/* Ticket Info */}
           <View style={styles.ticketInfo}>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                Numéro
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {activeTicket?.number}
-              </Text>
+            <View style={styles.infoItem}>
+              <View style={[styles.infoIconContainer, { backgroundColor: '#DBEAFE' }]}>
+                <Ionicons name="pricetag-outline" size={18} color="#3B82F6" />
+              </View>
+              <View>
+                <Text style={styles.infoLabel}>Numéro</Text>
+                <Text style={styles.infoValue}>{activeTicket?.number}</Text>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                Service
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {activeTicket?.service?.name || 'Service'}
-              </Text>
+            
+            <View style={styles.infoItem}>
+              <View style={[styles.infoIconContainer, { backgroundColor: '#D1FAE5' }]}>
+                <Ionicons name="briefcase-outline" size={18} color="#10B981" />
+              </View>
+              <View>
+                <Text style={styles.infoLabel}>Service</Text>
+                <Text style={styles.infoValue}>{activeTicket?.service?.name || 'Service'}</Text>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                Établissement
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {activeTicket?.establishment?.name || 'Établissement'}
-              </Text>
+            
+            <View style={styles.infoItem}>
+              <View style={[styles.infoIconContainer, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="business-outline" size={18} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.infoLabel}>Établissement</Text>
+                <Text style={styles.infoValue}>{activeTicket?.establishment?.name || 'Établissement'}</Text>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                Temps estimé
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {etaMinutes} min
-              </Text>
+            
+            <View style={styles.infoItem}>
+              <View style={[styles.infoIconContainer, { backgroundColor: '#E0E7FF' }]}>
+                <Ionicons name="time-outline" size={18} color="#6366F1" />
+              </View>
+              <View>
+                <Text style={styles.infoLabel}>Temps estimé</Text>
+                <Text style={styles.infoValue}>{etaMinutes} min</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Actions */}
-        <View style={styles.ticketActions}>
-          <Button
-            title="Voir le ticket en direct"
-            onPress={handleViewLiveTicket}
-            variant="primary"
-            fullWidth
-            icon={<Ionicons name="eye-outline" size={20} color="#FFFFFF" />}
-            style={styles.actionButton}
-          />
-          <Button
-            title="Annuler le ticket"
-            onPress={handleCancelTicket}
-            variant="danger"
-            fullWidth
-            icon={<Ionicons name="close-outline" size={20} color="#FFFFFF" />}
-            style={styles.actionButton}
-          />
+          {/* Actions */}
+          <View style={styles.ticketActions}>
+            <TouchableOpacity style={styles.primaryAction} onPress={handleViewLiveTicket}>
+              <LinearGradient
+                colors={['#3B82F6', '#2563EB']}
+                style={styles.primaryActionGradient}
+              >
+                <Ionicons name="eye-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.primaryActionText}>Voir en direct</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.dangerAction} onPress={handleCancelTicket}>
+              <View style={styles.dangerActionContent}>
+                <Ionicons name="close-outline" size={20} color="#EF4444" />
+                <Text style={styles.dangerActionText}>Annuler le ticket</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
-      </Card>
+      </Animated.View>
     );
   };
 
@@ -238,55 +224,45 @@ export const TicketsScreen: React.FC = () => {
       {
         id: 'scan',
         title: 'Scanner QR',
-        subtitle: 'Rejoindre une file rapidement',
-        icon: <Ionicons name="qr-code-outline" size={24} color={colors.primary} />,
+        icon: 'qr-code-outline',
+        color: '#3B82F6',
         onPress: handleScanQR,
-        color: colors.primary,
       },
       {
         id: 'history',
         title: 'Historique',
-        subtitle: 'Vos tickets précédents',
-        icon: <Ionicons name="time-outline" size={24} color={colors.secondary} />,
+        icon: 'time-outline',
+        color: '#10B981',
         onPress: handleViewHistory,
-        color: colors.secondary,
       },
       {
         id: 'map',
         title: 'Carte',
-        subtitle: 'Établissements proches',
-        icon: <Ionicons name="map-outline" size={24} color={colors.success} />,
+        icon: 'map-outline',
+        color: '#D97706',
         onPress: () => router.push('/(tabs)'),
-        color: colors.success,
       },
     ];
 
     return (
-      <Card variant="default" style={styles.quickActionsCard}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-          Actions rapides
-        </Text>
-        <View style={styles.actionsGrid}>
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionTitle}>Actions rapides</Text>
+        <View style={styles.quickActionsGrid}>
           {actions.map((action) => (
             <TouchableOpacity
               key={action.id}
-              style={[styles.actionCard, { backgroundColor: action.color + '10' }]}
+              style={styles.quickActionCard}
               onPress={action.onPress}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
-                {action.icon}
+              <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
+                <Ionicons name={action.icon as any} size={24} color={action.color} />
               </View>
-              <Text style={[styles.actionTitle, { color: colors.textPrimary }]}>
-                {action.title}
-              </Text>
-              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
-                {action.subtitle}
-              </Text>
+              <Text style={styles.quickActionTitle}>{action.title}</Text>
             </TouchableOpacity>
           ))}
         </View>
-      </Card>
+      </View>
     );
   };
 
@@ -295,268 +271,408 @@ export const TicketsScreen: React.FC = () => {
     if (!hasActiveTicket) return null;
 
     return (
-      <Card variant="default" style={styles.statsCard}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-          Statistiques en direct
-        </Text>
+      <View style={styles.statsSection}>
+        <Text style={styles.sectionTitle}>Statistiques</Text>
         <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {position}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Position
-            </Text>
+          <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
+            <Text style={[styles.statValue, { color: '#3B82F6' }]}>{position}</Text>
+            <Text style={styles.statLabel}>Position</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.warning }]}>
-              {etaMinutes}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Minutes
-            </Text>
+          <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
+            <Text style={[styles.statValue, { color: '#D97706' }]}>{etaMinutes}</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.success }]}>
-              {Math.max(0, position - 1)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Personnes avant
-            </Text>
+          <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>{Math.max(0, position - 1)}</Text>
+            <Text style={styles.statLabel}>Avant vous</Text>
           </View>
         </View>
-      </Card>
+      </View>
     );
   };
 
   return (
-    <ScrollView 
-      className="flex-1" 
-      style={{ backgroundColor: colors.background }}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 100 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-    >
-      {/* Header */}
-      <View className="px-5 pt-12 pb-4 flex-row items-center justify-between bg-white shadow-sm">
-        <TouchableOpacity 
-          className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text className="text-lg font-bold text-gray-900">Ma File d&apos;Attente</Text>
-        <TouchableOpacity className="w-10 h-10 items-center justify-center rounded-full bg-gray-100">
-          <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Ma File</Text>
+            <Text style={styles.headerSubtitle}>Gérez vos tickets</Text>
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+            {hasActiveTicket && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>1</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
-      {error ? (
-        <View className="flex-1 items-center justify-center p-10 mt-20">
-          <Ionicons name="alert-circle-outline" size={80} color={colors.danger} />
-          <Text style={[styles.noTicketTitle, { color: colors.textPrimary, textAlign: 'center' }]}>
-            Oups ! Une erreur est survenue
-          </Text>
-          <Text style={[styles.noTicketSubtitle, { color: colors.textSecondary }]}>
-            {error.includes('401') ? 'Votre session a expiré. Veuillez vous reconnecter.' : error}
-          </Text>
-          <Button
-            title="Réessayer"
-            variant="primary"
-            onPress={handleRefresh}
-            style={styles.scanButton}
-          />
-        </View>
-      ) : (
-        <View style={styles.content}>
-          {renderActiveTicket()}
-          {renderStats()}
-          {renderQuickActions()}
-          
-          <View style={styles.bottomSpace} />
-        </View>
-      )}
-      {AlertComponent}
-    </ScrollView>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3B82F6" />
+        }
+      >
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+            <Text style={styles.errorTitle}>Oups ! Une erreur est survenue</Text>
+            <Text style={styles.errorSubtitle}>
+              {error.includes('401') ? 'Votre session a expiré. Veuillez vous reconnecter.' : error}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+              <Text style={styles.retryButtonText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {renderActiveTicket()}
+            {renderStats()}
+            {renderQuickActions()}
+          </>
+        )}
+        {AlertComponent}
+        <View style={styles.bottomSpace} />
+      </ScrollView>
+    </View>
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F3F4F6',
   },
-  content: {
-    padding: Theme.spacing.lg,
+  headerGradient: {
+    paddingTop: 50,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
   },
-  activeTicketCard: {
-    marginBottom: Theme.spacing.lg,
-  },
-  noTicketCard: {
-    marginBottom: Theme.spacing.lg,
-  },
-  noTicketContent: {
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.xxxl,
-  },
-  noTicketTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    lineHeight: 41,
-    letterSpacing: 0.37,
-    marginTop: Theme.spacing.lg,
-    marginBottom: Theme.spacing.sm,
-  },
-  noTicketSubtitle: {
-    fontSize: 17,
-    fontWeight: '400',
-    lineHeight: 22,
-    letterSpacing: -0.43,
-    textAlign: 'center',
-    marginBottom: Theme.spacing.xl,
-    paddingHorizontal: Theme.spacing.lg,
-  },
-  scanButton: {
-    paddingHorizontal: Theme.spacing.xl,
-  },
-  ticketHeader: {
+  headerContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
   },
-  ticketHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ticketTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 22,
-    letterSpacing: -0.43,
-    marginRight: Theme.spacing.sm,
-  },
-  refreshButton: {
-    padding: Theme.spacing.sm,
-  },
-  ticketContent: {
-    alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
-  },
-  progressContainer: {
-    alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
-  },
-  positionLabel: {
-    fontSize: 16,
-    fontWeight: '400',
-    lineHeight: 21,
-    letterSpacing: -0.32,
-    marginTop: Theme.spacing.sm,
-  },
-  ticketInfo: {
-    width: '100%',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Theme.colors.separator,
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: '400',
-    lineHeight: 21,
-    letterSpacing: -0.32,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    
-    lineHeight: 21,
-    letterSpacing: -0.32,
-  },
-  ticketActions: {
-    gap: Theme.spacing.md,
-  },
-  actionButton: {
-    marginBottom: Theme.spacing.sm,
-  },
-  quickActionsCard: {
-    marginBottom: Theme.spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 22,
-    letterSpacing: -0.43,
-    marginBottom: Theme.spacing.lg,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    gap: Theme.spacing.md,
-  },
-  actionCard: {
+  headerLeft: {
     flex: 1,
-    padding: Theme.spacing.lg,
-    borderRadius: 12,
-    alignItems: 'center',
   },
-  actionIcon: {
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  notificationButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    marginBottom: Theme.spacing.md,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  actionTitle: {
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 30,
+  },
+  // No Ticket Card
+  noTicketCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  noTicketContent: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  noTicketIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  noTicketTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  noTicketSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  scanButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  scanButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    gap: 8,
+  },
+  scanButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    
-    lineHeight: 21,
-    letterSpacing: -0.32,
-    textAlign: 'center',
-    marginBottom: Theme.spacing.xs,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  actionSubtitle: {
+  // Active Ticket Card
+  activeTicketCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  statusText: {
     fontSize: 13,
-    fontWeight: '400',
-    
-    lineHeight: 18,
-    letterSpacing: -0.08,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
-  statsCard: {
-    marginBottom: Theme.spacing.lg,
+  ticketContent: {
+    padding: 24,
+  },
+  positionSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  positionNumber: {
+    fontSize: 72,
+    fontWeight: '800',
+    color: '#1F2937',
+    lineHeight: 80,
+  },
+  positionLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  ticketInfo: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  ticketActions: {
+    gap: 12,
+  },
+  primaryAction: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  primaryActionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  primaryActionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  dangerAction: {
+    borderRadius: 16,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 16,
+  },
+  dangerActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dangerActionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  // Stats Section
+  statsSection: {
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 16,
   },
   statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    gap: 12,
   },
-  statItem: {
+  statCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
   },
   statValue: {
     fontSize: 28,
-    fontWeight: '700',
-    lineHeight: 34,
-    letterSpacing: 0.36,
+    fontWeight: '800',
+    marginBottom: 4,
   },
   statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  // Quick Actions
+  quickActionsSection: {
+    marginTop: 20,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickActionTitle: {
     fontSize: 13,
-    fontWeight: '400',
-    
-    lineHeight: 18,
-    letterSpacing: -0.08,
-    marginTop: Theme.spacing.xs,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  // Error
+  errorContainer: {
+    alignItems: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   bottomSpace: {
-    height: Theme.spacing.xxl,
+    height: 40,
   },
 });
 

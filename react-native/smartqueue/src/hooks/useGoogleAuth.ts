@@ -20,7 +20,7 @@ export const useGoogleAuth = () => {
     androidClientId: '549011846244-bjm9d1imp4h3bbjd7u4vt7p2p2s1th8f.apps.googleusercontent.com',
     iosClientId: '549011846244-nim8slhg25jfd2qk1fb9mfobdio4o2h8.apps.googleusercontent.com',
     webClientId: '549011846244-7csqkt0jb8ltrsn82aicmur9t16gcgjg.apps.googleusercontent.com',
-    redirectUri: makeRedirectUri(),
+    redirectUri: 'https://auth.expo.io/@stephdev17/smartqueue',
     scopes: ['openid', 'profile', 'email'],
   });
 
