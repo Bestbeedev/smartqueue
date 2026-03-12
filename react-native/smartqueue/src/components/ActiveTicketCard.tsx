@@ -490,13 +490,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ticketNumberBox: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#EF4444",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 18,
   },
   ticketNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "800",
     color: "white",
   },

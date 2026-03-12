@@ -89,7 +89,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   
   // Handle dismiss (expired)
   const handleDismiss = useCallback(() => {
-    router.replace('/(tabs)/explore');
+    return router.replace('/(tabs)');
   }, []);
 
   // Flash animation for "called" state
@@ -109,7 +109,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       );
       flashLoop.start();
     }
-  }, [isCalled]); // flashAnim is a ref, so it's stable and doesn't need to be in dependencies
+  }, [flashAnim, isCalled]); // flashAnim is a ref, so it's stable and doesn't need to be in dependencies
 
   // Haptic when "almost"
   useEffect(() => {
@@ -124,7 +124,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       Animated.timing(positionAnim, { toValue: 0.7, duration: 200, useNativeDriver: true }),
       Animated.spring(positionAnim, { toValue: 1, useNativeDriver: true }),
     ]).start();
-  }, [position]); // positionAnim is a ref, so it's stable and doesn't need to be in dependencies
+  }, [position, positionAnim]); // positionAnim is a ref, so it's stable and doesn't need to be in dependencies
 
   const handleCancelTicket = () => {
     showWarning(
