@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Platform, Alert, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCustomAlert } from './useCustomAlert';
 
 // Types pour les notifications
 export interface NotificationPermission {
@@ -35,6 +36,7 @@ export interface PushNotificationToken {
 
 // Hook pour la gestion des notifications
 export const useNotifications = () => {
+  const { showWarning } = useCustomAlert();
   const [permission, setPermission] = useState<NotificationPermission>({
     granted: false,
     canAskAgain: true,
@@ -352,21 +354,14 @@ export const useNotifications = () => {
 
   // Afficher une alerte pour demander la permission
   const showPermissionAlert = useCallback(() => {
-    Alert.alert(
+    showWarning(
       'Notifications requises',
       'SmartQueue a besoin d\'envoyer des notifications pour vous alerter quand c\'est votre tour dans la file d\'attente.',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Autoriser',
-          onPress: () => requestPermission(),
-        },
-      ]
+      'Autoriser',
+      () => requestPermission(),
+      'Annuler'
     );
-  }, [requestPermission]);
+  }, [requestPermission, showWarning]);
 
   // Initialiser les notifications
   const initializeNotifications = useCallback(async (): Promise<void> => {
