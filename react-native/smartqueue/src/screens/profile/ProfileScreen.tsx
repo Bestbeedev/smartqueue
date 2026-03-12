@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../store/authStore';
 import { useSettings } from '../../store/settingsStore';
 import { useAlertPreferencesStore } from '../../store/alertPreferencesStore';
-import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel } from '../../types/alertPreferences';
+import { MARGIN_OPTIONS, TRANSPORT_MODE_OPTIONS, AlertChannel, MarginOption } from '../../types/alertPreferences';
 import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -102,11 +102,14 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleSelectAlertTiming = (value: string | number) => {
-    setMarginMinutes(value as number, String(value));
+    const predefinedOptions: MarginOption[] = [5, 10, 15, 20];
+    const numericValue = value as number;
+    const isPredefined = predefinedOptions.includes(numericValue as MarginOption);
+    setMarginMinutes(numericValue, isPredefined ? (numericValue as MarginOption) : 'custom');
   };
 
   const handleSelectTransportMode = (value: string | number) => {
-    setPreferredTransportMode(value as string);
+    setPreferredTransportMode(value as 'walking' | 'motorcycle' | 'car');
   };
 
   // Charger les préférences au montage
@@ -360,7 +363,7 @@ export const ProfileScreen: React.FC = () => {
             style={styles.logoutGradient}
           >
             <Ionicons name="log-out-outline" size={22} color="#DC2626" />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>Deconnexion</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -528,7 +531,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 0.5,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
@@ -581,7 +584,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 1,
   },
   logoutGradient: {
     flexDirection: 'row',
@@ -601,6 +604,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 24,
+    marginBottom:100,
   },
 });
 
