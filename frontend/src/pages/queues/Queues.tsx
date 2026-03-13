@@ -82,11 +82,8 @@ const Queues: React.FC = () => {
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new Error("Identifiant de service invalide");
     }
-    const r = await fetch(`/api/services/${numericId}`);
-    if (!r.ok) {
-      throw new Error("Service introuvable");
-    }
-    return r.json();
+    const { data } = await api.get(`/api/services/${numericId}`);
+    return data;
   };
 
   const fetchQueue = async (id: string) => {
@@ -217,11 +214,8 @@ const Queues: React.FC = () => {
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new Error("Identifiant de service invalide");
     }
-    const r = await fetch(`/api/services/${numericId}/affluence`);
-    if (!r.ok) {
-      throw new Error("Impossible de charger les statistiques");
-    }
-    return r.json();
+    const { data } = await api.get(`/api/services/${numericId}/affluence`);
+    return data;
   };
 
   useEffect(() => {

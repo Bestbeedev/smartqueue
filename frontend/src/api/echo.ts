@@ -19,8 +19,9 @@ export function getEcho(): any {
     : null
   const key = import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_KEY
   const host = import.meta.env.VITE_REVERB_HOST || import.meta.env.VITE_PUSHER_HOST || window.location.hostname
-  const port = Number(import.meta.env.VITE_REVERB_PORT || import.meta.env.VITE_PUSHER_PORT || 8080)
+  const port = Number(import.meta.env.VITE_REVERB_PORT) || Number(import.meta.env.VITE_PUSHER_PORT) || 6001
   const scheme = (import.meta.env.VITE_REVERB_SCHEME || (import.meta.env.VITE_PUSHER_FORCE_TLS === 'true' ? 'https' : 'http')) as string
+  const forceTLS = scheme === 'https' || import.meta.env.VITE_REVERB_SCHEME === 'https'
 
   ;(window as any).Pusher = Pusher
   echoInstance = new Echo({
@@ -28,9 +29,9 @@ export function getEcho(): any {
     key,
     cluster: import.meta.env.VITE_REVERB_CLUSTER || import.meta.env.VITE_PUSHER_CLUSTER,
     wsHost: host,
-    wsPort: port,
-    wssPort: port,
-    forceTLS: scheme === 'https',
+    wsPort: forceTLS ? undefined : port,
+    wssPort: forceTLS ? port : undefined,
+    forceTLS,
     disableStats: true,
     enabledTransports: ['ws', 'wss'],
     authEndpoint: `${import.meta.env.VITE_API_BASE_URL || ''}/api/broadcasting/auth`,

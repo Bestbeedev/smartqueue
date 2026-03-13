@@ -11,7 +11,17 @@ class ServicePolicy
     // Gestion d'un service (actions agent: call-next, close, etc.)
     public function manage(User $user, Service $service): bool
     {
-        return in_array($user->role, ['agent','admin'], true);
+        // Les admins peuvent gérer tous les services de leur établissement
+        if ($user->role === 'admin') {
+            return $user->establishment_id === $service->establishment_id;
+        }
+        
+        // Les agents peuvent gérer uniquement les services qui leur sont assignés
+        if ($user->role === 'agent') {
+            return $user->services()->where('services.id', $service->id)->exists();
+        }
+        
+        return false;
     }
 }
 
