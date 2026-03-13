@@ -149,6 +149,33 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             triggerHapticFeedback('success');
           }
         })
+        .listen('.ticket.updated', (data: any) => {
+          console.log('Ticket updated event received:', data);
+          setLastUpdate(new Date());
+          // Handle status changes
+          if (data.status) {
+            updateTicketStatus(data.status);
+            switch (data.status) {
+              case 'called':
+                markAsCalled(data.counter_id?.toString());
+                triggerNotification("C'est votre tour !", 'Votre ticket est appelé');
+                triggerHapticFeedback('success');
+                break;
+              case 'absent':
+                triggerNotification('Ticket absent', 'Vous avez été marqué absent');
+                triggerHapticFeedback('warning');
+                break;
+              case 'waiting':
+                triggerNotification('Ticket en attente', data.message || 'Votre position a été mise à jour');
+                triggerHapticFeedback('light');
+                break;
+            }
+          }
+          // Handle position changes
+          if (data.position) {
+            updatePosition(data.position, data.eta_min || 0);
+          }
+        })
         .listen('.ticket.status_changed', (data: TicketStatusEvent) => {
           console.log('Ticket status changed:', data);
           if (data.ticket_id === Number(ticketId)) {
@@ -171,6 +198,34 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           }
         });
 
+      // Also listen to user-specific channel for ticket updates
+      if (activeTicket?.user_id) {
+        echoInstance.current.private(`user.${activeTicket.user_id}`)
+          .listen('.user.ticket.updated', (data: any) => {
+            console.log('User ticket updated event received:', data);
+            if (data.ticket_id === Number(ticketId)) {
+              setLastUpdate(new Date());
+              if (data.status) {
+                updateTicketStatus(data.status);
+                switch (data.status) {
+                  case 'called':
+                    markAsCalled(data.counter_id?.toString());
+                    triggerNotification("C'est votre tour !", 'Votre ticket est appelé');
+                    triggerHapticFeedback('success');
+                    break;
+                  case 'absent':
+                    triggerNotification('Ticket absent', 'Vous avez été marqué absent');
+                    triggerHapticFeedback('warning');
+                    break;
+                }
+              }
+              if (data.position) {
+                updatePosition(data.position, 0);
+              }
+            }
+          });
+      }
+
       // Listen to service-wide alerts (e.g. high demand)
       if (activeTicket?.service_id) {
          echoInstance.current.private(`service.${activeTicket.service_id}`)
@@ -190,6 +245,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
   const disconnect = useCallback(() => {
     if (echoInstance.current) {
       if (ticketId) echoInstance.current.leave(`ticket.${ticketId}`);
+      if (activeTicket?.user_id) echoInstance.current.leave(`user.${activeTicket.user_id}`);
       if (activeTicket?.service_id) echoInstance.current.leave(`service.${activeTicket.service_id}`);
       
       echoInstance.current.disconnect();
@@ -197,7 +253,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
       setWebSocketConnected(false);
       console.log('WebSocket (Echo) disconnected gracefully');
     }
-  }, [ticketId, activeTicket?.service_id, setWebSocketConnected]);
+  }, [ticketId, activeTicket?.user_id, activeTicket?.service_id, setWebSocketConnected]);
 
   const sendMessage = useCallback((event: string, data: any) => {
     if (echoInstance.current && echoInstance.current.connector.pusher.connection.state === 'connected') {

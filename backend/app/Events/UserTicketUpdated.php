@@ -24,7 +24,7 @@ class UserTicketUpdated implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('private-user.'.$this->userId)];
+        return [new PrivateChannel('user.'.$this->userId)];
     }
 
     public function broadcastWith(): array

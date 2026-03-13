@@ -251,6 +251,13 @@ class TicketService
                 'service_id' => $ticket->service_id,
                 'status' => $ticket->status,
             ]));
+            
+            // Send push notification for absent
+            dispatch(new SendPushNotification($ticket->user->id, 'Ticket marqué absent', 'Vous avez été marqué absent pour le ticket '.$ticket->number, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'type' => 'absent',
+            ]));
         }
 
         // Diffusion service: ticket marqué absent
@@ -464,6 +471,20 @@ class TicketService
                 'number' => $ticket->number,
                 'counter_id' => $ticket->counter_id,
             ]));
+            
+            // Send push notification for recall
+            dispatch(new SendPushNotification($ticket->user->id, 'Rappel - Votre ticket est appelé', 'Présentez-vous au guichet pour le ticket '.$ticket->number, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'type' => 'recall',
+            ]));
+            
+            // Send SMS if phone available
+            if (!empty($ticket->user->phone)) {
+                dispatch(new SendSmsNotification($ticket->user->phone, 'Rappel: Votre ticket '.$ticket->number.' est appelé. Présentez-vous au guichet.', [
+                    'ticket_id' => $ticket->id,
+                ]));
+            }
         }
         return $ticket->fresh();
     }
