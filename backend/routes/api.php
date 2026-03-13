@@ -254,5 +254,6 @@ Route::post('broadcasting/auth', function (Request $request) {
     }
     
     // Default: use Laravel's built-in auth for other channels
+    //vd
     return Broadcast::auth($request);
 })->middleware('auth:sanctum');
