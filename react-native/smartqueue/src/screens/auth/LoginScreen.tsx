@@ -45,11 +45,9 @@ export const LoginScreen: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   
-  // Animation du formulaire
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  // Animation au montage
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -63,27 +61,23 @@ export const LoginScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
-  // Effacer l'erreur quand le formulaire change
   React.useEffect(() => {
     if (error) {
       clearError();
     }
   }, [formData, error, clearError]);
 
-  // Validation du formulaire
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    // Validation email
     if (!formData.email.trim()) {
       newErrors.email = 'L\'email est requis';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'L\'email n\'est pas valide';
     }
 
-    // Validation mot de passe
     if (!formData.password) {
       newErrors.password = 'Le mot de passe est requis';
     }
@@ -92,7 +86,6 @@ export const LoginScreen: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Gérer la soumission du formulaire
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -105,26 +98,21 @@ export const LoginScreen: React.FC = () => {
       });
       router.replace('/(tabs)');
     } catch (error) {
-      // L'erreur est gérée dans le store
       console.error('Login error:', error);
     }
   };
 
-  // Gérer les changements du formulaire
   const handleInputChange = (field: keyof LoginFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Effacer l'erreur du champ
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // Navigation vers l'inscription
   const handleGoToRegister = () => {
     router.push('/register');
   };
 
-  // Social login with Google
   const handleGoogleLoginPress = async () => {
     const result = await handleGoogleLogin();
     if (result.success) {
@@ -135,14 +123,12 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  // Mot de passe oublié
   const handleForgotPassword = () => {
     showWarning(
       'Mot de passe oublié',
       'Entrez votre adresse email pour recevoir un lien de réinitialisation.',
       'Envoyer',
       () => {
-        // TODO: Implémenter la réinitialisation du mot de passe
         console.log('Send password reset to:', formData.email);
       },
       'Annuler'
@@ -160,16 +146,17 @@ export const LoginScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header with Gradient */}
+
+          {/* Header */}
           <LinearGradient
             colors={['#60A5FA', '#3B82F6', '#2563EB']}
             style={styles.headerGradient}
           >
-            <Text style={styles.logoText}>VQS</Text>
-            <Text style={styles.welcomeText}>Welcome Back</Text>
+            <Text style={styles.logoText}>SmartQueue</Text>
+            <Text style={styles.welcomeText}>Soyez les bienvenues</Text>
           </LinearGradient>
 
-          {/* Form Section */}
+          {/* Form */}
           <Animated.View
             style={[
               styles.formContainer,
@@ -179,11 +166,11 @@ export const LoginScreen: React.FC = () => {
               },
             ]}
           >
-            {/* Email Input */}
+
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Email Address"
+                placeholder="Adresse email"
                 placeholderTextColor="#9CA3AF"
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
@@ -193,15 +180,15 @@ export const LoginScreen: React.FC = () => {
                 editable={!isLoading}
               />
             </View>
+
             {errors.email && (
               <Text style={styles.errorText}>{errors.email}</Text>
             )}
 
-            {/* Password Input */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder="Mot de passe"
                 placeholderTextColor="#9CA3AF"
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
@@ -221,20 +208,19 @@ export const LoginScreen: React.FC = () => {
                 />
               </TouchableOpacity>
             </View>
+
             {errors.password && (
               <Text style={styles.errorText}>{errors.password}</Text>
             )}
 
-            {/* Forgot Password */}
             <TouchableOpacity
               onPress={handleForgotPassword}
               disabled={isLoading}
               style={styles.forgotPasswordContainer}
             >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            {/* Error Message */}
             {error && (
               <View style={styles.errorContainer}>
                 <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
@@ -242,7 +228,6 @@ export const LoginScreen: React.FC = () => {
               </View>
             )}
 
-            {/* Sign In Button */}
             <TouchableOpacity
               style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
               onPress={handleSubmit}
@@ -252,14 +237,11 @@ export const LoginScreen: React.FC = () => {
               {isLoading ? (
                 <Text style={styles.signInButtonText}>Connexion...</Text>
               ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                <Text style={styles.signInButtonText}>Se connecter</Text>
               )}
             </TouchableOpacity>
 
-            {/* Social Login Section */}
             <View style={styles.socialSection}>
-              <Text style={styles.socialTitle}>Social Login</Text>
-              
               <TouchableOpacity
                 style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
                 onPress={handleGoogleLoginPress}
@@ -273,26 +255,29 @@ export const LoginScreen: React.FC = () => {
                     <View style={styles.googleIconContainer}>
                       <Ionicons name="logo-google" size={18} color="#4285F4" />
                     </View>
-                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    <Text style={styles.googleButtonText}>Continuer avec Google</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
 
-            {/* Sign Up Link */}
             <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Don't have an account? </Text>
+              <Text style={styles.signUpText}>Pas encore de compte ? </Text>
               <TouchableOpacity onPress={handleGoToRegister} disabled={isLoading}>
-                <Text style={styles.signUpLink}>Sign Up</Text>
+                <Text style={styles.signUpLink}>S&apos;inscrire</Text>
               </TouchableOpacity>
             </View>
+
           </Animated.View>
+
           {AlertComponent}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
+
 
 // Styles
 const styles = StyleSheet.create({
