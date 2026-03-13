@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   },
   ticketCard: {
     marginHorizontal: 16,
-    marginTop: -20,
+    marginTop: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     shadowColor: '#000',
@@ -577,6 +577,7 @@ const styles = StyleSheet.create({
   actionsContainer: {
     marginHorizontal: 16,
     marginTop: 20,
+    marginBottom:100,
     gap: 12,
   },
   primaryButton: {
