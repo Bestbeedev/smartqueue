@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ticketsApi, Ticket, CreateTicketData } from '../api/ticketsApi';
+import { shallow } from 'zustand/shallow';
 
 // Types pour le store de tickets
 export interface TicketState {
-  // État du ticket actif
+  // État du ticket actif (principal - pour compatibilité)
   activeTicket: Ticket | null;
+  activeTickets: Ticket[]; // Tous les tickets actifs
   position: number;
   etaMinutes: number;
   isAlmostThere: boolean;
@@ -23,10 +25,12 @@ export interface TicketState {
   
   // État de chargement
   isLoading: boolean;
+  isInitialized: boolean; // True once we've fetched from backend
   error: string | null;
   
   // Actions
   setActiveTicket: (ticket: Ticket | null) => void;
+  setActiveTickets: (tickets: Ticket[]) => void;
   updatePosition: (position: number, etaMinutes: number) => void;
   markAsCalled: (counterNumber?: string) => void;
   markAsAlmostThere: () => void;
@@ -53,6 +57,7 @@ export const useTicketStore = create<TicketState>()(
     (set, get) => ({
       // État initial
       activeTicket: null,
+      activeTickets: [],
       position: 0,
       etaMinutes: 0,
       isAlmostThere: false,
@@ -63,6 +68,7 @@ export const useTicketStore = create<TicketState>()(
       isConnected: false,
       lastUpdate: null,
       isLoading: false,
+      isInitialized: false,
       error: null,
 
       // Définir le ticket actif
@@ -73,6 +79,22 @@ export const useTicketStore = create<TicketState>()(
           etaMinutes: ticket?.eta_minutes || 0,
           isAlmostThere: ticket?.position ? ticket.position <= 2 : false,
           isCalled: ticket?.status === 'called',
+          isInitialized: true,
+          error: null,
+        });
+      },
+
+      // Définir tous les tickets actifs
+      setActiveTickets: (tickets: Ticket[]) => {
+        const firstTicket = tickets.length > 0 ? tickets[0] : null;
+        set({
+          activeTickets: tickets,
+          activeTicket: firstTicket,
+          position: firstTicket?.position || 0,
+          etaMinutes: firstTicket?.eta_minutes || 0,
+          isAlmostThere: firstTicket?.position ? firstTicket.position <= 2 : false,
+          isCalled: firstTicket?.status === 'called',
+          isInitialized: true,
           error: null,
         });
       },
@@ -114,6 +136,7 @@ export const useTicketStore = create<TicketState>()(
       clearActiveTicket: () => {
         set({
           activeTicket: null,
+          activeTickets: [],
           position: 0,
           etaMinutes: 0,
           isAlmostThere: false,
@@ -121,7 +144,7 @@ export const useTicketStore = create<TicketState>()(
           hasRecalled: false,
           countdownExpiry: null,
           counterNumber: null,
-          lastUpdate: new Date(),
+          error: null,
         });
       },
 
@@ -236,42 +259,53 @@ export const useTicketStore = create<TicketState>()(
         set({ isLoading: true, error: null });
 
         try {
-          const ticket = await ticketsApi.getMyActiveTicket();
+          const tickets = await ticketsApi.getMyActiveTickets();
+          console.log('[ticketStore] fetchActiveTicket got tickets:', tickets.length);
           
-          if (ticket) {
+          if (tickets.length > 0) {
+            const firstTicket = tickets[0];
+            console.log('[ticketStore] firstTicket:', JSON.stringify(firstTicket).substring(0, 300));
             set({
-              activeTicket: ticket,
-              position: ticket.position || 0,
-              etaMinutes: ticket.eta_minutes || 0,
-              isAlmostThere: ticket.position ? ticket.position <= 2 : false,
-              isCalled: ticket.status === 'called',
+              activeTickets: tickets,
+              activeTicket: firstTicket,
+              position: firstTicket.position || 0,
+              etaMinutes: firstTicket.eta_minutes || 0,
+              isAlmostThere: firstTicket.position ? firstTicket.position <= 2 : false,
+              isCalled: firstTicket.status === 'called',
               isLoading: false,
+              isInitialized: true,
               error: null,
               lastUpdate: new Date(),
             });
           } else {
+            console.log('[ticketStore] No active tickets');
             // Pas de ticket actif
             set({
+              activeTickets: [],
               activeTicket: null,
               position: 0,
               etaMinutes: 0,
               isAlmostThere: false,
               isCalled: false,
               isLoading: false,
+              isInitialized: true,
               error: null,
               lastUpdate: new Date(),
             });
           }
         } catch (error: any) {
+          console.log('[ticketStore] fetchActiveTicket error:', error);
           // 404 = pas de ticket actif, ce n'est pas une erreur
           if (error.response?.status === 404) {
             set({
+              activeTickets: [],
               activeTicket: null,
               position: 0,
               etaMinutes: 0,
               isAlmostThere: false,
               isCalled: false,
               isLoading: false,
+              isInitialized: true,
               error: null,
               lastUpdate: new Date(),
             });
@@ -280,6 +314,7 @@ export const useTicketStore = create<TicketState>()(
           const errorMessage = error.response?.data?.message || 'Erreur lors de la récupération du ticket';
           set({
             isLoading: false,
+            isInitialized: true,
             error: errorMessage,
           });
           throw error;
@@ -333,13 +368,11 @@ export const useTicketStore = create<TicketState>()(
     {
       name: 'ticket-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      // Don't persist ticket data - always fetch fresh from backend
+      // This prevents showing stale data from previous user sessions
       partialize: (state) => ({
-        activeTicket: state.activeTicket,
-        position: state.position,
-        etaMinutes: state.etaMinutes,
-        isAlmostThere: state.isAlmostThere,
-        isCalled: state.isCalled,
-        hasRecalled: state.hasRecalled,
+        // Only persist non-user-specific data if needed
+        // activeTicket, position, etc. are NOT persisted
       }),
     }
   )
@@ -347,52 +380,72 @@ export const useTicketStore = create<TicketState>()(
 
 // Hooks personnalisés pour le store de tickets
 export const useTicket = () => {
-  const ticketStore = useTicketStore();
+  // Use individual selectors for proper reactivity
+  const activeTicket = useTicketStore((state) => state.activeTicket);
+  const activeTickets = useTicketStore((state) => state.activeTickets);
+  const position = useTicketStore((state) => state.position);
+  const etaMinutes = useTicketStore((state) => state.etaMinutes);
+  const isAlmostThere = useTicketStore((state) => state.isAlmostThere);
+  const isCalled = useTicketStore((state) => state.isCalled);
+  const hasRecalled = useTicketStore((state) => state.hasRecalled);
+  const countdownExpiry = useTicketStore((state) => state.countdownExpiry);
+  const counterNumber = useTicketStore((state) => state.counterNumber);
+  const isConnected = useTicketStore((state) => state.isConnected);
+  const lastUpdate = useTicketStore((state) => state.lastUpdate);
+  const isLoading = useTicketStore((state) => state.isLoading);
+  const isInitialized = useTicketStore((state) => state.isInitialized);
+  const error = useTicketStore((state) => state.error);
+  
+  // Actions - use getState() to avoid subscription
+  const actions = useTicketStore.getState();
   
   return {
     // État
-    activeTicket: ticketStore.activeTicket,
-    position: ticketStore.position,
-    etaMinutes: ticketStore.etaMinutes,
-    isAlmostThere: ticketStore.isAlmostThere,
-    isCalled: ticketStore.isCalled,
-    hasRecalled: ticketStore.hasRecalled,
-    countdownExpiry: ticketStore.countdownExpiry,
-    counterNumber: ticketStore.counterNumber,
-    isConnected: ticketStore.isConnected,
-    lastUpdate: ticketStore.lastUpdate,
-    isLoading: ticketStore.isLoading,
-    error: ticketStore.error,
+    activeTicket,
+    activeTickets,
+    position,
+    etaMinutes,
+    isAlmostThere,
+    isCalled,
+    hasRecalled,
+    countdownExpiry,
+    counterNumber,
+    isConnected,
+    lastUpdate,
+    isLoading,
+    isInitialized,
+    error,
     
     // Actions
-    setActiveTicket: ticketStore.setActiveTicket,
-    updatePosition: ticketStore.updatePosition,
-    markAsCalled: ticketStore.markAsCalled,
-    markAsAlmostThere: ticketStore.markAsAlmostThere,
-    clearActiveTicket: ticketStore.clearActiveTicket,
-    setLoading: ticketStore.setLoading,
-    setError: ticketStore.setError,
-    createTicket: ticketStore.createTicket,
-    cancelTicket: ticketStore.cancelTicket,
-    refreshActiveTicket: ticketStore.refreshActiveTicket,
-    fetchActiveTicket: ticketStore.fetchActiveTicket,
-    updateTicketStatus: ticketStore.updateTicketStatus,
-    setWebSocketConnected: ticketStore.setWebSocketConnected,
-    setLastUpdate: ticketStore.setLastUpdate,
-    setRecalled: ticketStore.setRecalled,
-    resetRecall: ticketStore.resetRecall,
-    setCountdownExpiry: ticketStore.setCountdownExpiry,
+    setActiveTicket: actions.setActiveTicket,
+    setActiveTickets: actions.setActiveTickets,
+    updatePosition: actions.updatePosition,
+    markAsCalled: actions.markAsCalled,
+    markAsAlmostThere: actions.markAsAlmostThere,
+    clearActiveTicket: actions.clearActiveTicket,
+    setLoading: actions.setLoading,
+    setError: actions.setError,
+    createTicket: actions.createTicket,
+    cancelTicket: actions.cancelTicket,
+    refreshActiveTicket: actions.refreshActiveTicket,
+    fetchActiveTicket: actions.fetchActiveTicket,
+    updateTicketStatus: actions.updateTicketStatus,
+    setWebSocketConnected: actions.setWebSocketConnected,
+    setLastUpdate: actions.setLastUpdate,
+    setRecalled: actions.setRecalled,
+    resetRecall: actions.resetRecall,
+    setCountdownExpiry: actions.setCountdownExpiry,
     
-    // Computed properties
-    hasActiveTicket: ticketStore.activeTicket !== null,
-    ticketNumber: ticketStore.activeTicket?.number || '',
-    serviceName: ticketStore.activeTicket?.service?.name || '',
-    establishmentName: ticketStore.activeTicket?.establishment?.name || '',
-    ticketStatus: ticketStore.activeTicket?.status || 'created',
-    peopleAhead: Math.max(0, ticketStore.position - 1),
-    progressPercentage: ticketStore.position > 0 ? Math.max(0, (1 - ticketStore.position / 10) * 100) : 100,
-    timeAgo: ticketStore.lastUpdate 
-      ? Math.floor((Date.now() - ticketStore.lastUpdate.getTime()) / 1000 / 60) 
+    // Computed properties (reactive because they depend on reactive state)
+    hasActiveTicket: activeTicket !== null,
+    ticketNumber: activeTicket?.number || '',
+    serviceName: activeTicket?.service?.name || '',
+    establishmentName: activeTicket?.establishment?.name || '',
+    ticketStatus: activeTicket?.status || 'created',
+    peopleAhead: Math.max(0, position - 1),
+    progressPercentage: position > 0 ? Math.max(0, (1 - position / 10) * 100) : 100,
+    timeAgo: lastUpdate 
+      ? Math.floor((Date.now() - lastUpdate.getTime()) / 1000 / 60) 
       : 0,
   };
 };

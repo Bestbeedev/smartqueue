@@ -44,15 +44,29 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
   const { AlertComponent, showWarning, showError, showInfo } = useCustomAlert();
 
+  // Debug: log establishment coordinates
+  useEffect(() => {
+    if (activeTicket?.establishment) {
+      console.log('[ActiveTicketCard] Establishment:', JSON.stringify(activeTicket.establishment));
+    }
+  }, [activeTicket?.establishment]);
+
+  // Check if establishment has valid coordinates
+  const hasValidCoordinates = activeTicket?.establishment && 
+    (activeTicket.establishment as any)?.lat !== null && 
+    (activeTicket.establishment as any)?.lat !== undefined &&
+    (activeTicket.establishment as any)?.lng !== null &&
+    (activeTicket.establishment as any)?.lng !== undefined;
+
   // Distance tracking
   const { distanceInfo } = useDistanceTracking({
-    targetCoordinates: activeTicket?.establishment
+    targetCoordinates: hasValidCoordinates
       ? {
-          latitude: (activeTicket.establishment as any).lat || 0,
-          longitude: (activeTicket.establishment as any).lng || 0,
+          latitude: (activeTicket.establishment as any).lat,
+          longitude: (activeTicket.establishment as any).lng,
         }
       : null,
-    enabled: !!activeTicket?.establishment,
+    enabled: hasValidCoordinates,
   });
 
   // Animation refs
@@ -60,8 +74,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Queue length (from ticket or default)
-  const queueLength = (activeTicket as any)?.queue_length || 18;
+  // Queue length (from ticket data from backend)
+  const queueLength = (activeTicket as any)?.queue_length || position || 1;
   const processedCount = Math.max(0, queueLength - position);
 
   // Calculate when to leave
@@ -339,7 +353,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         </View>
 
         {/* Distance Block */}
-        {distanceInfo && (
+        {hasValidCoordinates && distanceInfo ? (
           <View style={styles.distanceGrid}>
             {[
               {
@@ -369,6 +383,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 <Text style={styles.distanceLabel}>{item.label}</Text>
               </View>
             ))}
+          </View>
+        ) : (
+          <View style={styles.noCoordinatesContainer}>
+            <Ionicons name="location-outline" size={24} color="#9CA3AF" />
+            <Text style={styles.noCoordinatesText}>Coordonnées non disponibles</Text>
+            <Text style={styles.noCoordinatesSubtext}>
+              L'établissement n'a pas renseigné sa position GPS
+            </Text>
           </View>
         )}
 
@@ -599,6 +621,26 @@ const styles = StyleSheet.create({
   },
   leaveTextUrgent: {
     color: "#DC2626",
+  },
+  noCoordinatesContainer: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  noCoordinatesText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  noCoordinatesSubtext: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 4,
   },
   actionsRow: {
     flexDirection: "row",

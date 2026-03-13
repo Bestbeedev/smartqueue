@@ -92,6 +92,13 @@ export const useDistanceTracking = (
   useEffect(() => {
     if (!enabled || !userLocation || !targetCoordinates) return;
 
+    console.log('[useDistanceTracking] Calculating distance:', {
+      userLat: userLocation.latitude,
+      userLng: userLocation.longitude,
+      targetLat: targetCoordinates.latitude,
+      targetLng: targetCoordinates.longitude,
+    });
+
     calculateDistanceToTarget({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,

@@ -38,7 +38,7 @@ interface StatusOption {
 // Composant HistoryScreen
 export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<HistoryNavigationProp>();
-  const { hasActiveTicket, activeTicket, setActiveTicket, isCalled, counterNumber } = useTicket();
+  const { hasActiveTicket, activeTicket, setActiveTicket, isCalled, counterNumber, fetchActiveTicket, isInitialized } = useTicket();
   const { AlertComponent, showSuccess, showError } = useCustomAlert();
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -48,6 +48,11 @@ export const HistoryScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTickets, setExpandedTickets] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch fresh ticket data on mount to avoid showing stale data from other users
+  useEffect(() => {
+    fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
+  }, []);
 
   // Refs pour éviter les boucles de dépendances
   const pageRef = React.useRef(1);
@@ -302,7 +307,7 @@ export const HistoryScreen: React.FC = () => {
       <Text className="text-gray-500 text-center mb-10">
         Les tickets apparaissent ici une fois servis, annulés ou expirés.
       </Text>
-      {hasActiveTicket && activeTicket ? (
+      {isInitialized && hasActiveTicket && activeTicket ? (
         <TouchableOpacity 
           className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
           onPress={() => router.push('/(tabs)/live-ticket')}
@@ -460,7 +465,7 @@ export const HistoryScreen: React.FC = () => {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
-          selectedStatus === 'all' && hasActiveTicket && activeTicket ? (
+          selectedStatus === 'all' && isInitialized && hasActiveTicket && activeTicket ? (
             <>
               {renderActiveTicketCard()}
               {tickets.length > 0 && (
@@ -501,7 +506,7 @@ export const HistoryScreen: React.FC = () => {
                 <Text className="text-white font-bold ml-2">Réessayer</Text>
               </TouchableOpacity>
             </View>
-          ) : (selectedStatus === 'all' && hasActiveTicket && activeTicket) ? null : renderEmptyState
+          ) : (selectedStatus === 'all' && isInitialized && hasActiveTicket && activeTicket) ? null : renderEmptyState
         }
         renderItem={({ item: ticket }) => {
           const isExpanded = expandedTickets.has(ticket.id);

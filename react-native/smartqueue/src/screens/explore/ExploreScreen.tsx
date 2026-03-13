@@ -32,8 +32,19 @@ export const ExploreScreen: React.FC = () => {
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
   const [placeName, setPlaceName] = useState<string | null>(null);
-  const { hasActiveTicket, activeTicket } = useTicket();
+  const { hasActiveTicket, activeTicket, fetchActiveTicket, isInitialized } = useTicket();
   const { AlertComponent, showError, showInfo } = useCustomAlert();
+
+  // Debug log
+  useEffect(() => {
+    console.log('[ExploreScreen] State:', { hasActiveTicket, isInitialized, activeTicketId: activeTicket?.id });
+  }, [hasActiveTicket, isInitialized, activeTicket]);
+
+  // Fetch fresh ticket data on mount to avoid showing stale data from other users
+  useEffect(() => {
+    console.log('[ExploreScreen] Fetching active ticket...');
+    fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
+  }, []);
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [filteredEstablishments, setFilteredEstablishments] = useState<
@@ -539,7 +550,7 @@ useEffect(() => {
             <View className="h-px bg-gray-100 w-full" />
           )}
           ListHeaderComponent={
-            hasActiveTicket && activeTicket ? (
+            isInitialized && hasActiveTicket && activeTicket ? (
               <View className="mb-4">
                 <ActiveTicketCard
                   onPress={() =>

@@ -14,18 +14,41 @@ use Symfony\Component\HttpFoundation\Response;
 class AuthController extends Controller
 {
     /**
-     * Inscription d'un utilisateur (rôle par défaut: user)
+     * Inscription d'un utilisateur (rôle par défaut: user, ou admin si establishment fourni)
      */
     public function register(RegisterRequest $request)
     {
+        $data = $request->validated();
+        
+        // Déterminer le rôle: admin si establishment_name est fourni, sinon user
+        $role = !empty($data['establishment_name']) ? 'admin' : 'user';
+        
         // Création sécurisée de l'utilisateur
         $user = User::create([
-            'name' => $request->validated('name'),
-            'email' => $request->validated('email'),
-            'password' => Hash::make($request->validated('password')),
-            'phone' => $request->validated('phone'),
-            'role' => 'user',
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'phone' => $data['phone'] ?? null,
+            'role' => $role,
         ]);
+
+        // Créer l'établissement si les champs sont fournis
+        $establishment = null;
+        if (!empty($data['establishment_name'])) {
+            $establishment = \App\Models\Establishment::create([
+                'name' => $data['establishment_name'],
+                'address' => $data['establishment_address'] ?? null,
+                'lat' => $data['establishment_lat'] ?? null,
+                'lng' => $data['establishment_lng'] ?? null,
+                'open_at' => $data['establishment_open_at'] ?? null,
+                'close_at' => $data['establishment_close_at'] ?? null,
+                'is_active' => true,
+            ]);
+            
+            // Lier l'admin à l'établissement
+            $user->establishment_id = $establishment->id;
+            $user->save();
+        }
 
         // Émission d'un token d'accès personnel (Sanctum)
         $token = $user->createToken('api')->plainTextToken;
@@ -37,7 +60,14 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'phone' => $user->phone,
                 'role' => $user->role,
+                'establishment_id' => $user->establishment_id,
             ],
+            'establishment' => $establishment ? [
+                'id' => $establishment->id,
+                'name' => $establishment->name,
+                'lat' => $establishment->lat,
+                'lng' => $establishment->lng,
+            ] : null,
             'token' => $token,
         ], Response::HTTP_CREATED);
     }

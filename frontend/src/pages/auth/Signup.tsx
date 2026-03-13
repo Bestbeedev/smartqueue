@@ -9,7 +9,7 @@ import { FormEvent, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { signup } from "@/store/authSlice";
 import { Navigate, Link } from "react-router-dom";
-import { Lock, Mail, User, Phone, AlertCircle, Building,Eye, EyeOff} from "lucide-react";
+import { Lock, Mail, User, Phone, AlertCircle, Building, Eye, EyeOff, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -21,18 +21,29 @@ export default function Signup() {
   const { token, loading, error } = useAppSelector((s) => s.auth);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [establishmentName, setEstablishmentName] = useState("");
+  const [establishmentAddress, setEstablishmentAddress] = useState("");
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     mode: "onChange",
   });
 
   const watchedPassword = watch("password");
+
+  // Update form value when coordinates change
+  const handleCoordinateChange = (lat: number, lng: number) => {
+    setCoordinates({ lat, lng });
+    setValue("establishment_lat" as any, lat);
+    setValue("establishment_lng" as any, lng);
+  };
 
   if (token) return <Navigate to="/dashboard" replace />;
 
@@ -43,8 +54,13 @@ export default function Signup() {
         email: data.email!,
         password: data.password!,
         password_confirmation: data.password_confirmation!,
-        phone: data.phone
-      })).unwrap();
+        phone: data.phone,
+        // Include establishment fields
+        establishment_name: establishmentName || undefined,
+        establishment_address: establishmentAddress || undefined,
+        establishment_lat: coordinates?.lat,
+        establishment_lng: coordinates?.lng,
+      } as any)).unwrap();
       toast.success("Compte créé avec succès !");
       // Redirection vers la page d'abonnement
       window.location.href = "/subscription";
@@ -277,6 +293,151 @@ export default function Signup() {
                     {errors.password_confirmation.message}
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* Section Établissement */}
+            <div className="border-t border-border pt-6 mt-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Informations de l'établissement (optionnel)
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="establishment_name"
+                      className="block text-sm font-medium text-foreground mb-1"
+                    >
+                      Nom de l'établissement
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Building className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <input
+                        id="establishment_name"
+                        type="text"
+                        value={establishmentName}
+                        onChange={(e) => setEstablishmentName(e.target.value)}
+                        className="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-border bg-background rounded-md placeholder:text-muted-foreground"
+                        placeholder="Mon Établissement"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="establishment_address"
+                      className="block text-sm font-medium text-foreground mb-1"
+                    >
+                      Adresse
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <input
+                        id="establishment_address"
+                        type="text"
+                        value={establishmentAddress}
+                        onChange={(e) => setEstablishmentAddress(e.target.value)}
+                        className="focus:ring-primary focus:border-primary block w-full pl-10 pr-3 py-2 sm:text-sm border-border bg-background rounded-md placeholder:text-muted-foreground"
+                        placeholder="123 Rue Example, Ville"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coordonnées GPS */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Coordonnées GPS (cliquez sur la carte ou saisissez manuellement)
+                  </label>
+                  
+                  {/* Map placeholder - in production use Leaflet/Google Maps */}
+                  <div 
+                    className="w-full h-48 bg-gray-100 rounded-md border border-border relative overflow-hidden cursor-pointer"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const y = e.clientY - rect.top;
+                      // Convert click position to approximate lat/lng (simplified)
+                      // In production, use proper map library
+                      const lat = 6.37 - (y / rect.height) * 0.1;
+                      const lng = 2.3 + (x / rect.width) * 0.1;
+                      handleCoordinateChange(parseFloat(lat.toFixed(6)), parseFloat(lng.toFixed(6)));
+                    }}
+                  >
+                    {coordinates ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-foreground">
+                            Lat: {coordinates.lat.toFixed(6)}
+                          </p>
+                          <p className="text-sm font-medium text-foreground">
+                            Lng: {coordinates.lng.toFixed(6)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-muted-foreground">
+                          <MapPin className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">Cliquez pour définir la position</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual input */}
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label htmlFor="lat" className="block text-xs text-muted-foreground mb-1">
+                        Latitude
+                      </label>
+                      <input
+                        id="lat"
+                        type="number"
+                        step="0.000001"
+                        min="-90"
+                        max="90"
+                        value={coordinates?.lat || ""}
+                        onChange={(e) => {
+                          const lat = parseFloat(e.target.value);
+                          if (!isNaN(lat)) {
+                            handleCoordinateChange(lat, coordinates?.lng || 0);
+                          }
+                        }}
+                        className="w-full px-3 py-1.5 text-sm border border-border bg-background rounded-md"
+                        placeholder="6.370000"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="lng" className="block text-xs text-muted-foreground mb-1">
+                        Longitude
+                      </label>
+                      <input
+                        id="lng"
+                        type="number"
+                        step="0.000001"
+                        min="-180"
+                        max="180"
+                        value={coordinates?.lng || ""}
+                        onChange={(e) => {
+                          const lng = parseFloat(e.target.value);
+                          if (!isNaN(lng)) {
+                            handleCoordinateChange(coordinates?.lat || 0, lng);
+                          }
+                        }}
+                        className="w-full px-3 py-1.5 text-sm border border-border bg-background rounded-md"
+                        placeholder="2.340000"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -59,13 +59,20 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   // WebSocket connection
   useTicketSocket(effectiveTicketId?.toString() || null);
   
+  // Check if establishment has valid coordinates
+  const hasValidCoordinates = activeTicket?.establishment && 
+    (activeTicket.establishment as any)?.lat !== null && 
+    (activeTicket.establishment as any)?.lat !== undefined &&
+    (activeTicket.establishment as any)?.lng !== null &&
+    (activeTicket.establishment as any)?.lng !== undefined;
+  
   // Distance tracking
   const { distanceInfo, hasPermission: hasLocationPermission } = useDistanceTracking({
-    targetCoordinates: activeTicket?.establishment ? {
-      latitude: (activeTicket.establishment as any).lat || 0,
-      longitude: (activeTicket.establishment as any).lng || 0,
+    targetCoordinates: hasValidCoordinates ? {
+      latitude: (activeTicket.establishment as any).lat,
+      longitude: (activeTicket.establishment as any).lng,
     } : null,
-    enabled: !!activeTicket?.establishment && hasActiveTicket,
+    enabled: hasValidCoordinates && hasActiveTicket,
   });
   
   // Countdown state
@@ -283,7 +290,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
             </View>
 
             {/* Distance Info Card */}
-            {distanceInfo && hasLocationPermission && (
+            {hasValidCoordinates && distanceInfo && hasLocationPermission ? (
               <View style={styles.distanceCard}>
                 <View style={styles.distanceHeader}>
                   <Ionicons name="location-outline" size={18} color="#3B82F6" />
@@ -317,6 +324,14 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
                     <Text style={styles.distanceLabel}>Voiture</Text>
                   </View>
                 </View>
+              </View>
+            ) : (
+              <View style={styles.noCoordinatesCard}>
+                <Ionicons name="location-outline" size={24} color="#9CA3AF" />
+                <Text style={styles.noCoordinatesText}>Coordonnées non disponibles</Text>
+                <Text style={styles.noCoordinatesSubtext}>
+                  L'établissement n'a pas renseigné sa position GPS
+                </Text>
               </View>
             )}
           </View>
@@ -584,6 +599,24 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: '#E2E8F0',
+  },
+  noCoordinatesCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  noCoordinatesText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
+  },
+  noCoordinatesSubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
   },
   actionsContainer: {
     marginHorizontal: 16,

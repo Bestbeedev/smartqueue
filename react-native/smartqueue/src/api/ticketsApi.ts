@@ -107,13 +107,48 @@ export const ticketsApi = {
     }
   },
 
-  // Alias pour le mobile (me)
+  // Alias pour le mobile (me) - returns array of active tickets
+  getMyActiveTickets: async (): Promise<Ticket[]> => {
+    try {
+      const response = await axiosClient.get('/tickets/me');
+      
+      // Debug: log full response to see all fields
+      console.log('[ticketsApi] FULL response data:', JSON.stringify(response.data));
+      
+      // Laravel Resource Collection returns: {data: [...]} or {data: {...}} for single item
+      let tickets = response.data?.data || response.data || [];
+      
+      // Handle case where backend returns a single ticket object instead of array
+      if (!Array.isArray(tickets) && typeof tickets === 'object' && tickets !== null) {
+        // Single ticket object - wrap it in array
+        if (tickets.id) {
+          console.log('[ticketsApi] Single ticket object detected, wrapping in array');
+          console.log('[ticketsApi] Establishment lat/lng:', (tickets as any).establishment?.lat, (tickets as any).establishment?.lng);
+          tickets = [tickets];
+        } else {
+          // Maybe nested differently
+          tickets = tickets.data || [];
+        }
+      }
+      
+      console.log('[ticketsApi] parsed tickets:', Array.isArray(tickets), tickets.length, tickets[0]?.id);
+      return Array.isArray(tickets) ? tickets : [];
+    } catch (error: any) {
+      console.log('[ticketsApi] getMyActiveTickets error:', error.response?.status, error.message);
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  // Get single active ticket (first one for backward compat)
   getMyActiveTicket: async (): Promise<Ticket | null> => {
     try {
       const response = await axiosClient.get('/tickets/me');
-      // TicketResource wraps response in {data: {...}}
-      const ticket = response.data?.data || response.data;
-      return ticket;
+      const tickets = response.data?.data || response.data || [];
+      const ticketList = Array.isArray(tickets) ? tickets : [];
+      return ticketList.length > 0 ? ticketList[0] : null;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;

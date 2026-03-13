@@ -29,11 +29,17 @@ export const TicketsScreen: React.FC = () => {
     error,
     fetchActiveTicket,
     cancelTicket,
+    isInitialized,
   } = useTicket();
   const { AlertComponent, showWarning, showError } = useCustomAlert();
   
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = new Animated.Value(0);
+
+  // Debug log
+  useEffect(() => {
+    console.log('[TicketsScreen] State:', { hasActiveTicket, isInitialized, activeTicketId: activeTicket?.id, position });
+  }, [hasActiveTicket, isInitialized, activeTicket, position]);
 
   // Rafraîchir le ticket actif au montage pour s'assurer que les données sont à jour
   useEffect(() => {

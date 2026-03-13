@@ -41,18 +41,19 @@ class TicketController extends Controller
             ->where('created_at', '<', now()->subHours(24))
             ->update(['status' => 'expired', 'position' => null]);
 
-        $ticket = Ticket::query()
+        $tickets = Ticket::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['waiting','called','absent'])
             ->with(['service.establishment'])
             ->orderByDesc('created_at')
-            ->first();
+            ->get();
         
-        if (!$ticket) {
-            return response()->json(null, 404);
-        }
+        \Log::info('[TicketController::active] User ' . $request->user()->id . ' has ' . $tickets->count() . ' active tickets');
         
-        return new TicketResource($ticket);
+        // Return all active tickets for mobile - always as array
+        return response()->json([
+            'data' => TicketResource::collection($tickets)->resolve(),
+        ]);
     }
 
     /**

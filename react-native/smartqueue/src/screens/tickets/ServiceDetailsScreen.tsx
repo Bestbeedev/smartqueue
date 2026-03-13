@@ -45,8 +45,15 @@ export const ServiceDetailsScreen: React.FC = () => {
   const serviceId = params.serviceId ? Number(params.serviceId) : undefined;
   const fromQr = params.fromQr === 'true';
   const { isAuthenticated } = useAuth();
-  const { hasActiveTicket, activeTicket, refreshActiveTicket } = useTicket();
+  const { hasActiveTicket, activeTicket, fetchActiveTicket, isInitialized } = useTicket();
   const { AlertComponent, showError, showInfo, showWarning } = useCustomAlert();
+
+  // Fetch fresh ticket data on mount to avoid showing stale data from other users
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
+    }
+  }, [isAuthenticated]);
 
   const [establishment, setEstablishment] = useState<EstablishmentData | null>(null);
   const [services, setServices] = useState<ServiceData[]>([]);
@@ -101,10 +108,24 @@ export const ServiceDetailsScreen: React.FC = () => {
       return;
     }
 
-    if (hasActiveTicket && activeTicket) {
+    // If still loading, wait
+    if (!isInitialized) {
+      showInfo('Chargement', 'Vérification de vos tickets en cours...', 'OK', () => {});
+      return;
+    }
+
+    if (!selectedServiceId) {
+      showError('Sélection requise', 'Veuillez choisir un service avant de rejoindre la file.');
+      return;
+    }
+
+    // Only block if user has a ticket on THIS SPECIFIC service
+    const hasTicketOnThisService = activeTicket?.service_id === selectedServiceId;
+    
+    if (isInitialized && hasTicketOnThisService && hasActiveTicket && activeTicket) {
       showWarning(
         'Ticket actif',
-        'Vous avez déjà un ticket actif. Voulez-vous le suivre ?',
+        'Vous avez déjà un ticket actif pour ce service. Voulez-vous le suivre ?',
         'Voir mon ticket',
         () => router.push({
           pathname: '/(tabs)/live-ticket',
@@ -112,11 +133,6 @@ export const ServiceDetailsScreen: React.FC = () => {
         }),
         'Annuler'
       );
-      return;
-    }
-
-    if (!selectedServiceId) {
-      showError('Sélection requise', 'Veuillez choisir un service avant de rejoindre la file.');
       return;
     }
 
