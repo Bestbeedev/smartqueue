@@ -271,7 +271,29 @@ const Queues: React.FC = () => {
           if (!cancelled) setError(e?.message || 'Erreur');
         }
 
-        // S'abonner au canal de présence pour le service
+        // Charger les stats initiales
+        try {
+          const s = await fetchStats(serviceId);
+          if (!cancelled) {
+            const mapped: ServiceStats = {
+              service_id: Number(serviceId),
+              service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+              waiting: Number(s?.people ?? s?.waiting ?? 0),
+              processed: Number(s?.processed ?? 0),
+              average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+            };
+            setStats(mapped);
+          }
+        } catch (e: any) {
+          console.warn("Erreur chargement stats initiales:", e);
+        }
+
+        // Arrêter le loading - les données sont chargées
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+
+        // S'abonner au canal de présence pour le service (optionnel)
         try {
           channel = echo.join(`presence-service.${serviceId}`);
 
@@ -279,7 +301,6 @@ const Queues: React.FC = () => {
             .subscribed(() => {
               console.log(`Abonné au canal presence-service.${serviceId}`);
               setIsConnected(true);
-              setIsLoading(false);
               setLastUpdated(new Date().toLocaleTimeString());
               toast.success(`Connecté au service ${serviceId}`);
             })
@@ -299,7 +320,7 @@ const Queues: React.FC = () => {
                   },
                   ...prevTickets,
                 ].slice(0, 10),
-              ); // Garder uniquement les 10 derniers tickets
+              );
               setLastUpdated(new Date().toLocaleTimeString());
               refreshQueueAndStats();
             })
@@ -319,14 +340,10 @@ const Queues: React.FC = () => {
             .error((err: any) => {
               console.warn("Erreur WebSocket:", err);
               setIsConnected(false);
-              setIsLoading(false);
-              // Ne pas bloquer l'interface si WebSocket échoue
             });
         } catch (wsError) {
           console.warn("WebSocket non disponible, fonctionnement en mode polling:", wsError);
           setIsConnected(false);
-          setIsLoading(false);
-          // Le service fonctionne sans WebSocket
         }
       } catch (error) {
         if (!cancelled) {
