@@ -111,7 +111,9 @@ export const ticketsApi = {
   getMyActiveTicket: async (): Promise<Ticket | null> => {
     try {
       const response = await axiosClient.get('/tickets/me');
-      return response.data;
+      // TicketResource wraps response in {data: {...}}
+      const ticket = response.data?.data || response.data;
+      return ticket;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;

@@ -41,13 +41,18 @@ class TicketController extends Controller
             ->where('created_at', '<', now()->subHours(24))
             ->update(['status' => 'expired', 'position' => null]);
 
-        $tickets = Ticket::query()
+        $ticket = Ticket::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['waiting','called','absent'])
             ->with(['service.establishment'])
             ->orderByDesc('created_at')
-            ->get();
-        return TicketResource::collection($tickets);
+            ->first();
+        
+        if (!$ticket) {
+            return response()->json(null, 404);
+        }
+        
+        return new TicketResource($ticket);
     }
 
     /**
