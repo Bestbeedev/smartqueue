@@ -629,7 +629,7 @@ export default function TicketsPage() {
 
         {/* Ticket Detail Modal */}
         {selectedTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="fixed inset-0 h-screen top-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <Card className="w-full max-w-lg max-h-[90vh] overflow-auto">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
