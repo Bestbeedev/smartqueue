@@ -18,7 +18,6 @@ import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 
-// Types pour le formulaire
 interface RegisterFormData {
   name: string;
   email: string;
@@ -34,7 +33,6 @@ interface FormErrors {
   general?: string;
 }
 
-// Composant RegisterScreen
 export const RegisterScreen: React.FC = () => {
   const { register, isLoading, error, clearError } = useAuth();
   const { AlertComponent, showInfo, showError, showSuccess } = useCustomAlert();
@@ -51,11 +49,9 @@ export const RegisterScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   
-  // Animation du formulaire
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  // Animation au montage
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -69,46 +65,39 @@ export const RegisterScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
-  // Effacer l'erreur quand le formulaire change
   React.useEffect(() => {
     if (error) {
       clearError();
     }
   }, [formData, error, clearError]);
 
-  // Validation du formulaire
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    // Validation nom
     if (!formData.name.trim()) {
       newErrors.name = 'Le nom est requis';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Le nom doit contenir au moins 2 caractères';
     }
 
-    // Validation email
     if (!formData.email.trim()) {
       newErrors.email = 'L\'email est requis';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'L\'email n\'est pas valide';
     }
 
-    // Validation téléphone (optionnel)
     if (formData.phone && !/^[+]?[\d\s-()]+$/.test(formData.phone)) {
       newErrors.phone = 'Le numéro de téléphone n\'est pas valide';
     }
 
-    // Validation mot de passe
     if (!formData.password) {
       newErrors.password = 'Le mot de passe est requis';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
     }
 
-    // Validation conditions générales
     if (!agreedToTerms) {
       newErrors.general = 'Vous devez accepter les conditions d\'utilisation';
     }
@@ -117,7 +106,6 @@ export const RegisterScreen: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Gérer la soumission du formulaire
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -137,21 +125,17 @@ export const RegisterScreen: React.FC = () => {
     }
   };
 
-  // Gérer les changements du formulaire
   const handleInputChange = (field: keyof RegisterFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Effacer l'erreur du champ
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // Navigation vers la connexion
   const handleGoToLogin = () => {
     router.push('/login');
   };
 
-  // Social login with Google
   const handleGoogleRegisterPress = async () => {
     const result = await handleGoogleRegister(formData.phone || undefined);
     if (result.success) {
@@ -162,10 +146,12 @@ export const RegisterScreen: React.FC = () => {
     }
   };
 
-  // Afficher les conditions d'utilisation
-  const handleTermsPress = () => {
-    showInfo('Conditions d\'utilisation', 'En vous inscrivant, vous acceptez nos conditions d\'utilisation et notre politique de confidentialité.');
-  };
+  // const handleTermsPress = () => {
+  //   showInfo(
+  //     'Conditions d\'utilisation',
+  //     'En vous inscrivant, vous acceptez nos conditions d\'utilisation et notre politique de confidentialité.'
+  //   );
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -178,7 +164,7 @@ export const RegisterScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header with Back Button */}
+          
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
@@ -188,15 +174,14 @@ export const RegisterScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Title Section */}
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>Créer un compte</Text>
             <Text style={styles.subtitle}>
-              Join VQS for virtual queue management{'\n'}and real-time ticket tracking.
+              Rejoignez VQS pour la gestion des files d&apos;attente virtuelles{'\n'}
+              et le suivi des tickets en temps réel.
             </Text>
           </View>
 
-          {/* Form Section */}
           <Animated.View
             style={[
               styles.formContainer,
@@ -206,11 +191,11 @@ export const RegisterScreen: React.FC = () => {
               },
             ]}
           >
-            {/* Full Name Input */}
+
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Full Name"
+                placeholder="Nom complet"
                 placeholderTextColor="#9CA3AF"
                 value={formData.name}
                 onChangeText={(value) => handleInputChange('name', value)}
@@ -219,11 +204,8 @@ export const RegisterScreen: React.FC = () => {
                 editable={!isLoading}
               />
             </View>
-            {errors.name && (
-              <Text style={styles.errorText}>{errors.name}</Text>
-            )}
+            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-            {/* Email Input */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
@@ -237,15 +219,12 @@ export const RegisterScreen: React.FC = () => {
                 editable={!isLoading}
               />
             </View>
-            {errors.email && (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            )}
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
-            {/* Phone Input */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Phone Number"
+                placeholder="Numéro de téléphone"
                 placeholderTextColor="#9CA3AF"
                 value={formData.phone}
                 onChangeText={(value) => handleInputChange('phone', value)}
@@ -254,15 +233,12 @@ export const RegisterScreen: React.FC = () => {
                 editable={!isLoading}
               />
             </View>
-            {errors.phone && (
-              <Text style={styles.errorText}>{errors.phone}</Text>
-            )}
+            {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
-            {/* Password Input */}
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder="Mot de passe"
                 placeholderTextColor="#9CA3AF"
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
@@ -282,11 +258,8 @@ export const RegisterScreen: React.FC = () => {
                 />
               </TouchableOpacity>
             </View>
-            {errors.password && (
-              <Text style={styles.errorText}>{errors.password}</Text>
-            )}
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
-            {/* Terms Checkbox */}
             <TouchableOpacity
               style={styles.termsContainer}
               onPress={() => setAgreedToTerms(!agreedToTerms)}
@@ -301,15 +274,13 @@ export const RegisterScreen: React.FC = () => {
                 )}
               </View>
               <Text style={styles.termsText}>
-                I agree to the <Text style={styles.termsLink}>Terms & Conditions</Text> and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                J&apos;accepte les <Text style={styles.termsLink}>Conditions d&apos;utilisation</Text> et la{' '}
+                <Text style={styles.termsLink}>Politique de confidentialité</Text>
               </Text>
             </TouchableOpacity>
-            {errors.general && (
-              <Text style={styles.errorText}>{errors.general}</Text>
-            )}
 
-            {/* Error Message */}
+            {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+
             {error && (
               <View style={styles.errorContainer}>
                 <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
@@ -317,7 +288,6 @@ export const RegisterScreen: React.FC = () => {
               </View>
             )}
 
-            {/* Create Account Button */}
             <TouchableOpacity
               style={[styles.createButton, isLoading && styles.createButtonDisabled]}
               onPress={handleSubmit}
@@ -327,18 +297,16 @@ export const RegisterScreen: React.FC = () => {
               {isLoading ? (
                 <Text style={styles.createButtonText}>Création...</Text>
               ) : (
-                <Text style={styles.createButtonText}>Create Account</Text>
+                <Text style={styles.createButtonText}>Créer un compte</Text>
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Or sign up with</Text>
+              <Text style={styles.dividerText}>Ou s&apos;inscrire avec</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Google Sign Up Button */}
             <TouchableOpacity
               style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
               onPress={handleGoogleRegisterPress}
@@ -352,20 +320,22 @@ export const RegisterScreen: React.FC = () => {
                   <View style={styles.googleIconContainer}>
                     <Ionicons name="logo-google" size={18} color="#4285F4" />
                   </View>
-                  <Text style={styles.googleButtonText}>Sign Up with Google</Text>
+                  <Text style={styles.googleButtonText}>S&apos;inscrire avec Google</Text>
                 </>
               )}
             </TouchableOpacity>
 
-            {/* Login Link */}
             <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Already have an account? </Text>
+              <Text style={styles.loginText}>Vous avez déjà un compte ? </Text>
               <TouchableOpacity onPress={handleGoToLogin} disabled={isLoading}>
-                <Text style={styles.loginLink}>Login</Text>
+                <Text style={styles.loginLink}>Se connecter</Text>
               </TouchableOpacity>
             </View>
+
           </Animated.View>
+
           {AlertComponent}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
