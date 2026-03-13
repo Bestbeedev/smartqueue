@@ -61,7 +61,7 @@ class DashboardController extends Controller
             ->selectRaw("AVG(EXTRACT(EPOCH FROM (closed_at - called_at)) / 60) as avg_time")
             ->value('avg_time');
 
-        // Temps moyen d'attente (temps entre created_at et called_at) - PostgreSQL compatible
+        // Temps moyen d'attente (temps entre created_at et called_at) - PostgreSQL compatible reviews
         $avgWaitTime = DB::table('tickets')
             ->whereIn('service_id', $assignedServiceIds)
             ->whereNotNull('called_at')
