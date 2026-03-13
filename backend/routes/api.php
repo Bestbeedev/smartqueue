@@ -129,7 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('agent/tickets/stats', [AdminTicketController::class, 'stats']);
         Route::get('agent/tickets/{ticketId}', [AdminTicketController::class, 'show']);
 
-        // Agent Dashboard
+        // Agent Dashboard routes
         Route::get('agent/dashboard/stats', [AgentDashboardController::class, 'stats']);
         Route::get('agent/dashboard/today-tickets', [AgentDashboardController::class, 'todayTickets']);
         Route::get('agent/dashboard/current-queue', [AgentDashboardController::class, 'currentQueue']);
