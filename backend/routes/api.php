@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\NotificationPreferencesController;
 use App\Http\Controllers\Api\Admin\PushNotificationController;
 use App\Http\Controllers\Api\Admin\NotificationLogController;
 use App\Http\Controllers\Api\Admin\TicketController as AdminTicketController;
+use App\Http\Controllers\Api\Agent\DashboardController as AgentDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -127,6 +128,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('agent/tickets', [AdminTicketController::class, 'index']);
         Route::get('agent/tickets/stats', [AdminTicketController::class, 'stats']);
         Route::get('agent/tickets/{ticketId}', [AdminTicketController::class, 'show']);
+
+        // Agent Dashboard
+        Route::get('agent/dashboard/stats', [AgentDashboardController::class, 'stats']);
+        Route::get('agent/dashboard/today-tickets', [AgentDashboardController::class, 'todayTickets']);
+        Route::get('agent/dashboard/current-queue', [AgentDashboardController::class, 'currentQueue']);
+        Route::get('agent/dashboard/performance', [AgentDashboardController::class, 'performance']);
     });
 
     // Espace administrateur (gestion référentiel + stats)
