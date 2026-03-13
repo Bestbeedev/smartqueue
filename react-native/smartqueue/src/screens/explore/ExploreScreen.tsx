@@ -516,7 +516,7 @@ useEffect(() => {
       <View
         className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg"
         style={{
-          marginTop: -50,
+          marginTop: -100,
           elevation: 15,
           shadowColor: "#000",
           borderWidth: 1,
