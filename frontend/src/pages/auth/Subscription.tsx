@@ -160,7 +160,11 @@ export default function SubscriptionPlan() {
       
       const me = await dispatch(refreshMe()).unwrap()
 
-      if (result?.next_step === 'setup_establishment' || !me?.establishment_id) {
+      // Petit délai pour permettre au router de se mettre à jour avec les nouvelles routes
+      // basées sur le state Redux mis à jour
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      if (result?.next_step === 'create_establishment' || result?.next_step === 'setup_establishment' || !me?.establishment_id) {
         navigate('/dashboard/setup-establishment', { replace: true })
         return
       }

@@ -16,14 +16,16 @@ export default function SetupEstablishment() {
 
   useEffect(() => {
     if (!user) return;
+    // Attendre que le state soit complètement chargé
     if (user.role !== "admin") {
       navigate("/dashboard", { replace: true });
       return;
     }
+    // Ne rediriger que si l'utilisateur a déjà un établissement
     if (user.establishment_id) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const submit = async () => {
     if (!name.trim()) {
