@@ -226,9 +226,14 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
       setSearchError(null)
       try {
         if (scope === 'tickets') {
+          // Déterminer l'endpoint selon le rôle
+          const isAgentOrAdmin = user?.role === 'agent' || user?.role === 'admin' || user?.role === 'super_admin'
+          const ticketsEndpoint = isAgentOrAdmin ? '/api/agent/tickets' : '/api/tickets/active'
+          const historyEndpoint = isAgentOrAdmin ? '/api/agent/tickets?status=closed&per_page=50' : '/api/tickets/history?per_page=50'
+          
           const [activeRes, historyRes] = await Promise.all([
-            api.get('/api/tickets/active'),
-            api.get('/api/tickets/history?per_page=50'),
+            api.get(ticketsEndpoint),
+            api.get(historyEndpoint),
           ])
 
           const activeArr = Array.isArray(activeRes?.data?.data)
@@ -263,7 +268,7 @@ export default function HeaderNew({ onMenuToggle }: HeaderProps) {
                 id: id || `ticket-${Math.random()}`,
                 label,
                 description,
-                to: id ? `/dashboard/queues` : '/dashboard/queues',
+                to: id ? `/dashboard/tickets/${id}` : '/dashboard/tickets',
                 scope: 'tickets' as SearchScope,
               }
             })
