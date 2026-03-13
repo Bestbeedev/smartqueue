@@ -20,19 +20,30 @@ class StatsController extends Controller
 
         $scopedId = $request->attributes->get('scoped_establishment_id');
 
+        // Base query for tickets with establishment filter
+        $ticketQuery = function () use ($scopedId, $from, $to) {
+            $query = DB::table('tickets')
+                ->join('services', 'services.id', '=', 'tickets.service_id')
+                ->whereBetween('tickets.created_at', [$from, $to]);
+
+            if (!empty($scopedId)) {
+                $query->where('services.establishment_id', (int) $scopedId);
+            }
+
+            return $query;
+        };
+
         // Nombre total de tickets créés / clos / absents sur la période
-        $totals = DB::table('tickets')
+        $totals = $ticketQuery()
             ->selectRaw("COUNT(*) as created,
-                SUM(CASE WHEN status='closed' THEN 1 ELSE 0 END) as closed,
-                SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent")
-            ->whereBetween('created_at', [$from, $to])
+                SUM(CASE WHEN tickets.status='closed' THEN 1 ELSE 0 END) as closed,
+                SUM(CASE WHEN tickets.status='absent' THEN 1 ELSE 0 END) as absent")
             ->first();
 
         // Temps d'attente moyen (diff called_at - created_at) en minutes
-        $rows = DB::table('tickets')
-            ->whereNotNull('called_at')
-            ->whereBetween('created_at', [$from, $to])
-            ->select(['created_at','called_at'])
+        $rows = $ticketQuery()
+            ->whereNotNull('tickets.called_at')
+            ->select(['tickets.created_at','tickets.called_at'])
             ->limit(2000)
             ->get();
         $sum = 0; $n = 0;
@@ -92,7 +103,12 @@ class StatsController extends Controller
      */
     public function service(int $serviceId, Request $request)
     {
-        $service = Service::findOrFail($serviceId);
+        $scopedId = $request->attributes->get('scoped_establishment_id');
+
+        $service = Service::query()
+            ->when($scopedId, fn ($q) => $q->where('establishment_id', (int) $scopedId))
+            ->findOrFail($serviceId);
+
         $from = $request->query('from') ? now()->parse($request->query('from')) : now()->subDays(7);
         $to = $request->query('to') ? now()->parse($request->query('to')) : now();
 
@@ -148,6 +164,8 @@ class StatsController extends Controller
         $bucket = $request->query('bucket', 'day');
         $serviceId = $request->query('service_id') ? (int) $request->query('service_id') : null;
 
+        $scopedId = $request->attributes->get('scoped_establishment_id');
+
         if (!in_array($bucket, ['day', 'hour'], true)) {
             abort(422, 'Invalid bucket');
         }
@@ -155,28 +173,34 @@ class StatsController extends Controller
         $driver = DB::connection()->getDriverName();
         if ($driver === 'pgsql') {
             $expr = $bucket === 'hour'
-                ? "to_char(date_trunc('hour', created_at), 'YYYY-MM-DD HH24:00:00')"
-                : "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')";
+                ? "to_char(date_trunc('hour', tickets.created_at), 'YYYY-MM-DD HH24:00:00')"
+                : "to_char(date_trunc('day', tickets.created_at), 'YYYY-MM-DD')";
         } elseif ($driver === 'sqlite') {
             $expr = $bucket === 'hour'
-                ? "strftime('%Y-%m-%d %H:00:00', created_at)"
-                : "date(created_at)";
+                ? "strftime('%Y-%m-%d %H:00:00', tickets.created_at)"
+                : "date(tickets.created_at)";
         } else {
             // mysql / mariadb
             $expr = $bucket === 'hour'
-                ? "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')"
-                : "DATE(created_at)";
+                ? "DATE_FORMAT(tickets.created_at, '%Y-%m-%d %H:00:00')"
+                : "DATE(tickets.created_at)";
         }
 
         $query = DB::table('tickets')
+            ->join('services', 'services.id', '=', 'tickets.service_id')
             ->selectRaw($expr." as bucket")
             ->selectRaw("COUNT(*) as created")
-            ->selectRaw("SUM(CASE WHEN status='closed' THEN 1 ELSE 0 END) as closed")
-            ->selectRaw("SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent")
-            ->whereBetween('created_at', [$from, $to]);
+            ->selectRaw("SUM(CASE WHEN tickets.status='closed' THEN 1 ELSE 0 END) as closed")
+            ->selectRaw("SUM(CASE WHEN tickets.status='absent' THEN 1 ELSE 0 END) as absent")
+            ->whereBetween('tickets.created_at', [$from, $to]);
+
+        // Filter by establishment scope
+        if (!empty($scopedId)) {
+            $query->where('services.establishment_id', (int) $scopedId);
+        }
 
         if (!is_null($serviceId)) {
-            $query->where('service_id', $serviceId);
+            $query->where('tickets.service_id', $serviceId);
         }
 
         $rows = $query
