@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferencesController;
 use App\Http\Controllers\Api\Admin\PushNotificationController;
 use App\Http\Controllers\Api\Admin\NotificationLogController;
+use App\Http\Controllers\Api\Admin\TicketController as AdminTicketController;
 
 /*
 |--------------------------------------------------------------------------
@@ -121,6 +122,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Ouverture/fermeture guichet (counter)
         Route::post('counters/{counter}/open', [AgentCounterController::class, 'open']);
         Route::post('counters/{counter}/close', [AgentCounterController::class, 'close']);
+
+        // Tickets management for agents
+        Route::get('agent/tickets', [AdminTicketController::class, 'index']);
+        Route::get('agent/tickets/stats', [AdminTicketController::class, 'stats']);
+        Route::get('agent/tickets/{ticketId}', [AdminTicketController::class, 'show']);
     });
 
     // Espace administrateur (gestion référentiel + stats)
@@ -133,6 +139,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('stats/overview', [AdminStatsController::class, 'overview']);
         Route::get('stats/services/{serviceId}', [AdminStatsController::class, 'service']);
         Route::get('stats/series', [AdminStatsController::class, 'series']);
+
+        // Tickets management
+        Route::get('tickets', [AdminTicketController::class, 'index']);
+        Route::get('tickets/stats', [AdminTicketController::class, 'stats']);
+        Route::get('tickets/{ticketId}', [AdminTicketController::class, 'show']);
 
         // Exports
         Route::get('establishments/{establishment}/reports/activity.csv', [AdminReportExportController::class, 'activityCsv']);

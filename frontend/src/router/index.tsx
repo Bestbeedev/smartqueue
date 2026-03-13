@@ -28,6 +28,9 @@ const TicketsCalled = lazy(() => import("@/pages/queues/TicketsCalled"));
 const TicketsAbsent = lazy(() => import("@/pages/queues/TicketsAbsent"));
 const TicketsPriority = lazy(() => import("@/pages/queues/TicketsPriority"));
 
+// Pages tickets
+const Tickets = lazy(() => import("@/pages/tickets/Tickets"));
+
 // Pages admin
 const Agents = lazy(() => import("@/pages/admin/Agents"));
 const Services = lazy(() => import("@/pages/admin/Services"));
@@ -276,6 +279,19 @@ function AppRoutes() {
             },
           ],
         },
+        // Route tickets pour admin et agent
+        ...(user?.role === "admin" || user?.role === "agent"
+          ? [
+              {
+                path: "tickets",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <Tickets />
+                  </Suspense>
+                ),
+              },
+            ]
+          : []),
         // Routes admin (protégées)
         ...(user?.role === "admin" && !!user?.establishment_id
           ? [

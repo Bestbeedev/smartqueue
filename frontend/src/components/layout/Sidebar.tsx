@@ -26,7 +26,8 @@ import {
   ChevronRight as ChevronRightIcon, Server, CreditCard,
   ArrowBigRight,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -242,8 +243,9 @@ export default function Sidebar() {
         { to: "/dashboard/queues/priority", icon: BadgeAlert, label: "Prioritaires" },
       ],
     },
+    { to: "/dashboard/tickets", icon: Ticket, label: "Tickets", roles: ["agent", "admin"] },
     { to: "/dashboard/agents", icon: Users, label: "Agents", roles: ["admin"] },
-    { to: "/dashboard/services", icon: Ticket, label: "Services", roles: ["admin"] },
+    { to: "/dashboard/services", icon: Layers, label: "Services", roles: ["admin"] },
     {
       to: "/dashboard/establishments",
       icon: Building2,
