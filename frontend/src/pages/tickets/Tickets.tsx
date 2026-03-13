@@ -22,7 +22,10 @@ import {
   TrendingUp,
   Building2,
   UserX,
-  X
+  X,
+  Star,
+  Flame,
+  ListOrdered
 } from 'lucide-react'
 import { api } from '@/api/axios'
 import { useAppSelector } from '@/store'
@@ -107,10 +110,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   expired: { label: 'Expiré', color: 'text-gray-700', bgColor: 'bg-gray-100 dark:bg-gray-900/30' },
 }
 
-const PRIORITY_CONFIG: Record<string, { label: string; icon: string }> = {
-  normal: { label: 'Normal', icon: '📋' },
-  high: { label: 'Haute', icon: '🔥' },
-  vip: { label: 'VIP', icon: '⭐' },
+const PRIORITY_CONFIG: Record<string, { label: string; icon: any }> = {
+  normal: { label: 'Normal', icon: ListOrdered },
+  high: { label: 'Haute', icon: Flame },
+  vip: { label: 'VIP', icon: Star },
 }
 
 export default function TicketsPage() {
@@ -266,9 +269,11 @@ export default function TicketsPage() {
 
   const getPriorityBadge = (priority: string) => {
     const config = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.normal
+    const Icon = config.icon
     return (
-      <span className="text-sm">
-        {config.icon} {config.label}
+      <span className="text-sm flex items-center gap-1">
+        <Icon className="h-3 w-3" />
+        {config.label}
       </span>
     )
   }
@@ -624,7 +629,7 @@ export default function TicketsPage() {
 
         {/* Ticket Detail Modal */}
         {selectedTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="fixed inset-0 h-screen top-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <Card className="w-full max-w-lg max-h-[90vh] overflow-auto">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>

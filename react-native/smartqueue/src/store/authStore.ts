@@ -95,6 +95,10 @@ export const useAuthStore = create<AuthState>()(
           // Ignorer les erreurs de déconnexion côté serveur
           console.warn('Logout API error:', error);
         } finally {
+          // Clear ticket store to prevent stale data from previous user
+          const { useTicketStore } = require('./ticketStore');
+          useTicketStore.getState().clearActiveTicket();
+          
           set({
             user: null,
             token: null,
