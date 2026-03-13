@@ -25,6 +25,19 @@ api.interceptors.response.use(
   (err) => {
     const status = err?.response?.status
     const url = err?.config?.url || ''
+    const data = err?.response?.data
+    
+    // Log pour debug
+    if (status === 404 || status === 403) {
+      console.error(`[API Error ${status}] ${url}`, data)
+    }
+    
+    // Si la réponse est du HTML au lieu de JSON
+    if (typeof data === 'string' && data.startsWith('<!')) {
+      console.error(`[API HTML Response] ${url} - Server returned HTML instead of JSON`)
+      err.message = `Erreur serveur (${status}): l'API a retourné du HTML au lieu de JSON`
+    }
+    
     if (status === 401 && !url.includes('/api/auth/login')) {
       if (typeof window !== 'undefined' && (window as any).localStorage?.removeItem) {
         (window as any).localStorage.removeItem('token')

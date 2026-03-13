@@ -82,11 +82,8 @@ const Queues: React.FC = () => {
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new Error("Identifiant de service invalide");
     }
-    const r = await fetch(`/api/services/${numericId}`);
-    if (!r.ok) {
-      throw new Error("Service introuvable");
-    }
-    return r.json();
+    const { data } = await api.get(`/api/services/${numericId}`);
+    return data;
   };
 
   const fetchQueue = async (id: string) => {
@@ -217,11 +214,8 @@ const Queues: React.FC = () => {
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new Error("Identifiant de service invalide");
     }
-    const r = await fetch(`/api/services/${numericId}/affluence`);
-    if (!r.ok) {
-      throw new Error("Impossible de charger les statistiques");
-    }
-    return r.json();
+    const { data } = await api.get(`/api/services/${numericId}/affluence`);
+    return data;
   };
 
   useEffect(() => {
@@ -253,49 +247,62 @@ const Queues: React.FC = () => {
         }
 
         // S'abonner au canal de présence pour le service
-        channel = echo.join(`presence-service.${serviceId}`);
+        try {
+          channel = echo.join(`presence-service.${serviceId}`);
 
-        channel
-          .subscribed(() => {
-            console.log(`Abonné au canal presence-service.${serviceId}`);
-            setIsConnected(true);
-            setIsLoading(false);
-            setLastUpdated(new Date().toLocaleTimeString());
-            toast.success(`Connecté au service ${serviceId}`);
-          })
-          .listen(".service.ticket.called", (e: any) => {
-            console.log("Ticket appelé reçu:", e);
-            setTickets((prevTickets) =>
-              [
-                {
-                  id: e.ticket.id,
-                  ticket_number: e.ticket.ticket_number,
-                  status: e.ticket.status,
-                  created_at: e.ticket.created_at,
-                  service_id: e.ticket.service_id,
-                  service_name: e.ticket.service_name,
-                  priority: e.ticket.priority,
-                  client_name: e.ticket.client_name,
-                },
-                ...prevTickets,
-              ].slice(0, 10),
-            ); // Garder uniquement les 10 derniers tickets
-            setLastUpdated(new Date().toLocaleTimeString());
-            refreshQueueAndStats();
-          })
-          .listen('.service.ticket.enqueued', () => {
-            if (cancelled) return;
-            refreshQueueAndStats();
-          })
-          .listen('.service.ticket.absent', () => {
-            if (cancelled) return;
-            refreshQueueAndStats();
-          })
-          .listen(".service.stats.updated", (e: any) => {
-            console.log("Statistiques mises à jour:", e);
-            setStats(e.stats);
-            setLastUpdated(new Date().toLocaleTimeString());
-          });
+          channel
+            .subscribed(() => {
+              console.log(`Abonné au canal presence-service.${serviceId}`);
+              setIsConnected(true);
+              setIsLoading(false);
+              setLastUpdated(new Date().toLocaleTimeString());
+              toast.success(`Connecté au service ${serviceId}`);
+            })
+            .listen(".service.ticket.called", (e: any) => {
+              console.log("Ticket appelé reçu:", e);
+              setTickets((prevTickets) =>
+                [
+                  {
+                    id: e.ticket.id,
+                    ticket_number: e.ticket.ticket_number,
+                    status: e.ticket.status,
+                    created_at: e.ticket.created_at,
+                    service_id: e.ticket.service_id,
+                    service_name: e.ticket.service_name,
+                    priority: e.ticket.priority,
+                    client_name: e.ticket.client_name,
+                  },
+                  ...prevTickets,
+                ].slice(0, 10),
+              ); // Garder uniquement les 10 derniers tickets
+              setLastUpdated(new Date().toLocaleTimeString());
+              refreshQueueAndStats();
+            })
+            .listen('.service.ticket.enqueued', () => {
+              if (cancelled) return;
+              refreshQueueAndStats();
+            })
+            .listen('.service.ticket.absent', () => {
+              if (cancelled) return;
+              refreshQueueAndStats();
+            })
+            .listen(".service.stats.updated", (e: any) => {
+              console.log("Statistiques mises à jour:", e);
+              setStats(e.stats);
+              setLastUpdated(new Date().toLocaleTimeString());
+            })
+            .error((err: any) => {
+              console.warn("Erreur WebSocket:", err);
+              setIsConnected(false);
+              setIsLoading(false);
+              // Ne pas bloquer l'interface si WebSocket échoue
+            });
+        } catch (wsError) {
+          console.warn("WebSocket non disponible, fonctionnement en mode polling:", wsError);
+          setIsConnected(false);
+          setIsLoading(false);
+          // Le service fonctionne sans WebSocket
+        }
       } catch (error) {
         if (!cancelled) {
           console.error("Erreur lors de la connexion au service:", error);
