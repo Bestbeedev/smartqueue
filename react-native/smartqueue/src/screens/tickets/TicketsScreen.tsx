@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ export const TicketsScreen: React.FC = () => {
     isAlmostThere,
     isCalled,
     error,
-    refreshActiveTicket,
+    fetchActiveTicket,
     cancelTicket,
   } = useTicket();
   const { AlertComponent, showWarning, showError } = useCustomAlert();
@@ -35,7 +35,19 @@ export const TicketsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = new Animated.Value(0);
 
-  React.useEffect(() => {
+  // Rafraîchir le ticket actif au montage pour s'assurer que les données sont à jour
+  useEffect(() => {
+    const refreshOnMount = async () => {
+      try {
+        await fetchActiveTicket();
+      } catch (error) {
+        console.error('Error fetching active ticket on mount:', error);
+      }
+    };
+    refreshOnMount();
+  }, []);
+
+  useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
@@ -47,7 +59,7 @@ export const TicketsScreen: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refreshActiveTicket();
+      await fetchActiveTicket();
     } catch (error) {
       console.error('Error refreshing ticket:', error);
     } finally {
