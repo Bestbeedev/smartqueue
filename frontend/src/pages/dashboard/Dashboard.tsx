@@ -607,34 +607,216 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="tickets" className="space-y-6">
-          <ChartContainer
-            title="Évolution des tickets"
-            description="Données réelles de la base (série temporelle)"
-            actions={
-              <Button variant="outline" size="sm" className="hover:bg-accent" onClick={() => { loadStats(); loadSeries(); }}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                Actualiser
-              </Button>
-            }
-          >
-            <div className="h-[320px]">
-              {seriesLoading ? (
-                <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">Chargement…</div>
-              ) : !hasSeriesData ? (
-                <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-                  Aucune donnée pour la période sélectionnée.
+          {/* Vue générale des tickets */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Total tickets</CardDescription>
+                <CardTitle className="text-3xl">{stats?.tickets?.created ?? 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Dans l'établissement</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>En attente</CardDescription>
+                <CardTitle className="text-3xl text-orange-500">{stats?.services?.waiting ?? 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Tickets non traités</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Traités</CardDescription>
+                <CardTitle className="text-3xl text-green-500">{stats?.tickets?.closed ?? 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Tickets clos sur la période</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Absents</CardDescription>
+                <CardTitle className="text-3xl text-red-500">{stats?.tickets?.absent ?? 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">Clients non présents</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Graphique et répartition */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartContainer
+              title="Évolution des tickets"
+              description="Données réelles de la base (série temporelle)"
+              actions={
+                <Button variant="outline" size="sm" onClick={() => { loadStats(); loadSeries(); }}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Actualiser
+                </Button>
+              }
+            >
+              <div className="h-[320px]">
+                {seriesLoading ? (
+                  <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">Chargement…</div>
+                ) : !hasSeriesData ? (
+                  <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                    Aucune donnée pour la période sélectionnée.
+                  </div>
+                ) : (
+                  <VerticalBarChart
+                    data={lineData.map((r: any) => ({
+                      name: String(r.name ?? ''),
+                      value: Number(r.tickets ?? 0),
+                      color: '#3b82f6',
+                    }))}
+                  />
+                )}
+              </div>
+            </ChartContainer>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5" />
+                  Répartition par statut
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="font-medium">En attente</span>
+                    </div>
+                    <span className="text-xl font-bold">{stats?.services?.waiting || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span className="font-medium">Traités</span>
+                    </div>
+                    <span className="text-xl font-bold">{stats?.tickets?.closed || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      <span className="font-medium">Absents</span>
+                    </div>
+                    <span className="text-xl font-bold">{stats?.tickets?.absent || 0}</span>
+                  </div>
                 </div>
-              ) : (
-                <VerticalBarChart
-                  data={lineData.map((r: any) => ({
-                    name: String(r.name ?? ''),
-                    value: Number(r.tickets ?? 0),
-                    color: '#3b82f6',
-                  }))}
-                />
-              )}
-            </div>
-          </ChartContainer>
+                
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Temps d'attente moyen</span>
+                    <span className="font-medium">{stats?.tickets?.wait_avg_minutes ? `${stats.tickets.wait_avg_minutes} min` : '—'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tickets récents et Performance */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Ticket className="h-5 w-5" />
+                    Tickets récents
+                  </CardTitle>
+                  <CardDescription>Les derniers tickets de l'établissement</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/tickets')}>
+                  Voir tout
+                  <ArrowUpRight className="h-4 w-4 ml-1" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {ticketsLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+                ) : recentTickets.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">Aucun ticket récent</div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentTickets.slice(0, 5).map((ticket: any) => (
+                      <div key={ticket.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/dashboard/tickets/${ticket.id}`)}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            ticket.status === 'waiting' ? 'bg-yellow-500' :
+                            ticket.status === 'called' ? 'bg-blue-500' :
+                            ticket.status === 'closed' ? 'bg-green-500' : 'bg-red-500'
+                          )} />
+                          <div>
+                            <p className="font-medium">Ticket #{ticket.id}</p>
+                            <p className="text-sm text-muted-foreground">{ticket.service?.name || ticket.service_name || 'Service inconnu'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={
+                            ticket.status === 'waiting' ? 'secondary' :
+                            ticket.status === 'called' ? 'default' :
+                            ticket.status === 'closed' ? 'outline' : 'destructive'
+                          }>
+                            {ticket.status === 'waiting' ? 'En attente' :
+                             ticket.status === 'called' ? 'Appelé' :
+                             ticket.status === 'closed' ? 'Clôturé' : 'Absent'}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">{new Date(ticket.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Performance par service
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {services.slice(0, 5).map((service: any) => {
+                    const sStats = serviceStats[service.id]?.tickets
+                    const total = sStats?.created || service.people_waiting || 0
+                    const closed = sStats?.closed || 0
+                    const rate = total > 0 ? Math.round((closed / total) * 100) : 0
+                    
+                    return (
+                      <div key={service.id} className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">{service.name}</span>
+                          <span className="text-muted-foreground">{rate}% traités</span>
+                        </div>
+                        <Progress value={rate} className="h-2" />
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>{service.people_waiting || 0} en attente</span>
+                          <span>{service.agents_count || 0} agents</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bouton action */}
+          <div className="flex justify-end">
+            <Button onClick={() => navigate('/dashboard/queues')}>
+              <Ticket className="mr-2 h-4 w-4" />
+              Gérer les tickets
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="services" className="space-y-6">
