@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Services\AlertService;
+use App\Events\UserEnRoute;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -107,8 +108,13 @@ class TicketRecallController extends Controller
             'estimated_travel_minutes' => $travelMinutes,
         ]);
 
-        // Broadcast to agent dashboard
-        // Event will be handled by Laravel Echo
+        // Broadcast to agent dashboard via service channel
+        event(new UserEnRoute(
+            $ticket->id,
+            $ticket->service_id,
+            $travelMinutes,
+            $ticket->number
+        ));
 
         return response()->json([
             'data' => $ticket->fresh(),

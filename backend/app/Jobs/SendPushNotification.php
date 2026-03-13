@@ -4,11 +4,12 @@ namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 use App\Models\Device;
 use App\Models\NotificationLog;
+use App\Models\User;
 use Google\Auth\Credentials\ServiceAccountCredentials;
+use GuzzleHttp\Client;
 
 class SendPushNotification implements ShouldQueue
 {
@@ -21,6 +22,17 @@ class SendPushNotification implements ShouldQueue
      */
     public function handle(): void
     {
+        // Create in-app notification for the user
+        $user = User::find($this->userId);
+        if ($user) {
+            $user->notify(new \App\Notifications\InAppNotification(
+                $this->title,
+                $this->body,
+                $this->data['type'] ?? 'info',
+                $this->data
+            ));
+        }
+
         $serviceAccountJson = env('FIREBASE_SERVICE_ACCOUNT_JSON');
         if (!$serviceAccountJson) {
             Log::warning('FIREBASE_SERVICE_ACCOUNT_JSON not configured; skipping push');

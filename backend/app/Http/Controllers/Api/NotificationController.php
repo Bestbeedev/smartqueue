@@ -25,6 +25,30 @@ class NotificationController extends Controller
         ]);
     }
 
+    // GET /api/notifications/unread-count
+    public function unreadCount(Request $req)
+    {
+        $count = $req->user()
+            ->unreadNotifications()
+            ->count();
+
+        return response()->json([
+            'count' => $count,
+        ]);
+    }
+
+    // POST /api/notifications/mark-all-read
+    public function markAllRead(Request $req)
+    {
+        $req->user()
+            ->unreadNotifications()
+            ->update(['read_at' => now()]);
+
+        return response()->json([
+            'message' => 'Toutes les notifications ont été marquées comme lues',
+        ]);
+    }
+
     // POST /api/notifications/{id}/read
     public function read(Request $req, $id)
     {

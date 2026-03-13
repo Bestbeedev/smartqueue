@@ -337,6 +337,22 @@ const Queues: React.FC = () => {
               setStats(e.stats);
               setLastUpdated(new Date().toLocaleTimeString());
             })
+            .listen('.user.en_route', (e: any) => {
+              console.log("Usager en route:", e);
+              toast.success('Usager en route', {
+                description: e.message || `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
+                duration: 5000,
+              });
+              // Update the queue to show en_route status
+              setQueue((prevQueue: any[]) => 
+                prevQueue.map((t: any) => 
+                  t.id === e.ticket_id 
+                    ? { ...t, en_route_at: new Date().toISOString(), estimated_travel_minutes: e.estimated_minutes }
+                    : t
+                )
+              );
+              setLastUpdated(new Date().toLocaleTimeString());
+            })
             .error((err: any) => {
               console.warn("Erreur WebSocket:", err);
               setIsConnected(false);
@@ -364,6 +380,7 @@ const Queues: React.FC = () => {
           channel.stopListening('.service.ticket.enqueued');
           channel.stopListening('.service.ticket.absent');
           channel.stopListening('.service.stats.updated');
+          channel.stopListening('.user.en_route');
         }
       } catch (error) {
         console.error("Erreur lors du nettoyage du canal:", error);
