@@ -10,7 +10,13 @@ import {
   User, 
   Users, 
   TrendingUp, 
-  RefreshCw 
+  RefreshCw,
+  Phone,
+  PhoneOff,
+  UserX,
+  CheckCircle,
+  Volume2,
+  X
 } from 'lucide-react';
 import { getEcho } from '@/api/echo';
 import { cn } from '@/lib/utils';
@@ -188,9 +194,11 @@ const Queues: React.FC = () => {
     setError('');
     try {
       await api.post(`/api/tickets/${ticketId}/mark-absent`);
+      toast.success('Ticket marqué absent', { description: 'L\'usager a été notifié' });
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erreur');
+      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -201,9 +209,26 @@ const Queues: React.FC = () => {
     setError('');
     try {
       await api.post(`/api/tickets/${ticketId}/recall`);
+      toast.success('Rappel envoyé', { description: 'L\'usager a été notifié' });
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erreur');
+      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const closeTicket = async (ticketId: number) => {
+    setIsActing(true);
+    setError('');
+    try {
+      await api.post(`/api/tickets/${ticketId}/close`);
+      toast.success('Ticket clôturé', { description: 'Le ticket a été fermé' });
+      await refreshQueueAndStats();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -246,7 +271,29 @@ const Queues: React.FC = () => {
           if (!cancelled) setError(e?.message || 'Erreur');
         }
 
-        // S'abonner au canal de présence pour le service
+        // Charger les stats initiales
+        try {
+          const s = await fetchStats(serviceId);
+          if (!cancelled) {
+            const mapped: ServiceStats = {
+              service_id: Number(serviceId),
+              service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+              waiting: Number(s?.people ?? s?.waiting ?? 0),
+              processed: Number(s?.processed ?? 0),
+              average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+            };
+            setStats(mapped);
+          }
+        } catch (e: any) {
+          console.warn("Erreur chargement stats initiales:", e);
+        }
+
+        // Arrêter le loading - les données sont chargées
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+
+        // S'abonner au canal de présence pour le service (optionnel)
         try {
           channel = echo.join(`presence-service.${serviceId}`);
 
@@ -254,7 +301,6 @@ const Queues: React.FC = () => {
             .subscribed(() => {
               console.log(`Abonné au canal presence-service.${serviceId}`);
               setIsConnected(true);
-              setIsLoading(false);
               setLastUpdated(new Date().toLocaleTimeString());
               toast.success(`Connecté au service ${serviceId}`);
             })
@@ -274,7 +320,7 @@ const Queues: React.FC = () => {
                   },
                   ...prevTickets,
                 ].slice(0, 10),
-              ); // Garder uniquement les 10 derniers tickets
+              );
               setLastUpdated(new Date().toLocaleTimeString());
               refreshQueueAndStats();
             })
@@ -294,14 +340,10 @@ const Queues: React.FC = () => {
             .error((err: any) => {
               console.warn("Erreur WebSocket:", err);
               setIsConnected(false);
-              setIsLoading(false);
-              // Ne pas bloquer l'interface si WebSocket échoue
             });
         } catch (wsError) {
           console.warn("WebSocket non disponible, fonctionnement en mode polling:", wsError);
           setIsConnected(false);
-          setIsLoading(false);
-          // Le service fonctionne sans WebSocket
         }
       } catch (error) {
         if (!cancelled) {
@@ -743,35 +785,100 @@ const Queues: React.FC = () => {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="font-semibold text-foreground">{t.number}</div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.status}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{t.priority}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={cn(
+                                  'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
+                                  t.status === 'waiting' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
+                                  t.status === 'called' && 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+                                  t.status === 'absent' && 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200',
+                                  t.status === 'closed' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
+                                )}>
+                                  {t.status === 'waiting' && 'En attente'}
+                                  {t.status === 'called' && 'Appelé'}
+                                  {t.status === 'absent' && 'Absent'}
+                                  {t.status === 'closed' && 'Clôturé'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={cn(
+                                  'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
+                                  t.priority === 'vip' && 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200',
+                                  t.priority === 'high' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
+                                  t.priority === 'normal' && 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+                                )}>
+                                  {t.priority === 'vip' && '⭐ VIP'}
+                                  {t.priority === 'high' && '🔥 Haute'}
+                                  {t.priority === 'normal' && '📋 Normal'}
+                                </span>
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex gap-2">
+                                  {/* Call button - only for waiting tickets */}
+                                  <button
+                                    type="button"
+                                    onClick={() => callNext()}
+                                    disabled={isActing || t.status !== 'waiting'}
+                                    className={cn(
+                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                                      (isActing || t.status !== 'waiting')
+                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                        : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow'
+                                    )}
+                                    title="Appeler ce ticket"
+                                  >
+                                    <Phone className="h-3.5 w-3.5" />
+                                    Appeler
+                                  </button>
+                                  
+                                  {/* Recall button - for called/absent tickets */}
+                                  <button
+                                    type="button"
+                                    onClick={() => recall(Number(t.id))}
+                                    disabled={isActing || t.status === 'waiting' || t.status === 'closed'}
+                                    className={cn(
+                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                                      (isActing || t.status === 'waiting' || t.status === 'closed')
+                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+                                    )}
+                                    title="Rappeler ce ticket"
+                                  >
+                                    <Volume2 className="h-3.5 w-3.5" />
+                                    Rappel
+                                  </button>
+                                  
+                                  {/* Absent button - for called tickets */}
                                   <button
                                     type="button"
                                     onClick={() => markAbsent(Number(t.id))}
                                     disabled={isActing || t.status !== 'called'}
                                     className={cn(
-                                      'px-3 py-1 rounded-md text-xs font-medium border',
+                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
                                       (isActing || t.status !== 'called')
-                                        ? 'bg-muted text-muted-foreground border-border'
-                                        : 'bg-red-600 text-white border-red-600 hover:bg-red-700'
+                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                        : 'bg-orange-600 text-white hover:bg-orange-700 shadow-sm hover:shadow'
                                     )}
+                                    title="Marquer comme absent"
                                   >
+                                    <UserX className="h-3.5 w-3.5" />
                                     Absent
                                   </button>
+                                  
+                                  {/* Close button - for called tickets */}
                                   <button
                                     type="button"
-                                    onClick={() => recall(Number(t.id))}
-                                    disabled={isActing || t.status === 'waiting'}
+                                    onClick={() => closeTicket(Number(t.id))}
+                                    disabled={isActing || t.status !== 'called'}
                                     className={cn(
-                                      'px-3 py-1 rounded-md text-xs font-medium border',
-                                      (isActing || t.status === 'waiting')
-                                        ? 'bg-muted text-muted-foreground border-border'
-                                        : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                                      (isActing || t.status !== 'called')
+                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow'
                                     )}
+                                    title="Clôturer le ticket"
                                   >
-                                    Recall
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    Servi
                                   </button>
                                 </div>
                               </td>
