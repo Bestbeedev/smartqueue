@@ -37,7 +37,7 @@ class TicketCalled implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('private-ticket.'.$this->ticketId)];
+        return [new PrivateChannel('ticket.'.$this->ticketId)];
     }
 
     /**
