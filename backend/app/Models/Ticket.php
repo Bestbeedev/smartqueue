@@ -13,6 +13,8 @@ class Ticket extends Model
         'user_id', 'service_id', 'counter_id', 'number', 'status', 'priority', 'position',
         'called_at', 'closed_at', 'absent_at', 'last_distance_m', 'last_seen_at',
         'has_recalled', 'en_route_at', 'estimated_travel_minutes', 'called_counter_id',
+        'deferred_at', 'deferral_count', 'is_swapped', 'swapped_with_ticket_id',
+        'original_called_at', 'grace_period_expires_at',
     ];
 
     // Casting automatique des dates/horaires
@@ -23,6 +25,10 @@ class Ticket extends Model
         'last_seen_at' => 'datetime',
         'en_route_at' => 'datetime',
         'has_recalled' => 'boolean',
+        'deferred_at' => 'datetime',
+        'is_swapped' => 'boolean',
+        'original_called_at' => 'datetime',
+        'grace_period_expires_at' => 'datetime',
     ];
 
     // Relation vers l'utilisateur détenteur du ticket

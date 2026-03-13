@@ -18,8 +18,11 @@ interface CalledTicketOverlayProps {
   distanceInfo: DistanceInfo | null;
   countdownSeconds: number; // Default 180 (3 minutes)
   hasRecalled: boolean;
+  isSwapped?: boolean; // If ticket was already swapped/deferred
+  gracePeriodExpiresAt?: string | null;
   onEnRoute: () => void;
   onRecall: () => void;
+  onDefer: () => void; // New callback for defer action
   onDismiss: () => void;
 }
 
@@ -29,8 +32,11 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   distanceInfo,
   countdownSeconds = 180,
   hasRecalled,
+  isSwapped = false,
+  gracePeriodExpiresAt,
   onEnRoute,
   onRecall,
+  onDefer,
   onDismiss,
 }) => {
   const [timeRemaining, setTimeRemaining] = useState(countdownSeconds);
@@ -130,6 +136,21 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     setTimeRemaining(countdownSeconds);
   };
 
+  // Handle "Defer" button - swap position with next person
+  const handleDefer = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onDefer();
+  };
+
+  // Format grace period time remaining
+  const getGracePeriodText = () => {
+    if (!gracePeriodExpiresAt) return null;
+    const expires = new Date(gracePeriodExpiresAt);
+    const now = new Date();
+    const hoursLeft = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60));
+    return `${hoursLeft}h restantes`;
+  };
+
   if (!visible) return null;
 
   return (
@@ -226,6 +247,18 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               </TouchableOpacity>
             </Animated.View>
 
+            {/* "Defer" button - swap position with next person */}
+            <TouchableOpacity
+              className="bg-transparent h-16 rounded-2xl flex-row items-center justify-center border-2 border-white mb-4"
+              onPress={handleDefer}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="swap-horizontal" size={24} color="white" />
+              <Text className="text-white font-bold text-lg ml-2">
+                Laisser passer
+              </Text>
+            </TouchableOpacity>
+
             {/* "Recall me" button */}
             <TouchableOpacity
               className={`h-16 rounded-2xl flex-row items-center justify-center border-2 ${
@@ -248,6 +281,20 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                 {hasRecalled ? 'Rappel déjà utilisé' : 'Me rappeler'}
               </Text>
             </TouchableOpacity>
+
+            {/* Grace period info */}
+            {gracePeriodExpiresAt && (
+              <Text className="text-white/60 text-center text-sm mt-4">
+                Période de grâce: {getGracePeriodText()}
+              </Text>
+            )}
+
+            {/* Swapped notice */}
+            {isSwapped && (
+              <Text className="text-white/80 text-center text-sm mt-2">
+                Ticket déjà différé une fois. Vous ne pouvez plus déférer.
+              </Text>
+            )}
 
             {/* Info text */}
             <Text className="text-white/60 text-center text-sm mt-4">

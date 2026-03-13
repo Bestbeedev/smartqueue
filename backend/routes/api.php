@@ -115,6 +115,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('tickets/{ticket}/close', [AgentTicketActionController::class, 'close']);
         Route::post('tickets/{ticket}/cancel', [AgentTicketActionController::class, 'cancel']);
         Route::post('tickets/{ticket}/priority', [AgentTicketActionController::class, 'setPriority']);
+        Route::post('tickets/{ticket}/mark-absent', [AgentTicketActionController::class, 'markAbsent']);
+        Route::post('tickets/{ticket}/defer', [AgentTicketActionController::class, 'defer']);
 
         // Ouverture/fermeture guichet (counter)
         Route::post('counters/{counter}/open', [AgentCounterController::class, 'open']);
