@@ -42,7 +42,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   } = useTicket();
 
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
-  const { AlertComponent, showWarning, showError, showInfo } = useCustomAlert();
+  const { AlertComponent, showWarning, showError, showInfo, showSuccess } = useCustomAlert();
 
   // Debug: log establishment coordinates
   useEffect(() => {
@@ -160,16 +160,17 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   // Handle confirm presence
   const handleConfirmPresence = useCallback(async () => {
     try {
-      await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, {
+      const response = await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, {
         estimated_travel_minutes:
           distanceInfo?.travelTimes?.[preferredTransportMode],
       });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showSuccess("Présence confirmée", "L'agent a été notifié de votre arrivée");
       onConfirmPresence?.();
     } catch (error: any) {
-      showError("Erreur", "Impossible de confirmer");
+      showError("Erreur", error.response?.data?.error || "Impossible de confirmer");
     }
-  }, [activeTicket, distanceInfo, preferredTransportMode, onConfirmPresence, showError]);
+  }, [activeTicket, distanceInfo, preferredTransportMode, onConfirmPresence, showSuccess, showError]);
 
   // Handle recall
   const handleRecall = useCallback(async () => {

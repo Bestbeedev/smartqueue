@@ -88,6 +88,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Notifications utilisateur
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read']); // ou PUT si vous préférez
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
