@@ -36,6 +36,7 @@ export interface TicketState {
   createTicket: (data: CreateTicketData) => Promise<Ticket>;
   cancelTicket: (ticketId: number) => Promise<void>;
   refreshActiveTicket: () => Promise<void>;
+  fetchActiveTicket: () => Promise<void>;
   updateTicketStatus: (status: Ticket['status']) => void;
   setWebSocketConnected: (connected: boolean) => void;
   setLastUpdate: (date: Date) => void;
@@ -230,6 +231,61 @@ export const useTicketStore = create<TicketState>()(
         }
       },
 
+      // Récupérer le ticket actif depuis le backend (pas seulement rafraîchir)
+      fetchActiveTicket: async () => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const ticket = await ticketsApi.getMyActiveTicket();
+          
+          if (ticket) {
+            set({
+              activeTicket: ticket,
+              position: ticket.position || 0,
+              etaMinutes: ticket.eta_minutes || 0,
+              isAlmostThere: ticket.position ? ticket.position <= 2 : false,
+              isCalled: ticket.status === 'called',
+              isLoading: false,
+              error: null,
+              lastUpdate: new Date(),
+            });
+          } else {
+            // Pas de ticket actif
+            set({
+              activeTicket: null,
+              position: 0,
+              etaMinutes: 0,
+              isAlmostThere: false,
+              isCalled: false,
+              isLoading: false,
+              error: null,
+              lastUpdate: new Date(),
+            });
+          }
+        } catch (error: any) {
+          // 404 = pas de ticket actif, ce n'est pas une erreur
+          if (error.response?.status === 404) {
+            set({
+              activeTicket: null,
+              position: 0,
+              etaMinutes: 0,
+              isAlmostThere: false,
+              isCalled: false,
+              isLoading: false,
+              error: null,
+              lastUpdate: new Date(),
+            });
+            return;
+          }
+          const errorMessage = error.response?.data?.message || 'Erreur lors de la récupération du ticket';
+          set({
+            isLoading: false,
+            error: errorMessage,
+          });
+          throw error;
+        }
+      },
+
       // Mettre à jour le statut du ticket
       updateTicketStatus: (status: Ticket['status']) => {
         const { activeTicket } = get();
@@ -319,6 +375,7 @@ export const useTicket = () => {
     createTicket: ticketStore.createTicket,
     cancelTicket: ticketStore.cancelTicket,
     refreshActiveTicket: ticketStore.refreshActiveTicket,
+    fetchActiveTicket: ticketStore.fetchActiveTicket,
     updateTicketStatus: ticketStore.updateTicketStatus,
     setWebSocketConnected: ticketStore.setWebSocketConnected,
     setLastUpdate: ticketStore.setLastUpdate,

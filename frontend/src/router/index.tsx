@@ -2,7 +2,7 @@
  * Router Configuration - Structure optimisée
  * Organisation des routes par fonctionnalités avec lazy loading
  */
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { BrowserRouter, useRoutes } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -147,7 +147,7 @@ const PageLoaderHome = () => {
   );
 };
 
-export default function Router() {
+function AppRoutes() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
 
@@ -167,7 +167,7 @@ export default function Router() {
     }
   }, [dispatch, isAuthenticated]);
 
-  const router = createBrowserRouter([
+  const routes = [
     // Routes publiques
     {
       path: "/",
@@ -225,7 +225,9 @@ export default function Router() {
             </Suspense>
           ),
         },
-        ...(user?.role === "admin" && !user?.establishment_id
+        // Route setup-establishment toujours disponible pour les admins
+        // Le composant SetupEstablishment gère la redirection si l'utilisateur a déjà un établissement
+        ...(user?.role === "admin"
           ? [
               {
                 path: "setup-establishment",
@@ -452,7 +454,15 @@ export default function Router() {
         </div>
       ),
     },
-  ]);
+  ];
 
-  return <RouterProvider router={router} />;
+  return useRoutes(routes);
+}
+
+export default function Router() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
 }

@@ -41,9 +41,15 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     counterNumber,
     setRecalled,
     markAsCalled,
+    fetchActiveTicket,
   } = useTicket();
 
   const { AlertComponent, showError, showSuccess, showWarning } = useCustomAlert();
+
+  // Fetch fresh ticket data on mount
+  useEffect(() => {
+    fetchActiveTicket().catch(err => console.error('Error fetching ticket:', err));
+  }, []);
 
   // WebSocket connection
   useTicketSocket(numericTicketId?.toString() || null);
