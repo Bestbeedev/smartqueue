@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -27,8 +27,6 @@ interface LiveTicketScreenProps {
 }
 
 export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) => {
-  const numericTicketId = ticketId ? Number(ticketId) : null;
-
   const {
     activeTicket,
     position,
@@ -51,8 +49,15 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     fetchActiveTicket().catch(err => console.error('Error fetching ticket:', err));
   }, []);
 
+  // Use activeTicket.id from store if ticketId prop is invalid
+  const effectiveTicketId = useMemo(() => {
+    const propId = ticketId ? Number(ticketId) : null;
+    if (propId && !isNaN(propId)) return propId;
+    return activeTicket?.id || null;
+  }, [ticketId, activeTicket?.id]);
+
   // WebSocket connection
-  useTicketSocket(numericTicketId?.toString() || null);
+  useTicketSocket(effectiveTicketId?.toString() || null);
   
   // Distance tracking
   const { distanceInfo, hasPermission: hasLocationPermission } = useDistanceTracking({
@@ -119,23 +124,23 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   
   // Handle recall action
   const handleRecall = useCallback(async () => {
-    if (!numericTicketId || hasRecalled) return;
+    if (!effectiveTicketId || hasRecalled) return;
     
     try {
-      const response = await axiosClient.post(`/tickets/${numericTicketId}/recall`);
+      const response = await axiosClient.post(`/tickets/${effectiveTicketId}/recall`);
       setRecalled();
       setCountdownSeconds(response.data.countdown_seconds || 180);
     } catch (error: any) {
       showError('Erreur', error.response?.data?.error || 'Impossible d\'envoyer le rappel');
     }
-  }, [numericTicketId, hasRecalled, setRecalled, showError]);
+  }, [effectiveTicketId, hasRecalled, setRecalled, showError]);
   
   // Handle "en route" action
   const handleEnRoute = useCallback(async () => {
-    if (!numericTicketId) return;
+    if (!effectiveTicketId) return;
     
     try {
-      await axiosClient.post(`/tickets/${numericTicketId}/en-route`, {
+      await axiosClient.post(`/tickets/${effectiveTicketId}/en-route`, {
         lat: distanceInfo ? null : undefined,
         lng: distanceInfo ? null : undefined,
         estimated_travel_minutes: distanceInfo?.travelTimes?.car,
@@ -144,7 +149,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     } catch (error: any) {
       showError('Erreur', error.response?.data?.error || 'Impossible de confirmer');
     }
-  }, [numericTicketId, distanceInfo, showSuccess, showError]);
+  }, [effectiveTicketId, distanceInfo, showSuccess, showError]);
   
   // Handle dismiss
   const handleDismiss = useCallback(() => {
@@ -158,7 +163,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       'Quitter',
       async () => {
         try {
-          await cancelTicket(numericTicketId!);
+          await cancelTicket(effectiveTicketId!);
           router.back();
         } catch {
           showError('Erreur', 'Impossible d\'annuler le ticket.');
@@ -241,7 +246,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
               <View style={styles.qrBackground}>
                 <Ionicons name="qr-code" size={140} color="#1F2937" />
               </View>
-              <Text style={styles.ticketNumber}>{activeTicket?.number || `TKT-${numericTicketId}`}</Text>
+              <Text style={styles.ticketNumber}>{activeTicket?.number || `TKT-${effectiveTicketId}`}</Text>
             </View>
 
             {/* Position Display */}
