@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CustomAlert, AlertType } from '../components/ui/CustomAlert';
 import React from 'react';
 
@@ -137,15 +137,18 @@ export const useCustomAlert = () => {
     [showAlert]
   );
 
-  const AlertComponent = React.createElement(CustomAlert, {
-    visible: alert.visible,
-    type: alert.type,
-    title: alert.title,
-    message: alert.message,
-    primaryButton: alert.primaryButton,
-    secondaryButton: alert.secondaryButton,
-    onClose: alert.onClose,
-  });
+  const AlertComponent = useMemo(() => {
+    return React.createElement(CustomAlert, {
+      key: alert.visible ? 'visible' : 'hidden',
+      visible: alert.visible,
+      type: alert.type,
+      title: alert.title,
+      message: alert.message,
+      primaryButton: alert.primaryButton,
+      secondaryButton: alert.secondaryButton,
+      onClose: alert.onClose,
+    });
+  }, [alert.visible, alert.type, alert.title, alert.message, alert.primaryButton, alert.secondaryButton, alert.onClose]);
 
   return {
     AlertComponent,
