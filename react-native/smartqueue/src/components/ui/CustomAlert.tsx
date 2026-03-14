@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 const { width } = Dimensions.get('window');
 
@@ -48,30 +49,32 @@ const alertConfig: Record<AlertType, AlertConfig> = {
     iconBgColor: '#22C55E',
     primaryButtonBg: '#22C55E',
     primaryButtonText: '#FFFFFF',
-    secondaryButtonBg: '#E5E7EB',
-    secondaryButtonText: '#374151',
+    secondaryButtonBg: 'transparent',
+    secondaryButtonText: '#6B7280',
     headerBgColor: '#86EFAC',
+    secondaryButtonBorder: '#E5E7EB',
   },
   warning: {
-    icon: 'notifications',
+    icon: 'alert-triangle',
     iconColor: '#FFFFFF',
-    iconBgColor: '#F97316',
-    primaryButtonBg: '#F97316',
+    iconBgColor: '#F59E0B',
+    primaryButtonBg: '#F59E0B',
     primaryButtonText: '#FFFFFF',
-    secondaryButtonBg: '#FFF7ED',
-    secondaryButtonText: '#F97316',
-    headerBgColor: '#FDBA74',
-    secondaryButtonBorder: '#FDBA74',
+    secondaryButtonBg: 'transparent',
+    secondaryButtonText: '#6B7280',
+    headerBgColor: '#FCD34D',
+    secondaryButtonBorder: '#E5E7EB',
   },
   error: {
-    icon: 'warning',
+    icon: 'close-circle',
     iconColor: '#FFFFFF',
     iconBgColor: '#EF4444',
-    primaryButtonBg: '#3B82F6',
+    primaryButtonBg: '#EF4444',
     primaryButtonText: '#FFFFFF',
-    secondaryButtonBg: '#E5E7EB',
-    secondaryButtonText: '#374151',
+    secondaryButtonBg: 'transparent',
+    secondaryButtonText: '#6B7280',
     headerBgColor: '#FCA5A5',
+    secondaryButtonBorder: '#E5E7EB',
   },
   info: {
     icon: 'information-circle',
@@ -79,9 +82,10 @@ const alertConfig: Record<AlertType, AlertConfig> = {
     iconBgColor: '#3B82F6',
     primaryButtonBg: '#3B82F6',
     primaryButtonText: '#FFFFFF',
-    secondaryButtonBg: '#EFF6FF',
-    secondaryButtonText: '#3B82F6',
+    secondaryButtonBg: 'transparent',
+    secondaryButtonText: '#6B7280',
     headerBgColor: '#93C5FD',
+    secondaryButtonBorder: '#E5E7EB',
   },
 };
 
@@ -94,6 +98,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   secondaryButton,
   onClose,
 }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const config = alertConfig[type];
 
   return (
@@ -104,7 +110,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface }]}>
           {/* Header with Icon */}
           <View style={[styles.header, { backgroundColor: config.headerBgColor }]}>
             <View style={[styles.iconContainer, { backgroundColor: config.iconBgColor }]}>
@@ -114,8 +120,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
 
           {/* Content */}
           <View style={styles.content}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.message}>{message}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+            <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
 
             {/* Buttons */}
             <View style={styles.buttonContainer}>
@@ -124,11 +130,11 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
                   style={[
                     styles.button,
                     styles.secondaryButton,
-                    { backgroundColor: config.secondaryButtonBg },
+                    { backgroundColor: isDark ? colors.surfaceSecondary : config.secondaryButtonBg },
                     type === 'warning' && {
-                      backgroundColor: 'transparent',
+                      backgroundColor: isDark ? 'transparent' : 'transparent',
                       borderWidth: 1,
-                      borderColor: config.secondaryButtonBorder,
+                      borderColor: isDark ? colors.border : config.secondaryButtonBorder,
                     },
                   ]}
                   onPress={secondaryButton.onPress}
@@ -137,7 +143,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
                   <Text
                     style={[
                       styles.buttonText,
-                      { color: config.secondaryButtonText },
+                      { color: isDark ? colors.textSecondary : config.secondaryButtonText },
                     ]}
                   >
                     {secondaryButton.text}

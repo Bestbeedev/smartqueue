@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { formatDistance, formatTravelTime, DistanceInfo } from '../utils/distance';
+import { useThemeColors } from '../hooks/useThemeColors';
 
 interface CalledTicketOverlayProps {
   visible: boolean;
@@ -39,6 +40,8 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   onDefer,
   onDismiss,
 }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const [timeRemaining, setTimeRemaining] = useState(countdownSeconds);
   const [isExpired, setIsExpired] = useState(false);
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -160,12 +163,12 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
       transparent={false}
       statusBarTranslucent
     >
-      <View className="flex-1 bg-gradient-to-b from-orange-500 to-red-600" style={{ backgroundColor: '#EA580C' }}>
+      <View style={{ flex: 1, backgroundColor: colors.danger }}>
         {/* Header */}
         <View className="pt-16 px-6 items-center">
           <Animated.View style={{ opacity: flashAnim }}>
-            <View className="w-24 h-24 rounded-full bg-white/20 items-center justify-center mb-4">
-              <Ionicons name="notifications" size={48} color="white" />
+            <View className="w-24 h-24 rounded-full items-center justify-center mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+              <Ionicons name="notifications" size={48} color="#FFFFFF" />
             </View>
           </Animated.View>
           
@@ -174,7 +177,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
           </Text>
           
           {counterNumber && (
-            <View className="bg-white/20 px-6 py-2 rounded-full">
+            <View className="px-6 py-2 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
               <Text className="text-white text-lg font-bold">
                 Guichet N° {counterNumber}
               </Text>
@@ -185,7 +188,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
         {/* Countdown */}
         <View className="items-center mt-8">
           {isExpired ? (
-            <View className="bg-black/30 px-8 py-4 rounded-2xl">
+            <View className="px-8 py-4 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
               <Text className="text-white text-2xl font-bold text-center">
                 Délai expiré
               </Text>
@@ -208,20 +211,20 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
         {/* Distance Info */}
         {distanceInfo && !isExpired && (
-          <View className="mx-6 mt-6 bg-white/15 rounded-2xl p-4">
+          <View className="mx-6 mt-6 rounded-2xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
             <View className="flex-row items-center justify-center mb-3">
-              <Ionicons name="location" size={20} color="white" />
+              <Ionicons name="location" size={20} color="#FFFFFF" />
               <Text className="text-white font-bold ml-2">Distance actuelle</Text>
             </View>
             <View className="flex-row justify-around">
               <View className="items-center">
-                <Ionicons name="navigate" size={18} color="white" />
+                <Ionicons name="navigate" size={18} color="#FFFFFF" />
                 <Text className="text-white font-bold mt-1">
                   {formatDistance(distanceInfo.kilometers)}
                 </Text>
               </View>
               <View className="items-center">
-                <Ionicons name="car" size={18} color="white" />
+                <Ionicons name="car" size={18} color="#FFFFFF" />
                 <Text className="text-white font-bold mt-1">
                   {formatTravelTime(distanceInfo.travelTimes.car)}
                 </Text>
@@ -236,12 +239,13 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
             {/* "I'm on my way" button */}
             <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
               <TouchableOpacity
-                className="bg-white h-16 rounded-2xl flex-row items-center justify-center mb-4"
+                className="h-16 rounded-2xl flex-row items-center justify-center mb-4"
+                style={{ backgroundColor: '#FFFFFF' }}
                 onPress={handleEnRoute}
                 activeOpacity={0.8}
               >
-                <Ionicons name="walk" size={24} color="#EA580C" />
-                <Text className="text-orange-600 font-bold text-lg ml-2">
+                <Ionicons name="walk" size={24} color={colors.danger} />
+                <Text className="font-bold text-lg ml-2" style={{ color: colors.danger }}>
                   Je suis en route
                 </Text>
               </TouchableOpacity>
@@ -249,11 +253,12 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
             {/* "Defer" button - swap position with next person */}
             <TouchableOpacity
-              className="bg-transparent h-16 rounded-2xl flex-row items-center justify-center border-2 border-white mb-4"
+              className="h-16 rounded-2xl flex-row items-center justify-center border-2 border-white mb-4"
+              style={{ backgroundColor: 'transparent' }}
               onPress={handleDefer}
               activeOpacity={0.8}
             >
-              <Ionicons name="swap-horizontal" size={24} color="white" />
+              <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
               <Text className="text-white font-bold text-lg ml-2">
                 Laisser passer
               </Text>
@@ -261,11 +266,11 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
             {/* "Recall me" button */}
             <TouchableOpacity
-              className={`h-16 rounded-2xl flex-row items-center justify-center border-2 ${
-                hasRecalled 
-                  ? 'bg-white/10 border-white/30' 
-                  : 'bg-transparent border-white'
-              }`}
+              className="h-16 rounded-2xl flex-row items-center justify-center border-2"
+              style={{
+                backgroundColor: hasRecalled ? 'rgba(255,255,255,0.1)' : 'transparent',
+                borderColor: hasRecalled ? 'rgba(255,255,255,0.3)' : '#FFFFFF',
+              }}
               onPress={handleRecall}
               disabled={hasRecalled}
               activeOpacity={0.8}
@@ -273,11 +278,12 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               <Ionicons 
                 name={hasRecalled ? "checkmark-circle" : "refresh"} 
                 size={24} 
-                color={hasRecalled ? "rgba(255,255,255,0.5)" : "white"} 
+                color={hasRecalled ? "rgba(255,255,255,0.5)" : "#FFFFFF"} 
               />
-              <Text className={`font-bold text-lg ml-2 ${
-                hasRecalled ? 'text-white/50' : 'text-white'
-              }`}>
+              <Text 
+                className="font-bold text-lg ml-2"
+                style={{ color: hasRecalled ? 'rgba(255,255,255,0.5)' : '#FFFFFF' }}
+              >
                 {hasRecalled ? 'Rappel déjà utilisé' : 'Me rappeler'}
               </Text>
             </TouchableOpacity>
@@ -310,12 +316,13 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
         {isExpired && (
           <View className="flex-1 justify-end pb-12 px-6">
             <TouchableOpacity
-              className="bg-white h-16 rounded-2xl flex-row items-center justify-center"
+              className="h-16 rounded-2xl flex-row items-center justify-center"
+              style={{ backgroundColor: '#FFFFFF' }}
               onPress={onDismiss}
               activeOpacity={0.8}
             >
-              <Ionicons name="add-circle" size={24} color="#EA580C" />
-              <Text className="text-orange-600 font-bold text-lg ml-2">
+              <Ionicons name="add-circle" size={24} color={colors.danger} />
+              <Text className="font-bold text-lg ml-2" style={{ color: colors.danger }}>
                 Prendre un nouveau ticket
               </Text>
             </TouchableOpacity>

@@ -18,6 +18,7 @@ import { useDistanceTracking } from '../../hooks/useDistanceTracking';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 import { CalledTicketOverlay } from '../../components/CalledTicketOverlay';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import axiosClient from '../../api/axiosClient';
 
 const { width } = Dimensions.get('window');
@@ -27,6 +28,8 @@ interface LiveTicketScreenProps {
 }
 
 export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const {
     activeTicket,
     position,
@@ -186,33 +189,33 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   };
 
   const getStatusColor = () => {
-    if (isCalled) return ['#EF4444', '#DC2626'];
-    if (position <= 3) return ['#F59E0B', '#D97706'];
-    return ['#10B981', '#059669'];
+    if (isCalled) return [colors.danger, colors.danger];
+    if (position <= 3) return [colors.warning, colors.warning];
+    return [colors.success, colors.success];
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {AlertComponent}
       
       {/* Gradient Header */}
       <LinearGradient
-        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        colors={isDark ? ['#1E3A5F', '#2563EB', '#3B82F6'] : [colors.primary, colors.secondary, '#1D4ED8']}
         style={styles.headerGradient}
       >
         <View style={styles.headerContent}>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
             onPress={() => router.back()}
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Ma File</Text>
-            <View style={styles.liveBadge}>
-              <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveText}>LIVE</Text>
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Ma File</Text>
+            <View style={[styles.liveBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+              <View style={[styles.liveDot, { backgroundColor: colors.danger }]} />
+              <Text style={[styles.liveText, { color: '#FFFFFF' }]}>LIVE</Text>
             </View>
           </View>
           
@@ -229,6 +232,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
         <Animated.View 
           style={[
             styles.ticketCard,
+            { backgroundColor: colors.surface },
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
@@ -241,7 +245,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
             style={styles.statusBanner}
           >
             <Ionicons name="time-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.statusText}>
+            <Text style={[styles.statusText, { color: '#FFFFFF' }]}>
               {isCalled ? 'C\'est votre tour !' : position <= 3 ? 'Bientôt votre tour' : 'En attente'}
             </Text>
           </LinearGradient>
@@ -250,86 +254,86 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
           <View style={styles.ticketContent}>
             {/* QR Code */}
             <View style={styles.qrContainer}>
-              <View style={styles.qrBackground}>
-                <Ionicons name="qr-code" size={140} color="#1F2937" />
+              <View style={[styles.qrBackground, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="qr-code" size={140} color={colors.textPrimary} />
               </View>
-              <Text style={styles.ticketNumber}>{activeTicket?.number || `TKT-${effectiveTicketId}`}</Text>
+              <Text style={[styles.ticketNumber, { color: colors.textSecondary }]}>{activeTicket?.number || `TKT-${effectiveTicketId}`}</Text>
             </View>
 
             {/* Position Display */}
             <View style={styles.positionContainer}>
-              <Text style={styles.positionLabel}>Votre position</Text>
+              <Text style={[styles.positionLabel, { color: colors.textTertiary }]}>Votre position</Text>
               <Animated.View style={{ transform: [{ scale: positionAnim }] }}>
-                <Text style={styles.positionNumber}>{getOrdinal(position)}</Text>
+                <Text style={[styles.positionNumber, { color: colors.textPrimary }]}>{getOrdinal(position)}</Text>
               </Animated.View>
-              <Text style={styles.positionSubtitle}>dans la file</Text>
+              <Text style={[styles.positionSubtitle, { color: colors.textTertiary }]}>dans la file</Text>
             </View>
 
             {/* Divider */}
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.separator }]} />
 
             {/* Info Grid */}
             <View style={styles.infoGrid}>
               <View style={styles.infoItem}>
-                <View style={[styles.infoIconContainer, { backgroundColor: '#DBEAFE' }]}>
-                  <Ionicons name="business-outline" size={20} color="#3B82F6" />
+                <View style={[styles.infoIconContainer, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="business-outline" size={20} color={colors.primary} />
                 </View>
-                <Text style={styles.infoLabel}>Établissement</Text>
-                <Text style={styles.infoValue} numberOfLines={1}>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Établissement</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
                   {activeTicket?.establishment?.name || 'Établissement'}
                 </Text>
               </View>
 
               <View style={styles.infoItem}>
-                <View style={[styles.infoIconContainer, { backgroundColor: '#D1FAE5' }]}>
-                  <Ionicons name="time-outline" size={20} color="#10B981" />
+                <View style={[styles.infoIconContainer, { backgroundColor: colors.success + '20' }]}>
+                  <Ionicons name="time-outline" size={20} color={colors.success} />
                 </View>
-                <Text style={styles.infoLabel}>Temps estimé</Text>
-                <Text style={styles.infoValue}>{etaMinutes} min</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Temps estimé</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{etaMinutes} min</Text>
               </View>
             </View>
 
             {/* Distance Info Card */}
             {hasValidCoordinates && distanceInfo && hasLocationPermission ? (
-              <View style={styles.distanceCard}>
+              <View style={[styles.distanceCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
                 <View style={styles.distanceHeader}>
-                  <Ionicons name="location-outline" size={18} color="#3B82F6" />
-                  <Text style={styles.distanceTitle}>Votre position</Text>
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.distanceTitle, { color: colors.primary }]}>Votre position</Text>
                 </View>
                 
                 <View style={styles.distanceGrid}>
                   <View style={styles.distanceItem}>
-                    <Ionicons name="navigate-outline" size={20} color="#6B7280" />
-                    <Text style={styles.distanceValue}>{formatDistance(distanceInfo.kilometers)}</Text>
-                    <Text style={styles.distanceLabel}>Distance</Text>
+                    <Ionicons name="navigate-outline" size={20} color={colors.textSecondary} />
+                    <Text style={[styles.distanceValue, { color: colors.textPrimary }]}>{formatDistance(distanceInfo.kilometers)}</Text>
+                    <Text style={[styles.distanceLabel, { color: colors.textTertiary }]}>Distance</Text>
                   </View>
                   
-                  <View style={styles.distanceDivider} />
+                  <View style={[styles.distanceDivider, { backgroundColor: colors.separator }]} />
                   
                   <View style={styles.distanceItem}>
-                    <Ionicons name="walk-outline" size={20} color="#6B7280" />
-                    <Text style={styles.distanceValue}>
+                    <Ionicons name="walk-outline" size={20} color={colors.textSecondary} />
+                    <Text style={[styles.distanceValue, { color: colors.textPrimary }]}>
                       {formatTravelTime(distanceInfo.travelTimes.walking)}
                     </Text>
-                    <Text style={styles.distanceLabel}>À pied</Text>
+                    <Text style={[styles.distanceLabel, { color: colors.textTertiary }]}>À pied</Text>
                   </View>
                   
-                  <View style={styles.distanceDivider} />
+                  <View style={[styles.distanceDivider, { backgroundColor: colors.separator }]} />
                   
                   <View style={styles.distanceItem}>
-                    <Ionicons name="car-outline" size={20} color="#6B7280" />
-                    <Text style={styles.distanceValue}>
+                    <Ionicons name="car-outline" size={20} color={colors.textSecondary} />
+                    <Text style={[styles.distanceValue, { color: colors.textPrimary }]}>
                       {formatTravelTime(distanceInfo.travelTimes.car)}
                     </Text>
-                    <Text style={styles.distanceLabel}>Voiture</Text>
+                    <Text style={[styles.distanceLabel, { color: colors.textTertiary }]}>Voiture</Text>
                   </View>
                 </View>
               </View>
             ) : (
-              <View style={styles.noCoordinatesCard}>
-                <Ionicons name="location-outline" size={24} color="#9CA3AF" />
-                <Text style={styles.noCoordinatesText}>Coordonnées non disponibles</Text>
-                <Text style={styles.noCoordinatesSubtext}>
+              <View style={[styles.noCoordinatesCard, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="location-outline" size={24} color={colors.textTertiary} />
+                <Text style={[styles.noCoordinatesText, { color: colors.textSecondary }]}>Coordonnées non disponibles</Text>
+                <Text style={[styles.noCoordinatesSubtext, { color: colors.textTertiary }]}>
                   L'établissement n'a pas renseigné sa position GPS
                 </Text>
               </View>
@@ -347,36 +351,36 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
             },
           ]}
         >
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity style={[styles.primaryButton, { shadowColor: colors.primary }]}>
             <LinearGradient
-              colors={['#3B82F6', '#2563EB']}
+              colors={[colors.primary, colors.secondary]}
               style={styles.primaryButtonGradient}
             >
               <Ionicons name="navigate-circle-outline" size={22} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Ouvrir Navigation</Text>
+              <Text style={[styles.primaryButtonText, { color: '#FFFFFF' }]}>Ouvrir Navigation</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <View style={styles.secondaryButtons}>
-            <TouchableOpacity style={styles.secondaryButton}>
-              <View style={styles.secondaryButtonIcon}>
-                <Ionicons name="wallet-outline" size={20} color="#1F2937" />
+            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]}>
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="wallet-outline" size={20} color={colors.textPrimary} />
               </View>
-              <Text style={styles.secondaryButtonText}>Wallet</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>Wallet</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.secondaryButton}>
-              <View style={[styles.secondaryButtonIcon, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="share-outline" size={20} color="#D97706" />
+            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]}>
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.warning + '15' }]}>
+                <Ionicons name="share-outline" size={20} color={colors.warning} />
               </View>
-              <Text style={styles.secondaryButtonText}>Partager</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>Partager</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleCancelTicket}>
-              <View style={[styles.secondaryButtonIcon, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]} onPress={handleCancelTicket}>
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.danger + '15' }]}>
+                <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
               </View>
-              <Text style={[styles.secondaryButtonText, { color: '#EF4444' }]}>Annuler</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.danger }]}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -400,7 +404,6 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
   },
   headerGradient: {
     paddingTop: 50,
@@ -416,7 +419,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -426,13 +428,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
@@ -441,13 +441,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
     marginRight: 6,
   },
   liveText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
     letterSpacing: 1,
   },
   placeholder: {
@@ -462,7 +460,6 @@ const styles = StyleSheet.create({
   ticketCard: {
     marginHorizontal: 16,
     marginTop: 20,
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -481,7 +478,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   ticketContent: {
     padding: 24,
@@ -491,7 +487,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   qrBackground: {
-    backgroundColor: '#F3F4F6',
     padding: 20,
     borderRadius: 20,
     marginBottom: 12,
@@ -499,7 +494,6 @@ const styles = StyleSheet.create({
   ticketNumber: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#6B7280',
     letterSpacing: 2,
   },
   positionContainer: {
@@ -508,7 +502,6 @@ const styles = StyleSheet.create({
   },
   positionLabel: {
     fontSize: 14,
-    color: '#9CA3AF',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -516,17 +509,14 @@ const styles = StyleSheet.create({
   positionNumber: {
     fontSize: 72,
     fontWeight: '800',
-    color: '#1F2937',
     lineHeight: 80,
   },
   positionSubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
     marginTop: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
     marginVertical: 20,
   },
   infoGrid: {
@@ -548,21 +538,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
     textAlign: 'center',
   },
   distanceCard: {
-    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   distanceHeader: {
     flexDirection: 'row',
@@ -573,7 +559,6 @@ const styles = StyleSheet.create({
   distanceTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3B82F6',
   },
   distanceGrid: {
     flexDirection: 'row',
@@ -587,21 +572,17 @@ const styles = StyleSheet.create({
   distanceValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
     marginTop: 6,
     marginBottom: 2,
   },
   distanceLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
   },
   distanceDivider: {
     width: 1,
     height: 40,
-    backgroundColor: '#E2E8F0',
   },
   noCoordinatesCard: {
-    backgroundColor: '#F3F4F6',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -610,12 +591,10 @@ const styles = StyleSheet.create({
   noCoordinatesText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
     marginTop: 8,
   },
   noCoordinatesSubtext: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginTop: 4,
   },
   actionsContainer: {
@@ -627,7 +606,6 @@ const styles = StyleSheet.create({
   primaryButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -643,7 +621,6 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   secondaryButtons: {
     flexDirection: 'row',
@@ -653,7 +630,6 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingVertical: 12,
     shadowColor: '#000',
@@ -666,7 +642,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -674,7 +649,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
   },
 });
 
