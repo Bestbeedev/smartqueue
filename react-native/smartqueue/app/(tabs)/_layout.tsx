@@ -6,6 +6,7 @@ import { useThemeColors } from '../../src/hooks/useThemeColors';
 
 export default function TabLayout() {
   const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
 
   return (
     <Tabs
@@ -20,19 +21,19 @@ export default function TabLayout() {
           marginHorizontal: 20,
           height: 60,
           borderRadius: 30,
-          backgroundColor: 'rgba(255,255,255,0.9)', // translucide
+          backgroundColor: colors.surface,
           borderTopWidth: 1,
+          borderTopColor: colors.border,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 15 },
-          shadowOpacity: 0.15,
+          shadowOpacity: isDark ? 0.4 : 0.15,
           shadowRadius: 25,
           elevation: 15,
-          backdropFilter: 'blur(100px)',
           paddingHorizontal: 30,
           justifyContent: 'space-between',
           alignItems: 'center',
           borderWidth: 1,
-          borderColor: 'rgba(0,0,0,0.05)'
+          borderColor: colors.border
         },
         tabBarItemStyle: {
           height: 50,

@@ -15,6 +15,7 @@ import { TabParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useTicket } from '../../store/ticketStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { router } from 'expo-router';
 
 type HistoryNavigationProp = NativeStackNavigationProp<TabParamList, 'History'>;
@@ -38,6 +39,7 @@ interface StatusOption {
 // Composant HistoryScreen
 export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<HistoryNavigationProp>();
+  const colors = useThemeColors();
   const { hasActiveTicket, activeTicket, setActiveTicket, isCalled, counterNumber, fetchActiveTicket, isInitialized } = useTicket();
   const { AlertComponent, showSuccess, showError } = useCustomAlert();
   
@@ -281,11 +283,11 @@ export const HistoryScreen: React.FC = () => {
     if (!hasMoreRef.current) return null;
     
     return (
-      <View className="py-8 items-center">
+      <View style={{ paddingVertical: 32, alignItems: 'center' }}>
         {isLoading ? (
-          <ActivityIndicator size="small" color="#2563EB" />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest">
+          <Text style={{ color: colors.textTertiary, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 2 }}>
             Load More...
           </Text>
         )}
@@ -295,33 +297,33 @@ export const HistoryScreen: React.FC = () => {
 
   // Rendu de l'état vide
   const renderEmptyState = () => (
-        <View className="items-center py-20 px-10">
+    <View style={{ alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
       <Ionicons
         name="time-outline"
         size={80}
-        color="#E5E7EB"
+        color={colors.textQuaternary}
       />
-      <Text className="text-xl font-bold text-gray-900 mt-6 mb-2 text-center">
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginTop: 24, marginBottom: 8, textAlign: 'center' }}>
         Aucun ticket terminé
       </Text>
-      <Text className="text-gray-500 text-center mb-10">
+      <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 40 }}>
         Les tickets apparaissent ici une fois servis, annulés ou expirés.
       </Text>
       {isInitialized && hasActiveTicket && activeTicket ? (
         <TouchableOpacity 
-          className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
           onPress={() => router.push('/(tabs)/live-ticket')}
         >
           <Ionicons name="ticket-outline" size={20} color="white" />
-          <Text className="text-white font-bold ml-2">Voir mon ticket actif</Text>
+          <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 8 }}>Voir mon ticket actif</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity 
-          className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
           onPress={() => router.push('/(tabs)/tickets')}
         >
           <Ionicons name="qr-code-outline" size={20} color="white" />
-          <Text className="text-white font-bold ml-2">Scanner un QR Code</Text>
+          <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 8 }}>Scanner un QR Code</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -334,46 +336,55 @@ export const HistoryScreen: React.FC = () => {
     
     return (
       <TouchableOpacity 
-        className="mx-5 mb-4 bg-blue-600 rounded-3xl p-5 shadow-lg"
+        style={{ 
+          marginHorizontal: 20, 
+          marginBottom: 16, 
+          backgroundColor: colors.primary, 
+          borderRadius: 24, 
+          padding: 20,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+        }}
         onPress={() => router.push('/(tabs)/live-ticket')}
-        style={{ backgroundColor: '#2563EB' }}
       >
-        <View className="flex-row justify-between items-start mb-3">
-          <View className="flex-1">
-            <Text className="text-white/80 text-xs font-semibold uppercase tracking-wider">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: 'white', opacity: 0.8, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
               Ticket actif
             </Text>
-            <Text className="text-white text-xl font-bold mt-1">
+            <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', marginTop: 4 }}>
               {activeTicket.establishment?.name || 'Établissement'}
             </Text>
-            <Text className="text-white/80 text-sm mt-1">
+            <Text style={{ color: 'white', opacity: 0.8, fontSize: 14, marginTop: 4 }}>
               {activeTicket.service?.name || 'Service'}
             </Text>
           </View>
-          <View className="bg-white/20 px-3 py-1 rounded-full">
-            <Text className="text-white font-bold text-lg">{activeTicket.number}</Text>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 }}>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>{activeTicket.number}</Text>
           </View>
         </View>
         
-        <View className="flex-row items-center justify-between bg-white/10 rounded-2xl p-3 mt-2">
-          <View className="items-center flex-1">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 12, marginTop: 8 }}>
+          <View style={{ alignItems: 'center', flex: 1 }}>
             <Ionicons name="people" size={18} color="white" />
-            <Text className="text-white font-bold text-lg mt-1">{activeTicket.position || '-'}</Text>
-            <Text className="text-white/60 text-xs">Position</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>{activeTicket.position || '-'}</Text>
+            <Text style={{ color: 'white', opacity: 0.6, fontSize: 12 }}>Position</Text>
           </View>
-          <View className="items-center flex-1">
+          <View style={{ alignItems: 'center', flex: 1 }}>
             <Ionicons name={isCalled ? "notifications" : "hourglass"} size={18} color="white" />
-            <Text className="text-white font-bold text-lg mt-1">
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
               {isCalled ? 'Appelé!' : 'En attente'}
             </Text>
-            <Text className="text-white/60 text-xs">
+            <Text style={{ color: 'white', opacity: 0.6, fontSize: 12 }}>
               {isCalled ? `Guichet ${counterNumber || ''}` : 'Statut'}
             </Text>
           </View>
-          <View className="items-center flex-1">
+          <View style={{ alignItems: 'center', flex: 1 }}>
             <Ionicons name="arrow-forward" size={18} color="white" />
-            <Text className="text-white font-bold text-lg mt-1">Voir</Text>
-            <Text className="text-white/60 text-xs">Détails</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>Voir</Text>
+            <Text style={{ color: 'white', opacity: 0.6, fontSize: 12 }}>Détails</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -381,34 +392,44 @@ export const HistoryScreen: React.FC = () => {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={{ flex: 1, backgroundColor: colors.background,paddingBottom:30, }}>
       {/* Header */}
-      <View className="px-5 pt-12 pb-4 bg-white border-b border-gray-100">
-        <Text className="text-2xl font-bold text-gray-900 mb-4">Ticket History</Text>
+      <View style={{ paddingHorizontal: 20, paddingTop: 48, paddingBottom: 16, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 16 }}>Ticket History</Text>
         
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="flex-row"
+          style={{ flexDirection: 'row' }}
           contentContainerStyle={{ paddingRight: 20 }}
         >
           {filters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
-              className={`flex-row items-center px-4 py-2 rounded-full mr-2 border ${
-                selectedFilter === filter.id 
-                  ? 'bg-blue-600 border-blue-600' 
-                  : 'bg-gray-100 border-gray-100'
-              }`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 999,
+                marginRight: 8,
+                borderWidth: 1,
+                borderColor: selectedFilter === filter.id ? colors.primary : colors.border,
+                backgroundColor: selectedFilter === filter.id ? colors.primary : colors.background,
+              }}
               onPress={() => {
                 setSelectedFilter(filter.id);
                 setExpandedTickets(new Set());
               }}
             >
               {React.cloneElement(filter.icon as React.ReactElement<any>, { 
-                color: selectedFilter === filter.id ? 'white' : '#6B7280' 
+                color: selectedFilter === filter.id ? 'white' : colors.textSecondary 
               })}
-              <Text className={`ml-2 font-semibold ${selectedFilter === filter.id ? 'text-white' : 'text-gray-500'}`}>
+              <Text style={{ 
+                marginLeft: 8, 
+                fontWeight: '600',
+                color: selectedFilter === filter.id ? 'white' : colors.textSecondary 
+              }}>
                 {filter.label}
               </Text>
             </TouchableOpacity>
@@ -419,25 +440,28 @@ export const HistoryScreen: React.FC = () => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-3"
+          style={{ marginTop: 12 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingRight: 40 }}
         >
           {statusOptions.map((status) => (
             <TouchableOpacity
               key={status.id}
-              className={`px-4 py-2 rounded-full mr-2 ${
-                selectedStatus === status.id 
-                  ? 'bg-gray-800' 
-                  : 'bg-gray-100'
-              }`}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 999,
+                marginRight: 8,
+                backgroundColor: selectedStatus === status.id ? colors.textPrimary : colors.background,
+              }}
               onPress={() => {
                 setSelectedStatus(status.id);
                 setExpandedTickets(new Set());
               }}
             >
-              <Text className={`font-semibold ${
-                selectedStatus === status.id ? 'text-white' : 'text-gray-600'
-              }`}>
+              <Text style={{ 
+                fontWeight: '600',
+                color: selectedStatus === status.id ? colors.surface : colors.textSecondary
+              }}>
                 {status.label}
               </Text>
             </TouchableOpacity>
@@ -458,8 +482,8 @@ export const HistoryScreen: React.FC = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#2563EB']}
-            tintColor="#2563EB"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
         onEndReached={handleLoadMore}
@@ -469,11 +493,11 @@ export const HistoryScreen: React.FC = () => {
             <>
               {renderActiveTicketCard()}
               {tickets.length > 0 && (
-                <Text className="text-lg font-bold text-gray-900 mb-3 mx-5 mt-2">Tous les tickets</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 12, marginHorizontal: 20, marginTop: 8 }}>Tous les tickets</Text>
               )}
             </>
           ) : tickets.length > 0 ? (
-            <Text className="text-lg font-bold text-gray-900 mb-3 mx-5 mt-4">
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 12, marginHorizontal: 20, marginTop: 16 }}>
               {selectedStatus === 'active' ? 'Tickets actifs' :
                selectedStatus === 'completed' ? 'Tickets terminés' :
                selectedStatus === 'waiting' ? 'En attente' :
@@ -486,24 +510,24 @@ export const HistoryScreen: React.FC = () => {
         ListFooterComponent={renderFooter}
         ListEmptyComponent={
           isLoading ? () => (
-            <View className="items-center py-20">
-              <ActivityIndicator size="large" color="#2563EB" />
+            <View style={{ alignItems: 'center', paddingVertical: 80 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : error ? (
-            <View className="items-center py-20 px-10">
-              <Ionicons name="alert-circle-outline" size={80} color="#EF4444" />
-              <Text className="text-xl font-bold text-gray-900 mt-6 mb-2 text-center">
+            <View style={{ alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
+              <Ionicons name="alert-circle-outline" size={80} color={colors.danger} />
+              <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginTop: 24, marginBottom: 8, textAlign: 'center' }}>
                 Oups ! Une erreur est survenue
               </Text>
-              <Text className="text-gray-500 text-center mb-10">
+              <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 40 }}>
                 {error.includes('401') ? 'Veuillez vous reconnecter pour voir votre historique.' : error}
               </Text>
               <TouchableOpacity 
-                className="bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center"
+                style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center' }}
                 onPress={() => loadTickets(true)}
               >
                 <Ionicons name="refresh-outline" size={20} color="white" />
-                <Text className="text-white font-bold ml-2">Réessayer</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 8 }}>Réessayer</Text>
               </TouchableOpacity>
             </View>
           ) : (selectedStatus === 'all' && isInitialized && hasActiveTicket && activeTicket) ? null : renderEmptyState
@@ -513,20 +537,20 @@ export const HistoryScreen: React.FC = () => {
           const waitTime = getWaitTime(ticket);
           
           return (
-            <View className="bg-white rounded-3xl p-5 mb-4 mx-5 shadow-sm border border-gray-100">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 20, marginBottom: 16, marginHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, borderWidth: 1, borderColor: colors.border }}>
               <TouchableOpacity
-                className="flex-row justify-between items-start"
+                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}
                 onPress={() => toggleTicketExpansion(ticket.id)}
                 activeOpacity={0.7}
               >
-                <View className="flex-1 mr-4">
-                  <Text className="text-lg font-bold text-gray-900" numberOfLines={1}>
+                <View style={{ flex: 1, marginRight: 16 }}>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary }} numberOfLines={1}>
                     {ticket.establishment?.name || 'Establishment'}
                   </Text>
-                  <Text className="text-gray-500 font-medium mb-1">
+                  <Text style={{ color: colors.textSecondary, fontWeight: '500', marginBottom: 4 }}>
                     {ticket.service?.name || 'Service'}
                   </Text>
-                  <Text className="text-gray-400 text-xs">
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
                     {new Date(ticket.created_at).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'short',
@@ -537,53 +561,59 @@ export const HistoryScreen: React.FC = () => {
                   </Text>
                 </View>
                 
-                <View className="items-end">
-                  <View className={`px-3 py-1 rounded-full mb-2 ${
-                    ticket.status === 'served' || ticket.status === 'closed' 
-                      ? 'bg-green-100' 
-                      : (ticket.status as string) === 'cancelled' ? 'bg-red-100' : 'bg-yellow-100'
-                  }`}>
-                    <Text className={`text-xs font-bold ${
-                      ticket.status === 'served' || ticket.status === 'closed' 
-                        ? 'text-green-600' 
-                        : (ticket.status as string) === 'cancelled' ? 'text-red-600' : 'text-yellow-600'
-                    }`}>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    marginBottom: 8,
+                    backgroundColor: ticket.status === 'served' || ticket.status === 'closed' 
+                      ? colors.success + '20'
+                      : (ticket.status as string) === 'cancelled' ? colors.danger + '20' : colors.warning + '20'
+                  }}>
+                    <Text style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: ticket.status === 'served' || ticket.status === 'closed' 
+                        ? colors.success
+                        : (ticket.status as string) === 'cancelled' ? colors.danger : colors.warning
+                    }}>
                       {getStatusText(ticket.status)}
                     </Text>
                   </View>
                   <Ionicons
                     name={isExpanded ? 'chevron-up' : 'chevron-down'}
                     size={20}
-                    color="#9CA3AF"
+                    color={colors.textTertiary}
                   />
                 </View>
               </TouchableOpacity>
 
               {isExpanded && (
-                <View className="mt-4 pt-4 border-t border-gray-50 gap-3">
-                  <View className="flex-row justify-between">
-                    <Text className="text-gray-400">Ticket Number</Text>
-                    <Text className="text-gray-900 font-bold">{ticket.number}</Text>
+                <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.separator, gap: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: colors.textTertiary }}>Ticket Number</Text>
+                    <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>{ticket.number}</Text>
                   </View>
                   {waitTime && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-gray-400">Wait Duration</Text>
-                      <Text className="text-gray-900 font-bold">{waitTime}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.textTertiary }}>Wait Duration</Text>
+                      <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>{waitTime}</Text>
                     </View>
                   )}
                   {ticket.counter_id && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-gray-400">Counter</Text>
-                      <Text className="text-gray-900 font-bold">{ticket.counter_id}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.textTertiary }}>Counter</Text>
+                      <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>{ticket.counter_id}</Text>
                     </View>
                   )}
                   
                   <TouchableOpacity 
-                    className="mt-2 bg-blue-50 py-3 rounded-2xl flex-row items-center justify-center"
+                    style={{ marginTop: 8, backgroundColor: colors.primary + '10', paddingVertical: 12, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
                     onPress={() => handleRejoinQueue(ticket)}
                   >
-                    <Ionicons name="refresh-outline" size={18} color="#2563EB" />
-                    <Text className="text-blue-600 font-bold ml-2">Joindre la file</Text>
+                    <Ionicons name="refresh-outline" size={18} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontWeight: 'bold', marginLeft: 8 }}>Joindre la file</Text>
                   </TouchableOpacity>
                 </View>
               )}

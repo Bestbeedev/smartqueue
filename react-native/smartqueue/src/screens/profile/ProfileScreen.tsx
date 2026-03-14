@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useTheme } from '../../hooks/useTheme';
 import { CustomActionSheet, Option } from '../../components/ui/CustomActionSheet';
 
 type ProfileNavigationProp = NativeStackNavigationProp<TabParamList, 'Profile'>;
@@ -52,6 +53,7 @@ export const ProfileScreen: React.FC = () => {
     updatePreferences,
     loadPreferences 
   } = useSettings();
+  const { colors } = useTheme();
   const {
     channels,
     marginMinutes,
@@ -266,8 +268,8 @@ export const ProfileScreen: React.FC = () => {
           <Ionicons name={item.icon} size={22} color={item.destructive ? '#EF4444' : getIconColor(item.iconBg)} />
         </View>
         <View style={styles.menuItemText}>
-          <Text style={[styles.menuItemTitle, item.destructive && styles.destructiveText]}>{item.title}</Text>
-          {item.subtitle && <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>}
+          <Text style={[styles.menuItemTitle, { color: colors.textPrimary }, item.destructive && { color: colors.danger }]}>{item.title}</Text>
+          {item.subtitle && <Text style={[styles.menuItemSubtitle, { color: colors.textTertiary }]}>{item.subtitle}</Text>}
         </View>
       </View>
       
@@ -275,11 +277,11 @@ export const ProfileScreen: React.FC = () => {
         <Switch
           value={item.toggleValue}
           onValueChange={item.onToggle}
-          trackColor={{ false: '#E5E7EB', true: '#3B82F6' }}
-          thumbColor={Platform.OS === 'ios' ? undefined : '#FFFFFF'}
+          trackColor={{ false: colors.borderSecondary, true: colors.primary }}
+          thumbColor={Platform.OS === 'ios' ? undefined : colors.surface}
         />
       ) : (
-        <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
+        <Ionicons name="chevron-forward" size={20} color={colors.textQuaternary} />
       )}
     </TouchableOpacity>
   );
@@ -297,10 +299,10 @@ export const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
       {/* Elegant Gradient Header */}
       <LinearGradient
-        colors={['#1E40AF', '#3B82F6', '#60A5FA']}
+        colors={isDarkMode ? ['#0F172A', '#1E3A5F', '#1E40AF'] : ['#1E40AF', '#3B82F6', '#60A5FA']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
@@ -308,42 +310,42 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.headerContent}>
           {/* Avatar */}
           <View style={styles.avatarWrapper}>
-            <View style={styles.avatarContainer}>
+            <View style={[styles.avatarContainer, { backgroundColor: colors.surface }]}>
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
-                <Text style={styles.avatarText}>
+                <Text style={[styles.avatarText, { color: colors.primary }]}>
                   {(user?.name || 'U').charAt(0).toUpperCase()}
                 </Text>
               )}
             </View>
-            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary }]} activeOpacity={0.8}>
               <Ionicons name="camera" size={14} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
           
           {/* User Info */}
-          <Text style={styles.userName}>{user?.name || 'User Profile'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
+          <Text style={[styles.userName, { color: '#FFFFFF' }]}>{user?.name || 'User Profile'}</Text>
+          <Text style={[styles.userEmail, { color: 'rgba(255,255,255,0.85)' }]}>{user?.email || 'user@example.com'}</Text>
           
           {/* Member Badge */}
           <View style={styles.memberBadge}>
-            <Ionicons name="shield-checkmark" size={12} color="#3B82F6" />
-            <Text style={styles.memberText}>Member since {getMemberSince()}</Text>
+            <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+            <Text style={[styles.memberText, { color: '#FFFFFF' }]}>Member since {getMemberSince()}</Text>
           </View>
         </View>
       </LinearGradient>
 
       {/* Menu Sections */}
-      <View style={styles.menuContainer}>
+      <View style={[styles.menuContainer, { backgroundColor: colors.background }]}>
         {menuSections.map((section, idx) => (
           <View key={idx} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.card}>
+            <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{section.title}</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
               {section.items.map((item, itemIdx) => (
                 <View key={item.id}>
                   {renderItem(item)}
-                  {itemIdx < section.items.length - 1 && <View style={styles.divider} />}
+                  {itemIdx < section.items.length - 1 && <View style={[styles.divider, { backgroundColor: colors.separator }]} />}
                 </View>
               ))}
             </View>
@@ -352,22 +354,22 @@ export const ProfileScreen: React.FC = () => {
 
         {/* Bouton déconnexion */}
         <TouchableOpacity 
-          style={styles.logoutButton}
+          style={[styles.logoutButton, { shadowColor: colors.danger }]}
           onPress={handleLogout}
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#FEE2E2', '#FECACA']}
+            colors={[colors.danger + '40', colors.danger + '40']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.logoutGradient}
           >
-            <Ionicons name="log-out-outline" size={22} color="#DC2626" />
-            <Text style={styles.logoutText}>Deconnexion</Text>
+            <Ionicons name="log-out-outline" size={22} color={colors.danger} />
+            <Text style={[styles.logoutText, { color: colors.danger }]}>Deconnexion</Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>SmartQueue v1.0.0 • Built with Love</Text>
+        <Text style={[styles.versionText, { color: colors.textQuaternary }]}>SmartQueue v1.0.0 • Built with Love</Text>
       </View>
       {AlertComponent}
 
@@ -411,14 +413,12 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   headerGradient: {
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     paddingTop: 60,
     paddingBottom: 30,
-    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -435,7 +435,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -454,7 +453,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 40,
     fontWeight: '800',
-    color: '#3B82F6',
   },
   cameraButton: {
     position: 'absolute',
@@ -463,7 +461,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -477,7 +474,6 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
     marginBottom: 6,
     textShadowColor: 'rgba(0,0,0,0.1)',
     textShadowOffset: { width: 0, height: 1 },
@@ -485,7 +481,6 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.85)',
     fontWeight: '500',
     marginBottom: 12,
   },
@@ -500,7 +495,6 @@ const styles = StyleSheet.create({
   },
   memberText: {
     fontSize: 12,
-    color: '#FFFFFF',
     fontWeight: '600',
     marginLeft: 6,
     textTransform: 'capitalize',
@@ -516,14 +510,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     marginBottom: 12,
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingVertical: 8,
@@ -533,7 +525,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 0.5,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
   },
   menuItem: {
     flexDirection: 'row',
@@ -560,31 +551,26 @@ const styles = StyleSheet.create({
   menuItemTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E293B',
     marginBottom: 3,
   },
   menuItemSubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
     fontWeight: '500',
   },
   destructiveText: {
-    color: '#DC2626',
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
     marginLeft: 60,
   },
   logoutButton: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 8,
-    shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 1,
+    elevation: 0,
   },
   logoutGradient: {
     flexDirection: 'row',
@@ -596,11 +582,9 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#DC2626',
   },
   versionText: {
     textAlign: 'center',
-    color: '#CBD5E1',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 24,

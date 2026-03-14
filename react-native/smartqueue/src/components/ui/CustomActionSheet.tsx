@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,8 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
   onClose,
   type = 'info',
 }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const theme = config[type];
 
   const handleSelect = (value: string | number) => {
@@ -72,7 +75,7 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface }]}>
           {/* Header with Icon */}
           <View style={[styles.header, { backgroundColor: theme.headerBgColor }]}>
             <View style={[styles.iconContainer, { backgroundColor: theme.iconBgColor }]}>
@@ -82,8 +85,8 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
 
           {/* Content */}
           <View style={styles.content}>
-            <Text style={styles.title}>{title}</Text>
-            {message && <Text style={styles.message}>{message}</Text>}
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+            {message && <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>}
 
             {/* Options List */}
             <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
@@ -96,8 +99,9 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
                     key={`${index}-${String(option.value)}`}
                     style={[
                       styles.optionButton,
-                      isSelected && styles.optionButtonSelected,
-                      !isLast && styles.optionButtonBorder,
+                      { backgroundColor: colors.inputBackground },
+                      isSelected && { backgroundColor: colors.primary + '15', borderWidth: 1, borderColor: colors.primary },
+                      !isLast && { borderColor: colors.primary },
                     ]}
                     onPress={() => handleSelect(option.value)}
                     activeOpacity={0.8}
@@ -107,13 +111,14 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
                         <Ionicons
                           name={option.icon}
                           size={22}
-                          color={isSelected ? '#3B82F6' : '#6B7280'}
+                          color={isSelected ? colors.primary : colors.textSecondary}
                           style={styles.optionIcon}
                         />
                       )}
                       <Text
                         style={[
                           styles.optionText,
+                          { color: isSelected ? colors.primary : colors.textPrimary },
                           isSelected && styles.optionTextSelected,
                         ]}
                       >
@@ -121,7 +126,7 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
                       </Text>
                     </View>
                     {isSelected && (
-                      <Ionicons name="checkmark" size={22} color="#3B82F6" />
+                      <Ionicons name="checkmark" size={22} color={colors.primary} />
                     )}
                   </TouchableOpacity>
                 );
@@ -130,11 +135,11 @@ export const CustomActionSheet: React.FC<CustomActionSheetProps> = ({
 
             {/* Cancel Button */}
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]}
               onPress={onClose}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelButtonText}>Annuler</Text>
+              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -150,7 +155,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -183,13 +187,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
     textAlign: 'center',
     marginBottom: 8,
   },
   message: {
     fontSize: 15,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 20,
@@ -204,7 +206,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
     borderRadius: 12,
     marginBottom: 8,
   },
@@ -225,15 +226,13 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
-    color: '#374151',
     fontWeight: '500',
+    color: '#1F2937',
   },
   optionTextSelected: {
-    color: '#3B82F6',
     fontWeight: '600',
   },
   cancelButton: {
-    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -241,7 +240,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
   },
 });
 

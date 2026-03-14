@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTicket } from '../../store/ticketStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 
 // Composant TicketsScreen
 export const TicketsScreen: React.FC = () => {
+  const colors = useThemeColors();
   const {
     hasActiveTicket,
     activeTicket,
@@ -132,18 +134,18 @@ export const TicketsScreen: React.FC = () => {
       return (
         <Animated.View style={[styles.noTicketCard, { opacity: fadeAnim }]}>
           <View style={styles.noTicketContent}>
-            <View style={styles.noTicketIconContainer}>
-              <Ionicons name="ticket-outline" size={48} color="#3B82F6" />
+            <View style={[styles.noTicketIconContainer, { backgroundColor: colors.primary + '20' }]}>
+              <Ionicons name="ticket-outline" size={48} color={colors.primary} />
             </View>
-            <Text style={styles.noTicketTitle}>
+            <Text style={[styles.noTicketTitle, { color: colors.textPrimary }]}>
               Aucun ticket actif
             </Text>
-            <Text style={styles.noTicketSubtitle}>
+            <Text style={[styles.noTicketSubtitle, { color: colors.textSecondary }]}>
               Scannez un QR code ou rejoignez une file pour obtenir un ticket
             </Text>
             <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
+                colors={[colors.primary, colors.secondary]}
                 style={styles.scanButtonGradient}
               >
                 <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
@@ -156,7 +158,7 @@ export const TicketsScreen: React.FC = () => {
     }
 
     return (
-      <Animated.View style={[styles.activeTicketCard, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.activeTicketCard, { backgroundColor: colors.surface }]}>
         {/* Status Banner */}
         <LinearGradient
           colors={getStatusColor() as [string, string]}
@@ -169,49 +171,49 @@ export const TicketsScreen: React.FC = () => {
         <View style={styles.ticketContent}>
           {/* Position */}
           <View style={styles.positionSection}>
-            <Text style={styles.positionNumber}>{position}</Text>
-            <Text style={styles.positionLabel}>ème position</Text>
+            <Text style={[styles.positionNumber, { color: colors.textPrimary }]}>{position}</Text>
+            <Text style={[styles.positionLabel, { color: colors.textTertiary }]}>ème position</Text>
           </View>
 
           {/* Ticket Info */}
           <View style={styles.ticketInfo}>
             <View style={styles.infoItem}>
-              <View style={[styles.infoIconContainer, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="pricetag-outline" size={18} color="#3B82F6" />
+              <View style={[styles.infoIconContainer, { backgroundColor: colors.primary + '20' }]}>
+                <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.infoLabel}>Numéro</Text>
-                <Text style={styles.infoValue}>{activeTicket?.number}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Numéro</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{activeTicket?.number}</Text>
               </View>
             </View>
             
             <View style={styles.infoItem}>
-              <View style={[styles.infoIconContainer, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="briefcase-outline" size={18} color="#10B981" />
+              <View style={[styles.infoIconContainer, { backgroundColor: colors.success + '20' }]}>
+                <Ionicons name="briefcase-outline" size={18} color={colors.success} />
               </View>
               <View>
-                <Text style={styles.infoLabel}>Service</Text>
-                <Text style={styles.infoValue}>{activeTicket?.service?.name || 'Service'}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Service</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{activeTicket?.service?.name || 'Service'}</Text>
               </View>
             </View>
             
             <View style={styles.infoItem}>
-              <View style={[styles.infoIconContainer, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="business-outline" size={18} color="#D97706" />
+              <View style={[styles.infoIconContainer, { backgroundColor: colors.warning + '20' }]}>
+                <Ionicons name="business-outline" size={18} color={colors.warning} />
               </View>
               <View>
-                <Text style={styles.infoLabel}>Établissement</Text>
-                <Text style={styles.infoValue}>{activeTicket?.establishment?.name || 'Établissement'}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Établissement</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{activeTicket?.establishment?.name || 'Établissement'}</Text>
               </View>
             </View>
             
             <View style={styles.infoItem}>
-              <View style={[styles.infoIconContainer, { backgroundColor: '#E0E7FF' }]}>
-                <Ionicons name="time-outline" size={18} color="#6366F1" />
+              <View style={[styles.infoIconContainer, { backgroundColor: colors.secondary + '20' }]}>
+                <Ionicons name="time-outline" size={18} color={colors.secondary} />
               </View>
               <View>
-                <Text style={styles.infoLabel}>Temps estimé</Text>
-                <Text style={styles.infoValue}>{etaMinutes} min</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Temps estimé</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{etaMinutes} min</Text>
               </View>
             </View>
           </View>
@@ -220,7 +222,7 @@ export const TicketsScreen: React.FC = () => {
           <View style={styles.ticketActions}>
             <TouchableOpacity style={styles.primaryAction} onPress={handleViewLiveTicket}>
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
+                colors={[colors.primary, colors.secondary]}
                 style={styles.primaryActionGradient}
               >
                 <Ionicons name="eye-outline" size={20} color="#FFFFFF" />
@@ -228,10 +230,10 @@ export const TicketsScreen: React.FC = () => {
               </LinearGradient>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.dangerAction} onPress={handleCancelTicket}>
+            <TouchableOpacity style={[styles.dangerAction, { backgroundColor: colors.danger + '15' }]} onPress={handleCancelTicket}>
               <View style={styles.dangerActionContent}>
-                <Ionicons name="close-outline" size={20} color="#EF4444" />
-                <Text style={styles.dangerActionText}>Annuler le ticket</Text>
+                <Ionicons name="close-outline" size={20} color={colors.danger} />
+                <Text style={[styles.dangerActionText, { color: colors.danger }]}>Annuler le ticket</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -247,21 +249,21 @@ export const TicketsScreen: React.FC = () => {
         id: 'scan',
         title: 'Scanner QR',
         icon: 'qr-code-outline',
-        color: '#3B82F6',
+        color: colors.primary,
         onPress: handleScanQR,
       },
       {
         id: 'history',
         title: 'Historique',
         icon: 'time-outline',
-        color: '#10B981',
+        color: colors.success,
         onPress: handleViewHistory,
       },
       {
         id: 'map',
         title: 'Carte',
         icon: 'map-outline',
-        color: '#D97706',
+        color: colors.warning,
         onPress: () => router.push('/(tabs)'),
       },
     ];
@@ -273,14 +275,14 @@ export const TicketsScreen: React.FC = () => {
           {actions.map((action) => (
             <TouchableOpacity
               key={action.id}
-              style={styles.quickActionCard}
+              style={[styles.quickActionCard, { backgroundColor: colors.surface }]}
               onPress={action.onPress}
               activeOpacity={0.8}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
                 <Ionicons name={action.icon as any} size={24} color={action.color} />
               </View>
-              <Text style={styles.quickActionTitle}>{action.title}</Text>
+              <Text style={[styles.quickActionTitle, { color: colors.textPrimary }]}>{action.title}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -294,19 +296,19 @@ export const TicketsScreen: React.FC = () => {
 
     return (
       <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Statistiques</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Statistiques</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
-            <Text style={[styles.statValue, { color: '#3B82F6' }]}>{position}</Text>
-            <Text style={styles.statLabel}>Position</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{position}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Position</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
-            <Text style={[styles.statValue, { color: '#D97706' }]}>{etaMinutes}</Text>
-            <Text style={styles.statLabel}>Minutes</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.warning + '15' }]}>
+            <Text style={[styles.statValue, { color: colors.warning }]}>{etaMinutes}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Minutes</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{Math.max(0, position - 1)}</Text>
-            <Text style={styles.statLabel}>Avant vous</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
+            <Text style={[styles.statValue, { color: colors.success }]}>{Math.max(0, position - 1)}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avant vous</Text>
           </View>
         </View>
       </View>
@@ -314,22 +316,22 @@ export const TicketsScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Gradient Header */}
       <LinearGradient
-        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        colors={colors.dark?.background ? ['#1E3A5F', '#2563EB', '#3B82F6'] : ['#3B82F6', '#2563EB', '#1D4ED8']}
         style={styles.headerGradient}
       >
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Ma File</Text>
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Ma File</Text>
             <Text style={styles.headerSubtitle}>Gérez vos tickets</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton} onPress={handleNotifications}>
+          <TouchableOpacity style={[styles.notificationButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={handleNotifications}>
             <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
             {hasActiveTicket && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>1</Text>
+              <View style={[styles.notificationBadge, { backgroundColor: colors.danger }]}>
+                <Text style={[styles.notificationBadgeText, { color: '#FFFFFF' }]}>1</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -341,18 +343,18 @@ export const TicketsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3B82F6" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-            <Text style={styles.errorTitle}>Oups ! Une erreur est survenue</Text>
-            <Text style={styles.errorSubtitle}>
+            <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
+            <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Oups ! Une erreur est survenue</Text>
+            <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
               {error.includes('401') ? 'Votre session a expiré. Veuillez vous reconnecter.' : error}
             </Text>
-            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-              <Text style={styles.retryButtonText}>Réessayer</Text>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
+              <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Réessayer</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -372,7 +374,6 @@ export const TicketsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
   },
   headerGradient: {
     paddingTop: 50,
@@ -390,7 +391,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   headerSubtitle: {
     fontSize: 14,
@@ -401,7 +401,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -413,14 +412,12 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
   },
   notificationBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -432,7 +429,6 @@ const styles = StyleSheet.create({
   },
   // No Ticket Card
   noTicketCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     marginTop: 8,
     shadowColor: '#000',
@@ -449,7 +445,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -457,12 +452,10 @@ const styles = StyleSheet.create({
   noTicketTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 8,
   },
   noTicketSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 20,
@@ -487,11 +480,9 @@ const styles = StyleSheet.create({
   scanButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   // Active Ticket Card
   activeTicketCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     marginTop: 8,
     shadowColor: '#000',
@@ -511,7 +502,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
     letterSpacing: 1,
   },
   ticketContent: {
@@ -524,12 +514,10 @@ const styles = StyleSheet.create({
   positionNumber: {
     fontSize: 72,
     fontWeight: '800',
-    color: '#1F2937',
     lineHeight: 80,
   },
   positionLabel: {
     fontSize: 14,
-    color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -551,13 +539,11 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
   },
   ticketActions: {
     gap: 12,
@@ -581,11 +567,9 @@ const styles = StyleSheet.create({
   primaryActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   dangerAction: {
     borderRadius: 16,
-    backgroundColor: '#FEE2E2',
     paddingVertical: 16,
   },
   dangerActionContent: {
@@ -597,7 +581,6 @@ const styles = StyleSheet.create({
   dangerActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#EF4444',
   },
   // Stats Section
   statsSection: {
@@ -606,7 +589,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 16,
   },
   statsGrid: {
@@ -626,7 +608,6 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
     fontWeight: '600',
   },
   // Quick Actions
@@ -640,7 +621,6 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -661,7 +641,6 @@ const styles = StyleSheet.create({
   quickActionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
   },
   // Error
   errorContainer: {
@@ -672,19 +651,16 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   errorSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: '#3B82F6',
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
@@ -692,7 +668,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   bottomSpace: {
     height: 40,

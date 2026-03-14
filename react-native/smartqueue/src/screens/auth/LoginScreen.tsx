@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types pour le formulaire
@@ -33,6 +34,8 @@ interface FormErrors {
 
 // Composant LoginScreen
 export const LoginScreen: React.FC = () => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const { login, isLoading, error, clearError } = useAuth();
   const { AlertComponent, showInfo, showWarning, showError, showSuccess } = useCustomAlert();
   const { isLoading: googleLoading, handleGoogleLogin } = useGoogleAuth();
@@ -136,10 +139,10 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <KeyboardAvoidingView
-        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -149,7 +152,7 @@ export const LoginScreen: React.FC = () => {
 
           {/* Header */}
           <LinearGradient
-            colors={['#60A5FA', '#3B82F6', '#2563EB']}
+            colors={isDark ? ['#1E3A5F', '#2563EB', '#3B82F6'] : ['#60A5FA', '#3B82F6', '#2563EB']}
             style={styles.headerGradient}
           >
             <Text style={styles.logoText}>SmartQueue</Text>
@@ -161,17 +164,18 @@ export const LoginScreen: React.FC = () => {
             style={[
               styles.formContainer,
               {
+                backgroundColor: colors.surface,
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
               },
             ]}
           >
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Adresse email"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
                 keyboardType="email-address"
@@ -185,11 +189,11 @@ export const LoginScreen: React.FC = () => {
               <Text style={styles.errorText}>{errors.email}</Text>
             )}
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Mot de passe"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
                 secureTextEntry={!showPassword}
@@ -204,7 +208,7 @@ export const LoginScreen: React.FC = () => {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color={colors.textTertiary}
                 />
               </TouchableOpacity>
             </View>
@@ -218,18 +222,18 @@ export const LoginScreen: React.FC = () => {
               disabled={isLoading}
               style={styles.forgotPasswordContainer}
             >
-              <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
             {error && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
-                <Text style={styles.errorContainerText}>{error}</Text>
+              <View style={[styles.errorContainer, { backgroundColor: isDark ? '#451a1a' : '#FEF2F2' }]}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                <Text style={[styles.errorContainerText, { color: colors.danger }]}>{error}</Text>
               </View>
             )}
 
             <TouchableOpacity
-              style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+              style={[styles.signInButton, { backgroundColor: colors.primary }, isLoading && styles.signInButtonDisabled]}
               onPress={handleSubmit}
               disabled={isLoading}
               activeOpacity={0.8}
@@ -243,28 +247,28 @@ export const LoginScreen: React.FC = () => {
 
             <View style={styles.socialSection}>
               <TouchableOpacity
-                style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
+                style={[styles.googleButton, { backgroundColor: colors.surface, borderColor: colors.border }, googleLoading && styles.googleButtonLoading]}
                 onPress={handleGoogleLoginPress}
                 activeOpacity={0.8}
                 disabled={googleLoading || isLoading}
               >
                 {googleLoading ? (
-                  <ActivityIndicator size="small" color="#4285F4" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <>
                     <View style={styles.googleIconContainer}>
-                      <Ionicons name="logo-google" size={18} color="#4285F4" />
+                      <Ionicons name="logo-google" size={18} color={colors.primary} />
                     </View>
-                    <Text style={styles.googleButtonText}>Continuer avec Google</Text>
+                    <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continuer avec Google</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
 
             <View style={styles.signUpContainer}>
-              <Text style={styles.signUpText}>Pas encore de compte ? </Text>
+              <Text style={[styles.signUpText, { color: colors.textSecondary }]}>Pas encore de compte ? </Text>
               <TouchableOpacity onPress={handleGoToRegister} disabled={isLoading}>
-                <Text style={styles.signUpLink}>S&apos;inscrire</Text>
+                <Text style={[styles.signUpLink, { color: colors.primary }]}>S&apos;inscrire</Text>
               </TouchableOpacity>
             </View>
 
@@ -283,7 +287,6 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   keyboardView: {
     flex: 1,
@@ -310,7 +313,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
     marginTop: -40,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
@@ -323,17 +325,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#F9FAFB',
     height: 52,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
     height: '100%',
   },
   eyeIcon: {
@@ -341,7 +340,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#EF4444',
     marginTop: -12,
     marginBottom: 12,
     marginLeft: 4,
@@ -352,25 +350,21 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: '#2563EB',
     fontWeight: '500',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
   },
   errorContainerText: {
     fontSize: 14,
-    color: '#EF4444',
     marginLeft: 8,
     flex: 1,
   },
   signInButton: {
-    backgroundColor: '#2563EB',
     borderRadius: 12,
     height: 52,
     alignItems: 'center',
@@ -383,7 +377,6 @@ const styles = StyleSheet.create({
   signInButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   socialSection: {
     marginBottom: 24,
@@ -391,7 +384,6 @@ const styles = StyleSheet.create({
   socialTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -400,10 +392,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
     borderRadius: 12,
     height: 48,
-    backgroundColor: '#FFFFFF',
   },
   googleButtonLoading: {
     opacity: 0.7,
@@ -412,7 +402,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -420,7 +409,6 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
   },
   signUpContainer: {
     flexDirection: 'row',
@@ -430,11 +418,9 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     fontSize: 14,
-    color: '#6B7280',
   },
   signUpLink: {
     fontSize: 14,
-    color: '#2563EB',
     fontWeight: '600',
   },
 });

@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import colors from '@/src/theme/colors';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.65;
@@ -181,15 +182,15 @@ export const ScanScreen: React.FC = () => {
 
       {/* Manual entry bottom sheet model */}
       {showManualEntry && (
-        <View className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl p-8 z-20 shadow-2xl">
-          <View className="w-12 h-1 bg-gray-300 rounded-full self-center mb-6" />
-          <Text className="text-xl font-bold text-gray-900 mb-2">Manual Entry</Text>
-          <Text className="text-gray-500 mb-6">Enter the 6-digit code shown below the QR code.</Text>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 32, zIndex: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 12 }}>
+          <View style={{ width: 48, height: 4, backgroundColor: colors.separator, borderRadius: 2, alignSelf: 'center', marginBottom: 24 }} />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 }}>Manual Entry</Text>
+          <Text style={{ color: colors.textSecondary, marginBottom: 24 }}>Enter the 6-digit code shown below the QR code.</Text>
           
           <TextInput
-            className="bg-gray-100 rounded-2xl p-4 text-center text-2xl font-bold tracking-widest text-gray-900 mb-6 border border-gray-200"
+            style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: 16, textAlign: 'center', fontSize: 24, fontWeight: 'bold', letterSpacing: 8, color: colors.textPrimary, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}
             placeholder="000000"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             value={manualCode}
             onChangeText={setManualCode}
             keyboardType="number-pad"
@@ -197,19 +198,19 @@ export const ScanScreen: React.FC = () => {
             autoFocus
           />
 
-          <View className="flex-row gap-4">
+          <View style={{ flexDirection: 'row', gap: 16 }}>
             <TouchableOpacity 
-              className="flex-1 bg-gray-100 p-4 rounded-2xl items-center"
+              style={{ flex: 1, backgroundColor: colors.surfaceSecondary, padding: 16, borderRadius: 16, alignItems: 'center' }}
               onPress={() => { setShowManualEntry(false); setManualCode(''); }}
             >
-              <Text className="text-gray-600 font-bold">Cancel</Text>
+              <Text style={{ color: colors.textSecondary, fontWeight: 'bold' }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              className={`flex-1 ${manualCode.length === 6 ? 'bg-blue-600' : 'bg-gray-300'} p-4 rounded-2xl items-center`}
+              style={{ flex: 1, backgroundColor: manualCode.length === 6 ? colors.primary : colors.surfaceSecondary, padding: 16, borderRadius: 16, alignItems: 'center' }}
               onPress={handleManualSubmit}
               disabled={manualCode.length !== 6}
             >
-              <Text className="text-white font-bold">Verify Code</Text>
+              <Text style={{ color: manualCode.length === 6 ? '#FFFFFF' : colors.textTertiary, fontWeight: 'bold' }}>Verify Code</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   manualButtonText: {
-    color: Theme.colors.primary,
+    color: colors.primary,
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 8,
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
@@ -375,26 +376,26 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Theme.colors.separator,
+    backgroundColor: colors.separator,
     alignSelf: 'center',
     marginBottom: 20,
   },
   sheetTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: Theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   codeInput: {
     height: 50,
     borderRadius: 12,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: Theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: Theme.colors.separator,
+    borderColor: colors.separator,
   },
   sheetActions: {
     flexDirection: 'row',
@@ -408,17 +409,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: Theme.colors.separator,
+    borderColor: colors.separator,
   },
   cancelBtnText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },
   confirmBtn: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   confirmBtnText: {
     color: '#FFFFFF',

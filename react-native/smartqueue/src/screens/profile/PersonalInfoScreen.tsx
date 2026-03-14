@@ -15,10 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../store/authStore';
 import { usersApi } from '../../api/usersApi';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { router } from 'expo-router';
+
 
 export const PersonalInfoScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const { user, updateUser } = useAuth();
   const { AlertComponent, showError, showSuccess } = useCustomAlert();
   
@@ -54,12 +58,12 @@ export const PersonalInfoScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      style={[styles.container, { backgroundColor: colors.background }]} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Gradient Header */}
       <LinearGradient
-        colors={['#3B82F6', '#2563EB', '#1D4ED8']}
+        colors={isDark ? ['#1E3A5F', '#2563EB', '#3B82F6'] : [colors.primary, colors.secondary, '#1D4ED8']}
         style={[styles.header, { paddingTop: insets.top + 20 }]}
       >
         {/* Top Bar */}
@@ -69,17 +73,17 @@ export const PersonalInfoScreen: React.FC = () => {
             style={styles.iconButton}
             activeOpacity={0.8}
           >
-            <View style={styles.iconButtonBg}>
+            <View style={[styles.iconButtonBg, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
               <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profil</Text>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Profil</Text>
           <TouchableOpacity 
             onPress={() => setIsEditing(!isEditing)}
             style={styles.iconButton}
             activeOpacity={0.8}
           >
-            <View style={styles.iconButtonBg}>
+            <View style={[styles.iconButtonBg, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
               <Ionicons name={isEditing ? "close" : "pencil"} size={22} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
@@ -88,15 +92,15 @@ export const PersonalInfoScreen: React.FC = () => {
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials()}</Text>
+            <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials()}</Text>
             </View>
-            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: colors.surface }]} activeOpacity={0.8}>
               <Ionicons name="camera" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>{user?.name || 'Utilisateur'}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          <Text style={[styles.userName, { color: '#FFFFFF' }]}>{user?.name || 'Utilisateur'}</Text>
+          <Text style={[styles.userEmail, { color: 'rgba(255,255,255,0.8)' }]}>{user?.email}</Text>
         </View>
       </LinearGradient>
 
@@ -107,57 +111,57 @@ export const PersonalInfoScreen: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
       >
         {/* Info Cards */}
-        <View style={styles.formContainer}>
+        <View style={[styles.formContainer, { backgroundColor: colors.surface }]}>
           {/* Name Field */}
-          <View style={styles.fieldContainer}>
-            <View style={styles.fieldIconContainer}>
-              <Ionicons name="person" size={20} color="#3B82F6" />
+          <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
+            <View style={[styles.fieldIconContainer, { backgroundColor: colors.primary + '15' }]}>
+              <Ionicons name="person" size={20} color={colors.primary} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>Nom complet</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Nom complet</Text>
               <TextInput
-                style={[styles.fieldInput, !isEditing && styles.fieldInputDisabled]}
+                style={[styles.fieldInput, { color: colors.textPrimary }, !isEditing && { color: colors.textSecondary }]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Votre nom"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 editable={isEditing}
               />
             </View>
           </View>
 
           {/* Email Field */}
-          <View style={styles.fieldContainer}>
-            <View style={[styles.fieldIconContainer, { backgroundColor: '#F3E8FF' }]}>
-              <Ionicons name="mail" size={20} color="#9333EA" />
+          <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
+            <View style={[styles.fieldIconContainer, { backgroundColor: colors.secondary + '15' }]}>
+              <Ionicons name="mail" size={20} color={colors.secondary} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>Email</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Email</Text>
               <TextInput
-                style={[styles.fieldInput, styles.fieldInputDisabled]}
+                style={[styles.fieldInput, { color: colors.textSecondary }]}
                 value={user?.email || ''}
                 editable={false}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
               />
             </View>
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
             </View>
           </View>
 
           {/* Phone Field */}
-          <View style={styles.fieldContainer}>
-            <View style={[styles.fieldIconContainer, { backgroundColor: '#ECFDF5' }]}>
-              <Ionicons name="call" size={20} color="#10B981" />
+          <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
+            <View style={[styles.fieldIconContainer, { backgroundColor: colors.success + '15' }]}>
+              <Ionicons name="call" size={20} color={colors.success} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>Téléphone</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Téléphone</Text>
               <TextInput
-                style={[styles.fieldInput, !isEditing && styles.fieldInputDisabled]}
+                style={[styles.fieldInput, { color: colors.textPrimary }, !isEditing && { color: colors.textSecondary }]}
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="+33 6 12 34 56 78"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 keyboardType="phone-pad"
                 editable={isEditing}
               />
@@ -168,13 +172,13 @@ export const PersonalInfoScreen: React.FC = () => {
         {/* Save Button */}
         {isEditing && (
           <TouchableOpacity
-            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+            style={[styles.saveButton, { shadowColor: colors.primary }, isLoading && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={isLoading}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#3B82F6', '#2563EB']}
+              colors={[colors.primary, colors.secondary]}
               style={styles.saveButtonGradient}
             >
               {isLoading ? (
@@ -182,7 +186,7 @@ export const PersonalInfoScreen: React.FC = () => {
               ) : (
                 <>
                   <Ionicons name="checkmark" size={24} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>Enregistrer</Text>
+                  <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>Enregistrer</Text>
                 </>
               )}
             </LinearGradient>
@@ -191,15 +195,15 @@ export const PersonalInfoScreen: React.FC = () => {
 
         {/* Delete Account Section */}
         <View style={styles.dangerSection}>
-          <Text style={styles.dangerTitle}>Zone de danger</Text>
+          <Text style={[styles.dangerTitle, { color: colors.textTertiary }]}>Zone de danger</Text>
           <TouchableOpacity 
-            style={styles.dangerButton}
+            style={[styles.dangerButton, { backgroundColor: colors.danger + '10', borderColor: colors.danger + '30' }]}
             onPress={() => showError('Supprimer mon compte', 'Cette action est irréversible. Contactez le support à support@smartqueue.com pour supprimer votre compte.', 'J\'ai compris')}
             activeOpacity={0.8}
           >
-            <Ionicons name="trash-outline" size={20} color="#EF4444" />
-            <Text style={styles.dangerButtonText}>Supprimer mon compte</Text>
-            <Ionicons name="chevron-forward" size={20} color="#EF4444" />
+            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            <Text style={[styles.dangerButtonText, { color: colors.danger }]}>Supprimer mon compte</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.danger} />
           </TouchableOpacity>
         </View>
 
@@ -212,7 +216,6 @@ export const PersonalInfoScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
   header: {
     paddingHorizontal: 20,
@@ -234,14 +237,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   avatarSection: {
     alignItems: 'center',
@@ -254,7 +255,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -266,7 +266,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 40,
     fontWeight: '700',
-    color: '#2563EB',
   },
   cameraButton: {
     position: 'absolute',
@@ -275,11 +274,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -289,12 +286,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
   },
   content: {
     flex: 1,
@@ -304,7 +299,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
@@ -319,13 +313,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+   
   },
   fieldIconContainer: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -336,7 +329,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -344,12 +336,10 @@ const styles = StyleSheet.create({
   fieldInput: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
     padding: 0,
     height: 24,
   },
   fieldInputDisabled: {
-    color: '#94A3B8',
   },
   verifiedBadge: {
     marginLeft: 8,
@@ -358,7 +348,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -377,7 +366,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   dangerSection: {
     marginTop: 10,
@@ -385,7 +373,6 @@ const styles = StyleSheet.create({
   dangerTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
@@ -394,17 +381,14 @@ const styles = StyleSheet.create({
   dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#FECACA',
   },
   dangerButtonText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#EF4444',
     marginLeft: 12,
   },
 });
