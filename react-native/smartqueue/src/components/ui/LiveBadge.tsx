@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
-import { Theme } from '../../theme';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface LiveBadgeProps {
   color?: string;
@@ -8,9 +8,12 @@ interface LiveBadgeProps {
 }
 
 export const LiveBadge: React.FC<LiveBadgeProps> = ({
-  color = Theme.colors.success,
+  color,
   label = 'LIVE',
 }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
+  const badgeColor = color || colors.success;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
@@ -48,21 +51,21 @@ export const LiveBadge: React.FC<LiveBadgeProps> = ({
   }, [scaleAnim, opacityAnim]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: badgeColor + '15' }]}>
       <View style={styles.dotWrapper}>
         <Animated.View
           style={[
             styles.dotOuter,
             {
-              backgroundColor: color + '40',
+              backgroundColor: badgeColor + '40',
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
             },
           ]}
         />
-        <View style={[styles.dotInner, { backgroundColor: color }]} />
+        <View style={[styles.dotInner, { backgroundColor: badgeColor }]} />
       </View>
-      <Text style={[styles.label, { color }]}>{label}</Text>
+      <Text style={[styles.label, { color: badgeColor }]}>{label}</Text>
     </View>
   );
 };
@@ -71,7 +74,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.success + '15',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,

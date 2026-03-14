@@ -44,7 +44,7 @@ export const ExploreScreen: React.FC = () => {
   useEffect(() => {
     console.log('[ExploreScreen] Fetching active ticket...');
     fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
-  }, []);
+  }, [fetchActiveTicket]);
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [filteredEstablishments, setFilteredEstablishments] = useState<
@@ -289,7 +289,7 @@ useEffect(() => {
   // Rendu d'un établissement dans la liste
   const renderEstablishment = ({ item }: { item: Establishment }) => (
     <TouchableOpacity
-      className="flex-row items-center p-4 bg-white rounded-2xl mb-3 shadow-sm"
+      style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: colors.surface, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}
       onPress={() => handleEstablishmentPress(item)}
       activeOpacity={0.7}
     >
@@ -311,25 +311,25 @@ useEffect(() => {
       </View>
 
       <View className="flex-1">
-        <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary }} numberOfLines={1}>
           {item.name}
         </Text>
-        <Text className="text-sm text-gray-500 mt-0.5" numberOfLines={1}>
+        <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
           {item.address}
         </Text>
         <View className="flex-row items-center mt-2">
           {item.avg_wait_min && (
             <View className="flex-row items-center mr-3">
-              <Ionicons name="time-outline" size={14} color="#6B7280" />
-              <Text className="text-xs text-gray-500 ml-1">
+              <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+              <Text style={{ fontSize: 12, color: colors.textTertiary, marginLeft: 4 }}>
                 {item.avg_wait_min} min wait
               </Text>
             </View>
           )}
           {item.people_waiting !== undefined && (
             <View className="flex-row items-center">
-              <Ionicons name="people-outline" size={14} color="#6B7280" />
-              <Text className="text-xs text-gray-500 ml-1">
+              <Ionicons name="people-outline" size={14} color={colors.textTertiary} />
+              <Text style={{ fontSize: 12, color: colors.textTertiary, marginLeft: 4 }}>
                 {item.people_waiting} personne dans le rang
               </Text>
             </View>
@@ -352,50 +352,35 @@ useEffect(() => {
   );
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Search Header - iOS Style */}
-      <View className="px-5 pt-12 pb-4 bg-white shadow-sm">
-        <View className="flex-row items-center justify-between mb-4">
-          <TouchableOpacity onPress={()=>getCurrentPosition()} className="flex-row items-center bg-blue-200/50 border-blue-200 border px-3 py-2 rounded-full">
+      <View style={{ paddingHorizontal: 20, paddingTop: 48, paddingBottom: 16, backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <TouchableOpacity 
+            onPress={()=>getCurrentPosition()} 
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '20', borderColor: colors.primary + '30', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999 }}
+          >
             <Ionicons name="location-sharp" size={16} color={colors.primary} />
-            <Text
-              className="ml-1 text-sm font-semibold"
-              style={{ color: colors.textPrimary }}
-            >
-              {/* {location ? "Ma position" : "Localisation..."} */}
+            <Text style={{ marginLeft: 4, fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
               {placeName || "Localisation en cours..."}
             </Text>
-            <Ionicons
-              name="chevron-down"
-              size={12}
-              color={colors.textSecondary}
-              className="ml-1"
-            />
+            <Ionicons name="chevron-down" size={12} color={colors.textSecondary} style={{ marginLeft: 4 }} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            className="w-10 h-10 items-center justify-center bg-blue-200/50 border-blue-200 border rounded-full"
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '20', borderColor: colors.primary + '30', borderWidth: 1, borderRadius: 999 }}
             onPress={() => router.push('/notifications' as any)}
           >
-            <Ionicons
-              name="notifications-outline"
-              size={20}
-              color={colors.textPrimary}
-            />
-            <View className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white" />
+            <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
+            <View style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, backgroundColor: colors.danger, borderRadius: 4, borderWidth: 1, borderColor: colors.surface }} />
           </TouchableOpacity>
         </View>
 
         {/* Search Input Container */}
-        <View className="flex-row items-center bg-gray-100 rounded-2xl px-4">
-          <Ionicons
-            name="search-outline"
-            size={20}
-            color={colors.textTertiary}
-          />
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderRadius: 16, paddingHorizontal: 16 }}>
+          <Ionicons name="search-outline" size={20} color={colors.textTertiary} />
           <TextInput
-            className="flex-1 ml-2 text-base"
-            style={{ color: colors.textPrimary } as any}
+            style={{ flex: 1, marginLeft: 8, fontSize: 16, color: colors.textPrimary }}
             placeholder="Rechercher un etablissement ..."
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
@@ -407,59 +392,56 @@ useEffect(() => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4"
+          style={{ marginTop: 16 }}
           contentContainerStyle={{ paddingRight: 20 }}
         >
-          {/* Filtre “Tous” */}
+          {/* Filtre "Tous" */}
           <TouchableOpacity
             onPress={() => setSelectedFilter("all")}
-            className={`flex-row items-center px-4 py-2 rounded-full mr-2 border ${
-              selectedFilter === "all"
-                ? "bg-blue-600 border-blue-600"
-                : "bg-white border-gray-200"
-            }`}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 999,
+              marginRight: 8,
+              borderWidth: 1,
+              backgroundColor: selectedFilter === "all" ? colors.primary : colors.surface,
+              borderColor: selectedFilter === "all" ? colors.primary : colors.border,
+            }}
           >
-            <Ionicons
-              name="grid-outline"
-              size={16}
-              color={
-                selectedFilter === "all" ? "#FFFFFF" : colors.textSecondary
-              }
-            />
-            <Text
-              className={`ml-2 font-medium ${
-                selectedFilter === "all" ? "text-white" : "text-gray-600"
-              }`}
-            >
+            <Ionicons name="grid-outline" size={16} color={selectedFilter === "all" ? '#FFFFFF' : colors.textSecondary} />
+            <Text style={{
+              marginLeft: 8,
+              fontWeight: '500',
+              color: selectedFilter === "all" ? '#FFFFFF' : colors.textSecondary,
+            }}>
               Tous
             </Text>
           </TouchableOpacity>
 
           {/* Filtre dynamique : établissements proches */}
-          {filteredEstablishments.map((est) => (
+          {filteredEstablishments.slice(0, 3).map((est) => (
             <TouchableOpacity
               key={est.id}
-              onPress={() =>
-                router.push({
-                  pathname: "/service-details",
-                  params: {
-                    establishmentId: String(est.id),
-                    serviceId: "",
-                    fromQr: "false",
-                  },
-                })
-              }
-              className="flex-row items-center px-4 py-2 rounded-full mr-2 border bg-white border-gray-200"
+              onPress={() => router.push({
+                pathname: "/service-details",
+                params: { establishmentId: String(est.id), serviceId: "", fromQr: "false" },
+              })}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 999,
+                marginRight: 8,
+                borderWidth: 1,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              }}
             >
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={colors.textSecondary}
-              />
-              <Text
-                className="ml-2 font-medium text-gray-600"
-                numberOfLines={1}
-              >
+              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+              <Text style={{ marginLeft: 8, fontWeight: '500', color: colors.textSecondary }} numberOfLines={1}>
                 {est.name}
               </Text>
             </TouchableOpacity>
@@ -467,7 +449,7 @@ useEffect(() => {
         </ScrollView>
       </View>
 
-      <View className="flex-1 bg-gray-200 mt-2">
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary, marginTop: 8 }}>
         {mapRegion && (
           <MapView
             provider={PROVIDER_DEFAULT}
@@ -488,7 +470,7 @@ useEffect(() => {
                   latitude: Number(location.latitude),
                   longitude: Number(location.longitude),
                 }}
-                pinColor={Theme.colors.primary}
+                pinColor={colors.primary}
               />
             )}
           </MapView>
@@ -498,8 +480,7 @@ useEffect(() => {
         <View style={{ position: "absolute", right: 20, top: 20 }}>
           <TouchableOpacity
             onPress={recenter}
-            className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-lg"
-            style={{ marginBottom: 12 }}
+            style={{ width: 48, height: 48, backgroundColor: colors.surface, borderRadius: 999, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, marginBottom: 12 }}
           >
             <Ionicons name="locate" size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -507,35 +488,37 @@ useEffect(() => {
 
         {/* Indicateur de chargement */}
         {isLoading && (
-          <View className="absolute inset-0 bg-white/60 items-center justify-center">
+          <View style={{ position: 'absolute', inset: 0, backgroundColor: colors.surface + '99', alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
       </View>
       {/* Liste des établissements (always visible below map) */}
       <View
-        className="flex-1 bg-white pt-4 rounded-t-3xl shadow-lg"
         style={{
-          marginTop: -50,
+          flex: 1,
+          backgroundColor: colors.surface,
+          paddingTop: 16,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          marginTop: -100,
           elevation: 15,
           shadowColor: "#000",
           borderWidth: 1,
-          borderColor: "#E5E5E5",
+          borderColor: colors.border,
           shadowOffset: { width: 0, height: -5 },
           shadowOpacity: 0.1,
           shadowRadius: 10,
         }}
       >
-        <View className="px-5 pb-2 mb-2">
-          <View className="flex-row justify-between items-center mb-1">
-            <Text className="text-xl font-bold text-gray-900">
-              Établissements
-            </Text>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 8, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary }}>Établissements</Text>
             <TouchableOpacity>
-              <Text className="text-blue-600 font-semibold">Trier</Text>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Trier</Text>
             </TouchableOpacity>
           </View>
-          <Text className="text-sm text-gray-400">
+          <Text style={{ fontSize: 14, color: colors.textTertiary }}>
             {filteredEstablishments.length} résultats trouvés
           </Text>
         </View>
@@ -547,7 +530,7 @@ useEffect(() => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           ItemSeparatorComponent={() => (
-            <View className="h-px bg-gray-100 w-full" />
+            <View style={{ height: 1, backgroundColor: colors.border, width: '100%' }} />
           )}
           ListHeaderComponent={
             isInitialized && hasActiveTicket && activeTicket ? (
@@ -570,10 +553,10 @@ useEffect(() => {
                 size={48}
                 color={colors.textTertiary}
               />
-              <Text className="text-lg font-bold text-gray-900 mt-4 text-center">
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginTop: 16, textAlign: 'center' }}>
                 Aucun établissement
               </Text>
-              <Text className="text-gray-500 text-center mt-2 px-5">
+              <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 }}>
                 Essayez de modifier votre recherche
               </Text>
             </View>

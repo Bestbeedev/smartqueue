@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../store/authStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 
 interface RegisterFormData {
@@ -34,6 +35,8 @@ interface FormErrors {
 }
 
 export const RegisterScreen: React.FC = () => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const { register, isLoading, error, clearError } = useAuth();
   const { AlertComponent, showInfo, showError, showSuccess } = useCustomAlert();
   const { isLoading: googleLoading, handleGoogleRegister } = useGoogleAuth();
@@ -154,7 +157,7 @@ export const RegisterScreen: React.FC = () => {
   // };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -170,13 +173,13 @@ export const RegisterScreen: React.FC = () => {
               style={styles.backButton}
               onPress={handleGoToLogin}
             >
-              <Ionicons name="arrow-back" size={24} color="#111827" />
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Créer un compte</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Créer un compte</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Rejoignez VQS pour la gestion des files d&apos;attente virtuelles{'\n'}
               et le suivi des tickets en temps réel.
             </Text>
@@ -192,11 +195,11 @@ export const RegisterScreen: React.FC = () => {
             ]}
           >
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Nom complet"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.name}
                 onChangeText={(value) => handleInputChange('name', value)}
                 autoCapitalize="words"
@@ -206,11 +209,11 @@ export const RegisterScreen: React.FC = () => {
             </View>
             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Email"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
                 keyboardType="email-address"
@@ -221,11 +224,11 @@ export const RegisterScreen: React.FC = () => {
             </View>
             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Numéro de téléphone"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.phone}
                 onChangeText={(value) => handleInputChange('phone', value)}
                 keyboardType="phone-pad"
@@ -235,11 +238,11 @@ export const RegisterScreen: React.FC = () => {
             </View>
             {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Mot de passe"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textTertiary}
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
                 secureTextEntry={!showPassword}
@@ -254,7 +257,7 @@ export const RegisterScreen: React.FC = () => {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color={colors.textTertiary}
                 />
               </TouchableOpacity>
             </View>
@@ -267,29 +270,30 @@ export const RegisterScreen: React.FC = () => {
             >
               <View style={[
                 styles.checkbox,
-                agreedToTerms && styles.checkboxChecked,
+                { borderColor: colors.border },
+                agreedToTerms && [styles.checkboxChecked, { backgroundColor: colors.primary, borderColor: colors.primary }],
               ]}>
                 {agreedToTerms && (
                   <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 )}
               </View>
-              <Text style={styles.termsText}>
-                J&apos;accepte les <Text style={styles.termsLink}>Conditions d&apos;utilisation</Text> et la{' '}
-                <Text style={styles.termsLink}>Politique de confidentialité</Text>
+              <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+                J&apos;accepte les <Text style={[styles.termsLink, { color: colors.primary }]}>Conditions d&apos;utilisation</Text> et la{' '}
+                <Text style={[styles.termsLink, { color: colors.primary }]}>Politique de confidentialité</Text>
               </Text>
             </TouchableOpacity>
 
             {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
 
             {error && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
-                <Text style={styles.errorContainerText}>{error}</Text>
+              <View style={[styles.errorContainer, { backgroundColor: isDark ? '#451a1a' : '#FEF2F2' }]}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                <Text style={[styles.errorContainerText, { color: colors.danger }]}>{error}</Text>
               </View>
             )}
 
             <TouchableOpacity
-              style={[styles.createButton, isLoading && styles.createButtonDisabled]}
+              style={[styles.createButton, { backgroundColor: colors.primary }, isLoading && styles.createButtonDisabled]}
               onPress={handleSubmit}
               disabled={isLoading}
               activeOpacity={0.8}
@@ -302,33 +306,33 @@ export const RegisterScreen: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Ou s&apos;inscrire avec</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textSecondary }]}>Ou s&apos;inscrire avec</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
             <TouchableOpacity
-              style={[styles.googleButton, googleLoading && styles.googleButtonLoading]}
+              style={[styles.googleButton, { backgroundColor: colors.surface, borderColor: colors.border }, googleLoading && styles.googleButtonLoading]}
               onPress={handleGoogleRegisterPress}
               activeOpacity={0.8}
               disabled={googleLoading || isLoading}
             >
               {googleLoading ? (
-                <ActivityIndicator size="small" color="#4285F4" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <>
                   <View style={styles.googleIconContainer}>
-                    <Ionicons name="logo-google" size={18} color="#4285F4" />
+                    <Ionicons name="logo-google" size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.googleButtonText}>S&apos;inscrire avec Google</Text>
+                  <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>S&apos;inscrire avec Google</Text>
                 </>
               )}
             </TouchableOpacity>
 
             <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Vous avez déjà un compte ? </Text>
+              <Text style={[styles.loginText, { color: colors.textSecondary }]}>Vous avez déjà un compte ? </Text>
               <TouchableOpacity onPress={handleGoToLogin} disabled={isLoading}>
-                <Text style={styles.loginLink}>Se connecter</Text>
+                <Text style={[styles.loginLink, { color: colors.primary }]}>Se connecter</Text>
               </TouchableOpacity>
             </View>
 

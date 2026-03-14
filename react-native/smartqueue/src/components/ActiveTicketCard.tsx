@@ -12,6 +12,7 @@ import { useTicket } from "../store/ticketStore";
 import { useDistanceTracking } from "../hooks/useDistanceTracking";
 import { useAlertPreferencesStore } from "../store/alertPreferencesStore";
 import { useCustomAlert } from "../hooks/useCustomAlert";
+import { useThemeColors } from "../hooks/useThemeColors";
 import {
   formatDistance,
   formatTravelTime,
@@ -30,6 +31,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   onCancel,
   onConfirmPresence,
 }) => {
+  const colors = useThemeColors();
+  const isDark = !!colors.dark?.background;
   const {
     activeTicket,
     position,
@@ -273,39 +276,39 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.surface , borderColor:colors.borderSecondary, borderWidth: 1 }]}
         onPress={onPress}
         activeOpacity={0.95}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.establishmentInfo}>
-            <Ionicons name="business" size={18} color="#3B82F6" />
-            <Text style={styles.establishmentName}>
+            <Ionicons name="business" size={18} color={colors.primary} />
+            <Text style={[styles.establishmentName, { color: colors.textPrimary }]}>
               {activeTicket.establishment?.name || "Établissement"}
             </Text>
           </View>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>File ouverte</Text>
+          <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+            <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+            <Text style={[styles.statusText, { color: colors.success }]}>File ouverte</Text>
           </View>
         </View>
 
         {/* Ticket Info */}
         <View style={styles.ticketSection}>
           <View style={styles.ticketNumberContainer}>
-            <Text style={styles.ticketLabel}>VOTRE TICKET</Text>
-            <View style={styles.ticketNumberBox}>
+            <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>VOTRE TICKET</Text>
+            <View style={[styles.ticketNumberBox, { backgroundColor: colors.danger }]}>
               <Text style={styles.ticketNumber}>
                 N°{activeTicket.number?.split("-").pop() || position}
               </Text>
             </View>
           </View>
           <View style={styles.serviceInfo}>
-            <Text style={styles.serviceName}>
+            <Text style={[styles.serviceName, { color: colors.textPrimary }]}>
               {activeTicket.service?.name || "Service"}
             </Text>
-            <Text style={styles.ticketTime}>
+            <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
               Pris à{" "}
               {new Date(activeTicket.created_at || Date.now()).toLocaleTimeString(
                 "fr-FR",
@@ -318,16 +321,16 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* Position & ETA */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Position dans la file</Text>
-            <Text style={styles.statValue}>
-              <Text style={styles.statHighlight}>{position}ème</Text> /{" "}
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Position dans la file</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.statHighlight, { color: colors.primary }]}>{position}ème</Text> /{" "}
               {queueLength}
             </Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Temps d&apos;attente estimé</Text>
-            <Text style={styles.statValue}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps d&apos;attente estimé</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
               ≈ <Text style={styles.statHighlight}>{etaMinutes}</Text> minutes
             </Text>
           </View>
@@ -335,10 +338,11 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
         {/* Progress Bar */}
         <View style={styles.progressSection}>
-          <View style={styles.progressBar}>
+          <View style={[styles.progressBar, { backgroundColor: colors.surfaceSecondary }]}>
             <Animated.View
               style={[
                 styles.progressFill,
+                { backgroundColor: colors.primary },
                 {
                   width: progressAnim.interpolate({
                     inputRange: [0, 1],
@@ -348,7 +352,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               ]}
             />
           </View>
-          <Text style={styles.progressText}>
+          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
             {processedCount} / {queueLength} traités
           </Text>
         </View>
@@ -369,8 +373,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               },
               {
                 icon: "bicycle",
-                label: "Moto",
-                value: formatTravelTime(distanceInfo.travelTimes.motorcycle),
+                label: "À moto",
+                value: formatTravelTime(distanceInfo.travelTimes.car * 0.7), // Moto ~30% plus rapide que voiture
               },
               {
                 icon: "car",
@@ -378,18 +382,18 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 value: formatTravelTime(distanceInfo.travelTimes.car),
               },
             ].map((item, index) => (
-              <View key={index} style={styles.distanceCard}>
-                <Ionicons name={item.icon as any} size={24} color="#6B7280" />
-                <Text style={styles.distanceValue}>{item.value}</Text>
-                <Text style={styles.distanceLabel}>{item.label}</Text>
+              <View key={index} style={[styles.distanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Ionicons name={item.icon as any} size={24} color={colors.textSecondary} />
+                <Text style={[styles.distanceValue, { color: colors.textPrimary }]}>{item.value}</Text>
+                <Text style={[styles.distanceLabel, { color: colors.textTertiary }]}>{item.label}</Text>
               </View>
             ))}
           </View>
         ) : (
-          <View style={styles.noCoordinatesContainer}>
-            <Ionicons name="location-outline" size={24} color="#9CA3AF" />
-            <Text style={styles.noCoordinatesText}>Coordonnées non disponibles</Text>
-            <Text style={styles.noCoordinatesSubtext}>
+          <View style={[styles.noCoordinatesContainer, { backgroundColor: colors.surfaceSecondary }]}>
+            <Ionicons name="location-outline" size={24} color={colors.textTertiary} />
+            <Text style={[styles.noCoordinatesText, { color: colors.textSecondary }]}>Coordonnées non disponibles</Text>
+            <Text style={[styles.noCoordinatesSubtext, { color: colors.textTertiary }]}>
               L'établissement n'a pas renseigné sa position GPS
             </Text>
           </View>
@@ -400,18 +404,18 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           <View
             style={[
               styles.leaveAlert,
-              whenToLeave.urgent && styles.leaveAlertUrgent,
+              { backgroundColor: whenToLeave.urgent ? colors.danger + '20' : colors.warning + '20' },
             ]}
           >
             <Ionicons
               name={whenToLeave.urgent ? "warning" : "time"}
               size={16}
-              color={whenToLeave.urgent ? "#DC2626" : "#F59E0B"}
+              color={whenToLeave.urgent ? colors.danger : colors.warning}
             />
             <Text
               style={[
                 styles.leaveText,
-                whenToLeave.urgent && styles.leaveTextUrgent,
+                { color: whenToLeave.urgent ? colors.danger : colors.warning },
               ]}
             >
               {whenToLeave.message}
@@ -422,21 +426,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* Actions */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.confirmPresenceButton}
+            style={[styles.confirmPresenceButton, { backgroundColor: colors.success + '20' }]}
             onPress={handleConfirmPresence}
             activeOpacity={0.8}
           >
-            <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
-            <Text style={styles.confirmPresenceText}>Je suis présent</Text>
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+            <Text style={[styles.confirmPresenceText, { color: colors.success }]}>Je suis présent</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.cancelTicketButton}
+            style={[styles.cancelTicketButton, { backgroundColor: colors.danger + '20' }]}
             onPress={handleCancel}
             activeOpacity={0.8}
           >
-            <Ionicons name="close-circle" size={18} color="#EF4444" />
-            <Text style={styles.cancelTicketText}>Annuler</Text>
+            <Ionicons name="close-circle" size={18} color={colors.danger} />
+            <Text style={[styles.cancelTicketText, { color: colors.danger }]}>Annuler</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -448,7 +452,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 const styles = StyleSheet.create({
   // Normal state
   container: {
-    backgroundColor: "white",
     borderRadius: 20,
     padding: 20,
     marginHorizontal: 16,

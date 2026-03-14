@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   View,
   Text,
@@ -32,7 +32,7 @@ interface ServiceData {
   people_waiting: number;
 }
 
-interface EstablishmentData extends Establishment {
+interface EstablishmentData extends Omit<Establishment, 'services'> {
   total_people_waiting?: number;
   services?: ServiceData[];
 }
@@ -53,7 +53,7 @@ export const ServiceDetailsScreen: React.FC = () => {
     if (isAuthenticated) {
       fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
     }
-  }, [isAuthenticated]);
+  }, [fetchActiveTicket, isAuthenticated]);
 
   const [establishment, setEstablishment] = useState<EstablishmentData | null>(null);
   const [services, setServices] = useState<ServiceData[]>([]);
@@ -77,12 +77,12 @@ export const ServiceDetailsScreen: React.FC = () => {
         establishmentsApi.getEstablishment(establishmentId),
         establishmentsApi.getEstablishmentServices(establishmentId),
       ]);
-      setEstablishment(estData);
+      setEstablishment(estData as EstablishmentData);
       // Services are now embedded in establishment response
       const servicesList = estData.services || servicesData || [];
       setServices(Array.isArray(servicesList) ? servicesList : (servicesList as any)?.data || []);
-      if (!selectedServiceId && servicesList && (servicesList as ServiceData[]).length > 0) {
-        const firstOpen = (servicesList as ServiceData[]).find(s => s.status === 'open');
+      if (!selectedServiceId && servicesList && (servicesList as unknown as ServiceData[]).length > 0) {
+        const firstOpen = (servicesList as unknown as ServiceData[]).find(s => s.status === 'open');
         if (firstOpen) setSelectedServiceId(firstOpen.id);
       }
     } catch (error) {
@@ -91,7 +91,7 @@ export const ServiceDetailsScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [establishmentId, showError]);
+  }, [establishmentId, selectedServiceId, showError]);
 
   useEffect(() => {
     loadData();
@@ -148,6 +148,7 @@ export const ServiceDetailsScreen: React.FC = () => {
       const ticketData = (ticket as any)?.data || ticket;
       
       // Update store with ticket data so position is set correctly
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { useTicketStore } = require('../../store/ticketStore');
       useTicketStore.getState().setActiveTicket(ticketData);
 
@@ -210,80 +211,91 @@ export const ServiceDetailsScreen: React.FC = () => {
   //const isOpen = isOpenNow(establishment);
 
   return (
-    <View className="flex-1 bg-white">
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {AlertComponent}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} bounces>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} bounces>
         {/* Banner Image Section */}
-        <View className="relative h-80 bg-gray-200">
+        <View style={{ position: 'relative', height: 320, backgroundColor: colors.surfaceSecondary }}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80' }} // Simulated clinical image
-            className="w-full h-full"
+            source={{ uri: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80' }}
+            style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
-          <View className="absolute inset-x-0 top-0 pt-12 px-5 flex-row justify-between z-10">
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, paddingTop: 48, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 }}>
             <TouchableOpacity 
-              className="w-10 h-10 items-center justify-center rounded-full bg-white/30" 
+              style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.3)' }}
               onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity className="w-10 h-10 items-center justify-center rounded-full bg-white/30">
+            <TouchableOpacity style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.3)' }}>
               <Ionicons name="heart-outline" size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Content Section with Rounded Corners */}
-        <View className="bg-white -mt-8 rounded-t-3xl px-5 pt-8">
-          <View className="flex-row justify-between items-start mb-2">
-            <View className="flex-1">
-              <Text className="text-2xl font-bold text-gray-900">{establishment.name}</Text>
-              <Text className="text-gray-400 text-sm mt-1">{establishment.address}</Text>
+        <View style={{ backgroundColor: colors.surface, marginTop: -32, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 32 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary }}>{establishment.name}</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>{establishment.address}</Text>
             </View>
           </View>
 
           {/* Crowd level indicator row */}
-          <View className="flex-row mt-6 mb-4 justify-between">
-            {['low', 'moderate', 'high'].map((level) => (
-              <View 
-                key={level}
-                className={`flex-1 mx-1 p-3 rounded-2xl items-center border ${
-                  establishment.crowd_level === level 
-                    ? level === 'low' ? 'bg-green-50 border-green-200' : level === 'moderate' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'
-                    : 'bg-gray-50 border-gray-100'
-                }`}
-              >
-                <View className={`w-2 h-2 rounded-full mb-1 ${
-                  level === 'low' ? 'bg-green-500' : level === 'moderate' ? 'bg-yellow-500' : 'bg-red-500'
-                }`} />
-                <Text className={`text-[10px] font-bold uppercase tracking-wider ${
-                  establishment.crowd_level === level 
-                    ? level === 'low' ? 'text-green-600' : level === 'moderate' ? 'text-yellow-600' : 'text-red-600'
-                    : 'text-gray-400'
-                }`}>
-                  {level}
-                </Text>
-              </View>
-            ))}
+          <View style={{ flexDirection: 'row', marginTop: 24, marginBottom: 16, justifyContent: 'space-between' }}>
+            {['low', 'moderate', 'high'].map((level) => {
+              const isSelected = establishment.crowd_level === level;
+              const levelColors = {
+                low: { bg: colors.success + '10', border: colors.success + '30', dot: colors.success, text: colors.success },
+                moderate: { bg: colors.warning + '10', border: colors.warning + '30', dot: colors.warning, text: colors.warning },
+                high: { bg: colors.danger + '10', border: colors.danger + '30', dot: colors.danger, text: colors.danger },
+              };
+              const colors_for_level = levelColors[level as keyof typeof levelColors];
+              const defaultColors = { bg: colors.surfaceSecondary, border: colors.border, dot: colors.textTertiary, text: colors.textTertiary };
+              const activeColors = isSelected ? colors_for_level : defaultColors;
+              
+              return (
+                <View 
+                  key={level}
+                  style={{
+                    flex: 1,
+                    marginHorizontal: 4,
+                    padding: 12,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    backgroundColor: activeColors.bg,
+                    borderColor: activeColors.border,
+                  }}
+                >
+                  <View style={{ width: 8, height: 8, borderRadius: 4, marginBottom: 4, backgroundColor: activeColors.dot }} />
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5, color: activeColors.text }}>
+                    {level}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           {/* Total People in Queue */}
-          <View className="mb-6 bg-orange-50 rounded-2xl p-4 border border-orange-100">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-100 items-center justify-center">
-                  <Ionicons name="people" size={24} color="#F97316" />
+          <View style={{ marginBottom: 24, backgroundColor: colors.warning + '10', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.warning + '30' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.warning + '15', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="people" size={24} color={colors.warning} />
                 </View>
-                <View className="ml-3">
-                  <Text className="text-gray-500 text-sm">Personnes en rang</Text>
-                  <Text className="text-2xl font-bold text-gray-900">
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Personnes en rang</Text>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary }}>
                     {establishment.total_people_waiting ?? 0}
                   </Text>
                 </View>
               </View>
-              <View className="items-end">
-                <Text className="text-gray-400 text-xs">dans tout l&apos;établissement</Text>
-                <Text className="text-orange-600 font-semibold text-sm">
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>dans tout l&apos;établissement</Text>
+                <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14 }}>
                   {services.length} service{services.length > 1 ? 's' : ''} actif{services.length > 1 ? 's' : ''}
                 </Text>
               </View>
@@ -292,39 +304,39 @@ export const ServiceDetailsScreen: React.FC = () => {
 
           {/* Distance Info */}
           {distanceInfo && hasLocationPermission && (
-            <View className="mb-6 bg-blue-50 rounded-2xl p-4 border border-blue-100">
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="location" size={20} color="#3B82F6" />
-                <Text className="text-blue-600 font-bold ml-2">Distance</Text>
+            <View style={{ marginBottom: 24, backgroundColor: colors.primary + '10', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.primary + '30' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Ionicons name="location" size={20} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontWeight: 'bold', marginLeft: 8 }}>Distance</Text>
               </View>
-              <View className="flex-row justify-between">
-                <View className="items-center flex-1">
-                  <Ionicons name="navigate" size={18} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold text-lg mt-1">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="navigate" size={18} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
                     {formatDistance(distanceInfo.kilometers)}
                   </Text>
-                  <Text className="text-gray-400 text-xs">Distance</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Distance</Text>
                 </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="walk" size={18} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="walk" size={18} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
                     {formatTravelTime(distanceInfo.travelTimes.walking)}
                   </Text>
-                  <Text className="text-gray-400 text-xs">À pied</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>À pied</Text>
                 </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="bicycle" size={18} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="bicycle" size={18} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
                     {formatTravelTime(distanceInfo.travelTimes.motorcycle)}
                   </Text>
-                  <Text className="text-gray-400 text-xs">Moto</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Moto</Text>
                 </View>
-                <View className="items-center flex-1">
-                  <Ionicons name="car" size={18} color="#6B7280" />
-                  <Text className="text-gray-900 font-bold text-lg mt-1">
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="car" size={18} color={colors.textSecondary} />
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
                     {formatTravelTime(distanceInfo.travelTimes.car)}
                   </Text>
-                  <Text className="text-gray-400 text-xs">Voiture</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Voiture</Text>
                 </View>
               </View>
             </View>
@@ -332,40 +344,48 @@ export const ServiceDetailsScreen: React.FC = () => {
 
           {/* Service Selection */}
           {services.length > 0 && (
-            <View className="mb-6">
-              <Text className="text-lg font-bold text-gray-900 mb-3">Choisissez un service</Text>
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 12 }}>Choisissez un service</Text>
               {services.map((service) => (
                 <TouchableOpacity
                   key={service.id}
-                  className={`flex-row items-center p-4 rounded-xl mb-2 border ${
-                    selectedServiceId === service.id
-                      ? 'bg-blue-50 border-blue-300'
-                      : 'bg-gray-50 border-gray-100'
-                  }`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 16,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    backgroundColor: selectedServiceId === service.id ? colors.primary + '10' : colors.surfaceSecondary,
+                    borderColor: selectedServiceId === service.id ? colors.primary + '40' : colors.border,
+                  }}
                   onPress={() => setSelectedServiceId(service.id)}
                 >
-                  <View className="flex-1">
-                    <Text className={`font-semibold ${selectedServiceId === service.id ? 'text-blue-600' : 'text-gray-900'}`}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontWeight: '600',
+                      color: selectedServiceId === service.id ? colors.primary : colors.textPrimary,
+                    }}>
                       {service.name}
                     </Text>
                     {service.description && (
-                      <Text className="text-gray-500 text-sm mt-1">{service.description}</Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>{service.description}</Text>
                     )}
-                    <View className="flex-row items-center mt-2">
-                      <Ionicons name="people-outline" size={14} color="#6B7280" />
-                      <Text className="text-gray-500 text-xs ml-1">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                      <Ionicons name="people-outline" size={14} color={colors.textTertiary} />
+                      <Text style={{ color: colors.textTertiary, fontSize: 12, marginLeft: 4 }}>
                         {service.people_waiting ?? 0} dans la file d&apos;attente
                       </Text>
                       {service.avg_service_time_minutes && (
                         <>
-                          <Ionicons name="time-outline" size={14} color="#6B7280" className="ml-3" />
-                          <Text className="text-gray-500 text-xs ml-1">~{service.avg_service_time_minutes} min/service</Text>
+                          <Ionicons name="time-outline" size={14} color={colors.textTertiary} style={{ marginLeft: 12 }} />
+                          <Text style={{ color: colors.textTertiary, fontSize: 12, marginLeft: 4 }}>~{service.avg_service_time_minutes} min/service</Text>
                         </>
                       )}
                     </View>
                   </View>
                   {selectedServiceId === service.id && (
-                    <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -374,45 +394,58 @@ export const ServiceDetailsScreen: React.FC = () => {
 
           {/* Join Queue Button */}
           <TouchableOpacity 
-            className={`w-full h-16 rounded-2xl flex-row items-center justify-center mb-8 ${isJoining ? 'bg-blue-400' : 'bg-blue-600 shadow-lg shadow-blue-300'}`}
+            style={{
+              width: '100%',
+              height: 64,
+              borderRadius: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 32,
+              backgroundColor: isJoining ? colors.primary + '80' : colors.primary,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+            }}
             onPress={handleJoinQueue}
             disabled={isJoining}
           >
             {isJoining ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <Ionicons name="enter-outline" size={24} color="white" className="mr-2" />
-                <Text className="text-white font-bold text-lg ml-2">Joindre la file</Text>
+                <Ionicons name="enter-outline" size={24} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 }}>Joindre la file</Text>
               </>
             )}
           </TouchableOpacity>
 
           {/* General Information Section */}
-          <View className="mb-10">
-            <Text className="text-xl font-bold text-gray-900 mb-4">Information Generale </Text>
+          <View style={{ marginBottom: 40 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 16 }}>Information Generale</Text>
             
-            <View className="bg-gray-50 rounded-2xl p-4">
-              <TouchableOpacity className="flex-row items-center border-b border-gray-100 pb-4 mb-4">
-                <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-4">
-                  <Ionicons name="call-outline" size={20} color="#2563EB" />
+            <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: 16 }}>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.separator, paddingBottom: 16, marginBottom: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                  <Ionicons name="call-outline" size={20} color={colors.primary} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-semibold">Telephone</Text>
-                  <Text className="text-gray-500 text-sm">{(establishment as any).phone || '+33 1 23 45 67 89'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Telephone</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).phone || '+33 1 23 45 67 89'}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
 
-              <TouchableOpacity className="flex-row items-center">
-                <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-4">
-                  <Ionicons name="globe-outline" size={20} color="#2563EB" />
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                  <Ionicons name="globe-outline" size={20} color={colors.primary} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-semibold">Site web</Text>
-                  <Text className="text-gray-500 text-sm">{(establishment as any).website || 'www.centralclinic.com'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Site web</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).website || 'www.centralclinic.com'}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
           </View>

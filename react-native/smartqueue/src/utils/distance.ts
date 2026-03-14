@@ -106,10 +106,11 @@ export function formatDistance(kilometers: number): string {
  * Format travel time for display
  */
 export function formatTravelTime(minutes: number): string {
-  if (minutes < 60) {
-    return `${minutes} min`;
+  const roundedMinutes = Math.round(minutes);
+  if (roundedMinutes < 60) {
+    return `${roundedMinutes} min`;
   }
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = roundedMinutes % 60;
   return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
 }
