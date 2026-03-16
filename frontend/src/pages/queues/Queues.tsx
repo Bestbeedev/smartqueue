@@ -350,10 +350,16 @@ const Queues: React.FC = () => {
             .listen('.user.en_route', (e: any) => {
               console.log("[Queues] ✓✓✓ UserEnRoute reçu:", e);
               console.log("[Queues] ticket_id:", e.ticket_id, "ticket_number:", e.ticket_number);
-              toast.success('Usager en route', {
-                description: e.message || `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
-                duration: 5000,
-              });
+              console.log("[Queues] Appel toast.success avec message:", e.message);
+              try {
+                toast.success('Usager en route', {
+                  description: e.message || `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
+                  duration: 5000,
+                });
+                console.log("[Queues] Toast appelé avec succès");
+              } catch (err) {
+                console.error("[Queues] Erreur toast:", err);
+              }
               // Update the queue to show en_route status
               setQueue((prevQueue: any[]) => 
                 prevQueue.map((t: any) => 
