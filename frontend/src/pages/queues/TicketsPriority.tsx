@@ -43,7 +43,7 @@ const TicketsPriority: React.FC = () => {
     // S'abonner au canal de présence pour le service
     let channel: any;
     try {
-      channel = echo.join(`presence-service.${numericId}`)
+      channel = echo.join(`service.${numericId}`)
         .here(() => {
           setIsConnected(true);
           setIsLoading(false);

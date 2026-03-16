@@ -236,8 +236,13 @@ Route::post('broadcasting/auth', function (Request $request) {
     }
     
     // Presence channel for service (agents/admins)
-    if (str_starts_with($normalizedChannel, 'service.')) {
-        $serviceId = (int) str_replace('service.', '', $normalizedChannel);
+    if (str_starts_with($normalizedChannel, 'service.') || str_starts_with($normalizedChannel, 'presence-service.')) {
+        // Handle both service.{id} and presence-service.{id}
+        if (str_starts_with($normalizedChannel, 'presence-service.')) {
+            $serviceId = (int) str_replace('presence-service.', '', $normalizedChannel);
+        } else {
+            $serviceId = (int) str_replace('service.', '', $normalizedChannel);
+        }
         $user = $request->user();
         
         // For presence channels, agents/admins can join

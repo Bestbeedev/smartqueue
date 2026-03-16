@@ -23,7 +23,8 @@ class ServiceTicketCalled implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('presence-service.'.$this->serviceId)];
+        // Laravel adds 'presence-' prefix automatically for PresenceChannel
+        return [new PresenceChannel('service.'.$this->serviceId)];
     }
 
     public function broadcastWith(): array
