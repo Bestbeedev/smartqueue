@@ -295,17 +295,27 @@ const Queues: React.FC = () => {
 
         // S'abonner au canal de présence pour le service (optionnel)
         try {
+          console.log(`[Queues] Tentative de connexion au canal presence-service.${serviceId}`);
           channel = echo.join(`presence-service.${serviceId}`);
 
           channel
             .subscribed(() => {
-              console.log(`Abonné au canal presence-service.${serviceId}`);
+              console.log(`[Queues] ✓ Abonné au canal presence-service.${serviceId}`);
               setIsConnected(true);
               setLastUpdated(new Date().toLocaleTimeString());
               toast.success(`Connecté au service ${serviceId}`);
             })
+            .here((users: any[]) => {
+              console.log(`[Queues] Utilisateurs présents sur le canal:`, users);
+            })
+            .joining((user: any) => {
+              console.log(`[Queues] Utilisateur rejoint:`, user);
+            })
+            .leaving((user: any) => {
+              console.log(`[Queues] Utilisateur part:`, user);
+            })
             .listen(".service.ticket.called", (e: any) => {
-              console.log("Ticket appelé reçu:", e);
+              console.log("[Queues] Ticket appelé reçu:", e);
               setTickets((prevTickets) =>
                 [
                   {
@@ -338,7 +348,8 @@ const Queues: React.FC = () => {
               setLastUpdated(new Date().toLocaleTimeString());
             })
             .listen('.user.en_route', (e: any) => {
-              console.log("Usager en route:", e);
+              console.log("[Queues] ✓✓✓ UserEnRoute reçu:", e);
+              console.log("[Queues] ticket_id:", e.ticket_id, "ticket_number:", e.ticket_number);
               toast.success('Usager en route', {
                 description: e.message || `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
                 duration: 5000,

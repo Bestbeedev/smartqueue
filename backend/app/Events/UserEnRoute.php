@@ -4,11 +4,11 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class UserEnRoute implements ShouldBroadcast
+class UserEnRoute implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -28,10 +28,13 @@ class UserEnRoute implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        // Broadcast to presence channel for agents
-        // Laravel adds 'presence-' prefix automatically for PresenceChannel
+        // Broadcast to presence channel for agents - same pattern as ServiceTicketCalled
+        \Log::info('[UserEnRoute] Broadcasting to presence-service.'.$this->serviceId, [
+            'ticket_id' => $this->ticketId,
+            'ticket_number' => $this->ticketNumber,
+        ]);
         return [
-            new PresenceChannel('service.'.$this->serviceId),
+            new PresenceChannel('presence-service.'.$this->serviceId),
         ];
     }
 
