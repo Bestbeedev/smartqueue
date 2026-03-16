@@ -18,9 +18,6 @@ function App() {
           },
           className: 'z-[9999]',
         }}
-        containerStyle={{
-          zIndex: 9999,
-        }}
         expand={true}
         richColors
       />
