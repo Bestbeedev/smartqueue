@@ -7,6 +7,7 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class UserEnRoute implements ShouldBroadcastNow
 {
@@ -18,30 +19,36 @@ class UserEnRoute implements ShouldBroadcastNow
         public ?int $estimatedMinutes = null,
         public ?string $ticketNumber = null
     ) {
-        //
+        Log::info('[UserEnRoute] Event constructed', [
+            'ticket_id' => $this->ticketId,
+            'service_id' => $this->serviceId,
+            'broadcast_connection' => config('broadcasting.default'),
+            'reverb_host' => config('broadcasting.connections.pusher.options.host'),
+            'reverb_key' => config('broadcasting.connections.pusher.key'),
+        ]);
     }
 
     public function broadcastAs(): string
     {
+        Log::info('[UserEnRoute] broadcastAs called, returning: user.en_route');
         return 'user.en_route';
     }
 
     public function broadcastOn(): array
     {
-        // Broadcast to presence channel for agents
-        // Laravel adds 'presence-' prefix automatically for PresenceChannel
-        \Log::info('[UserEnRoute] Broadcasting to presence-service.'.$this->serviceId, [
-            'ticket_id' => $this->ticketId,
-            'ticket_number' => $this->ticketNumber,
+        $channel = 'service.'.$this->serviceId;
+        Log::info('[UserEnRoute] broadcastOn called', [
+            'channel' => $channel,
+            'final_channel' => 'presence-'.$channel,
         ]);
         return [
-            new PresenceChannel('service.'.$this->serviceId),
+            new PresenceChannel($channel),
         ];
     }
 
     public function broadcastWith(): array
     {
-        return [
+        $data = [
             'ticket_id' => $this->ticketId,
             'ticket_number' => $this->ticketNumber,
             'estimated_minutes' => $this->estimatedMinutes,
@@ -49,5 +56,7 @@ class UserEnRoute implements ShouldBroadcastNow
                 ? "L'usager arrive dans ~{$this->estimatedMinutes} min"
                 : "L'usager a confirmé sa présence",
         ];
+        Log::info('[UserEnRoute] broadcastWith called', $data);
+        return $data;
     }
 }

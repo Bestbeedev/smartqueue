@@ -13,8 +13,13 @@ return [
                 'host' => env('REVERB_HOST'),
                 'port' => env('REVERB_PORT', 443),
                 'scheme' => env('REVERB_SCHEME', 'https'),
-                'encrypted' => env('REVERB_SCHEME', 'https') === 'https',
-                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                'encrypted' => true,
+                'useTLS' => true,
+                'timeout' => 10,
+                'curl' => [
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                ],
             ],
         ],
         'reverb' => [
@@ -26,7 +31,8 @@ return [
                 'host' => env('REVERB_HOST'),
                 'port' => env('REVERB_PORT', 443),
                 'scheme' => env('REVERB_SCHEME', 'https'),
-                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                'useTLS' => true,
+                'timeout' => 10,
             ],
         ],
         'log' => [
