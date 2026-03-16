@@ -314,7 +314,7 @@ const Queues: React.FC = () => {
             .leaving((user: any) => {
               console.log(`[Queues] Utilisateur part:`, user);
             })
-            .listen(".service.ticket.called", (e: any) => {
+            .listen('.service.ticket.called', (e: any) => {
               console.log("[Queues] Ticket appelé reçu:", e);
               setTickets((prevTickets) =>
                 [
