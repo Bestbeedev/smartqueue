@@ -13,12 +13,16 @@ function App() {
           duration: 4000,
           closeButton: true,
           style: {
-            // background: 'hsl(var(--primary))',
-            // color: 'hsl(var(--primary-foreground))',
-            // border: '1px solid hsl(var(--border))',
             borderRadius: '1rem',
+            zIndex: 9999,
           },
+          className: 'z-[9999]',
         }}
+        containerStyle={{
+          zIndex: 9999,
+        }}
+        expand={true}
+        richColors
       />
     </>
   )
