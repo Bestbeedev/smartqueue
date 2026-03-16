@@ -201,10 +201,13 @@ Route::post('broadcasting/auth', function (Request $request) {
         'user_id' => $request->user()?->id,
     ]);
     
-    // Remove 'private-' prefix if present (Echo may send 'private-ticket.123' or 'ticket.123')
-    $normalizedChannel = str_starts_with($channelName, 'private-') 
-        ? substr($channelName, 8) 
-        : $channelName;
+    // Remove 'private-' or 'presence-' prefix if present
+    $normalizedChannel = $channelName;
+    if (str_starts_with($channelName, 'private-')) {
+        $normalizedChannel = substr($channelName, 8);
+    } elseif (str_starts_with($channelName, 'presence-')) {
+        $normalizedChannel = substr($channelName, 9);
+    }
     
     // Validate the channel and return auth signature
     if (str_starts_with($normalizedChannel, 'ticket.')) {
@@ -232,10 +235,36 @@ Route::post('broadcasting/auth', function (Request $request) {
         ]);
     }
     
+    // Presence channel for service (agents/admins)
     if (str_starts_with($normalizedChannel, 'service.')) {
-        // Private service channel - user must have active ticket for this service
         $serviceId = (int) str_replace('service.', '', $normalizedChannel);
-        $hasActiveTicket = \App\Models\Ticket::where('user_id', $request->user()->id)
+        $user = $request->user();
+        
+        // For presence channels, agents/admins can join
+        if ($user && in_array($user->role, ['agent', 'admin'])) {
+            $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
+            $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
+            
+            // Presence channel auth includes user data
+            $userData = json_encode([
+                'id' => $user->id,
+                'name' => $user->name,
+                'role' => $user->role,
+            ]);
+            
+            $stringToSign = $socketId . ':' . $channelName . ':' . $userData;
+            $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
+            
+            \Log::info('Presence channel auth for agent', ['service_id' => $serviceId, 'user_id' => $user->id]);
+            
+            return response()->json([
+                'auth' => $pusherKey . ':' . $signature,
+                'channel_data' => $userData,
+            ]);
+        }
+        
+        // For regular users, check if they have active ticket
+        $hasActiveTicket = \App\Models\Ticket::where('user_id', $user->id)
             ->where('service_id', $serviceId)
             ->whereIn('status', ['waiting', 'called', 'absent'])
             ->exists();
