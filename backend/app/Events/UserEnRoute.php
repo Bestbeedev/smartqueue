@@ -22,6 +22,9 @@ class UserEnRoute implements ShouldBroadcastNow
         Log::info('[UserEnRoute] Event constructed', [
             'ticket_id' => $this->ticketId,
             'service_id' => $this->serviceId,
+            'broadcast_connection' => config('broadcasting.default'),
+            'reverb_host' => config('broadcasting.connections.pusher.options.host'),
+            'reverb_key' => config('broadcasting.connections.pusher.key'),
         ]);
     }
 

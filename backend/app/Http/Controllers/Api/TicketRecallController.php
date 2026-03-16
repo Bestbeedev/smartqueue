@@ -108,6 +108,21 @@ class TicketRecallController extends Controller
             'estimated_travel_minutes' => $travelMinutes,
         ]);
 
+        // Test Reverb connectivity before dispatching
+        $reverbHost = config('broadcasting.connections.pusher.options.host');
+        $reverbPort = config('broadcasting.connections.pusher.options.port', 443);
+        $reverbScheme = config('broadcasting.connections.pusher.options.scheme', 'https');
+        
+        \Log::info('[TicketRecallController] Broadcasting config', [
+            'connection' => config('broadcasting.default'),
+            'reverb_host' => $reverbHost,
+            'reverb_port' => $reverbPort,
+            'reverb_scheme' => $reverbScheme,
+            'app_id' => config('broadcasting.connections.pusher.app_id'),
+            'key_exists' => !empty(config('broadcasting.connections.pusher.key')),
+            'secret_exists' => !empty(config('broadcasting.connections.pusher.secret')),
+        ]);
+
         // Broadcast to agent dashboard via service channel
         \Log::info('UserEnRoute event dispatching', [
             'ticket_id' => $ticket->id,
@@ -116,12 +131,20 @@ class TicketRecallController extends Controller
             'estimated_minutes' => $travelMinutes,
         ]);
         
-        event(new UserEnRoute(
-            $ticket->id,
-            $ticket->service_id,
-            $travelMinutes,
-            $ticket->number
-        ));
+        try {
+            event(new UserEnRoute(
+                $ticket->id,
+                $ticket->service_id,
+                $travelMinutes,
+                $ticket->number
+            ));
+            \Log::info('[TicketRecallController] UserEnRoute event dispatched successfully');
+        } catch (\Exception $e) {
+            \Log::error('[TicketRecallController] Failed to dispatch UserEnRoute', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
 
         return response()->json([
             'data' => $ticket->fresh(),
