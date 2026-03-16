@@ -15,10 +15,24 @@ class NotificationController extends Controller
         $perPage = max(1, min($perPage, 100)); // bornes simples 1..100
 
         $items = $req->user()
-            ->notifications()          // Relation du trait Notifiable
+            ->notifications()
             ->latest()
             ->limit($perPage)
-            ->get();
+            ->get()
+            ->map(function ($notification) {
+                // Transform to match frontend expected format
+                $data = $notification->data;
+                return [
+                    'id' => $notification->id,
+                    'user_id' => $notification->notifiable_id,
+                    'title' => $data['title'] ?? 'Notification',
+                    'message' => $data['message'] ?? '',
+                    'type' => $data['type'] ?? 'info',
+                    'data' => $data['data'] ?? [],
+                    'read_at' => $notification->read_at,
+                    'created_at' => $notification->created_at,
+                ];
+            });
 
         return response()->json([
             'data' => $items,

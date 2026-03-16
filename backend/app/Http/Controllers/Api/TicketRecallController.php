@@ -109,6 +109,13 @@ class TicketRecallController extends Controller
         ]);
 
         // Broadcast to agent dashboard via service channel
+        \Log::info('UserEnRoute event dispatching', [
+            'ticket_id' => $ticket->id,
+            'service_id' => $ticket->service_id,
+            'ticket_number' => $ticket->number,
+            'estimated_minutes' => $travelMinutes,
+        ]);
+        
         event(new UserEnRoute(
             $ticket->id,
             $ticket->service_id,

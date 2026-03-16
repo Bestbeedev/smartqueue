@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -28,9 +28,10 @@ class UserEnRoute implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        // Broadcast to service channel for agents
+        // Broadcast to presence channel for agents
+        // Laravel adds 'presence-' prefix automatically for PresenceChannel
         return [
-            new PrivateChannel('service.'.$this->serviceId),
+            new PresenceChannel('service.'.$this->serviceId),
         ];
     }
 
