@@ -28,9 +28,10 @@ class UserEnRoute implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        // Broadcast to presence channel for agents (matches frontend echo.join)
+        // Broadcast to presence channel for agents
+        // Laravel adds 'presence-' prefix automatically for PresenceChannel
         return [
-            new PresenceChannel('presence-service.'.$this->serviceId),
+            new PresenceChannel('service.'.$this->serviceId),
         ];
     }
 
