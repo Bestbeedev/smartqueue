@@ -295,8 +295,8 @@ const Queues: React.FC = () => {
 
         // S'abonner au canal de présence pour le service (optionnel)
         try {
-          console.log(`[Queues] Tentative de connexion au canal presence-service.${serviceId}`);
-          channel = echo.join(`presence-service.${serviceId}`);
+          console.log(`[Queues] Tentative de connexion au canal service.${serviceId}`);
+          channel = echo.join(`service.${serviceId}`);
 
           channel
             .subscribed(() => {

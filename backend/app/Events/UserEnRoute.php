@@ -28,13 +28,14 @@ class UserEnRoute implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        // Broadcast to presence channel for agents - same pattern as ServiceTicketCalled
+        // Broadcast to presence channel for agents
+        // Laravel adds 'presence-' prefix automatically for PresenceChannel
         \Log::info('[UserEnRoute] Broadcasting to presence-service.'.$this->serviceId, [
             'ticket_id' => $this->ticketId,
             'ticket_number' => $this->ticketNumber,
         ]);
         return [
-            new PresenceChannel('presence-service.'.$this->serviceId),
+            new PresenceChannel('service.'.$this->serviceId),
         ];
     }
 

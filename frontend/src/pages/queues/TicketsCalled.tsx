@@ -23,7 +23,7 @@ export default function TicketsCalled() {
 
     let channel: any;
     try {
-      channel = echo.join(`presence-service.${numericId}`)
+      channel = echo.join(`service.${numericId}`)
         .here(() => {
           setIsConnected(true);
           setIsLoading(false);
