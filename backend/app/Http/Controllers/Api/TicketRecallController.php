@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
+use App\Models\Service;
 use App\Services\AlertService;
 use App\Events\UserEnRoute;
+use App\Notifications\InAppNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Notification;
 
 class TicketRecallController extends Controller
 {
@@ -143,6 +146,39 @@ class TicketRecallController extends Controller
             \Log::error('[TicketRecallController] Failed to dispatch UserEnRoute', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+        }
+
+        // Create in-app notification for agents of the service
+        try {
+            $service = Service::find($ticket->service_id);
+            if ($service) {
+                $agents = $service->agents()->get();
+                $message = $travelMinutes 
+                    ? "L'usager arrive dans ~{$travelMinutes} min (Ticket {$ticket->number})"
+                    : "L'usager a confirmé sa présence (Ticket {$ticket->number})";
+                
+                foreach ($agents as $agent) {
+                    $agent->notify(new InAppNotification(
+                        'Usager en route',
+                        $message,
+                        'user_en_route',
+                        [
+                            'ticket_id' => $ticket->id,
+                            'ticket_number' => $ticket->number,
+                            'service_id' => $ticket->service_id,
+                            'estimated_minutes' => $travelMinutes,
+                        ]
+                    ));
+                }
+                \Log::info('[TicketRecallController] Notifications created for agents', [
+                    'agent_count' => $agents->count(),
+                    'service_id' => $ticket->service_id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('[TicketRecallController] Failed to create agent notifications', [
+                'error' => $e->getMessage(),
             ]);
         }
 

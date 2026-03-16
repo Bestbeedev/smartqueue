@@ -181,9 +181,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('alert-preferences/reset', [AlertPreferenceController::class, 'reset']);
     });
 
-    // Ticket recall (seconde chance)
+    // Ticket recall (seconde chance) - for users
     Route::prefix('tickets')->group(function () {
-        Route::post('{ticket}/recall', [TicketRecallController::class, 'recall']);
+        Route::post('{ticket}/request-recall', [TicketRecallController::class, 'recall']);
         Route::post('{ticket}/en-route', [TicketRecallController::class, 'enRoute']);
         Route::get('{ticket}/countdown', [TicketRecallController::class, 'countdown']);
     });

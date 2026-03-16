@@ -183,7 +183,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     }
 
     try {
-      await axiosClient.post(`/tickets/${activeTicket?.id}/recall`);
+      await axiosClient.post(`/tickets/${activeTicket?.id}/request-recall`);
       setRecalled();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch (error: any) {

@@ -137,7 +137,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     if (!effectiveTicketId || hasRecalled) return;
     
     try {
-      const response = await axiosClient.post(`/tickets/${effectiveTicketId}/recall`);
+      const response = await axiosClient.post(`/tickets/${effectiveTicketId}/request-recall`);
       setRecalled();
       setCountdownSeconds(response.data.countdown_seconds || 180);
     } catch (error: any) {
