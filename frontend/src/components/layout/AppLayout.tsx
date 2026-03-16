@@ -5,6 +5,7 @@
  */
 import { Outlet } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { Toaster } from 'sonner'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
@@ -58,6 +59,20 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Toaster for toast notifications */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 5000,
+          closeButton: true,
+          style: {
+            borderRadius: '1rem',
+          },
+        }}
+        expand={true}
+        richColors
+      />
+      
       {/* Sidebar - toujours visible sur desktop, overlay sur mobile */}
       <>
         {/* Sidebar pour desktop - FIXE */}

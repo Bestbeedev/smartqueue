@@ -1,28 +1,11 @@
 /**
  * App - Composant principal simplifié
  * Le routage est maintenant géré par le composant Router
+ * Le Toaster est déplacé dans AppLayout pour être dans le même contexte
  */
-import { Toaster } from 'sonner'
 
 function App() {
-  return (
-    <>
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          duration: 4000,
-          closeButton: true,
-          style: {
-            borderRadius: '1rem',
-            zIndex: 9999,
-          },
-          className: 'z-[9999]',
-        }}
-        expand={true}
-        richColors
-      />
-    </>
-  )
+  return null
 }
 
 export default App
