@@ -2,11 +2,11 @@ import axiosClient from './axiosClient';
 
 // Types pour les notifications
 export interface Notification {
-  id: number;
+  id: string; // UUID from Laravel notifications table
   user_id: number;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: 'info' | 'success' | 'warning' | 'error' | 'user_en_route';
   read_at?: string;
   created_at: string;
   data?: {
@@ -14,6 +14,8 @@ export interface Notification {
     establishment_id?: number;
     service_id?: number;
     action?: string;
+    ticket_number?: string;
+    estimated_minutes?: number;
   };
 }
 
@@ -60,9 +62,8 @@ export const notificationsApi = {
   },
 
   // Marquer une notification comme lue
-  markAsRead: async (notificationId: number): Promise<Notification> => {
-    const response = await axiosClient.post(`/notifications/${notificationId}/read`);
-    return response.data;
+  markAsRead: async (notificationId: string): Promise<void> => {
+    await axiosClient.post(`/notifications/${notificationId}/read`);
   },
 
   // Marquer toutes les notifications comme lues
@@ -71,7 +72,7 @@ export const notificationsApi = {
   },
 
   // Supprimer une notification
-  deleteNotification: async (notificationId: number): Promise<void> => {
+  deleteNotification: async (notificationId: string): Promise<void> => {
     await axiosClient.delete(`/notifications/${notificationId}`);
   },
 
@@ -165,7 +166,7 @@ export const notificationsApi = {
   },
 
   // Signaler une notification comme non pertinente
-  reportIrrelevantNotification: async (notificationId: number): Promise<void> => {
+  reportIrrelevantNotification: async (notificationId: string): Promise<void> => {
     await axiosClient.post(`/notifications/${notificationId}/report`);
   },
 };
