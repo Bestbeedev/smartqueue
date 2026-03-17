@@ -113,7 +113,7 @@ export type ModalParamList = {
     ticketNumber: string;
   };
   NotificationDetails: {
-    notificationId: number;
+    notificationId: string;
   };
   ConfirmAction: {
     title: string;

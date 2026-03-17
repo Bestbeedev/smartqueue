@@ -120,7 +120,7 @@ export default function NotificationsScreen() {
     loadNotifications();
   };
 
-  const handleMarkAsRead = async (notificationId: number) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     try {
       await notificationsApi.markAsRead(notificationId);
       setNotifications(prev =>
@@ -147,7 +147,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleDelete = async (notificationId: number) => {
+  const handleDelete = async (notificationId: string) => {
     try {
       await notificationsApi.deleteNotification(notificationId);
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
