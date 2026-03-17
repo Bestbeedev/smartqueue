@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Services\TicketService;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class AgentTicketActionController extends Controller
 {
+    use AuthorizesRequests;
     public function close(Ticket $ticket, TicketService $svc)
     {
         $this->authorize('actOn', $ticket);
