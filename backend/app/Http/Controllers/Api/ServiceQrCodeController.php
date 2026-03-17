@@ -10,6 +10,7 @@ use App\Services\TicketService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class ServiceQrCodeController extends Controller
@@ -185,10 +186,19 @@ class ServiceQrCodeController extends Controller
             return response()->json(['message' => 'QR code non généré'], 404);
         }
 
-        // Récupérer le chemin du fichier
-        $path = str_replace(Storage::disk('public')->url(''), '', $service->qr_code_url);
-        $fullPath = Storage::disk('public')->path($path);
-
-        return response()->download($fullPath, "qr-{$service->name}-{$service->qr_code_token}.png");
+        // Le QR code est stocké en base64 data URI
+        $dataUrl = $service->qr_code_url;
+        
+        // Extraire le base64 du data URI
+        if (preg_match('/^data:image\/svg\+xml;base64,(.+)$/', $dataUrl, $matches)) {
+            $base64 = $matches[1];
+            $svgContent = base64_decode($base64);
+            
+            return response($svgContent)
+                ->header('Content-Type', 'image/svg+xml')
+                ->header('Content-Disposition', 'attachment; filename="qr-' . $service->name . '-' . $service->qr_code_token . '.svg"');
+        }
+        
+        return response()->json(['message' => 'Format QR code invalide'], 400);
     }
 }

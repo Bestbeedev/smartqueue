@@ -32,23 +32,22 @@ class QrCodeService
             ->errorCorrection('H') // Haute tolérance aux erreurs
             ->generate($qrContent);
         
-        // Stocker l'image
-        $filename = "qr-codes/service-{$service->id}-{$token}.svg";
-        Storage::disk('public')->put($filename, $qrImage);
+        // Convertir en data URI pour éviter les problèmes de storage
+        $base64Svg = base64_encode($qrImage);
+        $dataUrl = "data:image/svg+xml;base64,{$base64Svg}";
         
-        $url = Storage::disk('public')->url($filename);
         $generatedAt = now();
         
-        // Mettre à jour le service
+        // Mettre à jour le service (stocker le data URL)
         $service->update([
             'qr_code_token' => $token,
-            'qr_code_url' => $url,
+            'qr_code_url' => $dataUrl,
             'qr_generated_at' => $generatedAt,
         ]);
         
         return [
             'token' => $token,
-            'url' => $url,
+            'url' => $dataUrl,
             'generated_at' => $generatedAt,
             'content' => $qrContent,
         ];
