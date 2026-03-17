@@ -190,15 +190,16 @@ class ServiceQrCodeController extends Controller
         $dataUrl = $service->qr_code_url;
         
         // Extraire le base64 du data URI
-        if (preg_match('/^data:image\/svg\+xml;base64,(.+)$/', $dataUrl, $matches)) {
-            $base64 = $matches[1];
-            $svgContent = base64_decode($base64);
-            
-            return response($svgContent)
-                ->header('Content-Type', 'image/svg+xml')
-                ->header('Content-Disposition', 'attachment; filename="qr-' . $service->name . '-' . $service->qr_code_token . '.svg"');
+        if (!preg_match('/^data:image\/svg\+xml;base64,(.+)$/', $dataUrl, $matches)) {
+            return response()->json(['message' => 'Format QR code invalide'], 400);
         }
         
-        return response()->json(['message' => 'Format QR code invalide'], 400);
+        $base64 = $matches[1];
+        $svgContent = base64_decode($base64);
+        
+        // Retourner le SVG directement - peut être imprimé depuis n'importe quel navigateur
+        return response($svgContent)
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Content-Disposition', 'attachment; filename="qr-' . $service->name . '-' . $service->qr_code_token . '.svg"');
     }
 }
