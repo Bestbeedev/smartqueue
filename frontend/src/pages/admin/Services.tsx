@@ -201,10 +201,17 @@ export default function Services(){
     try {
       const response = await api.post(`/api/admin/services/${service.id}/qr-code`)
       const qrData = response.data.qr_code
-      setQrService({ ...service, ...qrData })
+      // Mapper les propriétés de l'API vers le type Service
+      const updatedService = { 
+        ...service, 
+        qr_code_token: qrData.token,
+        qr_code_url: qrData.url,
+        qr_generated_at: qrData.generated_at,
+      }
+      setQrService(updatedService)
       toast.success('QR code généré avec succès')
       // Update the row in the table
-      setRows(prev => prev.map(s => s.id === service.id ? { ...s, ...qrData } : s))
+      setRows(prev => prev.map(s => s.id === service.id ? updatedService : s))
     } catch(e: any) {
       const status = e?.response?.status
       const message = e?.response?.data?.message
