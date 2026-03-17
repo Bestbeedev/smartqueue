@@ -187,10 +187,13 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       setRecalled();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch (error: any) {
-      showError(
-        "Erreur",
-        error.response?.data?.error || "Impossible d'envoyer le rappel"
-      );
+      // Handle different error response formats from backend
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || (typeof error.response?.data === 'string' ? error.response?.data : null)
+        || error.message 
+        || "Impossible d'envoyer le rappel";
+      showError("Erreur", errorMessage);
     }
   }, [activeTicket, hasRecalled, setRecalled, showInfo, showError]);
 

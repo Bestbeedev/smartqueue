@@ -161,6 +161,46 @@ class AlertService
     }
 
     /**
+     * Send recall notification to user.
+     */
+    public function sendRecallNotification(Ticket $ticket): void
+    {
+        $user = $ticket->user;
+        if (!$user) {
+            Log::warning('No user for ticket recall notification', ['ticket_id' => $ticket->id]);
+            return;
+        }
+
+        $message = "Rappel - Votre ticket {$ticket->number} est appelé. Présentez-vous au guichet.";
+
+        // Send push notification
+        dispatch(new \App\Jobs\SendPushNotification(
+            $user->id,
+            'Rappel - Votre ticket est appelé',
+            $message,
+            [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'type' => 'recall',
+            ]
+        ));
+
+        // Send SMS if phone available
+        if (!empty($user->phone)) {
+            dispatch(new \App\Jobs\SendSmsNotification(
+                $user->phone,
+                $message,
+                ['ticket_id' => $ticket->id]
+            ));
+        }
+
+        Log::info('Recall notification sent', [
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    /**
      * Check and send alerts for all active tickets.
      * Called by scheduler or queue worker.
      */
