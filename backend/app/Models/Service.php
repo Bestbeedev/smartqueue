@@ -17,6 +17,14 @@ class Service extends Model
         'status',
         'priority_support',
         'capacity',
+        'qr_code_token',
+        'qr_code_url',
+        'qr_generated_at',
+    ];
+
+    // Casting automatique
+    protected $casts = [
+        'qr_generated_at' => 'datetime',
     ];
 
     // Relations

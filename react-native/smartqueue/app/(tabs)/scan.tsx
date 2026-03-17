@@ -25,11 +25,25 @@ export default function ScanScreen() {
     try {
       const { data } = result;
       
-      // Parse QR code data - expected format: smartqueue://establishment/{id}
-      // or just the establishment ID
+      // Parse QR code data - supported formats:
+      // 1. vqs://service/{uuid} - Service QR code (new VQS format)
+      // 2. smartqueue://establishment/{id} - Legacy establishment QR
+      // 3. Just a number - Legacy establishment ID
+      
+      let serviceToken: string | null = null;
       let establishmentId: string | null = null;
       
-      if (data.startsWith('smartqueue://establishment/')) {
+      // New VQS service QR code format
+      if (data.startsWith('vqs://service/')) {
+        serviceToken = data.replace('vqs://service/', '');
+      } else if (data.startsWith('https://') && data.includes('/s/')) {
+        // Web URL format: https://app.vqs.com/s/{uuid}
+        const parts = data.split('/s/');
+        if (parts.length > 1) {
+          serviceToken = parts[1];
+        }
+      } else if (data.startsWith('smartqueue://establishment/')) {
+        // Legacy format
         establishmentId = data.replace('smartqueue://establishment/', '');
       } else if (data.startsWith('http')) {
         // Handle web URLs - extract ID from URL
@@ -40,6 +54,74 @@ export default function ScanScreen() {
         establishmentId = data;
       }
 
+      // Handle VQS service QR code - direct ticket creation
+      if (serviceToken) {
+        try {
+          const response = await axiosClient.post('/api/qr-scan', {
+            qr_content: data,
+          });
+
+          const resultData = response.data;
+          
+          if (resultData.action === 'show_existing') {
+            // User already has a ticket for this service today
+            Alert.alert(
+              'Ticket existant',
+              `Vous avez déjà un ticket pour ${resultData.ticket.service_name}: ${resultData.ticket.number}`,
+              [
+                { text: 'OK', onPress: () => {
+                  setScanned(false);
+                  setIsProcessing(false);
+                  router.push('/(tabs)/ticket');
+                }}
+              ]
+            );
+          } else if (resultData.action === 'created') {
+            // New ticket created
+            Alert.alert(
+              'Ticket créé',
+              `Votre ticket ${resultData.ticket.number} pour ${resultData.ticket.service_name} a été créé.\n\nPosition: ${resultData.ticket.position}\nTemps d'attente estimé: ${resultData.ticket.estimated_wait_minutes} min`,
+              [
+                { text: 'Voir mon ticket', onPress: () => {
+                  setScanned(false);
+                  setIsProcessing(false);
+                  router.push('/(tabs)/ticket');
+                }}
+              ]
+            );
+          }
+        } catch (error: any) {
+          const errorMsg = error?.response?.data?.message || 'Erreur lors de la création du ticket';
+          const serviceStatus = error?.response?.data?.service_status;
+          
+          if (error?.response?.status === 401) {
+            Alert.alert(
+              'Connexion requise',
+              'Vous devez être connecté pour créer un ticket.',
+              [
+                { text: 'Annuler', style: 'cancel', onPress: () => {
+                  setScanned(false);
+                  setIsProcessing(false);
+                }},
+                { text: 'Se connecter', onPress: () => {
+                  router.push('/login');
+                }}
+              ]
+            );
+          } else if (serviceStatus === 'closed') {
+            Alert.alert('File fermée', errorMsg);
+            setScanned(false);
+            setIsProcessing(false);
+          } else {
+            Alert.alert('Erreur', errorMsg);
+            setScanned(false);
+            setIsProcessing(false);
+          }
+        }
+        return;
+      }
+
+      // Legacy establishment QR code handling
       if (!establishmentId) {
         Alert.alert('QR Code invalide', 'Ce QR code n\'est pas un code SmartQueue valide.');
         setScanned(false);

@@ -115,6 +115,8 @@ class TicketService
                         'status' => 'waiting',
                         'priority' => 'normal',
                         'position' => $position,
+                        'source' => 'app',
+                        'valid_date' => Carbon::today()->toDateString(),
                         'last_distance_m' => $this->estimateDistanceMeters($lat, $lng, $service),
                         'last_seen_at' => Carbon::now(),
                     ]);
@@ -155,6 +157,92 @@ class TicketService
                 throw $e;
             }
         }
+    }
+
+    /**
+     * Crée un ticket via scan QR code.
+     * Le ticket est valable uniquement pour la journée en cours.
+     */
+    public function createForQrScan(Service $service, User $user): Ticket
+    {
+        $this->expireOldTicketsForService($service);
+
+        return DB::transaction(function () use ($service, $user) {
+            // Vérifier que le service est ouvert
+            if ($service->status !== 'open') {
+                abort(422, 'Service is closed');
+            }
+
+            // Génération d'un numéro lisible
+            $prefix = strtoupper(substr($service->name, 0, 1));
+            $today = Carbon::now()->format('Ymd');
+            $last = Ticket::query()
+                ->where('service_id', $service->id)
+                ->whereDate('created_at', Carbon::today())
+                ->orderByDesc('id')
+                ->value('number');
+            $seq = 1;
+            if ($last && preg_match('/^[A-Z]-(\d+)-'.$today.'$/', $last, $m)) {
+                $seq = ((int) $m[1]) + 1;
+            }
+            $number = sprintf('%s-%03d-%s', $prefix, $seq, $today);
+
+            // Position = nombre de waiting actuelle + 1
+            $position = Ticket::query()
+                ->where('service_id', $service->id)
+                ->where('status', 'waiting')
+                ->count() + 1;
+
+            $ticket = Ticket::create([
+                'user_id' => $user->id,
+                'service_id' => $service->id,
+                'number' => $number,
+                'status' => 'waiting',
+                'priority' => $user->priority ?? 'normal',
+                'position' => $position,
+                'source' => 'qr_scan',
+                'valid_date' => Carbon::today()->toDateString(),
+                'last_seen_at' => Carbon::now(),
+            ]);
+
+            // Broadcast mise à jour initiale
+            event(new TicketUpdated($ticket->id, [
+                'status' => $ticket->status,
+                'position' => $ticket->position,
+            ]));
+
+            event(new UserTicketUpdated($user->id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $service->id,
+                'status' => $ticket->status,
+                'position' => $ticket->position,
+            ]));
+
+            // Diffusion sur le canal de présence du service
+            event(new ServiceTicketEnqueued($service->id, [
+                'ticket' => [
+                    'id' => $ticket->id,
+                    'number' => $ticket->number,
+                    'priority' => $ticket->priority,
+                ]
+            ]));
+
+            $this->recomputePositions($service);
+
+            return $ticket->fresh(['service.establishment']);
+        });
+    }
+
+    /**
+     * Estime le temps d'attente pour un ticket donné.
+     */
+    public function estimateWaitTime(Service $service, Ticket $ticket): int
+    {
+        // Position - 1 * temps moyen de service
+        $waitingAhead = max(0, ($ticket->position ?? 1) - 1);
+        $avgTime = $service->avg_service_time_minutes ?? 5;
+        
+        return (int) ($waitingAhead * $avgTime);
     }
 
     /**
