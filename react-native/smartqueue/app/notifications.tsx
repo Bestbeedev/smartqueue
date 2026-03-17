@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -84,7 +84,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const fadeAnim = new Animated.Value(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
