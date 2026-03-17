@@ -230,15 +230,16 @@ export default function Services(){
 
   /** Télécharge le QR code. */
   const downloadQrCode = async (service: Service) => {
-    if (!service.qr_code_token) return
+    if (!service.qr_code_url) return
     try {
+      // Pour SVG, on peut télécharger directement depuis l'URL
       const response = await api.get(`/api/admin/services/${service.id}/qr-code/download`, {
         responseType: 'blob'
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `qr-${service.name}-${service.qr_code_token}.png`)
+      link.setAttribute('download', `qr-${service.name}-${service.qr_code_token}.svg`)
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -465,7 +466,7 @@ export default function Services(){
                   onClick={()=>downloadQrCode(qrService)}
                 >
                   <Download className="h-4 w-4" />
-                  Télécharger PNG
+                  Télécharger SVG
                 </button>
               </div>
               <p className="text-xs text-muted-foreground text-center mt-4">
