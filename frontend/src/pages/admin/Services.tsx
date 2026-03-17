@@ -13,6 +13,7 @@ import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 
 type Service = { 
   id:number; 
@@ -200,9 +201,7 @@ export default function Services(){
     setQrLoading(true)
     try {
       const response = await api.post(`/api/admin/services/${service.id}/qr-code`)
-      console.log('QR API response:', response.data)
       const qrData = response.data.qr_code
-      console.log('qrData:', qrData)
       // Mapper les propriétés de l'API vers le type Service
       const updatedService = { 
         ...service, 
@@ -210,13 +209,11 @@ export default function Services(){
         qr_code_url: qrData.url,
         qr_generated_at: qrData.generated_at,
       }
-      console.log('updatedService:', updatedService)
       setQrService(updatedService)
       toast.success('QR code généré avec succès')
       // Update the row in the table
       setRows(prev => prev.map(s => s.id === service.id ? updatedService : s))
     } catch(e: any) {
-      console.error('QR generation error:', e)
       const status = e?.response?.status
       const message = e?.response?.data?.message
       if (status === 403) {
@@ -239,24 +236,79 @@ export default function Services(){
     }
   }
 
-  /** Télécharge le QR code. */
+  /** Télécharge le QR code en PDF. */
   const downloadQrCode = async (service: Service) => {
     if (!service.qr_code_url) return
     try {
-      // Pour SVG, on peut télécharger directement depuis l'URL
-      const response = await api.get(`/api/admin/services/${service.id}/qr-code/download`, {
-        responseType: 'blob'
-      })
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `qr-${service.name}-${service.qr_code_token}.svg`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      // Créer un PDF avec jsPDF
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = doc.internal.pageSize.getWidth()
+      
+      // Titre
+      doc.setFontSize(28)
+      doc.setFont('helvetica', 'bold')
+      doc.text(service.name, pageWidth / 2, 30, { align: 'center' })
+      
+      // Établissement
+      doc.setFontSize(16)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 100, 100)
+      doc.text(service.establishment?.name || '', pageWidth / 2, 42, { align: 'center' })
+      
+      // QR Code - convertir le data URI en image
+      doc.setTextColor(0, 0, 0)
+      const qrSize = 80
+      const qrX = (pageWidth - qrSize) / 2
+      
+      // Ajouter le QR code (data URI SVG)
+      doc.addImage(service.qr_code_url, 'SVG', qrX, 55, qrSize, qrSize)
+      
+      // Encadrer le QR code
+      doc.setDrawColor(50, 50, 50)
+      doc.setLineWidth(0.5)
+      doc.rect(qrX - 5, 50, qrSize + 10, qrSize + 10)
+      
+      // Informations
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(60, 60, 60)
+      
+      const infoY = 150
+      doc.text(`Service: ${service.name}`, 20, infoY)
+      doc.text(`Établissement: ${service.establishment?.name || ''}`, 20, infoY + 8)
+      doc.text(`Code: vqs://service/${service.qr_code_token}`, 20, infoY + 16)
+      if (service.qr_generated_at) {
+        doc.text(`Généré le: ${new Date(service.qr_generated_at).toLocaleDateString('fr-FR')}`, 20, infoY + 24)
+      }
+      
+      // Instructions
+      doc.setFillColor(232, 244, 232)
+      doc.rect(15, infoY + 35, pageWidth - 30, 40, 'F')
+      
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(45, 90, 45)
+      doc.text('Instructions pour les usagers:', 20, infoY + 45)
+      
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(60, 60, 60)
+      doc.text('• Scannez ce QR code avec l\'application SmartQueue', 25, infoY + 55)
+      doc.text('• Un ticket sera automatiquement créé pour ce service', 25, infoY + 62)
+      doc.text('• Consultez votre position dans la file d\'attente en temps réel', 25, infoY + 69)
+      
+      // Footer
+      doc.setFontSize(9)
+      doc.setTextColor(150, 150, 150)
+      doc.text('SmartQueue - Système de gestion de files d\'attente', pageWidth / 2, 280, { align: 'center' })
+      doc.text('Ce QR code est permanent et peut être utilisé chaque jour', pageWidth / 2, 286, { align: 'center' })
+      
+      // Télécharger
+      doc.save(`qr-${service.name}-${service.qr_code_token}.pdf`)
+      toast.success('PDF téléchargé avec succès')
     } catch(e: any) {
-      toast.error('Erreur lors du téléchargement')
+      console.error('PDF generation error:', e)
+      toast.error('Erreur lors de la génération du PDF')
     }
   }
 
@@ -477,7 +529,7 @@ export default function Services(){
                   onClick={()=>downloadQrCode(qrService)}
                 >
                   <Download className="h-4 w-4" />
-                  Télécharger SVG
+                  Télécharger PDF
                 </button>
               </div>
               <p className="text-xs text-muted-foreground text-center mt-4">
