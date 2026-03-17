@@ -24,15 +24,16 @@ class QrCodeService
         // Construire l'URL du QR code: vqs://service/{uuid}
         $qrContent = "vqs://service/{$token}";
         
-        // Générer l'image QR code en PNG haute résolution
-        $qrImage = QrCode::format('png')
-            ->size(1024) // Haute résolution pour impression
+        // Générer l'image QR code en SVG (ne nécessite pas imagick)
+        // SVG est supporté nativement par tous les navigateurs
+        $qrImage = QrCode::format('svg')
+            ->size(512)
             ->margin(2)
             ->errorCorrection('H') // Haute tolérance aux erreurs
             ->generate($qrContent);
         
         // Stocker l'image
-        $filename = "qr-codes/service-{$service->id}-{$token}.png";
+        $filename = "qr-codes/service-{$service->id}-{$token}.svg";
         Storage::disk('public')->put($filename, $qrImage);
         
         $url = Storage::disk('public')->url($filename);
