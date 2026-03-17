@@ -9,16 +9,18 @@ import {
 import { getEcho } from "@/api/echo";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import api from "@/api/axios";
+import { api } from "@/api/axios";
 
 type Ticket = {
   id: number;
   number: string;
+  ticket_number?: string;
   status: string;
   service_id: number;
   service_name: string;
   created_at: string;
   priority: string;
+  client_name?: string;
 };
 
 const TicketsPriority: React.FC = () => {

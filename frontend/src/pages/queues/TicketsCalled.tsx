@@ -3,7 +3,7 @@ import { getEcho } from '@/api/echo';
 import { FaTicketAlt, FaUserClock, FaInfoCircle, FaSpinner } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import api from '@/api/axios';
+import { api } from '@/api/axios';
 
 type Ticket = {
   id: number;
