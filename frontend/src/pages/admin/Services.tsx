@@ -12,9 +12,20 @@ import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Ticket, Edit, Trash2, Pencil } from 'lucide-react'
+import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download } from 'lucide-react'
 
-type Service = { id:number; name:string; status:string; avg_service_time_minutes?:number; priority_support?:boolean; capacity?: number | null; establishment?: { id:number; name:string } }
+type Service = { 
+  id:number; 
+  name:string; 
+  status:string; 
+  avg_service_time_minutes?:number; 
+  priority_support?:boolean; 
+  capacity?: number | null; 
+  establishment?: { id:number; name:string };
+  qr_code_token?: string;
+  qr_code_url?: string;
+  qr_generated_at?: string;
+}
 type Establishment = { id:number; name:string }
 
 export default function Services(){
@@ -24,7 +35,10 @@ export default function Services(){
 
   const [openCreate, setOpenCreate] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
+  const [openQr, setOpenQr] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
+  const [qrService, setQrService] = useState<Service | null>(null)
+  const [qrLoading, setQrLoading] = useState(false)
 
   // Formulaires
   const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, capacity: null as number | null })
@@ -181,6 +195,59 @@ export default function Services(){
     }
   }
 
+  /** Génère un QR code pour un service. */
+  const generateQrCode = async (service: Service) => {
+    setQrLoading(true)
+    try {
+      const response = await api.post(`/api/admin/services/${service.id}/qr-code`)
+      const qrData = response.data.qr_code
+      setQrService({ ...service, ...qrData })
+      toast.success('QR code généré avec succès')
+      // Update the row in the table
+      setRows(prev => prev.map(s => s.id === service.id ? { ...s, ...qrData } : s))
+    } catch(e: any) {
+      const status = e?.response?.status
+      const message = e?.response?.data?.message
+      if (status === 403) {
+        toast.error('Permission refusée')
+      } else {
+        toast.error(message || 'Erreur lors de la génération du QR code')
+      }
+    } finally {
+      setQrLoading(false)
+    }
+  }
+
+  /** Ouvre le modal QR code. */
+  const openQrModal = async (service: Service) => {
+    setQrService(service)
+    setOpenQr(true)
+    if (!service.qr_code_token) {
+      // Générer le QR code si pas encore fait
+      await generateQrCode(service)
+    }
+  }
+
+  /** Télécharge le QR code. */
+  const downloadQrCode = async (service: Service) => {
+    if (!service.qr_code_token) return
+    try {
+      const response = await api.get(`/api/admin/services/${service.id}/qr-code/download`, {
+        responseType: 'blob'
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `qr-${service.name}-${service.qr_code_token}.png`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch(e: any) {
+      toast.error('Erreur lors du téléchargement')
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl shadow-sm border border-border p-5 flex items-center justify-between">
@@ -216,6 +283,13 @@ export default function Services(){
           { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
           { key:'actions', header:'Actions', render:(r:Service)=> (
             <div className="flex gap-1">
+              <button 
+                className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors" 
+                onClick={()=>openQrModal(r)}
+                title="QR Code"
+              >
+                <QrCode className="h-4 w-4" />
+              </button>
               <button 
                 className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" 
                 onClick={()=>openEditModal(r)}
@@ -352,6 +426,65 @@ export default function Services(){
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={updateService}>Enregistrer</button>
+        </div>
+      </Modal>
+
+      {/* Modal QR Code */}
+      <Modal open={openQr} onClose={()=>setOpenQr(false)} title={`QR Code - ${qrService?.name ?? ''}`}>
+        <div className="flex flex-col items-center space-y-4">
+          {qrLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            </div>
+          ) : qrService?.qr_code_url ? (
+            <>
+              <img 
+                src={qrService.qr_code_url} 
+                alt={`QR Code ${qrService.name}`}
+                className="w-48 h-48 object-contain border border-border rounded-lg"
+              />
+              <div className="text-center">
+                <p className="font-semibold text-foreground">{qrService.name}</p>
+                <p className="text-sm text-muted-foreground">{qrService.establishment?.name}</p>
+                {qrService.qr_generated_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Généré le {new Date(qrService.qr_generated_at).toLocaleDateString('fr-FR')}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md transition-colors"
+                  onClick={()=>generateQrCode(qrService)}
+                >
+                  <QrCode className="h-4 w-4" />
+                  Régénérer
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors"
+                  onClick={()=>downloadQrCode(qrService)}
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger PNG
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                Ce QR code est permanent. Il encode: vqs://service/{qrService.qr_code_token?.substring(0, 8)}...
+              </p>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <QrCode className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Aucun QR code généré</p>
+              <button
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md transition-colors"
+                onClick={()=>qrService && generateQrCode(qrService)}
+              >
+                <QrCode className="h-4 w-4" />
+                Générer le QR code
+              </button>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

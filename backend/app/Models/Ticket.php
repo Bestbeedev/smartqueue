@@ -15,6 +15,7 @@ class Ticket extends Model
         'has_recalled', 'en_route_at', 'estimated_travel_minutes', 'called_counter_id',
         'deferred_at', 'deferral_count', 'is_swapped', 'swapped_with_ticket_id',
         'original_called_at', 'grace_period_expires_at',
+        'source', 'valid_date',
     ];
 
     // Casting automatique des dates/horaires
@@ -29,6 +30,7 @@ class Ticket extends Model
         'is_swapped' => 'boolean',
         'original_called_at' => 'datetime',
         'grace_period_expires_at' => 'datetime',
+        'valid_date' => 'date',
     ];
 
     // Relation vers l'utilisateur détenteur du ticket

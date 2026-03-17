@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Admin\PushNotificationController;
 use App\Http\Controllers\Api\Admin\NotificationLogController;
 use App\Http\Controllers\Api\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Api\Agent\DashboardController as AgentDashboardController;
+use App\Http\Controllers\Api\ServiceQrCodeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +40,9 @@ use App\Http\Controllers\Api\Agent\DashboardController as AgentDashboardControll
 | Ces routes exposent l'API REST consommée par le web (React) et mobile (Flutter).
 | Elles sont groupées par domaines fonctionnels et sécurisées via Sanctum et Policies.
 */
+
+// QR Code scan (public endpoint, auth required for ticket creation)
+Route::middleware('auth:sanctum')->post('qr-scan', [ServiceQrCodeController::class, 'scan']);
 
 // Authentification et gestion des devices
 Route::prefix('auth')->group(function () {
@@ -144,6 +148,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('services', AdminServiceController::class);
         Route::apiResource('agents', AdminAgentController::class);
         Route::apiResource('counters', AdminCounterController::class);
+
+        // QR Code management for services
+        Route::post('services/{service}/qr-code', [ServiceQrCodeController::class, 'generate']);
+        Route::get('services/{service}/qr-code', [ServiceQrCodeController::class, 'show']);
+        Route::get('services/{service}/qr-code/download', [ServiceQrCodeController::class, 'download']);
 
         Route::get('stats/overview', [AdminStatsController::class, 'overview']);
         Route::get('stats/services/{serviceId}', [AdminStatsController::class, 'service']);
