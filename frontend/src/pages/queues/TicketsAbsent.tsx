@@ -14,15 +14,16 @@ import {
 import { getEcho } from "@/api/echo";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import api from "@/api/axios";
 
 type Ticket = {
   id: number;
-  ticket_number: string;
+  number: string;
+  status: string;
   service_id: number;
   service_name: string;
   created_at: string;
-  client_name?: string;
-  marked_absent_at?: string;
+  absent_at: string | null;
 };
 
 const TicketsAbsent: React.FC = () => {
@@ -30,68 +31,106 @@ const TicketsAbsent: React.FC = () => {
   const [absentTickets, setAbsentTickets] = useState<Ticket[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const echo = getEcho();
+
+  // Load existing absent tickets from API
+  const loadAbsentTickets = async (numericId: number): Promise<boolean> => {
+    try {
+      const response = await api.get('/api/agent/tickets', {
+        params: {
+          service_id: numericId,
+          status: 'absent',
+          per_page: 50,
+        }
+      });
+      const tickets = response.data?.data || [];
+      setAbsentTickets(tickets.map((t: any) => ({
+        id: t.id,
+        number: t.number,
+        status: t.status,
+        service_id: t.service?.id || t.service_id,
+        service_name: t.service?.name || `Service ${t.service_id}`,
+        created_at: t.created_at,
+        absent_at: t.absent_at,
+      })));
+      setLastUpdated(new Date().toLocaleTimeString());
+      return true;
+    } catch (e: any) {
+      console.error('Error loading absent tickets:', e);
+      if (e?.response?.status === 404 || e?.response?.status === 403) {
+        setError('Service non trouvé ou accès non autorisé');
+        return false;
+      }
+      setError(e?.response?.data?.message || 'Erreur lors du chargement');
+      return false;
+    }
+  };
 
   useEffect(() => {
     const numericId = Number(serviceId);
     if (!Number.isFinite(numericId) || numericId <= 0) {
       setIsConnected(false);
       setIsLoading(false);
+      setAbsentTickets([]);
+      setError("");
       return;
     }
 
-    // Réinitialiser l'état lors du changement de service
-    setAbsentTickets([]);
     setIsLoading(true);
+    setError("");
+    const echo = getEcho();
 
-    // S'abonner au canal de présence pour le service
-    let channel: any;
-    try {
-      channel = echo.join(`service.${numericId}`)
-        .here(() => {
-          setIsConnected(true);
-          setIsLoading(false);
+    // First load existing tickets from API
+    loadAbsentTickets(numericId).then((success) => {
+      if (!success) {
+        setIsLoading(false);
+        setIsConnected(false);
+        return;
+      }
+
+      // Then connect to websocket for real-time updates
+      let channel: any;
+      try {
+        channel = echo.join(`service.${numericId}`)
+          .here(() => {
+            setIsConnected(true);
+            setIsLoading(false);
+          })
+          .error(() => {
+            setIsConnected(false);
+            setIsLoading(false);
+          });
+
+        channel.listen('.service.ticket.absent', (e: any) => {
+          const t = e?.ticket;
+          if (!t) return;
+          setAbsentTickets(prev => {
+            // Avoid duplicates
+            if (prev.some(x => x.id === t.id)) return prev;
+            return [{
+              id: t.id,
+              number: t.number || t.ticket_number || String(t.id),
+              status: 'absent',
+              service_id: t.service_id,
+              service_name: t.service_name || `Service ${t.service_id}`,
+              created_at: t.created_at || new Date().toISOString(),
+              absent_at: t.absent_at || new Date().toISOString(),
+            }, ...prev];
+          });
           setLastUpdated(new Date().toLocaleTimeString());
-        })
-        .error(() => {
-          setIsConnected(false);
-          setIsLoading(false);
         });
-
-      channel.listen('.service.ticket.absent', (e: any) => {
-        const t = e?.ticket;
-        if (!t) return;
-        const newTicket = {
-          id: t.id,
-          ticket_number: t.ticket_number ?? t.number ?? String(t.id),
-          service_id: t.service_id,
-          service_name: t.service_name ?? `Service ${t.service_id}`,
-          created_at: t.updated_at ?? t.created_at,
-          client_name: t.client_name,
-          marked_absent_at: t.updated_at ?? t.marked_absent_at,
-        };
-
-        setAbsentTickets(prevTickets => {
-          if (!prevTickets.some(x => x.id === newTicket.id)) {
-            return [newTicket, ...prevTickets];
-          }
-          return prevTickets;
-        });
-
-        setLastUpdated(new Date().toLocaleTimeString());
-      });
-    } catch (err) {
-      console.error('Erreur de connexion:', err);
-      setIsConnected(false);
-      setIsLoading(false);
-    }
+      } catch (err) {
+        console.error('Erreur de connexion:', err);
+        setIsConnected(false);
+        setIsLoading(false);
+      }
+    });
 
     return () => {
       try {
-        channel?.stopListening?.('.service.ticket.absent');
+        echo.leave(`service.${numericId}`);
       } catch (_) {}
-      echo.leave(`presence-service.${numericId}`);
       setIsConnected(false);
     };
   }, [serviceId]);
@@ -104,7 +143,7 @@ const TicketsAbsent: React.FC = () => {
     }
     setIsLoading(true);
     setAbsentTickets([]);
-    toast.info(`Connexion au service ${serviceId}...`);
+    setError("");
   };
 
   const refreshData = () => {
@@ -112,10 +151,9 @@ const TicketsAbsent: React.FC = () => {
       toast.error("Aucun service sélectionné");
       return;
     }
-    // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setAbsentTickets([]);
-    toast.info("Reconnexion en cours...");
+    setError("");
   };
 
   const formatDate = (dateString: string) => {
@@ -232,7 +270,7 @@ const TicketsAbsent: React.FC = () => {
                 <span className="text-sm font-medium text-foreground">
                   {isConnected
                     ? `Surveillance active du service ${serviceId}`
-                    : "En attente de connexion..."}
+                    : error || "En attente de connexion..."}
                 </span>
                 {isConnected && (
                   <button
@@ -246,6 +284,12 @@ const TicketsAbsent: React.FC = () => {
               </div>
             )}
           </div>
+
+          {error && !serviceId && (
+            <div className="p-4 mx-6 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+              {error}
+            </div>
+          )}
 
           {/* Statistiques rapides */}
           {absentTickets.length > 0 && (

@@ -413,12 +413,19 @@ class TicketService
                     !Carbon::parse($referenceTime)->addHours(24)->isPast();
 
         if ($canDefer) {
-            // Essayer de déférer
-            $deferred = $this->deferCalledTicket($ticket);
-            if ($deferred) {
-                return $deferred;
+            // Essayer de déférer (catch exceptions pour fallback)
+            try {
+                $deferred = $this->deferCalledTicket($ticket);
+                if ($deferred) {
+                    return $deferred;
+                }
+            } catch (\Exception $e) {
+                // Si erreur lors du défert, on continue vers markAbsent normal
+                \Log::warning('Failed to defer ticket, falling back to markAbsent', [
+                    'ticket_id' => $ticket->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
-            // Si pas de ticket suivant, marquer absent normalement
         }
 
         // Fallback : marquer absent classiquement

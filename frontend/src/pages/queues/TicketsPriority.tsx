@@ -9,14 +9,15 @@ import {
 import { getEcho } from "@/api/echo";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import api from "@/api/axios";
 
 type Ticket = {
   id: number;
-  ticket_number: string;
+  number: string;
+  status: string;
   service_id: number;
   service_name: string;
   created_at: string;
-  client_name?: string;
   priority: string;
 };
 
@@ -25,70 +26,111 @@ const TicketsPriority: React.FC = () => {
   const [priorityTickets, setPriorityTickets] = useState<Ticket[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const echo = getEcho();
+
+  // Load existing priority tickets from API
+  const loadPriorityTickets = async (numericId: number): Promise<boolean> => {
+    try {
+      const response = await api.get('/api/agent/tickets', {
+        params: {
+          service_id: numericId,
+          per_page: 50,
+        }
+      });
+      const tickets = response.data?.data || [];
+      // Filter for high/vip priority
+      const priorityFiltered = tickets.filter((t: any) => 
+        t.priority === 'high' || t.priority === 'vip'
+      );
+      setPriorityTickets(priorityFiltered.map((t: any) => ({
+        id: t.id,
+        number: t.number,
+        status: t.status,
+        service_id: t.service?.id || t.service_id,
+        service_name: t.service?.name || `Service ${t.service_id}`,
+        created_at: t.created_at,
+        priority: t.priority,
+      })));
+      setLastUpdated(new Date().toLocaleTimeString());
+      return true;
+    } catch (e: any) {
+      console.error('Error loading priority tickets:', e);
+      if (e?.response?.status === 404 || e?.response?.status === 403) {
+        setError('Service non trouvé ou accès non autorisé');
+        return false;
+      }
+      setError(e?.response?.data?.message || 'Erreur lors du chargement');
+      return false;
+    }
+  };
 
   useEffect(() => {
     const numericId = Number(serviceId);
     if (!Number.isFinite(numericId) || numericId <= 0) {
       setIsConnected(false);
       setIsLoading(false);
+      setPriorityTickets([]);
+      setError("");
       return;
     }
 
-    // Réinitialiser l'état lors du changement de service
-    setPriorityTickets([]);
     setIsLoading(true);
+    setError("");
+    const echo = getEcho();
 
-    // S'abonner au canal de présence pour le service
-    let channel: any;
-    try {
-      channel = echo.join(`service.${numericId}`)
-        .here(() => {
-          setIsConnected(true);
-          setIsLoading(false);
-          setLastUpdated(new Date().toLocaleTimeString());
-        })
-        .error(() => {
-          setIsConnected(false);
-          setIsLoading(false);
-        });
+    // First load existing tickets from API
+    loadPriorityTickets(numericId).then((success) => {
+      if (!success) {
+        setIsLoading(false);
+        setIsConnected(false);
+        return;
+      }
 
-      channel.listen('.service.ticket.enqueued', (e: any) => {
-        const t = e?.ticket;
-        if (!t) return;
-        if (t.priority === 'high' || t.priority === 'vip') {
-          const newTicket = {
-            id: t.id,
-            ticket_number: t.ticket_number ?? t.number ?? String(t.id),
-            service_id: t.service_id,
-            service_name: t.service_name ?? `Service ${t.service_id}`,
-            created_at: t.created_at ?? t.updated_at,
-            client_name: t.client_name,
-            priority: t.priority,
-          };
-
-          setPriorityTickets(prevTickets => {
-            if (!prevTickets.some(x => x.id === newTicket.id)) {
-              return [newTicket, ...prevTickets].slice(0, 50);
-            }
-            return prevTickets;
+      // Then connect to websocket for real-time updates
+      let channel: any;
+      try {
+        channel = echo.join(`service.${numericId}`)
+          .here(() => {
+            setIsConnected(true);
+            setIsLoading(false);
+          })
+          .error(() => {
+            setIsConnected(false);
+            setIsLoading(false);
           });
 
-          setLastUpdated(new Date().toLocaleTimeString());
-        }
-      });
-    } catch (err) {
-      console.error('Erreur de connexion:', err);
-      setIsConnected(false);
-      setIsLoading(false);
-    }
+        channel.listen('.service.ticket.enqueued', (e: any) => {
+          const t = e?.ticket;
+          if (!t) return;
+          if (t.priority === 'high' || t.priority === 'vip') {
+            setPriorityTickets(prev => {
+              // Avoid duplicates
+              if (prev.some(x => x.id === t.id)) return prev;
+              return [{
+                id: t.id,
+                number: t.number || t.ticket_number || String(t.id),
+                status: t.status || 'waiting',
+                service_id: t.service_id,
+                service_name: t.service_name || `Service ${t.service_id}`,
+                created_at: t.created_at || new Date().toISOString(),
+                priority: t.priority,
+              }, ...prev].slice(0, 50);
+            });
+            setLastUpdated(new Date().toLocaleTimeString());
+          }
+        });
+      } catch (err) {
+        console.error('Erreur de connexion:', err);
+        setIsConnected(false);
+        setIsLoading(false);
+      }
+    });
 
     return () => {
       try {
-        channel?.stopListening?.('.service.ticket.enqueued');
+        echo.leave(`service.${numericId}`);
       } catch (_) {}
-      echo.leave(`presence-service.${numericId}`);
       setIsConnected(false);
     };
   }, [serviceId]);
@@ -101,7 +143,7 @@ const TicketsPriority: React.FC = () => {
     }
     setIsLoading(true);
     setPriorityTickets([]);
-    toast.info(`Connexion au service ${serviceId}...`);
+    setError("");
   };
 
   const refreshData = () => {
@@ -109,10 +151,9 @@ const TicketsPriority: React.FC = () => {
       toast.error("Aucun service sélectionné");
       return;
     }
-    // La reconnexion se fera automatiquement via l'effet
     setIsLoading(true);
     setPriorityTickets([]);
-    toast.info("Reconnexion en cours...");
+    setError("");
   };
 
   const formatDate = (dateString: string) => {
@@ -272,7 +313,7 @@ const TicketsPriority: React.FC = () => {
                 <span className="text-sm font-medium text-foreground">
                   {isConnected
                     ? `Surveillance active du service ${serviceId}`
-                    : "En attente de connexion..."}
+                    : error || "En attente de connexion..."}
                 </span>
                 {isConnected && (
                   <button
