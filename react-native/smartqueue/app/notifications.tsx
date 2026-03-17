@@ -102,10 +102,15 @@ export default function NotificationsScreen() {
         notificationsApi.getNotifications(),
         notificationsApi.getUnreadCount(),
       ]);
-      console.log('[Notifications] Response:', JSON.stringify(notifsResponse, null, 2));
-      console.log('[Notifications] Count:', countResponse.count);
-      console.log('[Notifications] Data array:', JSON.stringify(notifsResponse.data, null, 2));
-      setNotifications(notifsResponse.data);
+      console.log('[Notifications] Response type:', typeof notifsResponse);
+      console.log('[Notifications] Response.data type:', typeof notifsResponse.data);
+      console.log('[Notifications] Response.data isArray:', Array.isArray(notifsResponse.data));
+      console.log('[Notifications] Response.data length:', notifsResponse.data?.length);
+      
+      const notificationsData = Array.isArray(notifsResponse.data) ? notifsResponse.data : [];
+      console.log('[Notifications] Setting notifications:', notificationsData.length, 'items');
+      
+      setNotifications(notificationsData);
       setUnreadCount(countResponse.count);
     } catch (err) {
       console.error('[Notifications] Error:', err);
@@ -114,7 +119,7 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [setNotifications, setUnreadCount, setError, setLoading, setRefreshing]);
 
   useEffect(() => {
     loadNotifications();
@@ -163,6 +168,10 @@ export default function NotificationsScreen() {
 
   const groupedNotifications = groupNotificationsByDate(notifications);
   const hasNotifications = notifications.length > 0;
+  
+  console.log('[Notifications] hasNotifications:', hasNotifications);
+  console.log('[Notifications] notifications.length:', notifications.length);
+  console.log('[Notifications] groupedNotifications:', Object.keys(groupedNotifications));
 
   if (loading) {
     return (
@@ -226,6 +235,7 @@ export default function NotificationsScreen() {
           </View>
         ) : !hasNotifications ? (
           <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
+            {console.log('[Notifications] Rendering empty state - hasNotifications:', hasNotifications, 'length:', notifications.length)}
             <View style={styles.emptyIconContainer}>
               <Ionicons name="notifications-off-outline" size={48} color="#9CA3AF" />
             </View>
@@ -236,6 +246,7 @@ export default function NotificationsScreen() {
           </Animated.View>
         ) : (
           <Animated.View style={{ opacity: fadeAnim }}>
+            {console.log('[Notifications] Rendering list with', notifications.length, 'items')}
             {Object.entries(groupedNotifications).map(([date, notifs]) => (
               <View key={date} style={styles.section}>
                 <Text style={styles.sectionTitle}>{date}</Text>
