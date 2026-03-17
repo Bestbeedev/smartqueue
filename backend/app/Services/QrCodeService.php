@@ -25,7 +25,9 @@ class QrCodeService
         $qrContent = "vqs://service/{$token}";
         
         // Générer l'image QR code en PNG haute résolution
-        $qrImage = QrCode::format('png')
+        // Utiliser GD backend (imagick non disponible)
+        $qrImage = QrCode::useGd()
+            ->format('png')
             ->size(1024) // Haute résolution pour impression
             ->margin(2)
             ->errorCorrection('H') // Haute tolérance aux erreurs
