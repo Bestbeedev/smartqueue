@@ -97,13 +97,18 @@ export default function NotificationsScreen() {
   const loadNotifications = useCallback(async () => {
     try {
       setError(null);
+      console.log('[Notifications] Loading notifications...');
       const [notifsResponse, countResponse] = await Promise.all([
         notificationsApi.getNotifications(),
         notificationsApi.getUnreadCount(),
       ]);
+      console.log('[Notifications] Response:', JSON.stringify(notifsResponse, null, 2));
+      console.log('[Notifications] Count:', countResponse.count);
+      console.log('[Notifications] Data array:', JSON.stringify(notifsResponse.data, null, 2));
       setNotifications(notifsResponse.data);
       setUnreadCount(countResponse.count);
     } catch (err) {
+      console.error('[Notifications] Error:', err);
       setError('Impossible de charger les notifications');
     } finally {
       setLoading(false);
