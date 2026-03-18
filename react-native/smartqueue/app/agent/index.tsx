@@ -238,25 +238,18 @@ export default function AgentHome() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions rapides</Text>
         
         <TouchableOpacity
-          style={[
-            styles.actionButton, 
-            { backgroundColor: selectedService ? colors.primary : colors.surface }
-          ]}
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={navigateToQueue}
           activeOpacity={0.7}
         >
-          <Ionicons name="list" size={24} color={selectedService ? 'white' : colors.textSecondary} />
-          <Text style={[styles.actionButtonText, { color: selectedService ? 'white' : colors.textSecondary }]}>Gérer la file d'attente</Text>
-          <Ionicons name="chevron-forward" size={20} color={selectedService ? 'white' : colors.textSecondary} />
+          <Ionicons name="list" size={24} color="white" />
+          <Text style={[styles.actionButtonText]}>Gérer la file d'attente</Text>
+          <Ionicons name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
 
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[
-              styles.smallActionCard, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              !selectedService && { opacity: 0.5 }
-            ]}
+            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToCalled}
             activeOpacity={0.7}
           >
@@ -265,11 +258,7 @@ export default function AgentHome() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.smallActionCard, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              !selectedService && { opacity: 0.5 }
-            ]}
+            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToAbsent}
             activeOpacity={0.7}
           >
@@ -278,11 +267,7 @@ export default function AgentHome() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.smallActionCard, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              !selectedService && { opacity: 0.5 }
-            ]}
+            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToPriority}
             activeOpacity={0.7}
           >

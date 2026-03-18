@@ -96,17 +96,21 @@ class AuthController extends Controller
 
         // Include services for agents
         if ($user->role === 'agent' || $user->role === 'admin') {
-            $user->load(['services' => function ($query) {
-                $query->select('services.id', 'services.name', 'services.status', 'services.avg_service_time_minutes');
-            }]);
-            $userResponse['services'] = $user->services->map(function ($service) {
+            // Load services with fresh query
+            $services = \App\Models\Service::whereHas('agents', function($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })->get(['id', 'name', 'status', 'avg_service_time_minutes']);
+            
+            \Log::info('Agent login services', ['user_id' => $user->id, 'services_count' => $services->count()]);
+            
+            $userResponse['services'] = $services->map(function ($service) {
                 return [
                     'id' => $service->id,
                     'name' => $service->name,
                     'status' => $service->status ?? 'closed',
                     'avg_service_time_minutes' => $service->avg_service_time_minutes,
                 ];
-            });
+            })->values()->toArray();
         }
 
         return response()->json([
