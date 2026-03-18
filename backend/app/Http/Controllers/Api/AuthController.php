@@ -85,14 +85,32 @@ class AuthController extends Controller
 
         $token = $user->createToken('api')->plainTextToken;
 
+        // Build user response
+        $userResponse = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->role,
+        ];
+
+        // Include services for agents
+        if ($user->role === 'agent' || $user->role === 'admin') {
+            $user->load(['services' => function ($query) {
+                $query->select('services.id', 'services.name', 'services.status', 'services.avg_service_time_minutes');
+            }]);
+            $userResponse['services'] = $user->services->map(function ($service) {
+                return [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'status' => $service->status ?? 'closed',
+                    'avg_service_time_minutes' => $service->avg_service_time_minutes,
+                ];
+            });
+        }
+
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
-            ],
+            'user' => $userResponse,
             'token' => $token,
         ]);
     }

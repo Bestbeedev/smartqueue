@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
@@ -36,6 +36,14 @@ export default function AgentHome() {
       // Get services and counters from user object
       const assignedServices = (user as any)?.services || [];
       const assignedCounters = (user as any)?.counters || [];
+      
+      console.log('[AgentHome] User services:', assignedServices);
+      
+      if (assignedServices.length === 0) {
+        setServices([]);
+        setIsLoading(false);
+        return;
+      }
       
       // Load stats for each assigned service
       const servicesWithStats = await Promise.all(
@@ -99,27 +107,35 @@ export default function AgentHome() {
   };
 
   const navigateToQueue = () => {
-    if (selectedService) {
-      router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
+    if (!selectedService) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
   };
 
   const navigateToCalled = () => {
-    if (selectedService) {
-      router.push(`/agent/called?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/called?serviceId=${selectedService.id}`);
   };
 
   const navigateToAbsent = () => {
-    if (selectedService) {
-      router.push(`/agent/absent?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/absent?serviceId=${selectedService.id}`);
   };
 
   const navigateToPriority = () => {
-    if (selectedService) {
-      router.push(`/agent/priority?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/priority?serviceId=${selectedService.id}`);
   };
 
   return (
@@ -144,34 +160,47 @@ export default function AgentHome() {
       {/* Service Selection */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Service assigné</Text>
-        <FlatList
-          data={services}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.serviceCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
-              ]}
-              onPress={() => setSelectedService(item)}
-            >
-              <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="layers" size={24} color={colors.primary} />
-              </View>
-              <Text style={[styles.serviceName, { color: colors.text }]}>{item.name}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]}>
-                <Text style={styles.statusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
-              </View>
-              <Text style={[styles.waitingText, { color: colors.textSecondary }]}>
-                {item.people_waiting} en attente
-              </Text>
-            </TouchableOpacity>
-          )}
-          style={styles.servicesList}
-        />
+        {services.length === 0 ? (
+          <View style={[styles.emptyServiceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="alert-circle-outline" size={32} color={colors.textSecondary} />
+            <Text style={[styles.emptyServiceText, { color: colors.textSecondary }]}>
+              Aucun service assigné
+            </Text>
+            <Text style={[styles.emptyServiceHint, { color: colors.textSecondary }]}>
+              Contactez votre administrateur pour être assigné à un service
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={services}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.serviceCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
+                ]}
+                onPress={() => setSelectedService(item)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="layers" size={24} color={colors.primary} />
+                </View>
+                <Text style={[styles.serviceName, { color: colors.text }]}>{item.name}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]}>
+                  <Text style={styles.statusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
+                </View>
+                <Text style={[styles.waitingText, { color: colors.textSecondary }]}>
+                  {item.people_waiting} en attente
+                </Text>
+              </TouchableOpacity>
+            )}
+            style={styles.servicesList}
+          />
+        )}
       </View>
 
       {/* Counter Selection */}
@@ -209,38 +238,53 @@ export default function AgentHome() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions rapides</Text>
         
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.primary }]}
+          style={[
+            styles.actionButton, 
+            { backgroundColor: selectedService ? colors.primary : colors.surface }
+          ]}
           onPress={navigateToQueue}
-          disabled={!selectedService}
+          activeOpacity={0.7}
         >
-          <Ionicons name="list" size={24} color="white" />
-          <Text style={styles.actionButtonText}>Gérer la file d'attente</Text>
-          <Ionicons name="chevron-forward" size={20} color="white" />
+          <Ionicons name="list" size={24} color={selectedService ? 'white' : colors.textSecondary} />
+          <Text style={[styles.actionButtonText, { color: selectedService ? 'white' : colors.textSecondary }]}>Gérer la file d'attente</Text>
+          <Ionicons name="chevron-forward" size={20} color={selectedService ? 'white' : colors.textSecondary} />
         </TouchableOpacity>
 
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.smallActionCard, 
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              !selectedService && { opacity: 0.5 }
+            ]}
             onPress={navigateToCalled}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="megaphone-outline" size={24} color="#FF9500" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Appelés</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.smallActionCard, 
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              !selectedService && { opacity: 0.5 }
+            ]}
             onPress={navigateToAbsent}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="person-remove-outline" size={24} color="#FF3B30" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Absents</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.smallActionCard, 
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              !selectedService && { opacity: 0.5 }
+            ]}
             onPress={navigateToPriority}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="star-outline" size={24} color="#FFD60A" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Priorité</Text>
@@ -347,6 +391,22 @@ const styles = StyleSheet.create({
   },
   waitingText: {
     fontSize: 12,
+  },
+  emptyServiceCard: {
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  emptyServiceText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyServiceHint: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   countersList: {
     marginHorizontal: -20,
