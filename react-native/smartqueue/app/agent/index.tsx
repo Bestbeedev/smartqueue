@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useAuth } from '../../src/store/authStore';
 import axiosClient from '../../src/api/axiosClient';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Service = {
   id: number;
@@ -22,7 +23,7 @@ type Counter = {
 
 export default function AgentHome() {
   const colors = useThemeColors();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -30,11 +31,12 @@ export default function AgentHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const assignedServices = (user as any)?.services || [];
-  const assignedCounters = (user as any)?.counters || [];
-
   const loadData = async () => {
     try {
+      // Get services and counters from user object
+      const assignedServices = (user as any)?.services || [];
+      const assignedCounters = (user as any)?.counters || [];
+      
       // Load stats for each assigned service
       const servicesWithStats = await Promise.all(
         assignedServices.map(async (s: Service) => {
@@ -53,10 +55,10 @@ export default function AgentHome() {
       setCounters(assignedCounters);
       
       // Auto-select first service if available
-      if (servicesWithStats.length > 0 && !selectedService) {
+      if (servicesWithStats.length > 0) {
         setSelectedService(servicesWithStats[0]);
       }
-      if (assignedCounters.length > 0 && !selectedCounter) {
+      if (assignedCounters.length > 0) {
         setSelectedCounter(assignedCounters[0]);
       }
     } catch (error) {
@@ -67,18 +69,56 @@ export default function AgentHome() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Voulez-vous vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Déconnecter', 
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
+          }
+        }
+      ]
+    );
+  };
+
   const navigateToQueue = () => {
     if (selectedService) {
-      router.push(`/agent/queue?serviceId=${selectedService.id}&counterId=${selectedCounter?.id || ''}`);
+      router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
+    }
+  };
+
+  const navigateToCalled = () => {
+    if (selectedService) {
+      router.push(`/agent/called?serviceId=${selectedService.id}`);
+    }
+  };
+
+  const navigateToAbsent = () => {
+    if (selectedService) {
+      router.push(`/agent/absent?serviceId=${selectedService.id}`);
+    }
+  };
+
+  const navigateToPriority = () => {
+    if (selectedService) {
+      router.push(`/agent/priority?serviceId=${selectedService.id}`);
     }
   };
 
@@ -90,9 +130,14 @@ export default function AgentHome() {
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>Bonjour,</Text>
           <Text style={[styles.userName, { color: colors.text }]}>{user?.name}</Text>
         </View>
-        <View style={[styles.roleBadge, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name="person" size={16} color={colors.primary} />
-          <Text style={[styles.roleText, { color: colors.primary }]}>Agent</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={[styles.roleBadge, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="person" size={16} color={colors.primary} />
+            <Text style={[styles.roleText, { color: colors.primary }]}>{user?.role === 'admin' ? 'Admin' : 'Agent'}</Text>
+          </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -176,7 +221,7 @@ export default function AgentHome() {
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => router.push('/agent/called?serviceId=' + selectedService?.id)}
+            onPress={navigateToCalled}
             disabled={!selectedService}
           >
             <Ionicons name="megaphone-outline" size={24} color="#FF9500" />
@@ -185,7 +230,7 @@ export default function AgentHome() {
 
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => router.push('/agent/absent?serviceId=' + selectedService?.id)}
+            onPress={navigateToAbsent}
             disabled={!selectedService}
           >
             <Ionicons name="person-remove-outline" size={24} color="#FF3B30" />
@@ -194,7 +239,7 @@ export default function AgentHome() {
 
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => router.push('/agent/priority?serviceId=' + selectedService?.id)}
+            onPress={navigateToPriority}
             disabled={!selectedService}
           >
             <Ionicons name="star-outline" size={24} color="#FFD60A" />
@@ -380,5 +425,8 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
+  },
+  logoutButton: {
+    padding: 8,
   },
 });
