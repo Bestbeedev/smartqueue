@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Slot, useRouter, usePathname } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Slot, useRouter, usePathname, useRootNavigationState } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '../src/store/authStore';
 import '../global.css';
@@ -8,9 +8,22 @@ export default function RootLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const rootNavigationState = useRootNavigationState();
+  const isMounted = useRef(false);
 
   useEffect(() => {
-    if (isLoading) return;
+    // Wait for navigation to be ready
+    if (!rootNavigationState?.key) return;
+    
+    isMounted.current = true;
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, [rootNavigationState?.key]);
+
+  useEffect(() => {
+    if (isLoading || !isMounted.current || !rootNavigationState?.key) return;
 
     // If not authenticated, redirect to login
     if (!isAuthenticated) {
@@ -35,7 +48,7 @@ export default function RootLayout() {
       router.replace('/(tabs)');
       return;
     }
-  }, [isAuthenticated, isLoading, user, pathname]);
+  }, [isAuthenticated, isLoading, user, pathname, rootNavigationState?.key]);
 
   if (isLoading) {
     return (
