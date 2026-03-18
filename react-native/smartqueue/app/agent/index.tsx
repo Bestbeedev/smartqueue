@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useAuth } from '../../src/store/authStore';
+import { useCustomAlert } from '../../src/hooks/useCustomAlert';
 import axiosClient from '../../src/api/axiosClient';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -24,6 +25,7 @@ type Counter = {
 export default function AgentHome() {
   const colors = useThemeColors();
   const { user, logout } = useAuth();
+  const { AlertComponent, showWarning, showError } = useCustomAlert();
   const [services, setServices] = useState<Service[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -89,26 +91,21 @@ export default function AgentHome() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
+    showWarning(
       'Déconnexion',
       'Voulez-vous vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Déconnecter', 
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          }
-        }
-      ]
+      'Déconnecter',
+      async () => {
+        await logout();
+        router.replace('/login');
+      },
+      'Annuler'
     );
   };
 
   const navigateToQueue = () => {
     if (!selectedService) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      showError('Erreur', 'Veuillez sélectionner un service');
       return;
     }
     router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
@@ -116,7 +113,7 @@ export default function AgentHome() {
 
   const navigateToCalled = () => {
     if (!selectedService) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      showError('Erreur', 'Veuillez sélectionner un service');
       return;
     }
     router.push(`/agent/called?serviceId=${selectedService.id}`);
@@ -124,7 +121,7 @@ export default function AgentHome() {
 
   const navigateToAbsent = () => {
     if (!selectedService) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      showError('Erreur', 'Veuillez sélectionner un service');
       return;
     }
     router.push(`/agent/absent?serviceId=${selectedService.id}`);
@@ -132,7 +129,7 @@ export default function AgentHome() {
 
   const navigateToPriority = () => {
     if (!selectedService) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un service');
+      showError('Erreur', 'Veuillez sélectionner un service');
       return;
     }
     router.push(`/agent/priority?serviceId=${selectedService.id}`);
@@ -294,6 +291,8 @@ export default function AgentHome() {
           </View>
         </View>
       )}
+
+      {AlertComponent}
     </View>
   );
 }
