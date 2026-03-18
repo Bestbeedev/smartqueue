@@ -57,7 +57,7 @@ export default function ScanScreen() {
       // Handle VQS service QR code - direct ticket creation
       if (serviceToken) {
         try {
-          const response = await axiosClient.post('/api/qr-scan', {
+          const response = await axiosClient.post('/qr-scan', {
             qr_content: data,
           });
 

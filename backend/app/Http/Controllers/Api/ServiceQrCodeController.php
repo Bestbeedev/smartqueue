@@ -151,7 +151,18 @@ class ServiceQrCodeController extends Controller
         }
 
         // Créer un nouveau ticket
-        $ticket = $this->ticketService->createForQrScan($service, $user);
+        try {
+            $ticket = $this->ticketService->createForQrScan($service, $user);
+        } catch (\Exception $e) {
+            \Log::error('QR scan ticket creation failed', [
+                'service_id' => $service->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'message' => 'Erreur lors de la création du ticket: ' . $e->getMessage(),
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Ticket créé avec succès',
