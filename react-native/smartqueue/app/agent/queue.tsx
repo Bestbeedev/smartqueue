@@ -178,27 +178,56 @@ export default function AgentQueue() {
     );
   };
 
-  const renderTicket = ({ item, index }: { item: Ticket; index: number }) => (
-    <View style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.ticketInfo}>
-        <View style={styles.ticketNumber}>
-          <Text style={styles.ticketNumberText}>{item.number}</Text>
+  const renderTicket = ({ item, index }: { item: Ticket; index: number }) => {
+    const getPriorityColor = () => {
+      switch (item.priority) {
+        case 'vip': return '#FFD60A';
+        case 'high': return '#FF9500';
+        default: return colors.textSecondary;
+      }
+    };
+    
+    return (
+      <View style={[styles.ticketCard, { backgroundColor: colors.surface }]}>
+        {/* Left: Position number */}
+        <View style={[styles.positionBadge, { backgroundColor: colors.primary }]}>
+          <Text style={styles.positionNumber}>{index + 1}</Text>
         </View>
-        <View style={styles.ticketDetails}>
-          <Text style={styles.ticketPosition}>Position {item.position}</Text>
-          <View style={styles.priorityBadge}>
-            <Text style={styles.priorityText}>{item.priority?.toUpperCase()}</Text>
+        
+        {/* Center: Ticket info */}
+        <View style={styles.ticketContent}>
+          <View style={styles.ticketHeader}>
+            <Text style={[styles.ticketNumberText, { color: colors.text }]}>{item.number}</Text>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor() }]}>
+              <Ionicons 
+                name={item.priority === 'vip' ? 'star' : item.priority === 'high' ? 'arrow-up' : 'remove'} 
+                size={10} 
+                color="white" 
+              />
+              <Text style={styles.priorityText}>{item.priority?.toUpperCase()}</Text>
+            </View>
+          </View>
+          <View style={styles.ticketMeta}>
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.metaText, { color: colors.textSecondary }]}>Position {item.position}</Text>
+            </View>
           </View>
         </View>
+        
+        {/* Right: Wait indicator */}
+        <View style={styles.waitIndicator}>
+          <Ionicons name="hourglass-outline" size={16} color={colors.textSecondary} />
+        </View>
       </View>
-      <View style={styles.ticketTime}>
-        <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-        <Text style={styles.ticketTimeText}>
-          {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
@@ -507,53 +536,68 @@ const styles = StyleSheet.create({
   ticketCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 16,
     marginBottom: 10,
-    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  ticketInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  ticketNumber: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+  positionBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ticketNumberText: {
+  positionNumber: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '700',
   },
-  ticketDetails: {
-    gap: 4,
+  ticketContent: {
+    flex: 1,
+    marginLeft: 12,
   },
-  ticketPosition: {
-    fontSize: 15,
-    fontWeight: '600',
+  ticketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  ticketNumberText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    borderRadius: 10,
+    gap: 3,
   },
   priorityText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
   },
-  ticketTime: {
+  ticketMeta: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  ticketTimeText: {
+  metaText: {
     fontSize: 12,
+  },
+  waitIndicator: {
+    padding: 8,
   },
   emptyState: {
     alignItems: 'center',
