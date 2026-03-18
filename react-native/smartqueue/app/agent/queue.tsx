@@ -183,9 +183,39 @@ export default function AgentQueue() {
       switch (item.priority) {
         case 'vip': return '#FFD60A';
         case 'high': return '#FF9500';
-        default: return colors.textSecondary;
+        default: return '#6B7280';
       }
     };
+    
+    const formatTime = (dateStr: string) => {
+      if (!dateStr) return '--:--';
+      try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '--:--';
+        return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      } catch {
+        return '--:--';
+      }
+    };
+    
+    const getWaitTime = () => {
+      if (!item.created_at) return null;
+      try {
+        const created = new Date(item.created_at);
+        if (isNaN(created.getTime())) return null;
+        const now = new Date();
+        const diffMs = now.getTime() - created.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 60) return `${diffMins} min`;
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        return `${hours}h${mins.toString().padStart(2, '0')}`;
+      } catch {
+        return null;
+      }
+    };
+    
+    const waitTime = getWaitTime();
     
     return (
       <View style={[styles.ticketCard, { backgroundColor: colors.surface }]}>
@@ -204,26 +234,28 @@ export default function AgentQueue() {
                 size={10} 
                 color="white" 
               />
-              <Text style={styles.priorityText}>{item.priority?.toUpperCase()}</Text>
+              <Text style={styles.priorityText}>{item.priority?.toUpperCase() || 'NORMAL'}</Text>
             </View>
           </View>
           <View style={styles.ticketMeta}>
             <View style={styles.metaItem}>
               <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
               <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                {formatTime(item.created_at)}
               </Text>
             </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>Position {item.position}</Text>
-            </View>
+            {waitTime && (
+              <View style={styles.waitTimeBadge}>
+                <Text style={styles.waitTimeText}>⏱ {waitTime}</Text>
+              </View>
+            )}
           </View>
         </View>
         
-        {/* Right: Wait indicator */}
-        <View style={styles.waitIndicator}>
-          <Ionicons name="hourglass-outline" size={16} color={colors.textSecondary} />
+        {/* Right: Position indicator */}
+        <View style={styles.positionIndicator}>
+          <Text style={[styles.positionLabelText, { color: colors.textSecondary }]}>Pos.</Text>
+          <Text style={[styles.positionValueText, { color: colors.text }]}>{item.position}</Text>
         </View>
       </View>
     );
@@ -596,8 +628,28 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
   },
-  waitIndicator: {
-    padding: 8,
+  waitTimeBadge: {
+    backgroundColor: '#F59E0B20',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  waitTimeText: {
+    fontSize: 11,
+    color: '#F59E0B',
+    fontWeight: '600',
+  },
+  positionIndicator: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  positionLabelText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  positionValueText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',
