@@ -53,8 +53,9 @@ class EstablishmentController extends Controller
             $query->select('*')
                 ->selectRaw($haversine.' as distance_m', [$lat, $lat, $lng])
                 ->orderBy('distance_m');
-            // Filtrer par rayon pour le listing "nearby"
-            $query->having('distance_m', '<=', $radius);
+            // PostgreSQL ne permet pas d'utiliser un alias dans HAVING
+            // On utilise havingRaw avec l'expression complète
+            $query->havingRaw($haversine.' <= ?', [$lat, $lat, $lng, $radius]);
         } else {
             $query->orderBy('name');
         }
