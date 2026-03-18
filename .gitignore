@@ -86,7 +86,7 @@ frontend/.vite/
 
 # Gatsby files
 .cache/
-public
+
 
 # Storybook build outputs
 .out
@@ -124,6 +124,8 @@ Desktop.ini
 # Laravel specific
 /storage/*.key
 /public/storage
+!frontend/public/
+!frontend/public/**
 Homestead.json
 Homestead.yaml
 .phpactor.json
