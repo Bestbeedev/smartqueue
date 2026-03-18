@@ -85,14 +85,36 @@ class AuthController extends Controller
 
         $token = $user->createToken('api')->plainTextToken;
 
+        // Build user response
+        $userResponse = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->role,
+        ];
+
+        // Include services for agents
+        if ($user->role === 'agent' || $user->role === 'admin') {
+            // Load services with fresh query
+            $services = \App\Models\Service::whereHas('agents', function($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })->get(['id', 'name', 'status', 'avg_service_time_minutes']);
+            
+            \Log::info('Agent login services', ['user_id' => $user->id, 'services_count' => $services->count()]);
+            
+            $userResponse['services'] = $services->map(function ($service) {
+                return [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'status' => $service->status ?? 'closed',
+                    'avg_service_time_minutes' => $service->avg_service_time_minutes,
+                ];
+            })->values()->toArray();
+        }
+
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role' => $user->role,
-            ],
+            'user' => $userResponse,
             'token' => $token,
         ]);
     }

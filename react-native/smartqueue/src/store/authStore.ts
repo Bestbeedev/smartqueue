@@ -40,6 +40,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authApi.login(credentials);
           
+          console.log('[authStore] login response user:', JSON.stringify(response.user, null, 2));
+          console.log('[authStore] login response user services:', JSON.stringify((response.user as any)?.services));
+          
           set({
             user: response.user,
             token: response.token,

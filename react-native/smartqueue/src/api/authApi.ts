@@ -66,7 +66,9 @@ export const authApi = {
     try {
       const response = await axiosClient.post('/auth/login', credentials);
       console.log('[authApi] login - response status:', response.status);
-      console.log('[authApi] login - response data:', JSON.stringify(response.data));
+      console.log('[authApi] login - FULL response data:', JSON.stringify(response.data, null, 2));
+      console.log('[authApi] login - user role:', response.data?.user?.role);
+      console.log('[authApi] login - user services:', JSON.stringify(response.data?.user?.services));
       
       const authData = response.data;
       

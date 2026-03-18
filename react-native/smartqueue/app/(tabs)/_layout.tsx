@@ -1,12 +1,20 @@
 import { Tabs } from 'expo-router';
 import { View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 import '../../global.css';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { useAuth } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const colors = useThemeColors();
   const isDark = !!colors.dark?.background;
+  const { user } = useAuth();
+
+  // Redirect agents to their space
+  if (user?.role === 'agent' || user?.role === 'admin') {
+    return <Redirect href="/agent" />;
+  }
 
   return (
     <Tabs

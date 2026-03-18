@@ -1,11 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useAuth } from '../../src/store/authStore';
+import { useCustomAlert } from '../../src/hooks/useCustomAlert';
 import axiosClient from '../../src/api/axiosClient';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 type Service = {
   id: number;
@@ -24,6 +27,7 @@ type Counter = {
 export default function AgentHome() {
   const colors = useThemeColors();
   const { user, logout } = useAuth();
+  const { AlertComponent, showWarning, showError } = useCustomAlert();
   const [services, setServices] = useState<Service[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -31,11 +35,27 @@ export default function AgentHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Bonjour';
+    if (hour >= 12 && hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  };
+
   const loadData = async () => {
     try {
       // Get services and counters from user object
       const assignedServices = (user as any)?.services || [];
       const assignedCounters = (user as any)?.counters || [];
+      
+      console.log('[AgentHome] User services:', assignedServices);
+      
+      if (assignedServices.length === 0) {
+        setServices([]);
+        setIsLoading(false);
+        return;
+      }
       
       // Load stats for each assigned service
       const servicesWithStats = await Promise.all(
@@ -81,45 +101,48 @@ export default function AgentHome() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
+    showWarning(
       'Déconnexion',
       'Voulez-vous vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Déconnecter', 
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          }
-        }
-      ]
+      'Déconnecter',
+      async () => {
+        await logout();
+        router.replace('/login');
+      },
+      'Annuler'
     );
   };
 
   const navigateToQueue = () => {
-    if (selectedService) {
-      router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
+    if (!selectedService) {
+      showError('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/queue?serviceId=${selectedService.id}${selectedCounter ? `&counterId=${selectedCounter.id}` : ''}`);
   };
 
   const navigateToCalled = () => {
-    if (selectedService) {
-      router.push(`/agent/called?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      showError('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/called?serviceId=${selectedService.id}`);
   };
 
   const navigateToAbsent = () => {
-    if (selectedService) {
-      router.push(`/agent/absent?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      showError('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/absent?serviceId=${selectedService.id}`);
   };
 
   const navigateToPriority = () => {
-    if (selectedService) {
-      router.push(`/agent/priority?serviceId=${selectedService.id}`);
+    if (!selectedService) {
+      showError('Erreur', 'Veuillez sélectionner un service');
+      return;
     }
+    router.push(`/agent/priority?serviceId=${selectedService.id}`);
   };
 
   return (
@@ -127,7 +150,7 @@ export default function AgentHome() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>Bonjour,</Text>
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>{getGreeting()},</Text>
           <Text style={[styles.userName, { color: colors.text }]}>{user?.name}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -144,34 +167,47 @@ export default function AgentHome() {
       {/* Service Selection */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Service assigné</Text>
-        <FlatList
-          data={services}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.serviceCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
-              ]}
-              onPress={() => setSelectedService(item)}
-            >
-              <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="layers" size={24} color={colors.primary} />
-              </View>
-              <Text style={[styles.serviceName, { color: colors.text }]}>{item.name}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]}>
-                <Text style={styles.statusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
-              </View>
-              <Text style={[styles.waitingText, { color: colors.textSecondary }]}>
-                {item.people_waiting} en attente
-              </Text>
-            </TouchableOpacity>
-          )}
-          style={styles.servicesList}
-        />
+        {services.length === 0 ? (
+          <View style={[styles.emptyServiceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="alert-circle-outline" size={32} color={colors.textSecondary} />
+            <Text style={[styles.emptyServiceText, { color: colors.textSecondary }]}>
+              Aucun service assigné
+            </Text>
+            <Text style={[styles.emptyServiceHint, { color: colors.textSecondary }]}>
+              Contactez votre administrateur pour être assigné à un service
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={services}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.serviceCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
+                ]}
+                onPress={() => setSelectedService(item)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="layers" size={24} color={colors.primary} />
+                </View>
+                <Text style={[styles.serviceName, { color: colors.text }]}>{item.name}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]}>
+                  <Text style={styles.statusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
+                </View>
+                <Text style={[styles.waitingText, { color: colors.textSecondary }]}>
+                  {item.people_waiting} en attente
+                </Text>
+              </TouchableOpacity>
+            )}
+            style={styles.servicesList}
+          />
+        )}
       </View>
 
       {/* Counter Selection */}
@@ -211,10 +247,10 @@ export default function AgentHome() {
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={navigateToQueue}
-          disabled={!selectedService}
+          activeOpacity={0.7}
         >
           <Ionicons name="list" size={24} color="white" />
-          <Text style={styles.actionButtonText}>Gérer la file d'attente</Text>
+          <Text style={[styles.actionButtonText]}>Gérer la file d'attente</Text>
           <Ionicons name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
 
@@ -222,7 +258,7 @@ export default function AgentHome() {
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToCalled}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="megaphone-outline" size={24} color="#FF9500" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Appelés</Text>
@@ -231,7 +267,7 @@ export default function AgentHome() {
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToAbsent}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="person-remove-outline" size={24} color="#FF3B30" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Absents</Text>
@@ -240,7 +276,7 @@ export default function AgentHome() {
           <TouchableOpacity
             style={[styles.smallActionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={navigateToPriority}
-            disabled={!selectedService}
+            activeOpacity={0.7}
           >
             <Ionicons name="star-outline" size={24} color="#FFD60A" />
             <Text style={[styles.smallActionText, { color: colors.text }]}>Priorité</Text>
@@ -252,19 +288,27 @@ export default function AgentHome() {
       {selectedService && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Statistiques</Text>
-          <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{selectedService.people_waiting || 0}</Text>
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.primary }]}>
+                <Ionicons name="people" size={20} color="white" />
+              </View>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{selectedService.people_waiting || 0}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{selectedService.avg_service_time_minutes || 5} min</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps moyen</Text>
+            
+            <View style={[styles.statCard, { backgroundColor: '#F59E0B15' }]}>
+              <View style={[styles.statIcon, { backgroundColor: '#F59E0B' }]}>
+                <Ionicons name="timer" size={20} color="white" />
+              </View>
+              <Text style={[styles.statValue, { color: '#F59E0B' }]}>{selectedService.avg_service_time_minutes || 5}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Min. moyen</Text>
             </View>
           </View>
         </View>
       )}
+
+      {AlertComponent}
     </View>
   );
 }
@@ -348,6 +392,22 @@ const styles = StyleSheet.create({
   waitingText: {
     fontSize: 12,
   },
+  emptyServiceCard: {
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  emptyServiceText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyServiceHint: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   countersList: {
     marginHorizontal: -20,
     paddingHorizontal: 20,
@@ -406,25 +466,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  statsCard: {
+  statsContainer: {
     flexDirection: 'row',
-    padding: 20,
-    borderRadius: 16,
+    gap: 12,
   },
-  statItem: {
+  statCard: {
     flex: 1,
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
   },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statValue: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
   },
   logoutButton: {
     padding: 8,
