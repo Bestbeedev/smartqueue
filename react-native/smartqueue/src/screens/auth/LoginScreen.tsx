@@ -95,11 +95,16 @@ export const LoginScreen: React.FC = () => {
     }
 
     try {
-      await login({
+      const user = await login({
         email: formData.email.trim(),
         password: formData.password,
       });
-      router.replace('/(tabs)');
+      // Redirect based on user role
+      if ((user as any)?.role === 'agent' || (user as any)?.role === 'admin') {
+        router.replace('/agent');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error) {
       console.error('Login error:', error);
     }
@@ -120,7 +125,13 @@ export const LoginScreen: React.FC = () => {
     const result = await handleGoogleLogin();
     if (result.success) {
       showSuccess('Succès', 'Connexion Google réussie !');
-      router.replace('/(tabs)');
+      // Check role for redirect
+      const { user } = useAuth();
+      if ((user as any)?.role === 'agent' || (user as any)?.role === 'admin') {
+        router.replace('/agent');
+      } else {
+        router.replace('/(tabs)');
+      }
     } else if (result.error) {
       showError('Erreur', result.error);
     }

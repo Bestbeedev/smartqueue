@@ -31,6 +31,9 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  role?: string;
+  services?: any[];
+  counters?: any[];
   created_at: string;
   updated_at: string;
 }

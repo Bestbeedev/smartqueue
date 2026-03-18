@@ -13,7 +13,7 @@ export interface AuthState {
   error: string | null;
   
   // Actions
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -47,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
+          return response.user;
         } catch (error: any) {
           const errorMessage = error.response?.data?.message || 'Erreur de connexion';
           set({
