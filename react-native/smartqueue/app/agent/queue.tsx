@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import axiosClient from '../../src/api/axiosClient';
-import { useFocusEffect } from '@react-native/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Ticket = {
   id: number;
