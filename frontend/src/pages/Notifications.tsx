@@ -96,13 +96,22 @@ export default function Notifications() {
     setLoadError(null);
     try {
       const { data } = await api.get('/api/notifications?per_page=50');
-      const items: NotificationDb[] = Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data)
-          ? data
-          : [];
+      console.log('[Notifications] API response:', data);
+      
+      // La réponse peut être: { data: [...] }, { data: { data: [...] } }, ou directement [...]
+      let items: NotificationDb[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (Array.isArray(data?.data)) {
+        items = data.data;
+      } else if (data?.data?.data && Array.isArray(data.data.data)) {
+        items = data.data.data;
+      }
+      
+      console.log('[Notifications] Parsed items:', items);
       setNotifications(items.map(normalizeNotification));
     } catch (e: any) {
+      console.error('[Notifications] Error:', e);
       const msg = e?.response?.data?.message || e?.message || 'Impossible de charger les notifications';
       setLoadError(msg);
       setNotifications([]);
