@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, Platform, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
@@ -13,6 +13,9 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showExistingModal, setShowExistingModal] = useState(false);
+  const [ticketInfo, setTicketInfo] = useState<any>(null);
   const { hasActiveTicket } = useTicket();
 
   // Handle QR code scan result
@@ -65,30 +68,12 @@ export default function ScanScreen() {
           
           if (resultData.action === 'show_existing') {
             // User already has a ticket for this service today
-            Alert.alert(
-              'Ticket existant',
-              `Vous avez déjà un ticket pour ${resultData.ticket.service_name}: ${resultData.ticket.number}`,
-              [
-                { text: 'OK', onPress: () => {
-                  setScanned(false);
-                  setIsProcessing(false);
-                  router.push('/(tabs)/ticket');
-                }}
-              ]
-            );
+            setTicketInfo(resultData.ticket);
+            setShowExistingModal(true);
           } else if (resultData.action === 'created') {
             // New ticket created
-            Alert.alert(
-              'Ticket créé',
-              `Votre ticket ${resultData.ticket.number} pour ${resultData.ticket.service_name} a été créé.\n\nPosition: ${resultData.ticket.position}\nTemps d'attente estimé: ${resultData.ticket.estimated_wait_minutes} min`,
-              [
-                { text: 'Voir mon ticket', onPress: () => {
-                  setScanned(false);
-                  setIsProcessing(false);
-                  router.push('/(tabs)/ticket');
-                }}
-              ]
-            );
+            setTicketInfo(resultData.ticket);
+            setShowSuccessModal(true);
           }
         } catch (error: any) {
           const errorMsg = error?.response?.data?.message || 'Erreur lors de la création du ticket';
@@ -305,6 +290,96 @@ export default function ScanScreen() {
           )}
         </View>
       </CameraView>
+
+      {/* Success Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+            </View>
+            <Text style={styles.modalTitle}>Ticket créé !</Text>
+            <Text style={styles.modalSubtitle}>{ticketInfo?.service_name}</Text>
+            
+            <View style={styles.ticketInfoBox}>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Numéro:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.number}</Text>
+              </View>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Position:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.position}</Text>
+              </View>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Attente estimée:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.estimated_wait_minutes} min</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                setScanned(false);
+                setIsProcessing(false);
+                router.push(`/live-ticket?ticketId=${ticketInfo?.id}`);
+              }}
+            >
+              <Text style={styles.modalButtonText}>Voir mon ticket</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Existing Ticket Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showExistingModal}
+        onRequestClose={() => setShowExistingModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="ticket-outline" size={60} color="#FF9500" />
+            </View>
+            <Text style={styles.modalTitle}>Ticket existant</Text>
+            <Text style={styles.modalSubtitle}>{ticketInfo?.service_name}</Text>
+            
+            <View style={styles.ticketInfoBox}>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Numéro:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.number}</Text>
+              </View>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Position:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.position}</Text>
+              </View>
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Statut:</Text>
+                <Text style={styles.ticketValue}>{ticketInfo?.status}</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => {
+                setShowExistingModal(false);
+                setScanned(false);
+                setIsProcessing(false);
+                router.push(`/live-ticket?ticketId=${ticketInfo?.id}`);
+              }}
+            >
+              <Text style={styles.modalButtonText}>Voir mon ticket</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -504,6 +579,76 @@ const styles = StyleSheet.create({
   settingsButtonText: {
     color: '#007AFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    width: '85%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.25,
+    shadowRadius: 40,
+    elevation: 10,
+  },
+  modalIconContainer: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1D1D1F',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  ticketInfoBox: {
+    backgroundColor: '#F5F5F7',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    marginBottom: 24,
+  },
+  ticketRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  ticketLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  ticketValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 17,
     fontWeight: '600',
   },
 });
