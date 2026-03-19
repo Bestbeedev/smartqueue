@@ -283,13 +283,13 @@ export default function AgentHome() {
       {selectedService && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Statistiques</Text>
-          <View style={[styles.statsCard, { backgroundColor: colors.surface , borderColor: colors.border}]}>
-            <View style={styles.statItem}>
+          <View style={[styles.statsContainer, { backgroundColor: colors.surface , borderColor: colors.border}]}>
+            <View style={styles.statCard}>
               <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.people_waiting || 0}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
+            <View style={styles.statCard}>
               <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.avg_service_time_minutes || 5} min</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps moyen</Text>
             </View>

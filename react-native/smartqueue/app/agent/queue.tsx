@@ -284,16 +284,16 @@ export default function AgentQueue() {
 
       {/* Stats Cards */}
       {stats && (
-        <View style={[styles.statsRow, { backgroundColor: colors.surface , borderColor: colors.border}]}>
-          <View style={styles.statItem}>
+        <View style={[styles.statsContainer, { backgroundColor: colors.surface , borderColor: colors.border}]}>
+          <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: colors.primary }]}>{stats.waiting}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
           </View>
-          <View style={styles.statItem}>
+          <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.processed}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Traités</Text>
           </View>
-          <View style={styles.statItem}>
+          <View style={styles.statCard}>
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.avg_wait_time} min</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Attente moy.</Text>
           </View>
