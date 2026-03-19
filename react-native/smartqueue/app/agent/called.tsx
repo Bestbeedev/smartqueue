@@ -105,11 +105,11 @@ export default function CalledTickets() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Ionicons name="megaphone" size={24} color="#FF9500" />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Tickets appelés</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Tickets appelés</Text>
         </View>
         <View style={[styles.countBadge, { backgroundColor: '#FF9500' }]}>
           <Text style={styles.countText}>{tickets.length}</Text>
@@ -127,7 +127,7 @@ export default function CalledTickets() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="megaphone-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun ticket appelé</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket appelé</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Les tickets appelés apparaîtront ici
             </Text>

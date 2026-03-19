@@ -38,7 +38,7 @@ export default function AgentQueue() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [serviceStatus, setServiceStatus] = useState<string>('closed');
+  const [serviceStatus, setServiceStatus] = useState<string>('open');
 
   const fetchData = async () => {
     if (!serviceId) return;
@@ -59,7 +59,7 @@ export default function AgentQueue() {
         processed: statsRes.data?.processed || 0,
         avg_wait_time: statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
-      setServiceStatus(serviceRes.data?.status || 'closed');
+      setServiceStatus(serviceRes.data?.status || 'open');
 
       // Find currently called ticket
       const calledTicket = (queueRes.data?.tickets || []).find((t: Ticket) => t.status === 'called');
@@ -223,19 +223,14 @@ export default function AgentQueue() {
         <View style={[styles.positionBadge, { backgroundColor: colors.primary }]}>
           <Text style={styles.positionNumber}>{index + 1}</Text>
         </View>
-        
-        {/* Center: Ticket info */}
-        <View style={styles.ticketContent}>
-          <View style={styles.ticketHeader}>
-            <Text style={[styles.ticketNumberText, { color: colors.text }]}>{item.number}</Text>
-            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor() }]}>
-              <Ionicons 
-                name={item.priority === 'vip' ? 'star' : item.priority === 'high' ? 'arrow-up' : 'remove'} 
-                size={10} 
-                color="white" 
-              />
-              <Text style={styles.priorityText}>{item.priority?.toUpperCase() || 'NORMAL'}</Text>
-            </View>
+        <View style={styles.ticketDetails}>
+          <Text style={[styles.ticketPosition, { color: colors.textPrimary }]}>Position {item.position}</Text>
+          <View style={[styles.priorityBadge, 
+            item.priority === 'high' && { backgroundColor: '#FF9500' },
+            item.priority === 'vip' && { backgroundColor: '#FFD60A' },
+            item.priority === 'normal' && { backgroundColor: colors.textSecondary }
+          ]}>
+            <Text style={styles.priorityText}>{item.priority?.toUpperCase()}</Text>
           </View>
           <View style={styles.ticketMeta}>
             <View style={styles.metaItem}>
@@ -274,9 +269,9 @@ export default function AgentQueue() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>File d'attente</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>File d'attente</Text>
         <TouchableOpacity 
           style={[styles.statusToggle, { backgroundColor: serviceStatus === 'open' ? '#22C55E' : '#EF4444' }]}
           onPress={toggleService}
@@ -289,29 +284,18 @@ export default function AgentQueue() {
 
       {/* Stats Cards */}
       {stats && (
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
-            <View style={[styles.statIcon, { backgroundColor: colors.primary }]}>
-              <Ionicons name="people" size={20} color="white" />
-            </View>
+        <View style={[styles.statsRow, { backgroundColor: colors.surface , borderColor: colors.border}]}>
+          <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.primary }]}>{stats.waiting}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
           </View>
-          
-          <View style={[styles.statCard, { backgroundColor: '#22C55E15' }]}>
-            <View style={[styles.statIcon, { backgroundColor: '#22C55E' }]}>
-              <Ionicons name="checkmark-done" size={20} color="white" />
-            </View>
-            <Text style={[styles.statValue, { color: '#22C55E' }]}>{stats.processed}</Text>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.processed}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Traités</Text>
           </View>
-          
-          <View style={[styles.statCard, { backgroundColor: '#F59E0B15' }]}>
-            <View style={[styles.statIcon, { backgroundColor: '#F59E0B' }]}>
-              <Ionicons name="timer" size={20} color="white" />
-            </View>
-            <Text style={[styles.statValue, { color: '#F59E0B' }]}>{stats.avg_wait_time}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Min. moy.</Text>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.avg_wait_time} min</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Attente moy.</Text>
           </View>
         </View>
       )}
@@ -373,10 +357,7 @@ export default function AgentQueue() {
 
       {/* Queue List */}
       <View style={styles.queueSection}>
-        <View style={styles.queueHeader}>
-          <Text style={[styles.queueTitle, { color: colors.text }]}>Prochains dans la file</Text>
-          <Text style={[styles.queueCount, { color: colors.textSecondary }]}>{tickets.length} tickets</Text>
-        </View>
+        <Text style={[styles.queueTitle, { color: colors.textPrimary }]}>Prochains dans la file</Text>
         <FlatList
           data={tickets.slice(0, 10)}
           renderItem={renderTicket}
@@ -436,7 +417,9 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12,
+    margin: 16,
+    borderWidth: 1,
+    borderRadius: 16,
   },
   statCard: {
     flex: 1,
