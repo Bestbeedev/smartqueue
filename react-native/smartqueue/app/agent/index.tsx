@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
@@ -7,6 +7,8 @@ import { useAuth } from '../../src/store/authStore';
 import { useCustomAlert } from '../../src/hooks/useCustomAlert';
 import axiosClient from '../../src/api/axiosClient';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 type Service = {
   id: number;
@@ -32,6 +34,14 @@ export default function AgentHome() {
   const [selectedCounter, setSelectedCounter] = useState<Counter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Bonjour';
+    if (hour >= 12 && hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  };
 
   const loadData = async () => {
     try {
@@ -445,7 +455,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  statsCard: {
+  statsContainer: {
     flexDirection: 'row',
     padding: 20,
     borderRadius: 16,
@@ -453,16 +463,26 @@ const styles = StyleSheet.create({
     paddingBottom:20,
  
   },
-  statItem: {
+  statCard: {
     flex: 1,
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
   },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statValue: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
   },
   statDivider: {

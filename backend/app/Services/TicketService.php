@@ -22,7 +22,7 @@ class TicketService
 {
     private const ACTIVE_STATUSES = ['waiting','called','absent'];
 
-    private function recomputePositions(Service $service): void
+    public function recomputePositions(Service $service): void
     {
         $waiting = Ticket::query()
             ->where('service_id', $service->id)
