@@ -86,11 +86,11 @@ export default function AbsentTickets() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Ionicons name="person-remove" size={24} color="#FF3B30" />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Tickets absents</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Tickets absents</Text>
         </View>
         <View style={[styles.countBadge, { backgroundColor: '#FF3B30' }]}>
           <Text style={styles.countText}>{tickets.length}</Text>
@@ -116,7 +116,7 @@ export default function AbsentTickets() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun absent</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun absent</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Tous les usagers ont répondu présents
             </Text>

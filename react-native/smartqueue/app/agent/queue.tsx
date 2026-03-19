@@ -151,7 +151,7 @@ export default function AgentQueue() {
           <Text style={[styles.ticketNumberText, { color: colors.primary }]}>{item.number}</Text>
         </View>
         <View style={styles.ticketDetails}>
-          <Text style={[styles.ticketPosition, { color: colors.text }]}>Position {item.position}</Text>
+          <Text style={[styles.ticketPosition, { color: colors.textPrimary }]}>Position {item.position}</Text>
           <View style={[styles.priorityBadge, 
             item.priority === 'high' && { backgroundColor: '#FF9500' },
             item.priority === 'vip' && { backgroundColor: '#FFD60A' },
@@ -169,9 +169,9 @@ export default function AgentQueue() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>File d'attente</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>File d'attente</Text>
         <TouchableOpacity 
           style={[styles.statusToggle, { backgroundColor: serviceStatus === 'open' ? '#4CAF50' : '#FF5722' }]}
           onPress={toggleService}
@@ -189,11 +189,11 @@ export default function AgentQueue() {
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.text }]}>{stats.processed}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.processed}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Traités</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.text }]}>{stats.avg_wait_time} min</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.avg_wait_time} min</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Attente moy.</Text>
           </View>
         </View>
@@ -247,7 +247,7 @@ export default function AgentQueue() {
 
       {/* Queue List */}
       <View style={styles.queueSection}>
-        <Text style={[styles.queueTitle, { color: colors.text }]}>Prochains dans la file</Text>
+        <Text style={[styles.queueTitle, { color: colors.textPrimary }]}>Prochains dans la file</Text>
         <FlatList
           data={tickets.slice(0, 10)}
           renderItem={renderTicket}

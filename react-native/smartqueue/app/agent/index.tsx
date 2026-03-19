@@ -90,17 +90,8 @@ export default function AgentHome() {
     loadData();
   };
 
-  const handleLogout = async () => {
-    showWarning(
-      'Déconnexion',
-      'Voulez-vous vous déconnecter ?',
-      'Déconnecter',
-      async () => {
-        await logout();
-        router.replace('/login');
-      },
-      'Annuler'
-    );
+  const navigateToProfile = () => {
+    router.push('/agent/profile');
   };
 
   const navigateToQueue = () => {
@@ -141,22 +132,22 @@ export default function AgentHome() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>Bonjour,</Text>
-          <Text style={[styles.userName, { color: colors.text }]}>{user?.name}</Text>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>{user?.name}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={[styles.roleBadge, { backgroundColor: colors.primary + '20' }]}>
             <Ionicons name="person" size={16} color={colors.primary} />
             <Text style={[styles.roleText, { color: colors.primary }]}>{user?.role === 'admin' ? 'Admin' : 'Agent'}</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color={colors.textSecondary} />
+          <TouchableOpacity onPress={navigateToProfile} style={styles.profileButton}>
+            <Ionicons name="person-circle-outline" size={28} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Service Selection */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Service assigné</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Service assigné</Text>
         {services.length === 0 ? (
           <View style={[styles.emptyServiceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="alert-circle-outline" size={32} color={colors.textSecondary} />
@@ -186,7 +177,7 @@ export default function AgentHome() {
                 <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '20' }]}>
                   <Ionicons name="layers" size={24} color={colors.primary} />
                 </View>
-                <Text style={[styles.serviceName, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.serviceName, { color: colors.textPrimary }]}>{item.name}</Text>
                 <View style={[styles.statusBadge, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]}>
                   <Text style={styles.statusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
                 </View>
@@ -203,7 +194,7 @@ export default function AgentHome() {
       {/* Counter Selection */}
       {counters.length > 0 && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Guichet</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Guichet</Text>
           <FlatList
             data={counters}
             horizontal
@@ -219,7 +210,7 @@ export default function AgentHome() {
                 onPress={() => setSelectedCounter(item)}
               >
                 <Ionicons name="desktop-outline" size={20} color={colors.primary} />
-                <Text style={[styles.counterName, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.counterName, { color: colors.textPrimary }]}>{item.name}</Text>
                 <View style={[styles.counterStatus, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#9E9E9E' }]}>
                   <Text style={styles.counterStatusText}>{item.status === 'open' ? 'Ouvert' : 'Fermé'}</Text>
                 </View>
@@ -232,7 +223,7 @@ export default function AgentHome() {
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions rapides</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Actions rapides</Text>
         
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: colors.primary }]}
@@ -251,7 +242,7 @@ export default function AgentHome() {
             activeOpacity={0.7}
           >
             <Ionicons name="megaphone-outline" size={24} color="#FF9500" />
-            <Text style={[styles.smallActionText, { color: colors.text }]}>Appelés</Text>
+            <Text style={[styles.smallActionText, { color: colors.textPrimary }]}>Appelés</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -260,7 +251,7 @@ export default function AgentHome() {
             activeOpacity={0.7}
           >
             <Ionicons name="person-remove-outline" size={24} color="#FF3B30" />
-            <Text style={[styles.smallActionText, { color: colors.text }]}>Absents</Text>
+            <Text style={[styles.smallActionText, { color: colors.textPrimary }]}>Absents</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -269,7 +260,7 @@ export default function AgentHome() {
             activeOpacity={0.7}
           >
             <Ionicons name="star-outline" size={24} color="#FFD60A" />
-            <Text style={[styles.smallActionText, { color: colors.text }]}>Priorité</Text>
+            <Text style={[styles.smallActionText, { color: colors.textPrimary }]}>Priorité</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -277,15 +268,15 @@ export default function AgentHome() {
       {/* Stats */}
       {selectedService && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Statistiques</Text>
-          <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Statistiques</Text>
+          <View style={[styles.statsCard, { backgroundColor: colors.surface , borderColor: colors.border}]}>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{selectedService.people_waiting || 0}</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.people_waiting || 0}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{selectedService.avg_service_time_minutes || 5} min</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.avg_service_time_minutes || 5} min</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps moyen</Text>
             </View>
           </View>
@@ -454,6 +445,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     borderRadius: 16,
+    borderWidth:1,
+    paddingBottom:20,
+ 
   },
   statItem: {
     flex: 1,
@@ -470,7 +464,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
   },
-  logoutButton: {
-    padding: 8,
+  profileButton: {
+    padding: 4,
   },
 });
