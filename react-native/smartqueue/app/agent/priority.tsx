@@ -81,7 +81,7 @@ export default function PriorityTickets() {
           <Ionicons name={getPriorityIcon(item.priority) as any} size={24} color={getPriorityColor(item.priority)} />
         </View>
         <View style={styles.ticketInfo}>
-          <Text style={[styles.ticketNumber, { color: colors.text }]}>{item.number}</Text>
+          <Text style={[styles.ticketNumber, { color: colors.textPrimary }]}>{item.number}</Text>
           <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
             <Text style={styles.priorityText}>{item.priority?.toUpperCase()}</Text>
           </View>
@@ -108,11 +108,11 @@ export default function PriorityTickets() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Ionicons name="star" size={24} color="#FFD60A" />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Tickets priorité</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Tickets priorité</Text>
         </View>
         <View style={[styles.countBadge, { backgroundColor: '#FFD60A' }]}>
           <Text style={[styles.countText, { color: '#000' }]}>{tickets.length}</Text>
@@ -123,11 +123,11 @@ export default function PriorityTickets() {
       <View style={[styles.legendRow, { backgroundColor: colors.surface }]}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#FFD60A' }]} />
-          <Text style={[styles.legendText, { color: colors.text }]}>VIP</Text>
+          <Text style={[styles.legendText, { color: colors.textPrimary }]}>VIP</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#FF9500' }]} />
-          <Text style={[styles.legendText, { color: colors.text }]}>High</Text>
+          <Text style={[styles.legendText, { color: colors.textPrimary }]}>High</Text>
         </View>
       </View>
 
@@ -142,7 +142,7 @@ export default function PriorityTickets() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="star-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun ticket prioritaire</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket prioritaire</Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Les tickets VIP et haute priorité apparaîtront ici
             </Text>
