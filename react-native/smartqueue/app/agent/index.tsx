@@ -127,7 +127,11 @@ export default function AgentHome() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
@@ -284,7 +288,7 @@ export default function AgentHome() {
       )}
 
       {AlertComponent}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -463,6 +467,9 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   profileButton: {
     padding: 4,

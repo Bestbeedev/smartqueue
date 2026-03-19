@@ -34,7 +34,7 @@ export default function AgentQueue() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [serviceStatus, setServiceStatus] = useState<string>('closed');
+  const [serviceStatus, setServiceStatus] = useState<string>('open');
 
   const fetchData = async () => {
     if (!serviceId) return;
@@ -55,7 +55,7 @@ export default function AgentQueue() {
         processed: statsRes.data?.processed || 0,
         avg_wait_time: statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
-      setServiceStatus(serviceRes.data?.status || 'closed');
+      setServiceStatus(serviceRes.data?.status || 'open');
 
       // Find currently called ticket
       const calledTicket = (queueRes.data?.tickets || []).find((t: Ticket) => t.status === 'called');
@@ -183,7 +183,7 @@ export default function AgentQueue() {
 
       {/* Stats */}
       {stats && (
-        <View style={[styles.statsRow, { backgroundColor: colors.surface }]}>
+        <View style={[styles.statsRow, { backgroundColor: colors.surface , borderColor: colors.border}]}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.primary }]}>{stats.waiting}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
@@ -302,6 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     margin: 16,
+    borderWidth: 1,
     borderRadius: 16,
   },
   statItem: {
