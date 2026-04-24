@@ -566,6 +566,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+      marginRight:10,
   },
   positionNumber: {
     color: 'white',
@@ -589,7 +590,7 @@ const styles = StyleSheet.create({
   priorityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 15,
     paddingVertical: 3,
     borderRadius: 10,
     gap: 3,
@@ -613,7 +614,7 @@ const styles = StyleSheet.create({
   },
   waitTimeBadge: {
     backgroundColor: '#F59E0B20',
-    paddingHorizontal: 8,
+    paddingHorizontal: 15,
     paddingVertical: 3,
     borderRadius: 10,
   },
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
   },
   positionIndicator: {
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 15,
   },
   positionLabelText: {
     fontSize: 10,
@@ -637,6 +638,7 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
+
   },
   emptyTitle: {
     fontSize: 18,
