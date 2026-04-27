@@ -86,9 +86,10 @@ export const TicketsScreen: React.FC = () => {
       async () => {
         try {
           await cancelTicket(activeTicket.id);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error canceling ticket:', error);
-          showError('Erreur', 'Impossible d\'annuler le ticket. Veuillez réessayer.');
+          const errorMsg = error?.response?.data?.message || error?.message || 'Impossible d\'annuler le ticket. Veuillez réessayer.';
+          showError('Erreur', errorMsg);
         }
       },
       'Non'
@@ -158,7 +159,7 @@ export const TicketsScreen: React.FC = () => {
     }
 
     return (
-      <Animated.View style={[styles.activeTicketCard, { backgroundColor: colors.surface }]}>
+      <Animated.View style={[styles.activeTicketCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
         {/* Status Banner */}
         <LinearGradient
           colors={getStatusColor() as [string, string]}
@@ -247,7 +248,7 @@ export const TicketsScreen: React.FC = () => {
     const actions = [
       {
         id: 'scan',
-        title: 'Scanner QR',
+        title: 'Scanner',
         icon: 'qr-code-outline',
         color: colors.primary,
         onPress: handleScanQR,
@@ -275,7 +276,7 @@ export const TicketsScreen: React.FC = () => {
           {actions.map((action) => (
             <TouchableOpacity
               key={action.id}
-              style={[styles.quickActionCard, { backgroundColor: colors.surface }]}
+              style={[styles.quickActionCard, { backgroundColor: colors.surface , borderColor: colors.border, borderWidth: 1}]}
               onPress={action.onPress}
               activeOpacity={0.8}
             >
@@ -298,15 +299,15 @@ export const TicketsScreen: React.FC = () => {
       <View style={styles.statsSection}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Statistiques</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
+          <View style={[styles.statCard, { backgroundColor: colors.primary + '15', borderColor: colors.border, borderWidth: 1 }]}>
             <Text style={[styles.statValue, { color: colors.primary }]}>{position}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Position</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.warning + '15' }]}>
+          <View style={[styles.statCard, { backgroundColor: colors.warning + '15', borderColor: colors.border, borderWidth: 1 }]}>
             <Text style={[styles.statValue, { color: colors.warning }]}>{etaMinutes}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Minutes</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
+          <View style={[styles.statCard, { backgroundColor: colors.success + '15', borderColor: colors.border, borderWidth: 1 }]}>
             <Text style={[styles.statValue, { color: colors.success }]}>{Math.max(0, position - 1)}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avant vous</Text>
           </View>
@@ -435,7 +436,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 8,
   },
   noTicketContent: {
     alignItems: 'center',
@@ -489,7 +489,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 8,
     overflow: 'hidden',
   },
   statusBanner: {
@@ -555,7 +554,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 6,
   },
   primaryActionGradient: {
     flexDirection: 'row',
@@ -567,6 +565,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   dangerAction: {
     borderRadius: 16,
@@ -628,7 +627,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+
   },
   quickActionIcon: {
     width: 56,

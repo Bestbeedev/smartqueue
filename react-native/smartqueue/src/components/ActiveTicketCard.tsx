@@ -19,6 +19,7 @@ import {
 } from "../utils/distance";
 import "../../global.css";
 import axiosClient from "../api/axiosClient";
+import { ticketsApi } from "../api/ticketsApi";
 
 interface ActiveTicketCardProps {
   onPress?: () => void;
@@ -148,12 +149,13 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       async () => {
         try {
           if (activeTicket?.id) {
-            await axiosClient.delete(`/tickets/${activeTicket.id}`);
+            await ticketsApi.cancelTicket(activeTicket.id);
           }
           clearActiveTicket();
           onCancel?.();
         } catch (error: any) {
-          showError("Erreur", "Impossible d'annuler le ticket");
+          const errorMsg = error?.response?.data?.message || error?.message || "Impossible d'annuler le ticket";
+          showError("Erreur", errorMsg);
         }
       },
       "Non"
@@ -397,7 +399,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Ionicons name="location-outline" size={24} color={colors.textTertiary} />
             <Text style={[styles.noCoordinatesText, { color: colors.textSecondary }]}>Coordonnées non disponibles</Text>
             <Text style={[styles.noCoordinatesSubtext, { color: colors.textTertiary }]}>
-              L'établissement n'a pas renseigné sa position GPS
+              L&apos;établissement n&lsquo;a pas renseigné sa position GPS
             </Text>
           </View>
         )}
@@ -463,7 +465,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 5,
   },
   header: {
     flexDirection: "row",
@@ -602,12 +603,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
   },
-  // distanceValue: {
-  //   fontSize: 14,
-  //   fontWeight: '600',
-  //   color: '#374151',
-  //   marginLeft: 4,
-  // },
+
   leaveAlert: {
     flexDirection: "row",
     alignItems: "center",
