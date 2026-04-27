@@ -611,12 +611,42 @@ class TicketService
 
     private function expireOldTicketsForService(Service $service): void
     {
-        $cutoff = Carbon::now()->subHours(24);
-
+        $now = Carbon::now();
+        
+        // Get service hours (default 08:00-18:00 if not set)
+        $openingTime = $service->opening_time ?? '08:00:00';
+        $closingTime = $service->closing_time ?? '18:00:00';
+        
+        // Parse closing time for today
+        $todayClosing = Carbon::createFromFormat(
+            'Y-m-d H:i:s',
+            $now->format('Y-m-d') . ' ' . $closingTime
+        );
+        
+        // If current time is past today's closing, expire all active tickets from today
+        if ($now->isAfter($todayClosing)) {
+            $updated = Ticket::query()
+                ->where('service_id', $service->id)
+                ->whereIn('status', self::ACTIVE_STATUSES)
+                ->whereDate('created_at', $now->format('Y-m-d'))
+                ->update([
+                    'status' => 'expired',
+                    'position' => null,
+                    'updated_at' => Carbon::now(),
+                ]);
+            
+            if ($updated > 0) {
+                $this->recomputePositions($service);
+            }
+        }
+        
+        // Also expire tickets older than 24 hours (regardless of closing time)
+        $cutoff24h = $now->copy()->subHours(24);
+        
         $updated = Ticket::query()
             ->where('service_id', $service->id)
             ->whereIn('status', self::ACTIVE_STATUSES)
-            ->where('created_at', '<', $cutoff)
+            ->where('created_at', '<', $cutoff24h)
             ->update([
                 'status' => 'expired',
                 'position' => null,

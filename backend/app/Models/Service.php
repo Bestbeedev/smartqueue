@@ -20,6 +20,8 @@ class Service extends Model
         'qr_code_token',
         'qr_code_url',
         'qr_generated_at',
+        'opening_time',
+        'closing_time',
     ];
 
     // Casting automatique
