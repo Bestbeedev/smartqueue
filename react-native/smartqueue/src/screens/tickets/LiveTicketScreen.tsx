@@ -15,6 +15,8 @@ import * as Haptics from 'expo-haptics';
 import { useTicket } from '../../store/ticketStore';
 import { useTicketSocket } from '../../hooks/useTicketSocket';
 import { useDistanceTracking } from '../../hooks/useDistanceTracking';
+import { useSmartNotifications } from '../../hooks/useSmartNotifications';
+import { useUserStatsStore } from '../../store/userStatsStore';
 import { formatDistance, formatTravelTime } from '../../utils/distance';
 import { CalledTicketOverlay } from '../../components/CalledTicketOverlay';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
@@ -77,9 +79,17 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     } : null,
     enabled: hasValidCoordinates && hasActiveTicket,
   });
-  
-  // Countdown state - 10 minutes (600 seconds)
-  const [countdownSeconds, setCountdownSeconds] = useState(600);
+
+  // Smart notifications for departure alerts
+  const { lastAlert, departureInfo, journeyProgress } = useSmartNotifications({
+    enabled: hasActiveTicket,
+  });
+
+  // User stats for gamification
+  const { recordTicketCompleted, recordPresenceConfirmed, recordArrival } = useUserStatsStore();
+
+  // Countdown state
+  const [countdownSeconds, setCountdownSeconds] = useState(180);
   
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -251,7 +261,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
         <Animated.View 
           style={[
             styles.ticketCard,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, },
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
@@ -312,6 +322,82 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
               </View>
             </View>
 
+            {/* Smart Departure Alert */}
+            {departureInfo && (
+              <View
+                style={[
+                  styles.departureAlertCard,
+                  {
+                    backgroundColor: departureInfo.shouldLeaveNow
+                      ? colors.danger + '20'
+                      : departureInfo.shouldLeaveSoon
+                      ? colors.warning + '20'
+                      : colors.success + '20',
+                    borderColor: departureInfo.shouldLeaveNow
+                      ? colors.danger
+                      : departureInfo.shouldLeaveSoon
+                      ? colors.warning
+                      : colors.success,
+                  },
+                ]}
+              >
+                <View style={styles.departureAlertHeader}>
+                  <Ionicons
+                    name={departureInfo.shouldLeaveNow ? 'warning' : departureInfo.shouldLeaveSoon ? 'time' : 'checkmark-circle'}
+                    size={20}
+                    color={departureInfo.shouldLeaveNow ? colors.danger : departureInfo.shouldLeaveSoon ? colors.warning : colors.success}
+                  />
+                  <Text
+                    style={[
+                      styles.departureAlertTitle,
+                      {
+                        color: departureInfo.shouldLeaveNow
+                          ? colors.danger
+                          : departureInfo.shouldLeaveSoon
+                          ? colors.warning
+                          : colors.success,
+                      },
+                    ]}
+                  >
+                    {departureInfo.shouldLeaveNow
+                      ? '🚨 Partez maintenant !'
+                      : departureInfo.shouldLeaveSoon
+                      ? `⏰ Partez dans ${Math.ceil(departureInfo.leaveIn)} min`
+                      : '✅ Timing optimal'}
+                  </Text>
+                </View>
+                <Text style={[styles.departureAlertText, { color: colors.textSecondary }]}>
+                  {departureInfo.shouldLeaveNow
+                    ? `Risque de retard! Trajet: ${formatTravelTime(departureInfo.travelTime)}, attente: ${etaMinutes} min`
+                    : departureInfo.shouldLeaveSoon
+                    ? `Temps de trajet: ${formatTravelTime(departureInfo.travelTime)}, vous avez ${Math.ceil(departureInfo.leaveIn)} min de marge`
+                    : `Vous pouvez partir dans ${Math.floor(departureInfo.leaveIn)} min. Trajet: ${formatTravelTime(departureInfo.travelTime)}`}
+                </Text>
+                {journeyProgress && (
+                  <View style={styles.journeyProgressContainer}>
+                    <View style={[styles.journeyProgressBar, { backgroundColor: colors.surfaceSecondary }]}>
+                      <View
+                        style={[
+                          styles.journeyProgressFill,
+                          {
+                            width: `${Math.min(100, journeyProgress.timingScore)}%`,
+                            backgroundColor: journeyProgress.isLate
+                              ? colors.danger
+                              : journeyProgress.isOptimal
+                              ? colors.success
+                              : colors.warning,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.journeyProgressText, { color: colors.textTertiary }]}>
+                      {journeyProgress.isLate ? 'En retard' : journeyProgress.isOptimal ? 'Timing parfait' : 'En avance'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Distance Info Card */}
             {hasValidCoordinates && distanceInfo && hasLocationPermission ? (
               <View style={[styles.distanceCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
@@ -353,7 +439,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
                 <Ionicons name="location-outline" size={24} color={colors.textTertiary} />
                 <Text style={[styles.noCoordinatesText, { color: colors.textSecondary }]}>Coordonnées non disponibles</Text>
                 <Text style={[styles.noCoordinatesSubtext, { color: colors.textTertiary }]}>
-                  L'établissement n'a pas renseigné sa position GPS
+                  L&apos;établissement n&apos;a pas renseigné sa position GPS
                 </Text>
               </View>
             )}
@@ -370,32 +456,40 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
             },
           ]}
         >
-          <TouchableOpacity style={[styles.primaryButton, { shadowColor: colors.primary }]}>
+          <TouchableOpacity 
+            style={[styles.primaryButton, { shadowColor: colors.primary }]}
+            onPress={() => router.push('/navigation')}
+            activeOpacity={0.8}
+          >
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
               style={styles.primaryButtonGradient}
             >
               <Ionicons name="navigate-circle-outline" size={22} color="#FFFFFF" />
-              <Text style={[styles.primaryButtonText, { color: '#FFFFFF' }]}>Ouvrir Navigation</Text>
+              <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Ouvrir Navigation</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <View style={styles.secondaryButtons}>
-            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]}>
-              <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                <Ionicons name="wallet-outline" size={20} color={colors.textPrimary} />
+            <TouchableOpacity 
+              style={[styles.secondaryButton, { backgroundColor: colors.surface , borderColor: colors.border, borderWidth: 1}]}
+              onPress={() => router.push('/dashboard')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.success + '20' }]}>
+                <Ionicons name="trophy-outline" size={20} color={colors.success} />
               </View>
-              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>Wallet</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>Stats</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.warning + '15' }]}>
                 <Ionicons name="share-outline" size={20} color={colors.warning} />
               </View>
               <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>Partager</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface }]} onPress={handleCancelTicket}>
+            <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]} onPress={handleCancelTicket}>
               <View style={[styles.secondaryButtonIcon, { backgroundColor: colors.danger + '15' }]}>
                 <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
               </View>
@@ -414,9 +508,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
         hasRecalled={hasRecalled}
         onEnRoute={handleEnRoute}
         onRecall={handleRecall}
-        onDefer={handleDefer}
-        onDismiss={handleDismiss}
-      />
+        onDismiss={handleDismiss} onDefer={function (): void {
+          throw new Error("Function not implemented.");
+        } }      />
     </View>
   );
 };
@@ -485,7 +579,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 8,
     overflow: 'hidden',
   },
   statusBanner: {
@@ -565,6 +658,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  departureAlertCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  departureAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  departureAlertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  departureAlertText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  journeyProgressContainer: {
+    marginTop: 12,
+  },
+  journeyProgressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  journeyProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  journeyProgressText: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   distanceCard: {
     borderRadius: 16,
     padding: 16,
@@ -629,7 +759,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 1,
   },
   primaryButtonGradient: {
     flexDirection: 'row',
@@ -637,10 +767,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     gap: 8,
+    elevation:0,
   },
-  primaryButtonText: {
+  actionButtonText: {
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "600",
   },
   secondaryButtons: {
     flexDirection: 'row',
@@ -656,7 +788,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+    borderWidth:1,
   },
   secondaryButtonIcon: {
     width: 48,

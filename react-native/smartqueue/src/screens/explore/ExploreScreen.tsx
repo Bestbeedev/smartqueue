@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   ScrollView 
 } from "react-native";
-import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
@@ -20,6 +20,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import "../../../global.css";
 import { useTicket } from "../../store/ticketStore";
+import { useDistanceTracking } from "../../hooks/useDistanceTracking";
+import { Coordinates } from "../../utils/distance";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
@@ -57,7 +59,26 @@ export const ExploreScreen: React.FC = () => {
   const [selectedEstablishment, setSelectedEstablishment] =
     useState<Establishment | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
   const mapRef = useRef<MapView>(null);
+
+  // Get establishment coordinates from active ticket for navigation
+  const establishmentCoords = React.useMemo(() => {
+    if (!activeTicket?.establishment) return null;
+    const est = activeTicket.establishment as any;
+    if (est?.lat == null || est?.lng == null) return null;
+    return {
+      latitude: Number(est.lat),
+      longitude: Number(est.lng),
+    };
+  }, [activeTicket]);
+
+  // Distance tracking for active ticket navigation
+  const { distanceInfo } = useDistanceTracking({
+    targetCoordinates: establishmentCoords,
+    enabled: hasActiveTicket && !!establishmentCoords,
+    autoRefreshInterval: 30000,
+  });
 
   // Recenter on user
   const recenter = useCallback(() => {
@@ -74,7 +95,7 @@ export const ExploreScreen: React.FC = () => {
     }
   }, [location]);
 
-  //Effet recuperer region par default
+  //Effet recuperer region par defaut
   useEffect(() => {
     if (location) {
       setMapRegion({
@@ -85,6 +106,37 @@ export const ExploreScreen: React.FC = () => {
       });
     }
   }, [location]);
+
+  // Generate route coordinates when user location and establishment coords available
+  useEffect(() => {
+    if (!location || !establishmentCoords || !hasActiveTicket) {
+      setRouteCoordinates([]);
+      return;
+    }
+
+    const start: Coordinates = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+    };
+    const end: Coordinates = {
+      latitude: establishmentCoords.latitude,
+      longitude: establishmentCoords.longitude,
+    };
+
+    // Create intermediate points for route line
+    const numPoints = 20;
+    const points: Coordinates[] = [start];
+
+    for (let i = 1; i < numPoints; i++) {
+      const t = i / numPoints;
+      const lat = start.latitude + (end.latitude - start.latitude) * t;
+      const lng = start.longitude + (end.longitude - start.longitude) * t;
+      points.push({ latitude: lat, longitude: lng });
+    }
+
+    points.push(end);
+    setRouteCoordinates(points);
+  }, [location, establishmentCoords, hasActiveTicket]);
 
 //Ajouter le reverse geocoding
 useEffect(() => {
@@ -354,7 +406,7 @@ useEffect(() => {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Search Header - iOS Style */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 48, paddingBottom: 16, backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 16, backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <TouchableOpacity 
             onPress={()=>getCurrentPosition()} 
@@ -449,7 +501,7 @@ useEffect(() => {
         </ScrollView>
       </View>
 
-      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary, marginTop: 8 }}>
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary, marginTop: 1 }}>
         {mapRegion && (
           <MapView
             provider={PROVIDER_DEFAULT}
@@ -461,6 +513,46 @@ useEffect(() => {
             followsUserLocation={!!location}
           >
             {filteredEstablishments.map(renderMarker)}
+
+            {/* Active Ticket Route Line */}
+            {hasActiveTicket && routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={colors.primary}
+                strokeWidth={4}
+                lineCap="round"
+                lineJoin="round"
+              />
+            )}
+
+            {/* Active Ticket Destination Marker */}
+            {hasActiveTicket && establishmentCoords && (
+              <Marker
+                coordinate={establishmentCoords}
+                title={activeTicket?.establishment?.name || "Destination"}
+                description={activeTicket?.service?.name || ""}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: colors.danger,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 3,
+                    borderColor: '#FFFFFF',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                    elevation: 4,
+                  }}
+                >
+                  <Ionicons name="business" size={20} color="#FFFFFF" />
+                </View>
+              </Marker>
+            )}
 
             {!location ||
             isNaN(Number(location.latitude)) ||
@@ -478,6 +570,48 @@ useEffect(() => {
 
         {/* Floating actions on map */}
         <View style={{ position: "absolute", right: 20, top: 20 }}>
+          {/* Navigation Button - Shows when active ticket with coordinates */}
+          {hasActiveTicket && establishmentCoords && (
+            <TouchableOpacity
+              onPress={() => router.push('/navigation')}
+              style={{
+                width: 56,
+                height: 56,
+                backgroundColor: colors.primary,
+                borderRadius: 28,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+                elevation: 8,
+                marginBottom: 12,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate" size={28} color="#FFFFFF" />
+              {distanceInfo && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    backgroundColor: colors.surface,
+                    borderRadius: 8,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+                    {Math.round(distanceInfo.kilometers * 10) / 10}km
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             onPress={recenter}
             style={{ width: 48, height: 48, backgroundColor: colors.surface, borderRadius: 999, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, marginBottom: 12 }}
@@ -501,7 +635,7 @@ useEffect(() => {
           paddingTop: 16,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          marginTop: -100,
+          marginTop: -150,
           elevation: 15,
           shadowColor: "#000",
           borderWidth: 1,
