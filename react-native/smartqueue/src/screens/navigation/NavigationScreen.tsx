@@ -42,6 +42,9 @@ export const NavigationScreen: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<TransportMode>(
     (preferredTransportMode as TransportMode) || "car"
   );
+  const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const [isFollowingUser, setIsFollowingUser] = useState(true);
 
   // Get establishment coordinates from active ticket
   const establishmentCoords = React.useMemo(() => {
@@ -69,7 +72,7 @@ export const NavigationScreen: React.FC = () => {
         }
       : null,
     enabled: hasActiveTicket && !!establishmentCoords,
-    autoRefreshInterval: 10000, // 10 seconds for more real-time feel
+    autoRefreshInterval: 500, // 5 seconds for more real-time feel
   });
 
   // Generate route coordinates (straight line + intermediate points for curve effect)
@@ -105,9 +108,24 @@ export const NavigationScreen: React.FC = () => {
     generateRoute();
   }, [userLocation, establishmentCoords]);
 
-  // Fit map to show both user and destination
+  // Follow user position in real-time when enabled
   useEffect(() => {
-    if (!mapRef.current || !userLocation || !establishmentCoords) return;
+    if (!mapRef.current || !userLocation || !isFollowingUser) return;
+
+    mapRef.current.animateToRegion(
+      {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      },
+      500
+    );
+  }, [userLocation, isFollowingUser]);
+
+  // Initial fit - only once when map loads
+  useEffect(() => {
+    if (!mapRef.current || !userLocation || !establishmentCoords || hasInitiallyFitted) return;
 
     const padding = 60;
     mapRef.current.fitToCoordinates(
@@ -131,7 +149,8 @@ export const NavigationScreen: React.FC = () => {
         animated: true,
       }
     );
-  }, [userLocation, establishmentCoords, routeCoordinates]);
+    setHasInitiallyFitted(true);
+  }, [userLocation, establishmentCoords, hasInitiallyFitted]);
 
   // Handle transport mode change
   const handleModeChange = useCallback(
@@ -143,19 +162,37 @@ export const NavigationScreen: React.FC = () => {
     [setPreferredTransportMode]
   );
 
-  // Recenter map on user
+  // Toggle follow mode and recenter
   const handleRecenter = useCallback(() => {
-    if (!mapRef.current || !userLocation) return;
-    mapRef.current.animateToRegion(
+    if (!mapRef.current || !userLocation || !establishmentCoords) return;
+    
+    const newFollowState = !isFollowingUser;
+    setIsFollowingUser(newFollowState);
+    
+    // Always recenter to show route
+    const padding = 60;
+    mapRef.current.fitToCoordinates(
+      [
+        {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        },
+        {
+          latitude: establishmentCoords.latitude,
+          longitude: establishmentCoords.longitude,
+        },
+      ],
       {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      1000
+        edgePadding: {
+          top: padding + 100,
+          right: padding,
+          bottom: padding + 200,
+          left: padding,
+        },
+        animated: true,
+      }
     );
-  }, [userLocation]);
+  }, [userLocation, establishmentCoords, isFollowingUser]);
 
   // Show error if no active ticket or coordinates
   useEffect(() => {
@@ -243,7 +280,7 @@ export const NavigationScreen: React.FC = () => {
             }}
             showsUserLocation={true}
             showsMyLocationButton={false}
-            followsUserLocation={true}
+            followsUserLocation={false}
           >
             {/* User Location Marker */}
             <Marker
@@ -306,16 +343,24 @@ export const NavigationScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Recenter Button */}
+        {/* Recenter / Follow Button */}
         <TouchableOpacity
           onPress={handleRecenter}
           style={[
             styles.recenterButton,
-            { backgroundColor: colors.surface },
+            {
+              backgroundColor: isFollowingUser ? colors.primary : colors.surface,
+              borderWidth: isFollowingUser ? 0 : 1,
+              borderColor: colors.border,
+            },
           ]}
           activeOpacity={0.8}
         >
-          <Ionicons name="locate" size={24} color={colors.primary} />
+          <Ionicons
+            name={isFollowingUser ? "navigate-circle" : "locate"}
+            size={24}
+            color={isFollowingUser ? "#FFFFFF" : colors.primary}
+          />
         </TouchableOpacity>
       </View>
 
