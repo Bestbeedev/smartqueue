@@ -33,6 +33,8 @@ class EstablishmentResource extends JsonResource
             // Affluence (si join/aggregate effectué côté controller)
             'crowd_level' => isset($this->crowd_level) ? (string) $this->crowd_level : null,
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
+            // Nombre de services disponibles
+            'services_count' => isset($this->services_count) ? (int) $this->services_count : null,
         ];
     }
 }

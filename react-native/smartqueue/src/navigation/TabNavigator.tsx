@@ -66,6 +66,7 @@ export const TabNavigator: React.FC = () => {
             />
           ),
           tabBarBadge: undefined, // Pas de badge pour explore
+          unmountOnBlur: false, // Garde le composant monté quand on quitte le tab
         }}
       />
 
