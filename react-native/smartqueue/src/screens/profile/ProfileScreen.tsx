@@ -143,6 +143,19 @@ export const ProfileScreen: React.FC = () => {
   // Sections du menu
   const menuSections = [
     {
+      title: 'Vos statistiques',
+      items: [
+        {
+          id: 'dashboard',
+          title: 'Tableau de bord',
+          subtitle: 'Stats, badges et niveaux',
+          icon: 'trophy-outline',
+          iconBg: 'bg-yellow-100',
+          onPress: () => router.push('/dashboard'),
+        },
+      ] as MenuItem[],
+    },
+    {
       title: 'Paramètres du compte',
       items: [
         {
