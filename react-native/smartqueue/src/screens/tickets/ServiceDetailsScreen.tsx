@@ -245,7 +245,7 @@ export const ServiceDetailsScreen: React.FC = () => {
           </View>
 
           {/* Crowd level indicator row */}
-          <View style={{ flexDirection: 'row', marginTop: 24, marginBottom: 16, justifyContent: 'space-between' }}>
+          {/* <View style={{ flexDirection: 'row', marginTop: 24, marginBottom: 16, justifyContent: 'space-between' }}>
             {['low', 'moderate', 'high'].map((level) => {
               const isSelected = establishment.crowd_level === level;
               const levelColors = {
@@ -278,10 +278,10 @@ export const ServiceDetailsScreen: React.FC = () => {
                 </View>
               );
             })}
-          </View>
+          </View> */}
 
           {/* Total People in Queue */}
-          <View style={{ marginBottom: 24, backgroundColor: colors.warning + '10', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.warning + '30' }}>
+          <View style={{ marginBottom: 24, backgroundColor: colors.warning + '10', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.warning + '30', marginTop:10, }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <Ionicons name="people" size={20} color={colors.warning} />
               <Text style={{ color: colors.warning, fontWeight: 'bold', marginLeft: 8 }}>File d&apos;attente</Text>
@@ -428,13 +428,13 @@ export const ServiceDetailsScreen: React.FC = () => {
             <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 16 }}>Information Generale</Text>
             
             <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: 16 }}>
-              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.separator, paddingBottom: 16, marginBottom: 16 }}>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
                   <Ionicons name="call-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Telephone</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).phone || '+33 1 23 45 67 89'}</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).phone || '+229 9723456789'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
@@ -445,7 +445,7 @@ export const ServiceDetailsScreen: React.FC = () => {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Site web</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).website || 'www.centralclinic.com'}</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{(establishment as any).website || 'www.smartqueue.com'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>

@@ -579,11 +579,11 @@ useEffect(() => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '20', borderColor: colors.primary + '30', borderWidth: 1, borderRadius: 999 }}
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: 'red' , borderColor: colors.danger + '30', borderWidth: 1, borderRadius: 999,  }}
             onPress={() => router.push('/notifications' as any)}
           >
-            <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
-            <View style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, backgroundColor: colors.danger, borderRadius: 4, borderWidth: 1, borderColor: colors.surface }} />
+            <Ionicons name="notifications-outline" size={20} color={'white'} />
+            {/* <View style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, backgroundColor: colors.background, borderRadius: 99, }} /> */}
           </TouchableOpacity>
         </View>
 
