@@ -176,6 +176,25 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     return router.replace('/(tabs)');
   }, []);
 
+  // Handle defer - swap position with next person
+  const handleDefer = useCallback(async () => {
+    if (!effectiveTicketId) return;
+
+    try {
+      const response = await axiosClient.post(`/tickets/${effectiveTicketId}/defer`);
+      if (response.data.success) {
+        showSuccess('Position échangée', response.data.message || 'Votre position a été échangée avec succès');
+        // Refresh ticket to get updated position
+        await fetchActiveTicket();
+      } else {
+        showWarning('Information', response.data.message || 'Impossible d\'échanger la position');
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Impossible d\'échanger la position';
+      showError('Erreur', errorMsg);
+    }
+  }, [effectiveTicketId, fetchActiveTicket, showError, showSuccess, showWarning]);
+
   const handleCancelTicket = () => {
     showWarning(
       'Quitter la file ?',
