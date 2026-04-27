@@ -36,6 +36,7 @@ class EstablishmentController extends Controller
                     ->where('tickets.status', '=', 'waiting');
             })
             ->select('establishments.*')
+            ->selectRaw('COUNT(DISTINCT services.id) as services_count')
             ->selectRaw('COUNT(tickets.id) as people_waiting')
             ->selectRaw("CASE WHEN COUNT(tickets.id) >= 16 THEN 'high' WHEN COUNT(tickets.id) >= 6 THEN 'medium' ELSE 'low' END as crowd_level")
             ->groupBy('establishments.id');
