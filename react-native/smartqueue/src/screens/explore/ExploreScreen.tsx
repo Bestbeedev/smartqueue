@@ -27,7 +27,7 @@ import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 import { useExploreCache } from "../../store/exploreCacheStore";
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
-type SortOption = "default" | "distance" | "wait_time" | "name" | "crowd_level";
+type SortOption = "default" | "distance" | "name" | "crowd_level";
 
 
 
@@ -294,9 +294,11 @@ useEffect(() => {
   // Calculer la distance depuis la position de l'utilisateur
   const calculateDistance = useCallback((est: Establishment) => {
     if (!location) return Infinity;
+    // Check for null/undefined/invalid coordinates
+    if (est.lat == null || est.lng == null) return Infinity;
     const estLat = Number(est.lat);
     const estLng = Number(est.lng);
-    if (isNaN(estLat) || isNaN(estLng)) return Infinity;
+    if (isNaN(estLat) || isNaN(estLng) || estLat === 0 && estLng === 0) return Infinity;
 
     const R = 6371; // Rayon de la Terre en km
     const dLat = (estLat - location.latitude) * (Math.PI / 180);
@@ -316,20 +318,23 @@ useEffect(() => {
     const sorted = [...estList];
     switch (sortOption) {
       case "distance":
-        return sorted.sort((a, b) => calculateDistance(a) - calculateDistance(b));
-      case "wait_time":
         return sorted.sort((a, b) => {
-          const waitA = a.avg_wait_min ?? Infinity;
-          const waitB = b.avg_wait_min ?? Infinity;
-          return waitA - waitB;
+          const distA = calculateDistance(a);
+          const distB = calculateDistance(b);
+          // Put establishments with invalid coordinates at the end
+          if (distA === Infinity && distB === Infinity) return 0;
+          if (distA === Infinity) return 1;
+          if (distB === Infinity) return -1;
+          return distA - distB;
         });
       case "name":
         return sorted.sort((a, b) => a.name.localeCompare(b.name));
       case "crowd_level":
-        const crowdOrder = { low: 0, moderate: 1, high: 2 };
+        // Sort by crowd level: low first, then moderate, then high, undefined last
+        const crowdOrder: Record<string, number> = { low: 0, moderate: 1, high: 2 };
         return sorted.sort((a, b) => {
-          const levelA = crowdOrder[a.crowd_level as keyof typeof crowdOrder] ?? 1;
-          const levelB = crowdOrder[b.crowd_level as keyof typeof crowdOrder] ?? 1;
+          const levelA = a.crowd_level ? crowdOrder[a.crowd_level] ?? 3 : 3;
+          const levelB = b.crowd_level ? crowdOrder[b.crowd_level] ?? 3 : 3;
           return levelA - levelB;
         });
       default:
@@ -520,7 +525,7 @@ useEffect(() => {
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 8 }}>
               <Ionicons name="people-outline" size={12} color={colors.primary} />
               <Text style={{ fontSize: 11, color: colors.primary, marginLeft: 4, fontWeight: '500' }}>
-                {item.people_waiting ?? 0} en attente
+                {item.people_waiting ?? 0} personne(s) en attente
               </Text>
             </View>
           </View>
@@ -928,17 +933,6 @@ useEffect(() => {
                 Distance
               </Text>
               {sortOption === "distance" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderColor: colors.border }}
-              onPress={() => { setSortOption("wait_time"); setShowSortModal(false); }}
-            >
-              <Ionicons name="time-outline" size={20} color={sortOption === "wait_time" ? colors.primary : colors.textSecondary} />
-              <Text style={{ marginLeft: 12, fontSize: 16, color: sortOption === "wait_time" ? colors.primary : colors.textPrimary, fontWeight: sortOption === "wait_time" ? '600' : '400' }}>
-                Temps d&apos;attente
-              </Text>
-              {sortOption === "wait_time" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
             </TouchableOpacity>
 
             <TouchableOpacity

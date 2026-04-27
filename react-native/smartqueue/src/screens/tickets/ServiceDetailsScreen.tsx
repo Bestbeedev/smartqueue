@@ -143,6 +143,8 @@ export const ServiceDetailsScreen: React.FC = () => {
         establishment_id: establishmentId,
         service_id: selectedServiceId,
         from_qr: fromQr,
+        lat: establishment?.lat ? Number(establishment.lat) : undefined,
+        lng: establishment?.lng ? Number(establishment.lng) : undefined,
       });
       
       // Extract ticket data (API wraps in {data: ...})
