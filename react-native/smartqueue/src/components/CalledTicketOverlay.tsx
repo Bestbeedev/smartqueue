@@ -17,7 +17,7 @@ interface CalledTicketOverlayProps {
   visible: boolean;
   counterNumber?: string;
   distanceInfo: DistanceInfo | null;
-  countdownSeconds: number; // Default 180 (3 minutes)
+  countdownSeconds: number; // Default 600 (10 minutes)
   hasRecalled: boolean;
   isSwapped?: boolean; // If ticket was already swapped/deferred
   gracePeriodExpiresAt?: string | null;

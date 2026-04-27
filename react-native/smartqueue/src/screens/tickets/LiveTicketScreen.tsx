@@ -78,8 +78,8 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     enabled: hasValidCoordinates && hasActiveTicket,
   });
   
-  // Countdown state
-  const [countdownSeconds, setCountdownSeconds] = useState(180);
+  // Countdown state - 10 minutes (600 seconds)
+  const [countdownSeconds, setCountdownSeconds] = useState(600);
   
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -165,6 +165,25 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
   const handleDismiss = useCallback(() => {
     return router.replace('/(tabs)');
   }, []);
+
+  // Handle defer - swap position with next person
+  const handleDefer = useCallback(async () => {
+    if (!effectiveTicketId) return;
+
+    try {
+      const response = await axiosClient.post(`/tickets/${effectiveTicketId}/defer`);
+      if (response.data.success) {
+        showSuccess('Position échangée', response.data.message || 'Votre position a été échangée avec succès');
+        // Refresh ticket to get updated position
+        await fetchActiveTicket();
+      } else {
+        showWarning('Information', response.data.message || 'Impossible d\'échanger la position');
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Impossible d\'échanger la position';
+      showError('Erreur', errorMsg);
+    }
+  }, [effectiveTicketId, fetchActiveTicket, showError, showSuccess, showWarning]);
 
   const handleCancelTicket = () => {
     showWarning(
@@ -395,6 +414,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
         hasRecalled={hasRecalled}
         onEnRoute={handleEnRoute}
         onRecall={handleRecall}
+        onDefer={handleDefer}
         onDismiss={handleDismiss}
       />
     </View>
