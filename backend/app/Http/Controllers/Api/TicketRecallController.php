@@ -190,6 +190,72 @@ class TicketRecallController extends Controller
     }
 
     /**
+     * User defers their ticket - swap position with next person in queue.
+     * Can only be done once per ticket (called status only).
+     */
+    public function defer(Request $request, Ticket $ticket, \App\Services\TicketService $svc): JsonResponse
+    {
+        // Authorize: only ticket owner can defer
+        if ($ticket->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Can only defer if ticket is called
+        if ($ticket->status !== 'called') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le ticket n\'est pas en statut appelé',
+            ], 400);
+        }
+
+        // Check if already swapped (can only defer once)
+        if ($ticket->is_swapped) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous avez déjà différé une fois. Vous ne pouvez plus échanger votre position.',
+            ], 422);
+        }
+
+        // Check grace period (24h since original called or first call)
+        $referenceTime = $ticket->original_called_at ?? $ticket->called_at;
+        if ($referenceTime && \Illuminate\Support\Carbon::parse($referenceTime)->addHours(24)->isPast()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La période de grâce de 24h est expirée, vous ne pouvez plus différer',
+            ], 422);
+        }
+
+        try {
+            $deferredTicket = $svc->deferCalledTicket($ticket);
+
+            if (!$deferredTicket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun ticket suivant disponible pour l\'échange',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'ticket' => [
+                    'id' => $deferredTicket->id,
+                    'status' => $deferredTicket->status,
+                    'position' => $deferredTicket->position,
+                    'is_swapped' => $deferredTicket->is_swapped,
+                    'deferred_at' => $deferredTicket->deferred_at,
+                    'grace_period_expires_at' => $deferredTicket->grace_period_expires_at,
+                ],
+                'message' => 'Position échangée avec succès. Vous passez après la personne suivante.',
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
      * Get countdown status for a called ticket.
      */
     public function countdown(Request $request, Ticket $ticket): JsonResponse

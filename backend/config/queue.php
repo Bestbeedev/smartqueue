@@ -126,4 +126,17 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Ticket Call Timeout
+    |--------------------------------------------------------------------------
+    |
+    | This defines the timeout in seconds for when a user is called to
+    | the counter. After this time, the ticket may be marked as absent.
+    | Default: 600 seconds (10 minutes)
+    |
+    */
+
+    'call_timeout_seconds' => (int) env('CALL_TIMEOUT_SECONDS', 600),
+
 ];
