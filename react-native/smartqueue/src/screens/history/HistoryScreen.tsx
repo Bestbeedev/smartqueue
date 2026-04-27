@@ -67,12 +67,12 @@ export const HistoryScreen: React.FC = () => {
   const filters: FilterOption[] = [
     {
       id: 'weekly',
-      label: 'Weekly',
+      label: 'Semaine',
       icon: <Ionicons name="calendar-outline" size={16} />,
     },
     {
       id: 'monthly',
-      label: 'Monthly',
+      label: 'Mois',
       icon: <Ionicons name="calendar-number-outline" size={16} />,
     },
     {
@@ -395,7 +395,7 @@ export const HistoryScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: colors.background,paddingBottom:30, }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 48, paddingBottom: 16, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 16 }}>Ticket History</Text>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 20 }}>Historique de Ticket</Text>
         
         <ScrollView
           horizontal
@@ -441,7 +441,7 @@ export const HistoryScreen: React.FC = () => {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ marginTop: 12 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingRight: 40 }}
+          contentContainerStyle={{  paddingRight: 40 }}
         >
           {statusOptions.map((status) => (
             <TouchableOpacity

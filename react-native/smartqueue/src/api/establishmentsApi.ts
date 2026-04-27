@@ -14,7 +14,9 @@ export interface Establishment {
   created_at: string;
   updated_at: string;
   services?: Service[];
+  services_count?: number;
   crowd_level?: 'low' | 'moderate' | 'high';
+  crowd_trend?: 'up' | 'down' | 'stable';
   avg_wait_min?: number;
   people_waiting?: number;
   open_now?: boolean;

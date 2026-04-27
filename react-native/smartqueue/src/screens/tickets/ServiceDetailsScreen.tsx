@@ -81,7 +81,8 @@ export const ServiceDetailsScreen: React.FC = () => {
       // Services are now embedded in establishment response
       const servicesList = estData.services || servicesData || [];
       setServices(Array.isArray(servicesList) ? servicesList : (servicesList as any)?.data || []);
-      if (!selectedServiceId && servicesList && (servicesList as unknown as ServiceData[]).length > 0) {
+      // Only auto-select first open service if no service is pre-selected from params
+      if (!serviceId && servicesList && (servicesList as unknown as ServiceData[]).length > 0) {
         const firstOpen = (servicesList as unknown as ServiceData[]).find(s => s.status === 'open');
         if (firstOpen) setSelectedServiceId(firstOpen.id);
       }
@@ -91,7 +92,7 @@ export const ServiceDetailsScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [establishmentId, selectedServiceId, showError]);
+  }, [establishmentId, serviceId, showError]);
 
   useEffect(() => {
     loadData();
@@ -281,23 +282,31 @@ export const ServiceDetailsScreen: React.FC = () => {
 
           {/* Total People in Queue */}
           <View style={{ marginBottom: 24, backgroundColor: colors.warning + '10', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.warning + '30' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.warning + '15', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="people" size={24} color={colors.warning} />
-                </View>
-                <View style={{ marginLeft: 12 }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Personnes en rang</Text>
-                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary }}>
-                    {establishment.total_people_waiting ?? 0}
-                  </Text>
-                </View>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>dans tout l&apos;établissement</Text>
-                <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14 }}>
-                  {services.length} service{services.length > 1 ? 's' : ''} actif{services.length > 1 ? 's' : ''}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="people" size={20} color={colors.warning} />
+              <Text style={{ color: colors.warning, fontWeight: 'bold', marginLeft: 8 }}>File d&apos;attente</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Ionicons name="people" size={18} color={colors.textSecondary} />
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
+                  {establishment.total_people_waiting ?? 0}
                 </Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Total</Text>
+              </View>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Ionicons name="business" size={18} color={colors.textSecondary} />
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
+                  {services.length}
+                </Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Services</Text>
+              </View>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
+                  {services.filter(s => s.status === 'open').length}
+                </Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Actifs</Text>
               </View>
             </View>
           </View>
@@ -323,13 +332,6 @@ export const ServiceDetailsScreen: React.FC = () => {
                     {formatTravelTime(distanceInfo.travelTimes.walking)}
                   </Text>
                   <Text style={{ color: colors.textTertiary, fontSize: 12 }}>À pied</Text>
-                </View>
-                <View style={{ alignItems: 'center', flex: 1 }}>
-                  <Ionicons name="bicycle" size={18} color={colors.textSecondary} />
-                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 4 }}>
-                    {formatTravelTime(distanceInfo.travelTimes.motorcycle)}
-                  </Text>
-                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Moto</Text>
                 </View>
                 <View style={{ alignItems: 'center', flex: 1 }}>
                   <Ionicons name="car" size={18} color={colors.textSecondary} />

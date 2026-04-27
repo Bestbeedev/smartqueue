@@ -467,7 +467,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 6,
   },
   scanButtonGradient: {
     flexDirection: 'row',
@@ -480,6 +479,7 @@ const styles = StyleSheet.create({
   scanButtonText: {
     fontSize: 16,
     fontWeight: '700',
+    color:'#FFFFFF',
   },
   // Active Ticket Card
   activeTicketCard: {
