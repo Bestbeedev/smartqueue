@@ -168,9 +168,12 @@ export const useTicketStore = create<TicketState>()(
 
           // Handle API response that may be wrapped in {data: {...}}
           const ticketData = (ticket as any)?.data || ticket;
+          
+          const { activeTickets } = get();
 
           set({
             activeTicket: ticketData,
+            activeTickets: [...activeTickets, ticketData],
             position: ticketData.position || 0,
             etaMinutes: ticketData.eta_minutes || 0,
             isAlmostThere: ticketData.position ? ticketData.position <= 2 : false,
@@ -208,14 +211,24 @@ export const useTicketStore = create<TicketState>()(
           await ticketsApi.cancelTicket(ticketId);
 
           // Effacer le ticket actif si c'est celui qu'on annule
-          const { activeTicket } = get();
+          const { activeTicket, activeTickets } = get();
           if (activeTicket?.id === ticketId) {
+            // Remove cancelled ticket from activeTickets array
+            const updatedTickets = activeTickets.filter(t => t.id !== ticketId);
             set({
-              activeTicket: null,
+              activeTicket: updatedTickets.length > 0 ? updatedTickets[0] : null,
+              activeTickets: updatedTickets,
               position: 0,
               etaMinutes: 0,
               isAlmostThere: false,
               isCalled: false,
+              lastUpdate: new Date(),
+            });
+          } else {
+            // Just remove from activeTickets if not the current active one
+            const updatedTickets = activeTickets.filter(t => t.id !== ticketId);
+            set({
+              activeTickets: updatedTickets,
               lastUpdate: new Date(),
             });
           }
