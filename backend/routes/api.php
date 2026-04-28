@@ -97,7 +97,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read']); // ou PUT si vous préférez
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
-    // User stats sync
+    // User stats
+    Route::get('/user/stats', [OnboardingController::class, 'getUserStats']);
     Route::post('/user/stats', [OnboardingController::class, 'syncUserStats']);
 
     // Préférences notifications (mobile/web)

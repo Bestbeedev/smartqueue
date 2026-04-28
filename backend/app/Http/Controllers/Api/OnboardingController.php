@@ -141,6 +141,37 @@ class OnboardingController extends Controller
     }
 
     /**
+     * Get user stats for frontend
+     */
+    public function getUserStats(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            abort(401, 'Unauthenticated');
+        }
+
+        // Parse stored stats data
+        $savedStats = json_decode($user->stats_data ?? '{}', true);
+
+        // Get real ticket stats from database
+        $totalTickets = \App\Models\Ticket::where('user_id', $user->id)->count();
+        $completedTickets = \App\Models\Ticket::where('user_id', $user->id)
+            ->where('status', 'closed')
+            ->count();
+
+        return response()->json([
+            'total_tickets' => $totalTickets,
+            'totalTicketsCreated' => $savedStats['totalTicketsCreated'] ?? $totalTickets,
+            'perfectTimingCount' => $savedStats['perfectTimingCount'] ?? 0,
+            'quickResponseCount' => $savedStats['quickResponseCount'] ?? 0,
+            'weekendTickets' => $savedStats['weekendTickets'] ?? 0,
+            'currentXp' => $savedStats['currentXp'] ?? 0,
+            'currentLevel' => $savedStats['currentLevel'] ?? 1,
+            'saved_stats' => $savedStats,
+        ]);
+    }
+
+    /**
      * Sync user stats from frontend
      */
     public function syncUserStats(Request $request)

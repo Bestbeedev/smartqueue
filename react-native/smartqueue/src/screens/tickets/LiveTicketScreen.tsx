@@ -361,9 +361,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
                     ]}
                   >
                     {departureInfo.shouldLeaveNow
-                      ? '🚨 Partez maintenant !'
+                      ? 'Partez maintenant !'
                       : departureInfo.shouldLeaveSoon
-                      ? `⏰ Partez dans ${Math.ceil(departureInfo.leaveIn)} min`
+                      ? `Partez dans ${Math.ceil(departureInfo.leaveIn)} min`
                       : ' Timing optimal'}
                   </Text>
                 </View>
