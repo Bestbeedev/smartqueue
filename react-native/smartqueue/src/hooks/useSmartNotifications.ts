@@ -183,7 +183,7 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     if (shouldLeaveNow && !alertsSentRef.current.has('LEAVE_NOW')) {
       sendNotification({
         type: 'LEAVE_NOW',
-        title: '🚨 Partez maintenant !',
+        title: 'Partez maintenant !',
         body: `Vous risquez d'arriver en retard. Temps de trajet: ${formatTravelTime(travelTime)}, il vous reste ${etaMinutes} min d'attente.`,
         urgency: 'critical',
         timestamp: new Date(),
