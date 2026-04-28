@@ -217,7 +217,7 @@ export const ticketsApi = {
 
   // Obtenir les statistiques des tickets de l'utilisateur
   getTicketStats: async (): Promise<TicketStats> => {
-    const response = await axiosClient.get('/tickets/stats');
+    const response = await axiosClient.get('/user/stats');
     return response.data;
   },
 
