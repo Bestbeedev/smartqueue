@@ -44,6 +44,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     counterNumber,
     setRecalled,
     markAsCalled,
+    clearCalled,
     fetchActiveTicket,
   } = useTicket();
 
@@ -160,16 +161,17 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
     if (!effectiveTicketId) return;
     
     try {
-      await axiosClient.post(`/tickets/${effectiveTicketId}/en-route`, {
-        lat: distanceInfo ? null : undefined,
-        lng: distanceInfo ? null : undefined,
-        estimated_travel_minutes: distanceInfo?.travelTimes?.car,
-      });
+      const payload: any = {};
+      if (distanceInfo?.travelTimes?.car) {
+        payload.estimated_travel_minutes = distanceInfo.travelTimes.car;
+      }
+      await axiosClient.post(`/tickets/${effectiveTicketId}/en-route`, payload);
       showSuccess('Confirmation', 'L\'agent a été notifié que vous êtes en route');
+      clearCalled(); // Dismiss overlay
     } catch (error: any) {
       showError('Erreur', error.response?.data?.error || 'Impossible de confirmer');
     }
-  }, [effectiveTicketId, distanceInfo, showSuccess, showError]);
+  }, [effectiveTicketId, distanceInfo, clearCalled, showSuccess, showError]);
   
   // Handle dismiss
   const handleDismiss = useCallback(() => {
@@ -184,7 +186,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       const response = await axiosClient.post(`/tickets/${effectiveTicketId}/defer`);
       if (response.data.success) {
         showSuccess('Position échangée', response.data.message || 'Votre position a été échangée avec succès');
-        // Refresh ticket to get updated position
+        clearCalled(); // Dismiss overlay
         await fetchActiveTicket();
       } else {
         showWarning('Information', response.data.message || 'Impossible d\'échanger la position');
@@ -193,7 +195,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({ ticketId }) 
       const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Impossible d\'échanger la position';
       showError('Erreur', errorMsg);
     }
-  }, [effectiveTicketId, fetchActiveTicket, showError, showSuccess, showWarning]);
+  }, [effectiveTicketId, fetchActiveTicket, clearCalled, showError, showSuccess, showWarning]);
 
   const handleCancelTicket = () => {
     showWarning(

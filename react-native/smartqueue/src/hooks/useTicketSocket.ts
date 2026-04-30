@@ -19,7 +19,8 @@ interface PositionUpdateEvent {
 
 interface TicketCalledEvent {
   ticket_id: number;
-  counter: number;
+  counter?: number;
+  counter_id?: number;
   message: string;
   agent_name?: string;
 }
@@ -143,7 +144,8 @@ export const useTicketSocket = (ticketId: string | number | null) => {
         .listen('.ticket.called', (data: TicketCalledEvent) => {
           console.log('Ticket called event received:', data);
           if (data.ticket_id === Number(ticketId)) {
-            markAsCalled(data.counter?.toString());
+            const counterNum = data.counter ?? data.counter_id;
+            markAsCalled(counterNum?.toString());
             updateTicketStatus('called');
             setLastUpdate(new Date());
             triggerNotification("C'est votre tour !", data.message || 'Votre ticket est appelé');
