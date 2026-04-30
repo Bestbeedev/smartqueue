@@ -2,7 +2,6 @@ import React, { useCallback, useState } from 'react';
 import { CalledTicketOverlay } from './CalledTicketOverlay';
 import { useTicket } from '../store/ticketStore';
 import { useDistanceTracking } from '../hooks/useDistanceTracking';
-import { useCustomAlert } from '../hooks/useCustomAlert';
 import axiosClient from '../api/axiosClient';
 import { useRouter } from 'expo-router';
 
@@ -10,9 +9,17 @@ import { useRouter } from 'expo-router';
  * Global overlay that appears on ANY tab when the user's ticket is called.
  * Placed in the tab layout so it works from every screen.
  */
-type GlobalCalledTicketOverlayProps = object
+interface GlobalCalledTicketOverlayProps {
+  showSuccess: (title: string, message: string, buttonText?: string, onPress?: () => void) => void;
+  showError: (title: string, message: string, buttonText?: string, onPress?: () => void) => void;
+  showWarning: (title: string, message: string, buttonText?: string, onPress?: () => void) => void;
+}
 
-export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps> = () => {
+export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps> = ({
+  showSuccess,
+  showError,
+  showWarning,
+}) => {
   const {
     activeTicket,
     isCalled,
@@ -27,7 +34,6 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
     fetchActiveTicket,
   } = useTicket();
 
-  const { showSuccess, showError, showWarning } = useCustomAlert();
   const router = useRouter();
   const [countdownSeconds, setCountdownSeconds] = useState(600);
 
