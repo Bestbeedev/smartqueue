@@ -1,10 +1,10 @@
-import { Tabs } from "expo-router";
+import { Tabs, Redirect} from "expo-router";
 import { View, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect } from "expo-router";
 import "../../global.css";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useAuth } from "../../src/store/authStore";
+// eslint-disable-next-line import/no-named-as-default
 import GlobalCalledTicketOverlay from "../../src/components/GlobalCalledTicketOverlay";
 import { useTicket } from "../../src/store/ticketStore";
 import { useCustomAlert } from "../../src/hooks/useCustomAlert";
@@ -18,13 +18,7 @@ export default function TabLayout() {
 
   // Called ticket overlay state
   const {
-    isCalled,
     activeTicket,
-    counterNumber,
-    hasRecalled,
-    clearActiveTicket,
-    setRecalled,
-    updateTicketStatus,
   } = useTicket();
 
   // Connect WebSocket at tab level so called events work on ALL screens
