@@ -490,6 +490,340 @@ presenceChannel.listen('ServiceStatsUpdated', (e) => {
 
 ---
 
+## ⏱️ Algorithme de Calcul ETA (Estimated Time of Arrival)
+
+SmartQueue utilise un algorithme sophistiqué pour estimer le temps d'attente des usagers dans la file. Cette estimation est cruciale pour les notifications intelligentes et l'optimisation de l'expérience utilisateur.
+
+### 🧮 Logique de Calcul de l'ETA
+
+L'algorithme utilise deux stratégies combinées pour fournir une estimation précise et adaptable :
+
+#### Stratégie A : Temps Moyen de Service Configuré (Static)
+
+Chaque service possède un `avg_service_time_minutes` configuré par l'administrateur. C'est la valeur par défaut utilisée lorsqu'il n'y a pas assez d'historique.
+
+```php
+// backend/app/Services/TicketService.php
+public function estimateWaitTime(Service $service, Ticket $ticket): int
+{
+    // Position - 1 = nombre de personnes devant
+    $waitingAhead = max(0, ($ticket->position ?? 1) - 1);
+    
+    // Temps moyen configuré (fallback à 5 minutes)
+    $avgTime = $service->avg_service_time_minutes ?? 5;
+    
+    return (int) ($waitingAhead * $avgTime);
+}
+```
+
+**Formule :**
+```
+ETA = (position - 1) × avg_service_time_minutes
+```
+
+**Exemple :**
+- Position : 5
+- Temps moyen : 10 minutes
+- ETA = (5 - 1) × 10 = **40 minutes**
+
+#### Stratégie B : Moyenne Dynamique basée sur l'Historique (Dynamic)
+
+Pour une estimation plus précise, le système calcule la moyenne réelle des temps de service sur les dernières 24 heures.
+
+```php
+// backend/app/Console/Commands/TicketsNotifyApproaching.php
+private function estimateAvgServiceTimeMinutes(int $serviceId, int $fallback): int
+{
+    // Récupère les tickets servis dans les dernières 24h
+    $rows = DB::table('tickets')
+        ->where('service_id', $serviceId)
+        ->whereNotNull('closed_at')
+        ->whereNotNull('called_at')
+        ->where('closed_at', '>=', now()->subDay())
+        ->select(['called_at', 'closed_at'])
+        ->limit(300)
+        ->get();
+
+    $sum = 0;
+    $n = 0;
+    foreach ($rows as $r) {
+        $called = Carbon::parse($r->called_at);
+        $closed = Carbon::parse($r->closed_at);
+        if ($closed->greaterThan($called)) {
+            $sum += $closed->diffInMinutes($called);
+            $n++;
+        }
+    }
+
+    // Utilise la moyenne dynamique si au moins 10 échantillons
+    if ($n >= 10) {
+        return (int) max(1, (int) round($sum / $n));
+    }
+
+    // Sinon, utilise la valeur configurée
+    return (int) max(1, $fallback);
+}
+```
+
+**Formule :**
+```
+service_time_avg = Σ(closed_at - called_at) / n
+ETA = (position - 1) × service_time_avg
+```
+
+**Exemple concret :**
+| Ticket | Called At | Closed At | Durée |
+|--------|-----------|-----------|-------|
+| #001 | 09:00 | 09:08 | 8 min |
+| #002 | 09:10 | 09:19 | 9 min |
+| #003 | 09:20 | 09:28 | 8 min |
+| #004 | 09:30 | 09:41 | 11 min |
+
+Moyenne = (8 + 9 + 8 + 11) / 4 = **9 minutes**
+
+Si vous êtes à la position 5 :
+ETA = (5 - 1) × 9 = **36 minutes**
+
+### 📊 Composantes du Calcul
+
+#### 1. Position dans la File
+
+La position est recalculée dynamiquement à chaque appel de ticket :
+
+```php
+// Recalcul des positions après appel d'un ticket
+public function recomputePositions(Service $service): void
+{
+    $waiting = Ticket::query()
+        ->where('service_id', $service->id)
+        ->where('status', 'waiting')
+        ->orderBy('created_at')
+        ->get();
+
+    $pos = 1;
+    foreach ($waiting as $t) {
+        if ((int) $t->position !== $pos) {
+            Ticket::query()->where('id', $t->id)->update(['position' => $pos]);
+            
+            // Diffusion temps réel de la nouvelle position
+            $this->broadcastSafely(fn() => event(new TicketUpdated($t->id, [
+                'position' => $pos,
+                'eta_minutes' => $this->estimateWaitTime($service, $t)
+            ])));
+        }
+        $pos++;
+    }
+}
+```
+
+#### 2. Gestion des Priorités
+
+Les tickets VIP et haute priorité affectent le calcul de l'ETA pour les tickets normaux :
+
+```php
+// Ordre de priorité : VIP > High > Normal
+$ticket = Ticket::query()
+    ->where('service_id', $service->id)
+    ->where('status', 'waiting')
+    ->orderByRaw("CASE priority WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
+    ->orderBy('created_at')
+    ->first();
+```
+
+**Impact sur l'ETA :**
+- Un ticket VIP peut "passer devant" et augmenter l'ETA des tickets normaux
+- Le système recalcule l'ETA de tous les tickets après chaque insertion prioritaire
+
+### 🔄 Mise à Jour Temps Réel
+
+#### Flux WebSocket pour les Mises à Jour d'ETA
+
+```typescript
+// react-native/smartqueue/src/hooks/useTicketSocket.ts
+.listen('.ticket.position_updated', (data: PositionUpdateEvent) => {
+  console.log('Position update received:', data);
+  if (data.ticket_id === Number(ticketId)) {
+    updatePosition(data.position, data.eta_min);
+    setLastUpdate(new Date());
+  }
+})
+```
+
+**Événement diffusé :**
+```json
+{
+  "ticket_id": 123,
+  "position": 3,
+  "eta_min": 25,
+  "queue_length": 8
+}
+```
+
+### 🔔 Système d'Alertes Intelligent basé sur l'ETA
+
+#### Logique de Déclenchement
+
+Le système compare l'ETA d'attente avec le temps de trajet de l'usager + marge de sécurité :
+
+```php
+// backend/app/Services/AlertService.php
+public function shouldTriggerAlert(Ticket $ticket, float $userLat, float $userLng): bool
+{
+    // Récupère les préférences utilisateur
+    $prefs = UserAlertPreference::getForUser($ticket->user->id);
+    
+    // Temps d'attente estimé
+    $waitTimeMinutes = $ticket->eta_minutes ?? 0;
+    
+    // Temps de trajet basé sur le mode de transport préféré
+    $travelTimeMinutes = $this->calculateTravelTime(
+        $userLat,
+        $userLng,
+        $ticket->service->establishment->lat,
+        $ticket->service->establishment->lng,
+        $prefs->preferred_transport_mode // 'walking', 'driving', 'transit'
+    );
+    
+    // Marge configurée par l'utilisateur (ex: 5 minutes)
+    $marginMinutes = $prefs->margin_minutes;
+    
+    // Condition d'alerte : temps d'attente <= temps de trajet + marge
+    $shouldAlert = $waitTimeMinutes <= ($travelTimeMinutes + $marginMinutes);
+    
+    Log::info('Alert check', [
+        'ticket_id' => $ticket->id,
+        'wait_time' => $waitTimeMinutes,
+        'travel_time' => $travelTimeMinutes,
+        'margin' => $marginMinutes,
+        'should_alert' => $shouldAlert,
+    ]);
+    
+    return $shouldAlert;
+}
+```
+
+#### Exemple de Scénario
+
+**Situation :**
+- Position dans la file : 3
+- ETA : 20 minutes
+- Distance : 2 km
+- Mode de transport : Marche (10 min/km)
+- Marge configurée : 5 minutes
+
+**Calcul :**
+```
+temps_trajet = 2 km × 10 min/km = 20 minutes
+total_nécessaire = 20 + 5 = 25 minutes
+ETA (20 min) <= 25 minutes ? OUI → Déclencher l'alerte
+```
+
+### 📱 Notification Approche par ETA
+
+La commande console `tickets:notify-approaching` vérifie régulièrement les tickets et envoie des notifications :
+
+```php
+// backend/app/Console/Commands/TicketsNotifyApproaching.php
+public function handle(): int
+{
+    $tickets = Ticket::query()
+        ->where('status', 'waiting')
+        ->where('created_at', '>=', now()->subHours(24))
+        ->get();
+
+    foreach ($tickets as $ticket) {
+        $prefs = NotificationPreference::getForUser($ticket->user->id);
+        
+        $etaMinutes = $this->estimateEtaMinutesForTicket($ticket);
+        
+        // Vérifie si l'ETA est sous le seuil configuré
+        $shouldByEta = $etaMinutes !== null && 
+                       $etaMinutes <= (int) $prefs->notify_before_minutes;
+        
+        if ($shouldByEta) {
+            dispatch(new SendPushNotification(
+                $ticket->user->id,
+                'Bientôt votre tour',
+                "Votre tour approche (≈ {$etaMinutes} min). Préparez-vous !"
+            ));
+        }
+    }
+}
+```
+
+### 🎯 Optimisations et Cas Particuliers
+
+#### 1. Cache des Calculs
+
+Pour éviter les calculs répétés, l'ETA est stockée dans le modèle Ticket :
+
+```php
+// Migration
+Schema::table('tickets', function (Blueprint $table) {
+    $table->integer('eta_minutes')->nullable()->after('position');
+});
+```
+
+#### 2. Récupération d'Absence (Defer)
+
+Quand un ticket est marqué absent puis rappelé, son ETA est priorisé :
+
+```php
+// Priorité aux tickets "déferred" lors du rappel
+$ticket = Ticket::query()
+    ->where('status', 'absent')
+    ->where('deferred_at', '>=', now()->subDay())
+    ->orderBy('deferred_at') // Premier arrivé, premier servi
+    ->first();
+```
+
+#### 3. Fermeture de Service
+
+Si un service ferme bientôt, l'algorithme ajuste les notifications :
+
+```php
+if ($service->closing_time && now()->diffInMinutes($service->closing_time) < $etaMinutes) {
+    // Avertir que le service va fermer avant le tour
+    $notificationBody = "Attention : le service ferme bientôt. Votre tour pourrait être reporté.";
+}
+```
+
+### 📈 Modèle de Prédiction (Roadmap v2.0)
+
+Pour la version 2.0, l'algorithme intégrera le Machine Learning :
+
+```python
+# Concept de modèle ML pour prédiction ETA
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+
+# Features
+features = [
+    'hour_of_day',           # Heure (pic vs creux)
+    'day_of_week',           # Jour de la semaine
+    'current_queue_length',  # Longueur actuelle
+    'avg_service_time_24h',  # Moyenne dernières 24h
+    'avg_service_time_7d',   # Moyenne 7 derniers jours
+    'agent_count',           # Nombre d'agents actifs
+    'service_type',          # Type de service
+    'priority_ratio'         # Ratio VIP/Normal
+]
+
+# Prédiction
+model = RandomForestRegressor()
+eta_predicted = model.predict([features])
+```
+
+### 📊 Tableau Récapitulatif
+
+| Stratégie | Précision | Utilisation | Avantage |
+|-----------|-----------|-------------|----------|
+| **Statique** (configurée) | Basse | Service nouveau | Immédiate, pas besoin d'historique |
+| **Dynamique** (historique) | Haute | Service actif | S'adapte aux variations réelles |
+| **ML** (prédiction) | Très haute | Roadmap v2.0 | Anticipe les pics d'affluence |
+
+---
+
 ## 🗄 Modèle de données
 
 ### Schéma relationnel
