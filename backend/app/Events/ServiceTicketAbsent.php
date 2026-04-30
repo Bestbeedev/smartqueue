@@ -3,12 +3,12 @@
 namespace App\Events;
 
 use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Queue\SerializesModels;
 
-class ServiceTicketAbsent implements ShouldBroadcast
+class ServiceTicketAbsent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -23,7 +23,7 @@ class ServiceTicketAbsent implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('presence-service.'.$this->serviceId)];
+        return [new PresenceChannel('service.'.$this->serviceId)];
     }
 
     public function broadcastWith(): array

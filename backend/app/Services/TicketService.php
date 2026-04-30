@@ -277,6 +277,8 @@ class TicketService
             // Diffusion: ticket appelé
             event(new TicketCalled($ticket->id, [
                 'number' => $ticket->number,
+                'counter_id' => $ticket->counter_id,
+                'service_id' => $service->id,
             ]));
             event(new TicketUpdated($ticket->id, [
                 'status' => $ticket->status,
@@ -550,7 +552,11 @@ class TicketService
         $ticket->status = 'called';
         $ticket->called_at = Carbon::now();
         $ticket->save();
-        event(new TicketCalled($ticket->id, ['number' => $ticket->number]));
+        event(new TicketCalled($ticket->id, [
+            'number' => $ticket->number,
+            'counter_id' => $ticket->counter_id,
+            'service_id' => $ticket->service_id,
+        ]));
         event(new ServiceTicketCalled($ticket->service_id, [
             'ticket' => [
                 'id' => $ticket->id,

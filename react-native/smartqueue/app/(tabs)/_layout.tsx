@@ -5,6 +5,7 @@ import { Redirect } from 'expo-router';
 import '../../global.css';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useAuth } from '../../src/store/authStore';
+import GlobalCalledTicketOverlay from '../../src/components/GlobalCalledTicketOverlay';
 
 export default function TabLayout() {
   const colors = useThemeColors();
@@ -17,6 +18,8 @@ export default function TabLayout() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
+    <GlobalCalledTicketOverlay />
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
@@ -174,5 +177,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }

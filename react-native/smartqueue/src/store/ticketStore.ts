@@ -34,6 +34,7 @@ export interface TicketState {
   setActiveTickets: (tickets: Ticket[]) => void;
   updatePosition: (position: number, etaMinutes: number) => void;
   markAsCalled: (counterNumber?: string) => void;
+  clearCalled: () => void;
   markAsAlmostThere: () => void;
   clearActiveTicket: () => void;
   setLoading: (loading: boolean) => void;
@@ -114,13 +115,21 @@ export const useTicketStore = create<TicketState>()(
 
       // Marquer comme appelé
       markAsCalled: (counterNumber?: string) => {
-        // Set countdown expiry to 3 minutes from now
-        const expiry = new Date(Date.now() + 3 * 60 * 1000);
+        // Set countdown expiry to 10 minutes from now
+        const expiry = new Date(Date.now() + 10 * 60 * 1000);
         set({
           isCalled: true,
           isAlmostThere: false,
           counterNumber: counterNumber || null,
           countdownExpiry: expiry,
+          lastUpdate: new Date(),
+        });
+      },
+
+      // Effacer l'état appelé (fermer l'overlay)
+      clearCalled: () => {
+        set({
+          isCalled: false,
           lastUpdate: new Date(),
         });
       },
@@ -448,6 +457,7 @@ export const useTicket = () => {
     setActiveTickets: actions.setActiveTickets,
     updatePosition: actions.updatePosition,
     markAsCalled: actions.markAsCalled,
+    clearCalled: actions.clearCalled,
     markAsAlmostThere: actions.markAsAlmostThere,
     clearActiveTicket: actions.clearActiveTicket,
     setLoading: actions.setLoading,
