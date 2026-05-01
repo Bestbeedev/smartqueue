@@ -44,7 +44,7 @@ class TicketsNotifyApproaching extends Command
         $ticketsQuery = Ticket::query()
             ->with(['user', 'service'])
             ->where('status', 'waiting')
-            ->where('created_at', '>=', $now->copy()->subHours(24))
+            ->whereDate('valid_date', Carbon::today())
             ->whereNotNull('position');
 
         if (!empty($serviceId)) {

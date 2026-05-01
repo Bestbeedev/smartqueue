@@ -32,24 +32,33 @@ class TicketController extends Controller
      */
     public function active(Request $request)
     {
-        // Expire automatiquement les tickets trop anciens (24h) avant de lister.
-        // On s'appuie sur la logique centralisée du TicketService, appelée sur les actions métier.
-        // Ici, on force un passage léger en expirant les tickets actifs >24h via un filtre.
+        $today = now()->format('Y-m-d');
+
+        // Expire tickets whose valid_date is before today
         Ticket::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['waiting','called','absent'])
-            ->where('created_at', '<', now()->subHours(24))
-            ->update(['status' => 'expired', 'position' => null]);
+            ->whereNotNull('valid_date')
+            ->whereDate('valid_date', '<', $today)
+            ->update(['status' => 'expired', 'position' => null, 'eta_minutes' => null]);
 
+        // Safety net: expire tickets with no valid_date older than 24h
+        Ticket::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('status', ['waiting','called','absent'])
+            ->whereNull('valid_date')
+            ->where('created_at', '<', now()->subHours(24))
+            ->update(['status' => 'expired', 'position' => null, 'eta_minutes' => null]);
+
+        // Only return tickets valid for today
         $tickets = Ticket::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['waiting','called','absent'])
+            ->whereDate('valid_date', $today)
             ->with(['service.establishment'])
             ->orderByDesc('created_at')
             ->get();
-        
-        \Log::info('[TicketController::active] User ' . $request->user()->id . ' has ' . $tickets->count() . ' active tickets');
-        
+
         // Return all active tickets for mobile - always as array
         return response()->json([
             'data' => TicketResource::collection($tickets)->resolve(),
