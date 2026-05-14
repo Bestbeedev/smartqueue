@@ -213,83 +213,83 @@ export default function ScanScreen() {
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],
         }}
-      >
-        {/* Overlay */}
-        <View style={[styles.overlay, { paddingTop: insets.top + 20 }]}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="close" size={24} color="white" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Scanner QR Code</Text>
-            <TouchableOpacity 
-              style={styles.flashButton}
-              onPress={() => setFlashEnabled(!flashEnabled)}
-            >
-              <Ionicons 
-                name={flashEnabled ? "flash" : "flash-off"} 
-                size={24} 
-                color={flashEnabled ? "#FFD60A" : "white"} 
-              />
-            </TouchableOpacity>
-          </View>
+      />
 
-          {/* Scanner Frame */}
-          <View style={styles.scannerContainer}>
-            <View style={styles.scannerFrame}>
-              {/* Corner decorations */}
-              <View style={[styles.corner, styles.topLeft]} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
-              
-              {/* Scanning line animation */}
-              {isProcessing && (
-                <View style={styles.scanningLine} />
-              )}
-            </View>
-            <Text style={styles.scannerHint}>
-              {isProcessing ? 'Traitement en cours...' : 'Positionnez le QR code dans le cadre'}
-            </Text>
-          </View>
-
-          {/* Instructions */}
-          <View style={styles.instructions}>
-            <View style={styles.instructionItem}>
-              <View style={styles.instructionIcon}>
-                <Ionicons name="sunny-outline" size={20} color="#007AFF" />
-              </View>
-              <Text style={styles.instructionText}>Assurez-vous d&apos;avoir suffisamment de lumière</Text>
-            </View>
-            <View style={styles.instructionItem}>
-              <View style={styles.instructionIcon}>
-                <Ionicons name="phone-portrait-outline" size={20} color="#007AFF" />
-              </View>
-              <Text style={styles.instructionText}>Tenez votre téléphone à environ 20cm du QR code</Text>
-            </View>
-            <View style={styles.instructionItem}>
-              <View style={styles.instructionIcon}>
-                <Ionicons name="scan-outline" size={20} color="#007AFF" />
-              </View>
-              <Text style={styles.instructionText}>Le scan se fait automatiquement</Text>
-            </View>
-          </View>
-
-          {/* Rescan button */}
-          {scanned && !isProcessing && (
-            <TouchableOpacity 
-              style={styles.rescanButton}
-              onPress={() => setScanned(false)}
-            >
-              <Ionicons name="refresh" size={20} color="white" />
-              <Text style={styles.rescanButtonText}>Scanner à nouveau</Text>
-            </TouchableOpacity>
-          )}
+      {/* Overlay */}
+      <View style={[styles.overlay, { paddingTop: insets.top + 20 }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Scanner QR Code</Text>
+          <TouchableOpacity 
+            style={styles.flashButton}
+            onPress={() => setFlashEnabled(!flashEnabled)}
+          >
+            <Ionicons 
+              name={flashEnabled ? "flash" : "flash-off"} 
+              size={24} 
+              color={flashEnabled ? "#FFD60A" : "white"} 
+            />
+          </TouchableOpacity>
         </View>
-      </CameraView>
+
+        {/* Scanner Frame */}
+        <View style={styles.scannerContainer}>
+          <View style={styles.scannerFrame}>
+            {/* Corner decorations */}
+            <View style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topRight]} />
+            <View style={[styles.corner, styles.bottomLeft]} />
+            <View style={[styles.corner, styles.bottomRight]} />
+            
+            {/* Scanning line animation */}
+            {isProcessing && (
+              <View style={styles.scanningLine} />
+            )}
+          </View>
+          <Text style={styles.scannerHint}>
+            {isProcessing ? 'Traitement en cours...' : 'Positionnez le QR code dans le cadre'}
+          </Text>
+        </View>
+
+        {/* Instructions */}
+        <View style={styles.instructions}>
+          <View style={styles.instructionItem}>
+            <View style={styles.instructionIcon}>
+              <Ionicons name="sunny-outline" size={20} color="#007AFF" />
+            </View>
+            <Text style={styles.instructionText}>Assurez-vous d&apos;avoir suffisamment de lumière</Text>
+          </View>
+          <View style={styles.instructionItem}>
+            <View style={styles.instructionIcon}>
+              <Ionicons name="phone-portrait-outline" size={20} color="#007AFF" />
+            </View>
+            <Text style={styles.instructionText}>Tenez votre téléphone à environ 20cm du QR code</Text>
+          </View>
+          <View style={styles.instructionItem}>
+            <View style={styles.instructionIcon}>
+              <Ionicons name="scan-outline" size={20} color="#007AFF" />
+            </View>
+            <Text style={styles.instructionText}>Le scan se fait automatiquement</Text>
+          </View>
+        </View>
+
+        {/* Rescan button */}
+        {scanned && !isProcessing && (
+          <TouchableOpacity 
+            style={styles.rescanButton}
+            onPress={() => setScanned(false)}
+          >
+            <Ionicons name="refresh" size={20} color="white" />
+            <Text style={styles.rescanButtonText}>Scanner à nouveau</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Success Modal */}
       <Modal
@@ -393,7 +393,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   centerContent: {

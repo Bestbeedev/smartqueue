@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as Location from 'expo-location';
+import { useLocationStore } from '../store/locationStore';
 
 // Types pour la géolocalisation
 export interface LocationData {
@@ -39,6 +40,7 @@ export const useGeolocation = (options: GeolocationOptions = {}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<Location.LocationSubscription | null>(null);
+  const { location: persistedLocation, setLocation: setPersistedLocation } = useLocationStore();
 
   // Options par défaut
   const defaultOptions: GeolocationOptions = {
@@ -118,6 +120,11 @@ export const useGeolocation = (options: GeolocationOptions = {}) => {
       };
 
       setLocation(locationData);
+      setPersistedLocation({
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        timestamp: locationData.timestamp,
+      });
       setIsLoading(false);
       return locationData;
     } catch (err) {
@@ -166,6 +173,23 @@ export const useGeolocation = (options: GeolocationOptions = {}) => {
 
   // Effet initial pour charger la position et la permission
   useEffect(() => {
+    // Load persisted location first if available (less than 5 minutes old)
+    if (persistedLocation) {
+      const age = Date.now() - persistedLocation.timestamp;
+      if (age < 5 * 60 * 1000) { // 5 minutes
+        setLocation({
+          latitude: persistedLocation.latitude,
+          longitude: persistedLocation.longitude,
+          altitude: null,
+          accuracy: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          timestamp: persistedLocation.timestamp,
+        });
+      }
+    }
+    
     checkPermission();
     getCurrentPosition();
   }, []);
