@@ -23,9 +23,16 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
-      "package": "com.bestbeedev.smartqueue"
+      "package": "com.bestbeedev.smartqueue",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDNZcivIoOjKfAA0Aj30bipFCH8q9Pupa0"
+        }
+      }
     },
     "plugins": [
       "expo-router",

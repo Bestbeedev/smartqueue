@@ -23,10 +23,10 @@ interface ExploreCacheState {
   forceRefresh: () => void;
 }
 
-// Durée de validité du cache : 2 minutes (en ms)
-const CACHE_DURATION = 2 * 60 * 1000;
-// Distance maximale pour réutiliser le cache : 100 mètres
-const MAX_DISTANCE_FOR_CACHE = 0.1; // km
+// Durée de validité du cache : 10 minutes (en ms) - augmenté pour éviter les rechargements fréquents
+const CACHE_DURATION = 10 * 60 * 1000;
+// Distance maximale pour réutiliser le cache : 500 mètres
+const MAX_DISTANCE_FOR_CACHE = 0.5; // km
 
 export const useExploreCacheStore = create<ExploreCacheState>()((set, get) => ({
   cachedData: null,

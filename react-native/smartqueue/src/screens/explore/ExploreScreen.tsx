@@ -25,7 +25,7 @@ import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
 import { Coordinates } from "../../utils/distance";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
-import { useExploreCache } from "../../store/exploreCacheStore";
+import useExploreCacheStore, { useExploreCache } from "../../store/exploreCacheStore";
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
@@ -60,6 +60,7 @@ export const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedEstablishment, setSelectedEstablishment] =
     useState<Establishment | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
@@ -208,6 +209,24 @@ useEffect(() => {
     }
 
     if (!currentLocation) {
+      // Si pas de localisation mais qu'on a du cache, l'utiliser quand même
+      if (cachedEstablishments && !forceReload && !searchQuery) {
+        console.log('[ExploreScreen] Using cached establishments without location');
+        setEstablishments(cachedEstablishments);
+        setFilteredEstablishments(cachedEstablishments);
+        // Utiliser la dernière localisation connue du cache
+        const cacheLocation = useExploreCacheStore.getState().cachedData?.location;
+        if (cacheLocation) {
+          setMapRegion({
+            latitude: cacheLocation.latitude,
+            longitude: cacheLocation.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+        }
+        return;
+      }
+      
       showError(
         "Localisation requise",
         "Veuillez autoriser la localisation pour trouver les établissements proches.",
@@ -290,6 +309,24 @@ useEffect(() => {
       getCurrentPosition();
     }
   }, [location, getCurrentPosition]);
+
+  // Effet pour charger les données cached immédiatement au montage
+  useEffect(() => {
+    if (cachedEstablishments && !location && !isLoading) {
+      console.log('[ExploreScreen] Loading cached data on mount');
+      setEstablishments(cachedEstablishments);
+      setFilteredEstablishments(cachedEstablishments);
+      const cacheLocation = useExploreCacheStore.getState().cachedData?.location;
+      if (cacheLocation) {
+        setMapRegion({
+          latitude: cacheLocation.latitude,
+          longitude: cacheLocation.longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      }
+    }
+  }, []);
 
   // Effet pour charger les établissements quand la position ou les filtres changent
   useEffect(() => {
