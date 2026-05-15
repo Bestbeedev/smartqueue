@@ -24,9 +24,10 @@
 
 > **SmartQueue** digitalise complètement l'expérience d'attente. Les usagers prennent leur ticket à distance,  
 > suivent leur position en temps réel, et sont notifiés automatiquement — fini les heures perdues dans les salles d'attente.
-</div>
+
 ---
 
+</div>
 ## 📋 Table des matières
 
 - [Vue d'ensemble](#-vue-densemble)
