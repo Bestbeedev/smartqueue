@@ -27,6 +27,8 @@
 
 ---
 
+</div>
+
 ## 📋 Table des matières
 
 - [Vue d'ensemble](#-vue-densemble)
@@ -1163,5 +1165,6 @@ Distribué sous licence **MIT**. Voir [LICENSE](LICENSE).
 **SmartQueue — Parce que le temps de chacun a de la valeur.**
 
 Built with ❤️ using Laravel, React, and React Native
+Authors : [Stephane TOSSOUGBE - Stephdeve](https://github.com/stephdeve/) &  [Josue AOGA - Bestbeedev](https://github.com/Bestbeedev/)
 
 </div>
