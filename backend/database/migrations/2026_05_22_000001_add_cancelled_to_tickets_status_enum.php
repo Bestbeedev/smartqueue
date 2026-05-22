@@ -1,0 +1,23 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+        DB::statement("ALTER TABLE tickets MODIFY COLUMN status ENUM('waiting','called','absent','closed','canceled','cancelled','expired') NOT NULL");
+    }
+
+    public function down(): void
+    {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+        DB::statement("ALTER TABLE tickets MODIFY COLUMN status ENUM('waiting','called','absent','closed','canceled','expired') NOT NULL");
+    }
+};

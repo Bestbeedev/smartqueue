@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authApi, LoginCredentials, RegisterData, User } from '../api/authApi';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { authApi, LoginCredentials, RegisterData, User } from "../api/authApi";
 
 // Types pour le store d'authentification
 export interface AuthState {
@@ -11,7 +11,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   login: (credentials: LoginCredentials) => Promise<User>;
   register: (data: RegisterData) => Promise<void>;
@@ -20,6 +20,7 @@ export interface AuthState {
   setLoading: (loading: boolean) => void;
   updateUser: (user: Partial<User>) => void;
   checkAuth: () => Promise<void>;
+  setGoogleAuthData: (user: User, token: string) => void;
 }
 
 // Store d'authentification avec Zustand
@@ -36,13 +37,19 @@ export const useAuthStore = create<AuthState>()(
       // Action de connexion
       login: async (credentials: LoginCredentials) => {
         set({ isLoading: true, error: null });
-        
+
         try {
           const response = await authApi.login(credentials);
-          
-          console.log('[authStore] login response user:', JSON.stringify(response.user, null, 2));
-          console.log('[authStore] login response user services:', JSON.stringify((response.user as any)?.services));
-          
+
+          console.log(
+            "[authStore] login response user:",
+            JSON.stringify(response.user, null, 2),
+          );
+          console.log(
+            "[authStore] login response user services:",
+            JSON.stringify((response.user as any)?.services),
+          );
+
           set({
             user: response.user,
             token: response.token,
@@ -52,7 +59,8 @@ export const useAuthStore = create<AuthState>()(
           });
           return response.user;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Erreur de connexion';
+          const errorMessage =
+            error.response?.data?.message || "Erreur de connexion";
           set({
             user: null,
             token: null,
@@ -67,10 +75,10 @@ export const useAuthStore = create<AuthState>()(
       // Action d'inscription
       register: async (data: RegisterData) => {
         set({ isLoading: true, error: null });
-        
+
         try {
           const response = await authApi.register(data);
-          
+
           set({
             user: response.user,
             token: response.token,
@@ -79,7 +87,8 @@ export const useAuthStore = create<AuthState>()(
             error: null,
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Erreur d\'inscription';
+          const errorMessage =
+            error.response?.data?.message || "Erreur d'inscription";
           set({
             user: null,
             token: null,
@@ -97,12 +106,12 @@ export const useAuthStore = create<AuthState>()(
           await authApi.logout();
         } catch (error) {
           // Ignorer les erreurs de déconnexion côté serveur
-          console.warn('Logout API error:', error);
+          console.warn("Logout API error:", error);
         } finally {
           // Clear ticket store to prevent stale data from previous user
-          const { useTicketStore } = require('./ticketStore');
+          const { useTicketStore } = require("./ticketStore");
           useTicketStore.getState().clearActiveTicket();
-          
+
           set({
             user: null,
             token: null,
@@ -112,7 +121,6 @@ export const useAuthStore = create<AuthState>()(
           });
         }
       },
-
 
       // Effacer les erreurs
       clearError: () => {
@@ -134,10 +142,21 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // Mettre à jour le store après une authentification Google (sans appel API)
+      setGoogleAuthData: (user: User, token: string) => {
+        set({
+          user,
+          token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+      },
+
       // Vérifier l'authentification au démarrage
       checkAuth: async () => {
         const { token } = get();
-        
+
         if (!token) {
           set({ isAuthenticated: false });
           return;
@@ -166,21 +185,21 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: "auth-storage",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Hooks personnalisés pour le store d'authentification
 export const useAuth = () => {
   const authStore = useAuthStore();
-  
+
   return {
     // État
     user: authStore.user,
@@ -188,7 +207,7 @@ export const useAuth = () => {
     isAuthenticated: authStore.isAuthenticated,
     isLoading: authStore.isLoading,
     error: authStore.error,
-    
+
     // Actions
     login: authStore.login,
     register: authStore.register,
@@ -197,13 +216,14 @@ export const useAuth = () => {
     setLoading: authStore.setLoading,
     updateUser: authStore.updateUser,
     checkAuth: authStore.checkAuth,
-    
+    setGoogleAuthData: authStore.setGoogleAuthData,
+
     // Computed properties
     isLoggedIn: authStore.isAuthenticated && authStore.token !== null,
-    userName: authStore.user?.name || '',
-    userEmail: authStore.user?.email || '',
-    userPhone: authStore.user?.phone || '',
-    memberSince: authStore.user?.created_at || '',
+    userName: authStore.user?.name || "",
+    userEmail: authStore.user?.email || "",
+    userPhone: authStore.user?.phone || "",
+    memberSince: authStore.user?.created_at || "",
   };
 };
 
