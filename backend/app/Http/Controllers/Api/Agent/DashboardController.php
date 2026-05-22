@@ -17,10 +17,10 @@ class DashboardController extends Controller
     public function stats(Request $request)
     {
         $user = $request->user();
-        
+
         // Récupérer les services assignés à l'agent
         $assignedServiceIds = $user->services()->pluck('services.id');
-        
+
         if ($assignedServiceIds->isEmpty()) {
             return response()->json([
                 'today_total' => 0,
@@ -58,15 +58,15 @@ class DashboardController extends Controller
             ->whereNotNull('called_at')
             ->whereNotNull('closed_at')
             ->whereDate('closed_at', $today)
-            ->selectRaw("AVG(EXTRACT(EPOCH FROM (closed_at - called_at)) / 60) as avg_time")
+            ->selectRaw("AVG(TIMESTAMPDIFF(SECOND, called_at, closed_at) / 60) as avg_time")
             ->value('avg_time');
 
-        // Temps moyen d'attente (temps entre created_at et called_at) - PostgreSQL compatible reviews
+        // Temps moyen d'attente (temps entre created_at et called_at)
         $avgWaitTime = DB::table('tickets')
             ->whereIn('service_id', $assignedServiceIds)
             ->whereNotNull('called_at')
             ->whereDate('called_at', $today)
-            ->selectRaw("AVG(EXTRACT(EPOCH FROM (called_at - created_at)) / 60) as avg_time")
+            ->selectRaw("AVG(TIMESTAMPDIFF(SECOND, created_at, called_at) / 60) as avg_time")
             ->value('avg_time');
 
         // Tickets par jour (moyenne sur 7 jours)
@@ -250,7 +250,7 @@ class DashboardController extends Controller
             ->whereNotNull('called_at')
             ->whereNotNull('closed_at')
             ->where('closed_at', '>=', Carbon::now()->subDays(7))
-            ->selectRaw("AVG(EXTRACT(EPOCH FROM (closed_at - called_at)) / 60) as avg_time")
+            ->selectRaw("AVG(TIMESTAMPDIFF(SECOND, called_at, closed_at) / 60) as avg_time")
             ->value('avg_time');
 
         return response()->json([

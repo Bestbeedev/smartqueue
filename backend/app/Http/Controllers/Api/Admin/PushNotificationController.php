@@ -42,6 +42,7 @@ class PushNotificationController extends Controller
         }
 
         $pushUserIds = User::query()
+            ->where('establishment_id', $establishmentId)
             ->whereHas('devices', function ($q) {
                 $q->where('push_enabled', true);
             })

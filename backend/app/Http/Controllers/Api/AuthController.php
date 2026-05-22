@@ -19,10 +19,10 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $data = $request->validated();
-        
+
         // Déterminer le rôle: admin si establishment_name est fourni, sinon user
         $role = !empty($data['establishment_name']) ? 'admin' : 'user';
-        
+
         // Création sécurisée de l'utilisateur
         $user = User::create([
             'name' => $data['name'],
@@ -44,7 +44,7 @@ class AuthController extends Controller
                 'close_at' => $data['establishment_close_at'] ?? null,
                 'is_active' => true,
             ]);
-            
+
             // Lier l'admin à l'établissement
             $user->establishment_id = $establishment->id;
             $user->save();
@@ -100,9 +100,9 @@ class AuthController extends Controller
             $services = \App\Models\Service::whereHas('agents', function($q) use ($user) {
                 $q->where('users.id', $user->id);
             })->get(['id', 'name', 'status', 'avg_service_time_minutes']);
-            
+
             \Log::info('Agent login services', ['user_id' => $user->id, 'services_count' => $services->count()]);
-            
+
             $userResponse['services'] = $services->map(function ($service) {
                 return [
                     'id' => $service->id,
@@ -149,9 +149,9 @@ class AuthController extends Controller
         }
 
         $googleUser = $googleResponse->json();
-        
+
         // Vérifier que l'email est vérifié par Google
-        if (!isset($googleUser['email_verified']) || !$googleUser['email_verified']) {
+        if (!isset($googleUser['email_verified']) || !filter_var($googleUser['email_verified'], FILTER_VALIDATE_BOOLEAN)) {
             return response()->json([
                 'message' => 'Google email not verified',
             ], Response::HTTP_UNAUTHORIZED);
@@ -165,7 +165,7 @@ class AuthController extends Controller
             $user = User::create([
                 'name' => $googleUser['name'] ?? explode('@', $googleUser['email'])[0],
                 'email' => $googleUser['email'],
-                'password' => Hash::make(uniqid()), // Mot de passe aléatoire
+                'password' => Hash::make(\Illuminate\Support\Str::random(32)), // Mot de passe aléatoire
                 'phone' => null,
                 'role' => 'user',
                 'google_id' => $googleUser['sub'] ?? null,
@@ -217,9 +217,9 @@ class AuthController extends Controller
         }
 
         $googleUser = $googleResponse->json();
-        
+
         // Vérifier que l'email est vérifié par Google
-        if (!isset($googleUser['email_verified']) || !$googleUser['email_verified']) {
+        if (!isset($googleUser['email_verified']) || !filter_var($googleUser['email_verified'], FILTER_VALIDATE_BOOLEAN)) {
             return response()->json([
                 'message' => 'Google email not verified',
             ], Response::HTTP_UNAUTHORIZED);
@@ -227,15 +227,15 @@ class AuthController extends Controller
 
         // Vérifier si l'utilisateur existe déjà
         $existingUser = User::where('email', $googleUser['email'])->first();
-        
+
         if ($existingUser) {
             // Mettre à jour le phone si fourni
             if ($request->phone && !$existingUser->phone) {
                 $existingUser->update(['phone' => $request->phone]);
             }
-            
+
             $token = $existingUser->createToken('api')->plainTextToken;
-            
+
             return response()->json([
                 'user' => [
                     'id' => $existingUser->id,
@@ -252,7 +252,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $googleUser['name'] ?? explode('@', $googleUser['email'])[0],
             'email' => $googleUser['email'],
-            'password' => Hash::make(uniqid()),
+            'password' => Hash::make(\Illuminate\Support\Str::random(32)),
             'phone' => $request->phone,
             'role' => 'user',
             'google_id' => $googleUser['sub'] ?? null,
