@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/railwayapp/railpack/main/schema.json",
+  "version": 1,
+  "providers": {
+    "php": {
+      "extensions": [
+        "ctype",
+        "curl",
+        "dom",
+        "fileinfo",
+        "filter",
+        "hash",
+        "mbstring",
+        "openssl",
+        "pcre",
+        "pdo",
+        "session",
+        "tokenizer",
+        "xml",
+        "pdo_pgsql",
+        "redis",
+        "gd"
+      ]
+    }
+  }
+}
