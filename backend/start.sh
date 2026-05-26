@@ -24,8 +24,9 @@ php artisan event:cache
 # ─── 3. Symlink storage → public/storage ─────────────────────────────────────
 php artisan storage:link --quiet 2>/dev/null || true
 
-# ─── 4. Migrations (optionnel, activé via RUN_MIGRATIONS=true sur Railway) ────
-if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+# ─── 4. Migrations (toujours exécutées par défaut, désactivables via RUN_MIGRATIONS=false) ─
+# php artisan migrate --force est idempotent : aucun risque si tout est déjà à jour.
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
   echo "[start.sh] Running migrations..."
   php artisan migrate --force
 fi

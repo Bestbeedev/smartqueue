@@ -5,37 +5,57 @@
  * - Paramètres lus depuis import.meta.env (Vite)
  * - Utilisé pour écouter les événements: TicketCalled, ServiceStatsUpdated, etc.
  */
-import Echo from 'laravel-echo'
-import Pusher from 'pusher-js'
+import Echo from "laravel-echo";
+import Pusher from "pusher-js";
 
 // Create a singleton Echo instance configured for Bearer auth with Sanctum token
-let echoInstance: any = null
+let echoInstance: any = null;
 
 export function getEcho(): any {
-  if (echoInstance) return echoInstance
+  if (echoInstance) return echoInstance;
   // Token Sanctum pour l'auth broadcast privé
-  const token = (typeof window !== 'undefined' && (window as any).localStorage && typeof (window as any).localStorage.getItem === 'function')
-    ? (window as any).localStorage.getItem('token')
-    : null
-  const key = import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_KEY
-  const host = import.meta.env.VITE_REVERB_HOST || import.meta.env.VITE_PUSHER_HOST || window.location.hostname
-  const port = Number(import.meta.env.VITE_REVERB_PORT) || Number(import.meta.env.VITE_PUSHER_PORT) || 6001
-  const scheme = (import.meta.env.VITE_REVERB_SCHEME || (import.meta.env.VITE_PUSHER_FORCE_TLS === 'true' ? 'https' : 'http')) as string
-  const forceTLS = scheme === 'https' || import.meta.env.VITE_REVERB_SCHEME === 'https'
+  const token =
+    typeof window !== "undefined" &&
+    (window as any).localStorage &&
+    typeof (window as any).localStorage.getItem === "function"
+      ? (window as any).localStorage.getItem("token")
+      : null;
+  const key =
+    import.meta.env.VITE_REVERB_APP_KEY || import.meta.env.VITE_PUSHER_KEY;
+  const host =
+    import.meta.env.VITE_REVERB_HOST ||
+    import.meta.env.VITE_PUSHER_HOST ||
+    window.location.hostname;
+  const port =
+    Number(import.meta.env.VITE_REVERB_PORT) ||
+    Number(import.meta.env.VITE_PUSHER_PORT) ||
+    6001;
+  const scheme = (import.meta.env.VITE_REVERB_SCHEME ||
+    (import.meta.env.VITE_PUSHER_FORCE_TLS === "true"
+      ? "https"
+      : "http")) as string;
+  const forceTLS =
+    scheme === "https" || import.meta.env.VITE_REVERB_SCHEME === "https";
 
-  ;(window as any).Pusher = Pusher
+  (window as any).Pusher = Pusher;
   echoInstance = new Echo({
-    broadcaster: 'pusher', // Reverb parle le protocole Pusher
+    broadcaster: "pusher", // Reverb parle le protocole Pusher
     key,
-    cluster: import.meta.env.VITE_REVERB_CLUSTER || import.meta.env.VITE_PUSHER_CLUSTER,
+    cluster:
+      import.meta.env.VITE_REVERB_CLUSTER ||
+      import.meta.env.VITE_PUSHER_CLUSTER,
     wsHost: host,
-    wsPort: forceTLS ? undefined : port,
-    wssPort: forceTLS ? port : undefined,
+    // Ne pas passer le port quand c'est le port par défaut (80 pour ws, 443 pour wss)
+    // pusher-js ajoute "/:PORT/" dans le chemin URL quand le port est explicitément défini
+    // Ex: wssPort=443 -> wss://host/:443/app/key  (incorrect)
+    // Solution: passer undefined pour les ports standard -> wss://host/app/key  (correct)
+    wsPort: !forceTLS && port !== 80 ? port : undefined,
+    wssPort: forceTLS && port !== 443 ? port : undefined,
     forceTLS,
     disableStats: true,
-    enabledTransports: ['ws', 'wss'],
-    authEndpoint: `${import.meta.env.VITE_API_BASE_URL || ''}/api/broadcasting/auth`,
-    auth: { headers: { Authorization: token ? `Bearer ${token}` : '' } }
-  })
-  return echoInstance
+    enabledTransports: ["ws", "wss"],
+    authEndpoint: `${import.meta.env.VITE_API_BASE_URL || ""}/api/broadcasting/auth`,
+    auth: { headers: { Authorization: token ? `Bearer ${token}` : "" } },
+  });
+  return echoInstance;
 }
