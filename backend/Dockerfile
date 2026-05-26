@@ -1,12 +1,23 @@
 FROM php:8.2-fpm
 
-# 1. Dépendances système (avec libpq-dev corrigé)
-RUN apt-get update && apt-get install -y \
-    git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libicu-dev \
+# 1. Dépendances système
+# libz-dev n'existe pas sur Debian Bookworm → remplacé par zlib1g-dev
+# libjpeg62-turbo-dev + libfreetype6-dev nécessaires pour GD
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git unzip \
+    libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libicu-dev \
     libpq-dev \
-    libz-dev \
-    nginx supervisor \
+    zlib1g-dev \
+    nginx \
+    supervisor \
     && docker-php-ext-configure intl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip exif pcntl bcmath intl gd \
     && pecl install redis-6.2.0 \
     && docker-php-ext-enable redis \
