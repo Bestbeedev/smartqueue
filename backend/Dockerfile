@@ -1,38 +1,44 @@
 FROM php:8.2-fpm
 
-# 1. Dépendances système
-# libz-dev n'existe pas sur Debian Bookworm → remplacé par zlib1g-dev
-# libjpeg62-turbo-dev + libfreetype6-dev nécessaires pour GD
+# ─── 1. install-php-extensions ────────────────────────────────────────────────
+# Outil communautaire officiel : gère automatiquement toutes les dépendances
+# système (libjpeg, libpng, libicu, libpq, etc.) selon l'image PHP utilisée.
+# Plus besoin de gérer manuellement les paquets apt ni les flags de compilation.
+ADD --chmod=0755 \
+    https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions \
+    /usr/local/bin/
+
+# ─── 2. Extensions PHP ────────────────────────────────────────────────────────
+RUN install-php-extensions \
+    pdo_mysql \
+    pdo_pgsql \
+    mbstring \
+    zip \
+    exif \
+    pcntl \
+    bcmath \
+    intl \
+    gd \
+    redis
+
+# ─── 3. Outils système (nginx + supervisor uniquement) ────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip \
-    libzip-dev \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    libonig-dev \
-    libxml2-dev \
-    libicu-dev \
-    libpq-dev \
-    zlib1g-dev \
+    git \
+    unzip \
     nginx \
     supervisor \
-    && docker-php-ext-configure intl \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip exif pcntl bcmath intl gd \
-    && pecl install redis-6.2.0 \
-    && docker-php-ext-enable redis \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 2. Composer
+# ─── 4. Composer ──────────────────────────────────────────────────────────────
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# 3. Cache libs
+# ─── 5. Dépendances PHP (cache de layer) ──────────────────────────────────────
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# 4. Code & Permissions
+# ─── 6. Code applicatif ───────────────────────────────────────────────────────
 COPY --chown=www-data:www-data . .
 
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
@@ -40,10 +46,10 @@ RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framewor
     && chmod -R ug+rwX storage bootstrap/cache \
     && composer dump-autoload --optimize
 
-# 5. Nettoyage Nginx (pour laisser start.sh configurer le port)
+# ─── 7. Nginx ─────────────────────────────────────────────────────────────────
 RUN rm -f /etc/nginx/sites-enabled/default
 
-# 6. Config Supervisor
+# ─── 8. Supervisor ────────────────────────────────────────────────────────────
 RUN printf '%s\n' \
   '[supervisord]' \
   'nodaemon=true' \
