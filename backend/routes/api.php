@@ -104,7 +104,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Préférences notifications (mobile/web)
     Route::get('/notification-preferences', [NotificationPreferencesController::class, 'show']);
     Route::put('/notification-preferences', [NotificationPreferencesController::class, 'update']);
-    
+
 
     // Espace agent / admin (gestion des files en temps réel)
     Route::middleware('role:agent,admin')->group(function () {
@@ -148,7 +148,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Espace administrateur (gestion référentiel + stats)
     Route::prefix('admin')->middleware(['role:admin','admin.establishment'])->group(function () {
-        Route::apiResource('establishments', AdminEstablishmentController::class);
+        Route::apiResource('establishments', AdminEstablishmentController::class)->names('admin.establishments');
         Route::apiResource('services', AdminServiceController::class);
         Route::apiResource('agents', AdminAgentController::class);
         Route::apiResource('counters', AdminCounterController::class);
@@ -181,7 +181,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Espace super-admin SaaS (multi-établissements)
     Route::prefix('saas')->middleware('role:super_admin')->group(function () {
-        Route::apiResource('establishments', SaasEstablishmentController::class);
+        Route::apiResource('establishments', SaasEstablishmentController::class)->names('saas.establishments');
         Route::get('subscriptions', [SaasSubscriptionController::class, 'index']);
         Route::put('establishments/{establishment}/subscription', [SaasSubscriptionController::class, 'upsert']);
         Route::get('monitoring/overview', [SaasMonitoringController::class, 'overview']);
@@ -207,14 +207,14 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('broadcasting/auth', function (Request $request) {
     $channelName = $request->input('channel_name');
     $socketId = $request->input('socket_id');
-    
+
     // Log for debugging
     \Log::info('Broadcasting auth request', [
         'channel_name' => $channelName,
         'socket_id' => $socketId,
         'user_id' => $request->user()?->id,
     ]);
-    
+
     // Remove 'private-' or 'presence-' prefix if present
     $normalizedChannel = $channelName;
     if (str_starts_with($channelName, 'private-')) {
@@ -222,33 +222,33 @@ Route::post('broadcasting/auth', function (Request $request) {
     } elseif (str_starts_with($channelName, 'presence-')) {
         $normalizedChannel = substr($channelName, 9);
     }
-    
+
     // Validate the channel and return auth signature
     if (str_starts_with($normalizedChannel, 'ticket.')) {
         // Private ticket channel - user must own the ticket
         $ticketId = (int) str_replace('ticket.', '', $normalizedChannel);
         $ticket = \App\Models\Ticket::find($ticketId);
-        
+
         \Log::info('Ticket channel auth', ['ticket_id' => $ticketId, 'ticket_found' => !!$ticket, 'user_id' => $request->user()->id]);
-        
+
         if (!$ticket || $ticket->user_id !== $request->user()->id) {
             abort(403, 'Unauthorized for ticket channel');
         }
-        
+
         // Generate auth signature for Reverb
         $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
         $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
         // Sign with the ORIGINAL channel name (with private- prefix if present)
         $stringToSign = $socketId . ':' . $channelName;
         $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-        
+
         \Log::info('Generated auth signature', ['auth' => $pusherKey . ':' . $signature]);
-        
+
         return response()->json([
             'auth' => $pusherKey . ':' . $signature,
         ]);
     }
-    
+
     // Presence channel for service (agents/admins)
     if (str_starts_with($normalizedChannel, 'service.') || str_starts_with($normalizedChannel, 'presence-service.')) {
         // Handle both service.{id} and presence-service.{id}
@@ -258,51 +258,51 @@ Route::post('broadcasting/auth', function (Request $request) {
             $serviceId = (int) str_replace('service.', '', $normalizedChannel);
         }
         $user = $request->user();
-        
+
         // For presence channels, agents/admins can join
         if ($user && in_array($user->role, ['agent', 'admin'])) {
             $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
             $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
-            
+
             // Presence channel auth includes user data
             $userData = json_encode([
                 'id' => $user->id,
                 'name' => $user->name,
                 'role' => $user->role,
             ]);
-            
+
             $stringToSign = $socketId . ':' . $channelName . ':' . $userData;
             $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-            
+
             \Log::info('Presence channel auth for agent', ['service_id' => $serviceId, 'user_id' => $user->id]);
-            
+
             return response()->json([
                 'auth' => $pusherKey . ':' . $signature,
                 'channel_data' => $userData,
             ]);
         }
-        
+
         // For regular users, check if they have active ticket
         $hasActiveTicket = \App\Models\Ticket::where('user_id', $user->id)
             ->where('service_id', $serviceId)
             ->whereIn('status', ['waiting', 'called', 'absent'])
             ->exists();
-        
+
         if (!$hasActiveTicket) {
             abort(403, 'Unauthorized for service channel');
         }
-        
+
         // Generate auth signature for Reverb
         $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
         $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
         $stringToSign = $socketId . ':' . $channelName;
         $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-        
+
         return response()->json([
             'auth' => $pusherKey . ':' . $signature,
         ]);
     }
-    
+
     // Default: use Laravel's built-in auth for other channels
     //vd
     return Broadcast::auth($request);

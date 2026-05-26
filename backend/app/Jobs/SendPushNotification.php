@@ -183,7 +183,7 @@ class SendPushNotification implements ShouldQueue
         $accessToken = $tokenInfo['access_token'] ?? null;
 
         if (!$accessToken) {
-            Log::warning('[Push] Impossible d'obtenir un token Firebase');
+            Log::warning('[Push] Impossible d\'obtenir un token Firebase');
             return [false, true];
         }
 
