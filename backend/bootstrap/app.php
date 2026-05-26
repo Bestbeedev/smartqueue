@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Providers\AuthServiceProvider::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        // CORS — doit être en tête de pile pour répondre aux OPTIONS preflight
+        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+
         // Alias du middleware de rôle pour contrôler l'accès par rôle (admin/agent/user)
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
@@ -93,4 +96,3 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
     })->create();
-
