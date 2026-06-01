@@ -73,10 +73,23 @@ class ReminderEngine
             return null;
         }
 
-        // Global anti-spam: keep a minimum interval between two *pushed* reminders
-        // for the same ticket. The terminal "next" stage is allowed to bypass it.
-        if ($targetStage !== 'next' && $this->sentRecently($ticket->id, $prefs)) {
-            return null;
+        // The terminal "next" stage is critical and bypasses the anti-spam guards
+        // below (min interval, quiet hours, per-ticket cap).
+        $isCritical = $targetStage === 'next';
+
+        if (! $isCritical) {
+            // Minimum interval between two pushed reminders for the same ticket.
+            if ($this->sentRecently($ticket->id, $prefs)) {
+                return null;
+            }
+            // Quiet hours: hold non-critical reminders (they will fire later).
+            if ($this->isWithinQuietHours($prefs)) {
+                return null;
+            }
+            // Hard cap on the number of reminders actually sent for a ticket.
+            if ($this->reachedCap($ticket->id, $prefs)) {
+                return null;
+            }
         }
 
         if ($dryRun) {
@@ -184,6 +197,48 @@ class ReminderEngine
         }
 
         return Carbon::parse($last)->greaterThan(Carbon::now()->subMinutes($minInterval));
+    }
+
+    /**
+     * Whether the per-ticket reminder cap has been reached (counts only
+     * reminders actually sent, i.e. excludes "superseded" markers).
+     */
+    private function reachedCap(int $ticketId, NotificationPreference $prefs): bool
+    {
+        $max = (int) ($prefs->getAttribute('max_reminders_per_ticket') ?? 4);
+        if ($max <= 0) {
+            return false;
+        }
+
+        $sent = TicketReminder::query()
+            ->where('ticket_id', $ticketId)
+            ->whereNotNull('sent_at')
+            ->count();
+
+        return $sent >= $max;
+    }
+
+    /**
+     * Whether "now" falls inside the user's quiet-hours window.
+     * Supports overnight windows (e.g. 22:00 -> 07:00).
+     */
+    private function isWithinQuietHours(NotificationPreference $prefs): bool
+    {
+        $start = $prefs->getAttribute('quiet_hours_start');
+        $end = $prefs->getAttribute('quiet_hours_end');
+
+        if (empty($start) || empty($end) || $start === $end) {
+            return false;
+        }
+
+        $now = Carbon::now()->format('H:i');
+
+        if ($start < $end) {
+            return $now >= $start && $now < $end;
+        }
+
+        // Overnight window: active if after start OR before end.
+        return $now >= $start || $now < $end;
     }
 
     /**

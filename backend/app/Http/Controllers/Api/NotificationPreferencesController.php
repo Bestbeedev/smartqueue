@@ -34,6 +34,11 @@ class NotificationPreferencesController extends Controller
             'sms_enabled' => ['sometimes','boolean'],
             'notify_before_positions' => ['sometimes','integer','min:0','max:999'],
             'notify_before_minutes' => ['sometimes','integer','min:0','max:999'],
+            'quiet_hours_start' => ['sometimes','nullable','date_format:H:i'],
+            'quiet_hours_end' => ['sometimes','nullable','date_format:H:i'],
+            'min_interval_minutes' => ['sometimes','integer','min:1','max:240'],
+            'max_reminders_per_ticket' => ['sometimes','integer','min:1','max:20'],
+            'enable_travel_alerts' => ['sometimes','boolean'],
         ]);
 
         $prefs = NotificationPreference::query()->firstOrCreate(
