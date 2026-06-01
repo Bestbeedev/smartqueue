@@ -20,7 +20,9 @@ import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useNotifications } from "../hooks/useNotifications";
+import { useLocationReporter } from "../hooks/useLocationReporter";
 import { useAuth } from "../store/authStore";
+import { useTicketStore } from "../store/ticketStore";
 
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
@@ -50,6 +52,10 @@ export default function NotificationsProvider() {
   } = useNotifications();
 
   const registeredRef = useRef(false);
+
+  // Smart Departure serveur : remonter la position tant qu'un ticket est actif.
+  const activeTicket = useTicketStore((s) => s.activeTicket);
+  useLocationReporter(activeTicket?.id ?? null, activeTicket?.status ?? null);
 
   // Permission + enregistrement du token dès que l'utilisateur est connecté.
   useEffect(() => {

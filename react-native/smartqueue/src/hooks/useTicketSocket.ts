@@ -6,6 +6,11 @@ import Pusher from 'pusher-js';
 import { useTicket, useTicketStore } from '../store/ticketStore';
 import { useUserStatsStore } from '../store/userStatsStore';
 import axiosClient from '../api/axiosClient';
+import {
+  reminderAlreadyShown,
+  reminderKey,
+  markReminderShown,
+} from '../utils/reminderDedup';
 
 // Ensure Pusher is globally available for Laravel Echo
 (window as any).Pusher = Pusher;
@@ -265,6 +270,26 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               }
               scheduleResync();
             }
+          })
+          // Rappels intelligents (prepare/leave/imminent/next) : bannière in-app
+          // quand l'app est au premier plan. Dédupliqué avec le push FCM par
+          // `stage` pour n'afficher qu'une seule fois.
+          .listen('.ticket.reminder', (data: any) => {
+            console.log('Ticket reminder event received:', data);
+            const tId = data.ticket_id ?? Number(ticketId);
+            const key = reminderKey(tId, String(data.stage ?? ''));
+            if (reminderAlreadyShown(key)) return;
+            markReminderShown(key);
+            triggerNotification(
+              data.title || 'Rappel',
+              data.body || 'Votre tour approche',
+              {
+                type: 'reminder',
+                stage: data.stage,
+                ticket_id: tId,
+              },
+            );
+            triggerHapticFeedback('light');
           });
       }
 
@@ -327,7 +352,11 @@ export const useTicketSocket = (ticketId: string | number | null) => {
   };
 };
 
-const triggerNotification = async (title: string, body: string) => {
+const triggerNotification = async (
+  title: string,
+  body: string,
+  data?: Record<string, any>,
+) => {
   try {
     const Notifications = require('expo-notifications');
     if (!Notifications) return;
@@ -338,6 +367,9 @@ const triggerNotification = async (title: string, body: string) => {
         body,
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority?.HIGH || 'high',
+        // `_local` marque nos bannières in-app pour que le handler foreground les
+        // affiche toujours (et déduplique le push correspondant par `stage`).
+        data: { _local: true, ...(data ?? {}) },
       },
       // Sur Android, cibler le canal "smartqueue-default" (importance MAX) pour
       // un affichage heads-up. Le handler foreground (NotificationsProvider) gère

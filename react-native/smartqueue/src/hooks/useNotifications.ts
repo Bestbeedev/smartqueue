@@ -16,6 +16,11 @@ import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosClient from "../api/axiosClient";
 import { useCustomAlert } from "./useCustomAlert";
+import {
+  reminderAlreadyShown,
+  reminderKey,
+  markReminderShown,
+} from "../utils/reminderDedup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,14 +53,42 @@ export const ANDROID_DEFAULT_CHANNEL_ID = "smartqueue-default";
 // ─── Foreground handler : affiche la notif même quand l'app est ouverte ───────
 //    SDK 54 : utiliser shouldShowBanner / shouldShowList (shouldShowAlert est
 //    déprécié). On conserve shouldShowAlert pour compat ascendante.
+const SHOW: Notifications.NotificationBehavior = {
+  shouldShowBanner: true,
+  shouldShowList: true,
+  shouldShowAlert: true,
+  shouldPlaySound: true,
+  shouldSetBadge: true,
+};
+const SUPPRESS: Notifications.NotificationBehavior = {
+  shouldShowBanner: false,
+  shouldShowList: false,
+  shouldShowAlert: false,
+  shouldPlaySound: false,
+  shouldSetBadge: false,
+};
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = (notification.request.content.data ?? {}) as Record<
+      string,
+      any
+    >;
+    // Our own in-app banner (scheduled from the realtime listener) -> always show.
+    if (data._local) {
+      return SHOW;
+    }
+    // Smart reminder push: dedup against the realtime `.ticket.reminder` banner
+    // so it is shown at most once while the app is foregrounded.
+    if (data.type === "reminder" && data.ticket_id != null && data.stage) {
+      const key = reminderKey(data.ticket_id, String(data.stage));
+      if (reminderAlreadyShown(key)) {
+        return SUPPRESS;
+      }
+      markReminderShown(key);
+    }
+    return SHOW;
+  },
 });
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
