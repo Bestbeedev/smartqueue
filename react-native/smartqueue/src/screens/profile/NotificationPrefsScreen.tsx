@@ -101,8 +101,8 @@ export const NotificationPrefsScreen: React.FC = () => {
           </View>
         </View>
 
-        <Text style={[styles.hintText, { color: colors.textTertiary }]}
-          Nous vous recommandons de garder les notifications activées pour ne pas manquer votre tour dans la file d'attente.
+        <Text style={[styles.hintText, { color: colors.textTertiary }]}>
+          Nous vous recommandons de garder les notifications activées pour ne pas manquer votre tour dans la file d&apos;attente.
         </Text>
         {AlertComponent}
       </ScrollView>
