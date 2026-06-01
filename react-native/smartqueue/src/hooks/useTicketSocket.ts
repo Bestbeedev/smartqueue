@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
@@ -304,7 +305,11 @@ const triggerNotification = async (title: string, body: string) => {
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority?.HIGH || 'high',
       },
-      trigger: null,
+      // Sur Android, cibler le canal "smartqueue-default" (importance MAX) pour
+      // un affichage heads-up. Le handler foreground (NotificationsProvider) gère
+      // l'affichage quand l'app est ouverte. trigger { channelId } = immédiat.
+      trigger:
+        Platform.OS === 'android' ? { channelId: 'smartqueue-default' } : null,
     });
   } catch (error) {
     console.warn('Notification scheduling not supported or failed:', error);

@@ -40,9 +40,18 @@ export interface ScheduledNotification {
   data?: Record<string, any>;
 }
 
+// ─── Canal Android par défaut ─────────────────────────────────────────────────
+//    Doit correspondre au channel_id envoyé par le backend (FCM v1) afin que les
+//    notifications push système s'affichent en heads-up (importance MAX).
+export const ANDROID_DEFAULT_CHANNEL_ID = "smartqueue-default";
+
 // ─── Foreground handler : affiche la notif même quand l'app est ouverte ───────
+//    SDK 54 : utiliser shouldShowBanner / shouldShowList (shouldShowAlert est
+//    déprécié). On conserve shouldShowAlert pour compat ascendante.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
@@ -226,7 +235,12 @@ export const useNotifications = () => {
             data: data.data ?? {},
             sound: data.sound ?? "default",
           },
-          trigger: null, // null = immédiat
+          trigger:
+            Platform.OS === "android"
+              ? ({
+                  channelId: ANDROID_DEFAULT_CHANNEL_ID,
+                } as Notifications.NotificationTriggerInput)
+              : null, // null = immédiat
         });
       } catch (err) {
         console.error("[Notifications] sendLocalNotification:", err);
@@ -310,7 +324,7 @@ export const useNotifications = () => {
     try {
       // Canal Android (obligatoire Android 8+)
       if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync("smartqueue-default", {
+        await Notifications.setNotificationChannelAsync(ANDROID_DEFAULT_CHANNEL_ID, {
           name: "SmartQueue",
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
