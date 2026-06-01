@@ -204,8 +204,20 @@ class SendPushNotification implements ShouldQueue
                             'token'        => $token,
                             'notification' => ['title' => $this->title, 'body' => $this->body],
                             'data'         => array_map('strval', $this->data),
-                            'android'      => ['priority' => 'high'],
-                            'apns'         => ['headers' => ['apns-priority' => '10']],
+                            'android'      => [
+                                'priority'     => 'high',
+                                // Doit correspondre au canal créé côté app
+                                // (ANDROID_DEFAULT_CHANNEL_ID) pour un affichage
+                                // heads-up en arrière-plan / app fermée.
+                                'notification' => [
+                                    'channel_id' => 'smartqueue-default',
+                                    'sound'      => 'default',
+                                ],
+                            ],
+                            'apns'         => [
+                                'headers'  => ['apns-priority' => '10'],
+                                'payload'  => ['aps' => ['sound' => 'default']],
+                            ],
                         ],
                     ],
                     'timeout' => 10,

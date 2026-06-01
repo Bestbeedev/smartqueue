@@ -25,6 +25,38 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Notifications push (FCM) — configuration requise
+
+Le code applicatif (handler foreground, canal Android, enregistrement du token,
+gestion du tap) est désormais monté automatiquement via
+`src/components/NotificationsProvider.tsx` (inclus dans `app/_layout.tsx`).
+
+Pour que les notifications s'affichent réellement sur un build natif Android, il
+faut fournir les identifiants Firebase — **sans eux, `getExpoPushTokenAsync` /
+`getDevicePushTokenAsync` échoue avec « Default FirebaseApp is not
+initialized »** :
+
+1. Créer un projet Firebase et y ajouter une app Android avec le package
+   `com.bestbeedev.smartqueue` (et une app iOS avec le bundle id si besoin).
+2. Télécharger `google-services.json` et le placer à la racine du dossier
+   `react-native/smartqueue/` (ou pointer dessus via la variable d'env
+   `GOOGLE_SERVICES_JSON`). `app.config.js` ajoute alors automatiquement
+   `android.googleServicesFile`. Idem iOS avec `GoogleService-Info.plist` /
+   `GOOGLE_SERVICES_INFO_PLIST`.
+3. Côté backend, renseigner `FIREBASE_SERVICE_ACCOUNT_JSON` (clé de compte de
+   service Firebase) pour l'envoi via FCM HTTP v1. Le chemin « token Expo »
+   fonctionne sans cette clé mais nécessite que les identifiants FCM soient
+   téléversés sur EAS (`eas credentials`).
+4. Reconstruire l'app (`eas build` ou `npx expo run:android`) — un OTA ne suffit
+   pas car `google-services.json` est intégré au binaire natif.
+
+Le canal Android utilisé est `smartqueue-default` (importance MAX) ; le backend
+envoie `android.notification.channel_id = "smartqueue-default"` pour un affichage
+heads-up en arrière-plan / app fermée.
+
+> Note : `app.json` définit `ios.bundleIdentifier = "y"`, ce qui est invalide.
+> Le corriger avant tout build/push iOS.
+
 ## Get a fresh project
 
 When you're ready, run:
