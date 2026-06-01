@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Api\Admin\CounterController as AdminCounterController;
 use App\Http\Controllers\Api\AlertPreferenceController;
 use App\Http\Controllers\Api\TicketRecallController;
+use App\Http\Controllers\Api\TicketLocationController;
 use App\Http\Controllers\Api\Admin\ReportExportController as AdminReportExportController;
 use App\Http\Controllers\Api\Saas\EstablishmentController as SaasEstablishmentController;
 use App\Http\Controllers\Api\Saas\SubscriptionController as SaasSubscriptionController;
@@ -198,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('tickets')->group(function () {
         Route::post('{ticket}/request-recall', [TicketRecallController::class, 'recall']);
         Route::post('{ticket}/en-route', [TicketRecallController::class, 'enRoute']);
+        Route::post('{ticket}/location', [TicketLocationController::class, 'store']);
         Route::post('{ticket}/defer', [TicketRecallController::class, 'defer']); // User defers/swap position
         Route::get('{ticket}/countdown', [TicketRecallController::class, 'countdown']);
     });
