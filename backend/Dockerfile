@@ -84,6 +84,25 @@ RUN printf '%s\n' \
   'stdout_logfile_maxbytes=0' \
   'stderr_logfile=/dev/stderr' \
   'stderr_logfile_maxbytes=0' \
+  '' \
+  '[program:scheduler]' \
+  'command=php /var/www/html/artisan schedule:work' \
+  'directory=/var/www/html' \
+  'autorestart=true' \
+  'stdout_logfile=/dev/stdout' \
+  'stdout_logfile_maxbytes=0' \
+  'stderr_logfile=/dev/stderr' \
+  'stderr_logfile_maxbytes=0' \
+  '' \
+  '[program:worker]' \
+  'command=php /var/www/html/artisan queue:work --tries=3 --timeout=60 --sleep=3' \
+  'directory=/var/www/html' \
+  'autorestart=true' \
+  'stopwaitsecs=70' \
+  'stdout_logfile=/dev/stdout' \
+  'stdout_logfile_maxbytes=0' \
+  'stderr_logfile=/dev/stderr' \
+  'stderr_logfile_maxbytes=0' \
   > /etc/supervisor/conf.d/supervisord.conf
 
 RUN chmod +x /var/www/html/start.sh
