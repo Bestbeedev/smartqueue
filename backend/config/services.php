@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // Firebase Cloud Messaging (FCM HTTP v1). Doit être lu ici afin que la valeur
+    // soit disponible après `php artisan config:cache` (les appels env() directs
+    // hors fichiers de config retournent null une fois la config mise en cache).
+    'firebase' => [
+        'service_account_json' => env('FIREBASE_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];
