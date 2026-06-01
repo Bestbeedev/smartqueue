@@ -9,6 +9,7 @@ use App\Events\ServiceStatsUpdated;
 use App\Events\ServiceTicketCalled;
 use App\Events\ServiceTicketAbsent;
 use App\Events\ServiceTicketEnqueued;
+use App\Jobs\RecomputeRemindersForService;
 use App\Jobs\SendPushNotification;
 use App\Jobs\SendSmsNotification;
 use App\Models\Service;
@@ -70,6 +71,10 @@ class TicketService
 
         $waitingCount = $pos - 1;
         $this->broadcastSafely(fn() => event(new ServiceStatsUpdated($service->id, ['waiting_count' => $waitingCount])));
+
+        // Event-driven reminders: re-evaluate stages as soon as the queue moves
+        // (after the surrounding DB transaction commits so positions are visible).
+        RecomputeRemindersForService::dispatch($service->id)->afterCommit();
     }
 
     /**
