@@ -54,8 +54,8 @@ Le canal Android utilisé est `smartqueue-default` (importance MAX) ; le backend
 envoie `android.notification.channel_id = "smartqueue-default"` pour un affichage
 heads-up en arrière-plan / app fermée.
 
-> Note : `app.json` définit `ios.bundleIdentifier = "y"`, ce qui est invalide.
-> Le corriger avant tout build/push iOS.
+> iOS : `ios.bundleIdentifier` est `com.bestbeedev.smartqueue`. Pour le push iOS,
+> ajouter aussi `GoogleService-Info.plist` et configurer la clé APNs sur EAS.
 
 ## Get a fresh project
 
