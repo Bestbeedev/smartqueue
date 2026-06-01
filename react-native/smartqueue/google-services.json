@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "930012463419",
+    "project_id": "gen-lang-client-0782997699",
+    "storage_bucket": "gen-lang-client-0782997699.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930012463419:android:189662a803f0361e54f71e",
+        "android_client_info": {
+          "package_name": "com.bestbeedev.smartqueue"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "930012463419-55k3usa48vjpqo0nparsg83htfjog4ha.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNZcivIoOjKfAA0Aj30bipFCH8q9Pupa0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "930012463419-55k3usa48vjpqo0nparsg83htfjog4ha.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
