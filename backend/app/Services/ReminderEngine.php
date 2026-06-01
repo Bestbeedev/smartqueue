@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\TicketReminderBroadcast;
 use App\Jobs\SendPushNotification;
 use App\Jobs\SendSmsNotification;
 use App\Models\NotificationPreference;
@@ -13,8 +14,8 @@ use Illuminate\Support\Carbon;
  * Progressive, context-aware reminder engine.
  *
  * Computes the highest reminder "stage" a waiting ticket has reached
- * (prepare -> imminent -> next) from its live position / ETA, and sends
- * each stage at most once. Lower stages that are skipped (because the
+ * (prepare -> leave -> imminent -> next) from its live position / ETA, and
+ * sends each stage at most once. Lower stages that are skipped (because the
  * ticket jumped ahead) are marked as superseded so the progression stays
  * strictly forward and never produces duplicate or out-of-order reminders.
  */
@@ -25,7 +26,13 @@ class ReminderEngine
      *
      * @var string[]
      */
-    public const STAGES = ['prepare', 'imminent', 'next'];
+    public const STAGES = ['prepare', 'leave', 'imminent', 'next'];
+
+    /**
+     * Safety buffer (minutes) added to the travel time when deciding the
+     * "leave now" moment, so the user starts moving a touch early.
+     */
+    private const TRAVEL_MARGIN_MINUTES = 5;
 
     public function __construct(
         private TicketService $ticketService,
@@ -110,6 +117,7 @@ class ReminderEngine
                 'context' => [
                     'position' => $ticket->position,
                     'eta_minutes' => $etaMinutes,
+                    'travel_minutes' => $ticket->estimated_travel_minutes,
                 ],
                 'sent_at' => Carbon::now(),
             ]
@@ -120,7 +128,8 @@ class ReminderEngine
             return null;
         }
 
-        [$title, $body] = $this->messageFor($targetStage, $ticket->position, $etaMinutes);
+        $travelMinutes = $ticket->estimated_travel_minutes !== null ? (int) $ticket->estimated_travel_minutes : null;
+        [$title, $body] = $this->messageFor($targetStage, $ticket->position, $etaMinutes, $travelMinutes);
 
         if ($prefs->push_enabled) {
             dispatch(new SendPushNotification($ticket->user_id, $title, $body, [
@@ -146,6 +155,10 @@ class ReminderEngine
             ));
         }
 
+        // In-app realtime banner (app foregrounded). The mobile dedups against
+        // the push by `stage`, so the reminder is shown at most once.
+        $this->broadcastReminder($ticket, $targetStage, $title, $body, $etaMinutes);
+
         // Keep legacy anti-spam fields in sync for backward compatibility.
         $prefs->last_notified_ticket_id = $ticket->id;
         $prefs->last_notified_at = Carbon::now();
@@ -168,10 +181,14 @@ class ReminderEngine
 
         // next: the user is first in line.
         if ($pos <= 1) {
-            return 2;
+            return 3;
         }
         // imminent: within the user's configured position/ETA window.
         if ($pos <= $posThreshold || $etaMinutes <= $minThreshold) {
+            return 2;
+        }
+        // leave: it is time to head out so travel time ~ remaining wait.
+        if ($this->shouldLeaveNow($ticket, $prefs, $etaMinutes)) {
             return 1;
         }
         // prepare: roughly twice the imminent window -> early heads-up.
@@ -180,6 +197,26 @@ class ReminderEngine
         }
 
         return null;
+    }
+
+    /**
+     * Whether the user should leave now: travel time is known (reported via
+     * POST /tickets/{id}/location), travel alerts are enabled, and the
+     * remaining wait has shrunk to about the travel time.
+     */
+    private function shouldLeaveNow(Ticket $ticket, NotificationPreference $prefs, int $etaMinutes): bool
+    {
+        $enabled = (bool) ($prefs->getAttribute('enable_travel_alerts') ?? true);
+        if (! $enabled) {
+            return false;
+        }
+
+        $travel = (int) ($ticket->estimated_travel_minutes ?? 0);
+        if ($travel <= 0) {
+            return false;
+        }
+
+        return $etaMinutes <= $travel + self::TRAVEL_MARGIN_MINUTES;
     }
 
     private function sentRecently(int $ticketId, NotificationPreference $prefs): bool
@@ -272,7 +309,7 @@ class ReminderEngine
     /**
      * @return array{0:string,1:string} [title, body]
      */
-    private function messageFor(string $stage, int $position, int $etaMinutes): array
+    private function messageFor(string $stage, int $position, int $etaMinutes, ?int $travelMinutes = null): array
     {
         return match ($stage) {
             'next' => [
@@ -283,10 +320,37 @@ class ReminderEngine
                 'Votre tour est imminent',
                 'Plus que quelques personnes avant vous (position '.$position.', ≈ '.$etaMinutes.' min).',
             ],
+            'leave' => [
+                'C\'est le moment de partir',
+                'Mettez-vous en route : ≈ '.(int) $travelMinutes.' min de trajet, votre tour est dans ≈ '.$etaMinutes.' min.',
+            ],
             default => [
                 'Préparez-vous, votre tour approche',
                 'Vous êtes en position '.$position.' (≈ '.$etaMinutes.' min). Commencez à vous préparer.',
             ],
         };
+    }
+
+    /**
+     * Broadcast the reminder on the user's private channel for an in-app banner.
+     * Best-effort: a broadcaster outage must never break the (already sent) push.
+     */
+    private function broadcastReminder(Ticket $ticket, string $stage, string $title, string $body, int $etaMinutes): void
+    {
+        try {
+            event(new TicketReminderBroadcast($ticket->user_id, [
+                'type' => 'reminder',
+                'stage' => $stage,
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'position' => $ticket->position,
+                'eta_minutes' => $etaMinutes,
+                'travel_minutes' => $ticket->estimated_travel_minutes,
+                'title' => $title,
+                'body' => $body,
+            ]));
+        } catch (\Throwable $e) {
+            \Log::warning('[ReminderEngine] reminder broadcast failed', ['error' => $e->getMessage()]);
+        }
     }
 }
