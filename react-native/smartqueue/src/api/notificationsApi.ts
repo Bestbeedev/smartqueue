@@ -33,14 +33,13 @@ export interface NotificationListResponse {
 export interface NotificationPreferences {
   push_enabled: boolean;
   sms_enabled: boolean;
-  email_enabled: boolean;
-  position_updates: boolean;
-  queue_alerts: boolean;
-  promotions: boolean;
-  reminders: boolean;
-  quiet_hours_enabled: boolean;
-  quiet_hours_start: string;
-  quiet_hours_end: string;
+  notify_before_positions: number;
+  notify_before_minutes: number;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  min_interval_minutes: number;
+  max_reminders_per_ticket: number;
+  enable_travel_alerts: boolean;
 }
 
 export interface DeviceRegistration {
@@ -90,13 +89,13 @@ export const notificationsApi = {
   // Obtenir les préférences de notification
   getPreferences: async (): Promise<NotificationPreferences> => {
     const response = await axiosClient.get('/notification-preferences');
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   // Mettre à jour les préférences de notification
   updatePreferences: async (preferences: Partial<NotificationPreferences>): Promise<NotificationPreferences> => {
     const response = await axiosClient.put('/notification-preferences', preferences);
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   // Enregistrer un appareil pour les notifications push

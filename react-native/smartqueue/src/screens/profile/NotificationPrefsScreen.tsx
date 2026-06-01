@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Switch,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useSettings } from '../../store/settingsStore';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { notificationsApi } from '../../api/notificationsApi';
 
 export const NotificationPrefsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -21,18 +23,64 @@ export const NotificationPrefsScreen: React.FC = () => {
   const colors = useThemeColors();
   const { pushNotificationsEnabled, setPushNotificationsEnabled } = useSettings();
   const { AlertComponent, showError } = useCustomAlert();
-  
-  const [smsEnabled, setSmsEnabled] = useState(true);
-  const [ticketUpdates, setTicketUpdates] = useState(true);
-  const [promotions, setPromotions] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleTogglePush = async (value: boolean) => {
+  const [pushEnabled, setPushEnabled] = useState(pushNotificationsEnabled);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [travelAlerts, setTravelAlerts] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Charger les préférences depuis le backend au montage.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const prefs = await notificationsApi.getPreferences();
+        if (cancelled) return;
+        setPushEnabled(!!prefs.push_enabled);
+        setSmsEnabled(!!prefs.sms_enabled);
+        setTravelAlerts(prefs.enable_travel_alerts !== false);
+      } catch (error) {
+        console.warn('[NotificationPrefs] load failed:', error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Met à jour une préférence côté backend, avec rollback optimiste si échec.
+  const persist = async (
+    patch: Parameters<typeof notificationsApi.updatePreferences>[0],
+    rollback: () => void,
+  ) => {
     try {
-      await setPushNotificationsEnabled(value);
-    } catch (error) {
+      await notificationsApi.updatePreferences(patch);
+    } catch {
+      rollback();
       showError('Erreur', 'Impossible de mettre à jour les préférences.');
     }
+  };
+
+  const handleTogglePush = async (value: boolean) => {
+    setPushEnabled(value);
+    try {
+      await setPushNotificationsEnabled(value);
+    } catch {
+      // setting local non bloquant
+    }
+    await persist({ push_enabled: value }, () => setPushEnabled(!value));
+  };
+
+  const handleToggleSms = async (value: boolean) => {
+    setSmsEnabled(value);
+    await persist({ sms_enabled: value }, () => setSmsEnabled(!value));
+  };
+
+  const handleToggleTravel = async (value: boolean) => {
+    setTravelAlerts(value);
+    await persist({ enable_travel_alerts: value }, () => setTravelAlerts(!value));
   };
 
   return (
@@ -46,6 +94,11 @@ export const NotificationPrefsScreen: React.FC = () => {
         <View style={{ width: 40 }} />
       </View>
 
+      {isLoading ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Canaux de notification</Text>
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
@@ -55,7 +108,7 @@ export const NotificationPrefsScreen: React.FC = () => {
               <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Notifications Push</Text>
             </View>
             <Switch
-              value={pushNotificationsEnabled}
+              value={pushEnabled}
               onValueChange={handleTogglePush}
               trackColor={{ false: colors.separator, true: colors.primary }}
               thumbColor="#FFFFFF"
@@ -68,33 +121,23 @@ export const NotificationPrefsScreen: React.FC = () => {
             </View>
             <Switch
               value={smsEnabled}
-              onValueChange={setSmsEnabled}
+              onValueChange={handleToggleSms}
               trackColor={{ false: colors.separator, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Types de notification</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Rappels intelligents</Text>
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={[styles.row, { borderBottomColor: colors.separator }]}>
-            <View style={styles.rowLeft}>
-              <Text style={[styles.rowLabel, { color: colors.textPrimary, marginLeft: 0 }]}>Mises à jour des tickets</Text>
-            </View>
-            <Switch
-              value={ticketUpdates}
-              onValueChange={setTicketUpdates}
-              trackColor={{ false: colors.separator, true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <View style={styles.rowLeft}>
-              <Text style={[styles.rowLabel, { color: colors.textPrimary, marginLeft: 0 }]}>Offres et promotions</Text>
+            <View style={[styles.rowLeft, { flex: 1, paddingRight: 12 }]}>
+              <Ionicons name="navigate-outline" size={20} color={colors.primary} />
+              <Text style={[styles.rowLabel, { color: colors.textPrimary, flexShrink: 1 }]}>Alertes de trajet (« partez maintenant »)</Text>
             </View>
             <Switch
-              value={promotions}
-              onValueChange={setPromotions}
+              value={travelAlerts}
+              onValueChange={handleToggleTravel}
               trackColor={{ false: colors.separator, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
@@ -102,10 +145,11 @@ export const NotificationPrefsScreen: React.FC = () => {
         </View>
 
         <Text style={[styles.hintText, { color: colors.textTertiary }]}>
-          Nous vous recommandons de garder les notifications activées pour ne pas manquer votre tour dans la file d&apos;attente.
+          Activez les alertes de trajet pour être prévenu du meilleur moment pour partir, en fonction de votre position et de l&apos;avancée de la file. Gardez les notifications activées pour ne pas manquer votre tour.
         </Text>
         {AlertComponent}
       </ScrollView>
+      )}
     </View>
   );
 };
@@ -124,6 +168,7 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 8 },
   headerTitle: { fontSize: 17, fontWeight: '600', color: Theme.colors.textPrimary },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20 },
   sectionTitle: {
     fontSize: 13,

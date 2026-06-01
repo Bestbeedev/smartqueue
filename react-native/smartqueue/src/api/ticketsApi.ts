@@ -264,6 +264,17 @@ export const ticketsApi = {
     return response.data;
   },
 
+  // Remonter la position GPS pour le "Smart Departure" serveur (rappel LEAVE).
+  // Le backend calcule estimated_travel_minutes et le persiste sur le ticket.
+  reportLocation: async (
+    ticketId: number,
+    lat: number,
+    lng: number,
+  ): Promise<{ ticket_id: number; estimated_travel_minutes: number | null }> => {
+    const response = await axiosClient.post(`/tickets/${ticketId}/location`, { lat, lng });
+    return response.data?.data ?? response.data;
+  },
+
   // Notifier que le ticket a été présenté au guichet
   presentTicket: async (ticketId: number, counterId: number): Promise<Ticket> => {
     const response = await axiosClient.post(`/tickets/${ticketId}/present`, { counter_id: counterId });
