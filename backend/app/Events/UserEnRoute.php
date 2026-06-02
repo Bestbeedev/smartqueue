@@ -17,7 +17,8 @@ class UserEnRoute implements ShouldBroadcastNow
         public int $ticketId,
         public int $serviceId,
         public ?int $estimatedMinutes = null,
-        public ?string $ticketNumber = null
+        public ?string $ticketNumber = null,
+        public bool $confirmedPresence = false
     ) {
         Log::info('[UserEnRoute] Event constructed', [
             'ticket_id' => $this->ticketId,
@@ -48,13 +49,16 @@ class UserEnRoute implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $isPresenceConfirmed = $this->confirmedPresence || !$this->estimatedMinutes;
+
         $data = [
             'ticket_id' => $this->ticketId,
             'ticket_number' => $this->ticketNumber,
             'estimated_minutes' => $this->estimatedMinutes,
-            'message' => $this->estimatedMinutes 
-                ? "L'usager arrive dans ~{$this->estimatedMinutes} min"
-                : "L'usager a confirmé sa présence",
+            'confirmed_presence' => $isPresenceConfirmed,
+            'message' => $isPresenceConfirmed
+                ? "L'usager a confirmé sa présence"
+                : "L'usager arrive dans ~{$this->estimatedMinutes} min",
         ];
         Log::info('[UserEnRoute] broadcastWith called', $data);
         return $data;

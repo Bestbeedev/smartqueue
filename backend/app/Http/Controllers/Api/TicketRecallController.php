@@ -88,7 +88,7 @@ class TicketRecallController extends Controller
 
         // Calculate travel time if coordinates provided
         $travelMinutes = $validated['estimated_travel_minutes'] ?? null;
-        
+
         if (isset($validated['lat'], $validated['lng'])) {
             $travelMinutes = $this->alertService->calculateTravelTime(
                 $validated['lat'],
@@ -97,7 +97,7 @@ class TicketRecallController extends Controller
                 $ticket->service->establishment->lng,
                 $request->user()->alertPreference?->preferred_transport_mode ?? 'motorcycle'
             );
-            
+
             // Update user's last known location
             $ticket->update([
                 'last_lat' => $validated['lat'],
@@ -115,7 +115,7 @@ class TicketRecallController extends Controller
         $reverbHost = config('broadcasting.connections.pusher.options.host');
         $reverbPort = config('broadcasting.connections.pusher.options.port', 443);
         $reverbScheme = config('broadcasting.connections.pusher.options.scheme', 'https');
-        
+
         \Log::info('[TicketRecallController] Broadcasting config', [
             'connection' => config('broadcasting.default'),
             'reverb_host' => $reverbHost,
@@ -133,13 +133,14 @@ class TicketRecallController extends Controller
             'ticket_number' => $ticket->number,
             'estimated_minutes' => $travelMinutes,
         ]);
-        
+
         try {
             event(new UserEnRoute(
                 $ticket->id,
                 $ticket->service_id,
                 $travelMinutes,
-                $ticket->number
+                $ticket->number,
+                $travelMinutes === null
             ));
             \Log::info('[TicketRecallController] UserEnRoute event dispatched successfully');
         } catch (\Exception $e) {
@@ -154,10 +155,10 @@ class TicketRecallController extends Controller
             $service = Service::find($ticket->service_id);
             if ($service) {
                 $agents = $service->agents()->get();
-                $message = $travelMinutes 
+                $message = $travelMinutes
                     ? "L'usager arrive dans ~{$travelMinutes} min (Ticket {$ticket->number})"
                     : "L'usager a confirmé sa présence (Ticket {$ticket->number})";
-                
+
                 foreach ($agents as $agent) {
                     $agent->notify(new InAppNotification(
                         'Usager en route',
