@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useTicket } from "../store/ticketStore";
+import { useTicket, useTicketStore } from "../store/ticketStore";
 import { useDistanceTracking } from "../hooks/useDistanceTracking";
 import { useAlertPreferencesStore } from "../store/alertPreferencesStore";
 import { useCustomAlert } from "../hooks/useCustomAlert";
@@ -105,8 +105,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           }
         : {
             label: "Position dans la file",
-            value: `${position}ème / ${queueLength}`,
-            etaLabel: `≈ ${etaMinutes} minutes`,
+            value:
+              typeof position === "number" && position > 0
+                ? `${position}ème / ${queueLength}`
+                : "Estimation indisponible",
+            etaLabel:
+              typeof etaMinutes === "number" && etaMinutes > 0
+                ? `≈ ${etaMinutes} minutes`
+                : "—",
           };
 
   // Calculate when to leave
@@ -218,6 +224,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       }
       await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Optimistic update + sync
+      const s = useTicketStore.getState();
+      if (s.activeTicket?.id === activeTicket?.id) {
+        s.markEnRoute();
+        try {
+          await s.fetchActiveTicket();
+        } catch (err) {
+          console.warn(
+            "[ActiveTicketCard] fetchActiveTicket after en-route failed",
+            err,
+          );
+        }
+      }
+
       showSuccess(
         "En route confirmé",
         "L'agent a été notifié que vous êtes en route",
@@ -239,6 +260,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     try {
       await axiosClient.post(`/tickets/${activeTicket?.id}/present`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Optimistic update + sync
+      const s = useTicketStore.getState();
+      if (s.activeTicket?.id === activeTicket?.id) {
+        s.markPresent();
+        try {
+          await s.fetchActiveTicket();
+        } catch (err) {
+          console.warn(
+            "[ActiveTicketCard] fetchActiveTicket after present failed",
+            err,
+          );
+        }
+      }
+
       showSuccess(
         "Présence confirmée",
         "Votre priorité est conservée. L'agent sait que vous êtes arrivé.",
@@ -511,7 +547,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               <View
                 style={[
                   styles.enRouteTimerBadge,
-                  { backgroundColor: colors.warning + "20", },
+                  { backgroundColor: colors.warning + "20" },
                 ]}
               >
                 <Ionicons name="time" size={14} color={colors.warning} />
@@ -525,7 +561,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <TouchableOpacity
               style={[
                 styles.presentButton,
-                { backgroundColor: colors.primary + "18",paddingTop:20, },
+                { backgroundColor: colors.primary + "18" },
               ]}
               onPress={handleMarkPresent}
               activeOpacity={0.8}
@@ -641,11 +677,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               name={whenToLeave.urgent ? "warning" : "time"}
               size={16}
               color={whenToLeave.urgent ? colors.danger : colors.warning}
+              style={{ alignItems:"center", }}
             />
             <Text
               style={[
                 styles.leaveText,
-                { color: whenToLeave.urgent ? colors.danger : colors.warning },
+                { color: whenToLeave.urgent ? colors.danger : colors.warning, textAlign:"center" },
               ]}
             >
               {whenToLeave.message}
@@ -889,11 +926,12 @@ const styles = StyleSheet.create({
   leaveAlert: {
     flexDirection: "row",
     alignItems: "center",
+    flex:1,
     backgroundColor: "#FEF3C7",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
+    paddingVertical: 12,
   },
   leaveAlertUrgent: {
     backgroundColor: "#FEE2E2",
@@ -903,6 +941,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#B45309",
     marginLeft: 8,
+    textAlign:"center",
+    flex:1,
+    alignItems:"center"
   },
   leaveTextUrgent: {
     color: "#DC2626",
@@ -980,6 +1021,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
+    marginTop:10,
     gap: 8,
   },
   presentButtonText: {
@@ -1009,6 +1051,7 @@ const styles = StyleSheet.create({
   cancelTicketButton: {
     flexDirection: "row",
     alignItems: "center",
+    flex:1,
     justifyContent: "center",
     backgroundColor: "#FEE2E2",
     paddingHorizontal: 16,

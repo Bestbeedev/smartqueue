@@ -132,19 +132,28 @@ export const TicketsScreen: React.FC = () => {
     router.push("/notifications");
   };
 
+  const isTicketPresent = activeTicket?.status === "present";
+  const isTicketEnRoute = activeTicket?.status === "en_route";
+
   const getStatusColor = () => {
-    if (isCalled) return ["#EF4444", "#DC2626"];
+    if (isTicketPresent) return ["#16A34A", "#16A34A"]; // green
+    if (isTicketEnRoute) return ["#F59E0B", "#D97706"]; // yellow
+    if (isCalled) return ["#EF4444", "#DC2626"]; // red
     if (isAlmostThere) return ["#F59E0B", "#D97706"];
-    return ["#3B82F6", "#2563EB"];
+    return ["#3B82F6", "#2563EB"]; // blue
   };
 
   const getStatusText = () => {
+    if (isTicketPresent) return "Présent";
+    if (isTicketEnRoute) return "En route";
     if (isCalled) return "Appelé";
     if (isAlmostThere) return "Bientôt votre tour";
     return "En attente";
   };
 
   const getStatusIcon = () => {
+    if (isTicketPresent) return "person-circle";
+    if (isTicketEnRoute) return "walk";
     if (isCalled) return "notifications";
     if (isAlmostThere) return "walk";
     return "time-outline";
@@ -189,6 +198,16 @@ export const TicketsScreen: React.FC = () => {
       return "Appelé — présentez-vous au guichet";
     }
 
+    if (ticket.status === "en_route") {
+      return ticket.estimated_travel_minutes
+        ? `Usager en route · ≈ ${ticket.estimated_travel_minutes} min`
+        : "Usager en route";
+    }
+
+    if (ticket.status === "present") {
+      return "Présent au point de service";
+    }
+
     if (typeof ticket.position === "number" && ticket.position > 0) {
       return `${ticket.position}${ticket.position === 1 ? "er" : "e"} dans la file`;
     }
@@ -203,6 +222,24 @@ export const TicketsScreen: React.FC = () => {
   const isPrimaryCalled = activeTicket?.status === "called";
 
   const renderPrimaryQueueState = () => {
+    if (isTicketPresent) {
+      return {
+        value: "Présent",
+        suffix: "",
+        label: "Statut du ticket",
+        helperText: "Priorité conservée",
+      };
+    }
+
+    if (isTicketEnRoute) {
+      return {
+        value: "En route",
+        suffix: "",
+        label: "Statut du ticket",
+        helperText: "En attente d'arrivée",
+      };
+    }
+
     if (isPrimaryCalled) {
       return {
         value: "Appelé",
@@ -212,16 +249,34 @@ export const TicketsScreen: React.FC = () => {
       };
     }
 
+    if (typeof position === "number" && position > 0) {
+      return {
+        value: String(position),
+        suffix: position === 1 ? "er" : "ème",
+        label: "position dans la file",
+        helperText:
+          position <= 3
+            ? position === 1
+              ? "C'est bientôt votre tour !"
+              : "Approchez-vous du guichet"
+            : null,
+      };
+    }
+
+    if (typeof etaMinutes === "number" && etaMinutes > 0) {
+      return {
+        value: `≈ ${etaMinutes}`,
+        suffix: "min",
+        label: "Temps estimé",
+        helperText: null,
+      };
+    }
+
     return {
-      value: String(position),
-      suffix: position === 1 ? "er" : "ème",
+      value: "Estimation indisponible",
+      suffix: "",
       label: "position dans la file",
-      helperText:
-        position <= 3
-          ? position === 1
-            ? "C'est bientôt votre tour !"
-            : "Approchez-vous du guichet"
-          : null,
+      helperText: null,
     };
   };
 

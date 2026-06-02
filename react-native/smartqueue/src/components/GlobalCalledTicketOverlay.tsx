@@ -129,7 +129,28 @@ export const GlobalCalledTicketOverlay: React.FC<
     } catch (error: any) {
       showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer"));
     }
-  }, [effectiveTicketId, distanceInfo, markEnRoute, showSuccess, showError]);
+  }, [
+    effectiveTicketId,
+    distanceInfo,
+    markEnRoute,
+    showSuccess,
+    showError,
+    fetchActiveTicket,
+  ]);
+
+  // Handle "Je suis en route" - ensure we sync server state after optimistic update
+  const handleEnRouteAndSync = useCallback(async () => {
+    // Call the original handler and then fetch a fresh ticket state
+    await handleEnRoute();
+    try {
+      await fetchActiveTicket();
+    } catch (err) {
+      console.warn(
+        "[GlobalCalledTicketOverlay] fetchActiveTicket after en-route failed",
+        err,
+      );
+    }
+  }, [handleEnRoute, fetchActiveTicket]);
 
   // Handle "Je suis déjà là" - present
   const handlePresent = useCallback(async () => {
@@ -204,7 +225,9 @@ export const GlobalCalledTicketOverlay: React.FC<
         `/tickets/${effectiveTicketId}/request-recall`,
       );
       setRecalled();
-      setCountdownSeconds(response.data.countdown_seconds || 600);
+      setCountdownSeconds(
+        Math.max(0, Math.floor(Number(response.data.countdown_seconds || 600))),
+      );
       showSuccess(
         "Rappel demandé",
         "Un nouveau compte à rebours de 10 minutes a été accordé. Vous ne pouvez plus demander de rappel.",
@@ -291,7 +314,9 @@ export const GlobalCalledTicketOverlay: React.FC<
         );
         const data = response.data;
         if (data?.countdown_seconds != null) {
-          setCountdownSeconds(data.countdown_seconds);
+          setCountdownSeconds(
+            Math.max(0, Math.floor(Number(data.countdown_seconds))),
+          );
         }
         // If backend reports ticket is no longer in called state, refresh and close overlay
         if (data && !data.is_called) {
@@ -328,7 +353,7 @@ export const GlobalCalledTicketOverlay: React.FC<
       countdownSeconds={countdownSeconds}
       hasRecalled={hasRecalled}
       isSwapped={hasDeferred}
-      onEnRoute={handleEnRoute}
+      onEnRoute={handleEnRouteAndSync}
       onPresent={handlePresent}
       onRecall={handleRecall}
       onDefer={handleDefer}

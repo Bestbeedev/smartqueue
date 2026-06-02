@@ -47,7 +47,9 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   onDismiss,
 }) => {
   const colors = useThemeColors();
-  const [timeRemaining, setTimeRemaining] = useState(countdownSeconds);
+  const [timeRemaining, setTimeRemaining] = useState<number>(
+    Math.max(0, Math.floor(countdownSeconds)),
+  );
   const [isExpired, setIsExpired] = useState(false);
   const [isRecallLoading, setIsRecallLoading] = useState(false);
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -59,17 +61,22 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
-        if (prev <= 1) {
+        const current =
+          typeof prev === "number"
+            ? prev
+            : Math.max(0, Math.floor(countdownSeconds));
+        const next = Math.max(0, Math.floor(current - 1));
+        if (next <= 0) {
           setIsExpired(true);
           clearInterval(interval);
           return 0;
         }
-        return prev - 1;
+        return next;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [visible, isExpired]);
+  }, [visible, isExpired, countdownSeconds]);
 
   // Auto-dismiss overlay when expired to allow global handler to refresh state
   useEffect(() => {
@@ -80,12 +87,18 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     return () => clearTimeout(t);
   }, [isExpired, onDismiss]);
 
-  // Reset when visibility changes
+  // Reset when visibility changes or when server reports a smaller remaining time
   useEffect(() => {
-    if (visible) {
-      setTimeRemaining(countdownSeconds);
-      setIsExpired(false);
-    }
+    if (!visible) return;
+
+    setIsExpired(false);
+    setTimeRemaining((prev) => {
+      const newValue = Math.max(0, Math.floor(countdownSeconds));
+      // Avoid increasing the local countdown when server reports a larger value
+      if (typeof prev !== "number") return newValue;
+      if (newValue <= prev) return newValue;
+      return prev;
+    });
   }, [visible, countdownSeconds]);
 
   // Flash animation for urgency
@@ -122,8 +135,9 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
   // Format countdown as MM:SS
   const formatCountdown = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const total = Math.max(0, Math.floor(Number(seconds)));
+    const mins = Math.floor(total / 60);
+    const secs = Math.floor(total % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -179,7 +193,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     await onRecall();
     // Reset countdown after recall
-    setTimeRemaining(countdownSeconds);
+    setTimeRemaining(Math.max(0, Math.floor(countdownSeconds)));
     setIsRecallLoading(false);
   };
 

@@ -186,7 +186,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
         `/tickets/${effectiveTicketId}/request-recall`,
       );
       setRecalled();
-      setCountdownSeconds(response.data.countdown_seconds || 600);
+      setCountdownSeconds(
+        Math.max(0, Math.floor(Number(response.data.countdown_seconds || 600))),
+      );
     } catch (error: any) {
       showError(
         "Erreur",
@@ -235,6 +237,16 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
       }
 
       markEnRoute(); // Dismiss overlay et mémorise la réponse (évite la réapparition)
+      // Sync with server to ensure all screens reflect the new status
+      try {
+        await fetchActiveTicket();
+      } catch (err) {
+        console.warn(
+          "[LiveTicketScreen] fetchActiveTicket after en-route failed",
+          err,
+        );
+      }
+
       showSuccess(
         "Confirmation",
         "L'agent a été notifié que vous êtes en route",
@@ -306,32 +318,57 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     );
   };
 
-  const getStatusColor = () => {
-    if (isCalled) return [colors.danger, colors.danger];
-    if (position <= 3) return [colors.warning, colors.warning];
-    return [colors.success, colors.success];
-  };
-
+  const isTicketPresent = activeTicket?.status === "present";
+  const isTicketEnRoute = activeTicket?.status === "en_route";
   const isTicketCalledState = activeTicket?.status === "called";
 
-  const queueState = isTicketCalledState
+  const getStatusColor = () => {
+    if (isTicketPresent) return [colors.success, colors.success];
+    if (isTicketEnRoute) return [colors.warning, colors.warning];
+    if (isTicketCalledState) return [colors.danger, colors.danger];
+    if (position <= 3) return [colors.warning, colors.warning];
+    return [colors.primary, colors.primary];
+  };
+
+  const queueState = isTicketPresent
     ? {
-        value: "Appelé",
+        value: "Présent",
         suffix: "",
-        label: "statut du ticket",
-        helperText: "Présentez-vous maintenant au guichet",
+        label: "Statut du ticket",
+        helperText: "Priorité conservée",
       }
-    : {
-        value: String(position),
-        suffix: position === 1 ? "er" : "ème",
-        label: "position dans la file",
-        helperText:
-          position <= 3
-            ? position === 1
-              ? "C'est bientôt votre tour !"
-              : "Approchez-vous du guichet"
-            : null,
-      };
+    : isTicketEnRoute
+      ? {
+          value: "En route",
+          suffix: "",
+          label: "Statut du ticket",
+          helperText: "En attente d'arrivée",
+        }
+      : isTicketCalledState
+        ? {
+            value: "Appelé",
+            suffix: "",
+            label: "Statut du ticket",
+            helperText: "Présentez-vous maintenant au guichet",
+          }
+        : typeof position === "number" && position > 0
+          ? {
+              value: String(position),
+              suffix: position === 1 ? "er" : "ème",
+              label: "position dans la file",
+              helperText:
+                position <= 3
+                  ? position === 1
+                    ? "C'est bientôt votre tour !"
+                    : "Approchez-vous du guichet"
+                  : null,
+            }
+          : {
+              value: "Estimation indisponible",
+              suffix: "",
+              label: "position dans la file",
+              helperText: null,
+            };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -372,22 +409,37 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               style={[
                 styles.liveBadge,
                 {
-                  backgroundColor: isCalled
-                    ? colors.danger + "40"
-                    : "rgba(255,255,255,0.25)",
+                  backgroundColor: isTicketPresent
+                    ? colors.success + "40"
+                    : isTicketEnRoute
+                      ? colors.warning + "40"
+                      : isTicketCalledState
+                        ? colors.danger + "40"
+                        : "rgba(255,255,255,0.25)",
                 },
               ]}
             >
               <View
                 style={[
                   styles.liveDot,
-                  { backgroundColor: isCalled ? "#FFFFFF" : colors.success },
+                  {
+                    backgroundColor:
+                      isTicketCalledState || isTicketEnRoute || isTicketPresent
+                        ? "#FFFFFF"
+                        : colors.success,
+                  },
                 ]}
               />
               <Text style={[styles.liveText, { color: "#FFFFFF" }]}>
-                {isCalled ? "APPELÉ" : "LIVE"}
+                {isTicketCalledState
+                  ? "APPELÉ"
+                  : isTicketEnRoute
+                    ? "EN ROUTE"
+                    : isTicketPresent
+                      ? "PRÉSENT"
+                      : "LIVE"}
               </Text>
-              {isCalled && (
+              {isTicketCalledState && (
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                   <Ionicons
                     name="notifications"
