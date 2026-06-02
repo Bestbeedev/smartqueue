@@ -8,5 +8,5 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('tickets:notify-approaching')->everyMinute()->withoutOverlapping();
+Schedule::command('tickets:process-reminders')->everyMinute()->withoutOverlapping();
 Schedule::command('tickets:expire-stale')->everyFiveMinutes()->withoutOverlapping();
