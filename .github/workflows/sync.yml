@@ -62,13 +62,13 @@ jobs:
             git log --oneline main..upstream/main
           fi
 
-      - name: 🔄 Sync repository
+      - name: 🔄 Sync repository (Force reset to upstream)
         if: steps.check_diff.outputs.no_changes == 'false' || github.event.inputs.force_sync == 'true'
         run: |
           echo "🚀 Début de la synchronisation..."
-          # Merge avec option pour le premier run (histoires différentes)
-          git merge upstream/main --no-ff --allow-unrelated-histories -m "🔄 Auto-sync from upstream $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "=== Résultat du merge ==="
+          # Reset local branch to match upstream exactly (no conflicts)
+          git reset --hard upstream/main
+          echo "=== Résultat du reset ==="
           git log --oneline -5
 
       - name: 🚀 Push to origin
