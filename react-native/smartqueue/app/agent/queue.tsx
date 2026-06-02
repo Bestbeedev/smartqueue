@@ -3,13 +3,13 @@ import {
   SafeAreaView,
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   FlatList,
   RefreshControl,
   TextInput,
   Platform,
   StatusBar,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,6 +22,8 @@ import Pusher from "pusher-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 (window as any).Pusher = Pusher;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Ticket = {
   id: number;
@@ -44,10 +46,290 @@ type ServiceStats = {
   avg_wait_time: number;
 };
 
+type ThemeColors = ReturnType<typeof useThemeColors>;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    const mins = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (mins < 1) return "À l'instant";
+    if (mins < 60) return `il y a ${mins}min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `il y a ${h}h${m}min` : `il y a ${h}h`;
+  } catch {
+    return "--";
+  }
+}
+
+function fmtTime(dateStr?: string | null): string {
+  if (!dateStr) return "--";
+  try {
+    return new Date(dateStr).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "--";
+  }
+}
+
+// ─── Config maps ──────────────────────────────────────────────────────────────
+
+const PRIORITY_CFG: Record<string, { color: string; label: string }> = {
+  vip: { color: "#8B5CF6", label: "VIP" },
+  high: { color: "#FF9500", label: "PRIO" },
+  normal: { color: "#8E8E93", label: "STD" },
+};
+
+const STATUS_CFG: Record<string, { color: string; label: string }> = {
+  waiting: { color: "#007AFF", label: "Attente" },
+  called: { color: "#34C759", label: "Appelé" },
+  absent: { color: "#FF3B30", label: "Absent" },
+  en_route: { color: "#FF9500", label: "En route" },
+  present: { color: "#34C759", label: "Présent" },
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function KpiPill({
+  icon,
+  label,
+  value,
+  accent,
+  colors,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  accent: string;
+  colors: ThemeColors;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: colors.surface,
+        borderRadius: 10,
+        paddingHorizontal: 9,
+        paddingVertical: 8,
+        gap: 7,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 7,
+          backgroundColor: accent + "1A",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Ionicons name={icon} size={14} color={accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            color: accent,
+            fontWeight: "800",
+            fontSize: 15,
+            lineHeight: 18,
+          }}
+          numberOfLines={1}
+        >
+          {value}
+        </Text>
+        <Text
+          style={{ color: colors.textSecondary, fontSize: 10, lineHeight: 13 }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function CurrentTicketCard({
+  ticket,
+  onRecall,
+  onAbsent,
+  onClose,
+  isActing,
+}: {
+  ticket: Ticket;
+  onRecall: () => void;
+  onAbsent: () => void;
+  onClose: () => void;
+  isActing: boolean;
+}) {
+  const statusCfg = STATUS_CFG[ticket.status] ?? {
+    color: "#007AFF",
+    label: ticket.status,
+  };
+
+  let statusLine = "";
+  if (ticket.status === "present") {
+    statusLine = "Usager présent sur place";
+  } else if (ticket.en_route_at) {
+    statusLine =
+      ticket.estimated_travel_minutes != null
+        ? `En route · ≈ ${ticket.estimated_travel_minutes} min`
+        : "Réponse reçue";
+  } else if (ticket.called_at) {
+    statusLine = `Appelé à ${fmtTime(ticket.called_at)} · ${timeAgo(ticket.called_at)}`;
+  }
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 12,
+        marginBottom: 6,
+        borderRadius: 12,
+        backgroundColor: "#1558CC",
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 13,
+          paddingVertical: 11,
+          gap: 11,
+        }}
+      >
+        {/* Icon */}
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 10,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Ionicons name="megaphone" size={20} color="white" />
+        </View>
+
+        {/* Info */}
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 7,
+              marginBottom: 2,
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                fontWeight: "900",
+                fontSize: 20,
+                letterSpacing: 0.4,
+              }}
+            >
+              {ticket.number}
+            </Text>
+            <View
+              style={{
+                backgroundColor: "rgba(255,255,255,0.2)",
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 5,
+              }}
+            >
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 9,
+                  fontWeight: "800",
+                  letterSpacing: 0.5,
+                }}
+              >
+                {statusCfg.label.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          {statusLine !== "" && (
+            <Text style={{ color: "rgba(255,255,255,0.82)", fontSize: 12 }}>
+              {statusLine}
+            </Text>
+          )}
+        </View>
+
+        {/* Action buttons */}
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {/* Recall */}
+          <TouchableOpacity
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={onRecall}
+            disabled={isActing}
+          >
+            <Ionicons name="volume-high" size={16} color="white" />
+          </TouchableOpacity>
+
+          {/* Absent */}
+          <TouchableOpacity
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9,
+              backgroundColor: "rgba(255,59,48,0.55)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={onAbsent}
+            disabled={isActing}
+          >
+            <Ionicons name="person-remove" size={16} color="white" />
+          </TouchableOpacity>
+
+          {/* Close / Served */}
+          <TouchableOpacity
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9,
+              backgroundColor: "rgba(52,199,89,0.55)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={onClose}
+            disabled={isActing}
+          >
+            <Ionicons name="checkmark-circle" size={16} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function AgentQueue() {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
   const { AlertComponent, showSuccess, showWarning, showError } =
     useCustomAlert();
+
   const params = useLocalSearchParams<{
     serviceId: string;
     counterId: string;
@@ -66,6 +348,10 @@ export default function AgentQueue() {
   const [searchQuery, setSearchQuery] = useState("");
   const echoRef = useRef<any>(null);
 
+  // Responsive horizontal padding
+  const hPad = width >= 768 ? 20 : 12;
+
+  // ── fetchData ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!serviceId) return;
     try {
@@ -79,7 +365,6 @@ export default function AgentQueue() {
         (t: Ticket) => t.status === "waiting",
       );
 
-      // Normalize positions to numbers and sort safely
       waitingTickets.sort((a: Ticket, b: Ticket) => {
         const pa =
           typeof a.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
@@ -98,7 +383,6 @@ export default function AgentQueue() {
       });
       setServiceStatus(serviceRes.data?.status || "open");
 
-      // Find currently called ticket
       const calledTicket = (queueRes.data?.tickets || []).find(
         (t: Ticket) =>
           t.status === "present" ||
@@ -114,12 +398,14 @@ export default function AgentQueue() {
     }
   }, [serviceId]);
 
+  // ── useFocusEffect: refresh on screen focus ────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       fetchData();
     }, [fetchData]),
   );
 
+  // ── useFocusEffect: WebSocket / Echo realtime ──────────────────────────────
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -129,7 +415,6 @@ export default function AgentQueue() {
         const token = await AsyncStorage.getItem("access_token");
         if (!token) return;
 
-        // Build echo like before (keeps existing config)
         const wsUrlStr =
           process.env.EXPO_PUBLIC_WS_URL ||
           "wss://reverb-production-b4e5.up.railway.app";
@@ -169,7 +454,7 @@ export default function AgentQueue() {
 
         echo
           .join(`service.${serviceId}`)
-          .listen(".user.en_route", (e: any) => {
+          .listen(".user.en_route", () => {
             if (!isActive) return;
             fetchData();
           })
@@ -206,6 +491,7 @@ export default function AgentQueue() {
     }, [serviceId, fetchData]),
   );
 
+  // ── Search filter ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredTickets(tickets);
@@ -221,13 +507,13 @@ export default function AgentQueue() {
     }
   }, [searchQuery, tickets]);
 
-  const callNext = async () => {
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const handleCallNext = async () => {
     if (!serviceId) return;
     setIsActing(true);
     try {
       const payload: any = {};
       if (counterId) payload.counter_id = parseInt(counterId);
-
       await axiosClient.post(
         `/services/${parseInt(serviceId)}/call-next`,
         payload,
@@ -244,7 +530,7 @@ export default function AgentQueue() {
     }
   };
 
-  const markAbsent = async (ticketId: number, ticketNumber?: string) => {
+  const handleMarkAbsent = async (ticketId: number, ticketNumber?: string) => {
     showWarning(
       "Marquer absent",
       `Voulez-vous marquer le ticket ${ticketNumber ?? ticketId} comme absent ?`,
@@ -265,7 +551,7 @@ export default function AgentQueue() {
     );
   };
 
-  const recall = async (ticketId: number) => {
+  const handleRecall = async (ticketId: number) => {
     setIsActing(true);
     try {
       await axiosClient.post(`/tickets/${ticketId}/recall`);
@@ -277,7 +563,7 @@ export default function AgentQueue() {
     }
   };
 
-  const closeTicket = async (ticketId: number) => {
+  const handleClose = async (ticketId: number) => {
     showWarning(
       "Terminer le service",
       `Voulez-vous terminer le service pour le ticket ${ticketId} ?`,
@@ -298,273 +584,358 @@ export default function AgentQueue() {
     );
   };
 
+  const handleOpenService = async () => {
+    setIsActing(true);
+    try {
+      await axiosClient.post(`/services/${parseInt(serviceId || "0")}/open`);
+      setServiceStatus("open");
+      showSuccess("Succès", "Service ouvert");
+    } catch (err: any) {
+      showError(
+        "Erreur",
+        err?.response?.data?.message || err?.message || "Erreur",
+      );
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const handleCloseService = async () => {
+    setIsActing(true);
+    try {
+      await axiosClient.post(`/services/${parseInt(serviceId || "0")}/close`);
+      setServiceStatus("closed");
+      showSuccess("Succès", "Service fermé");
+    } catch (err: any) {
+      showError(
+        "Erreur",
+        err?.response?.data?.message || err?.message || "Erreur",
+      );
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  // ── Ticket row renderer ────────────────────────────────────────────────────
   const renderTicket = ({ item, index }: { item: Ticket; index: number }) => {
-    const priorityColor =
-      item.priority === "vip"
-        ? "#FFD60A"
-        : item.priority === "high"
-          ? "#FF9500"
-          : "#22C55E";
-    const formattedWait = (() => {
-      try {
-        const created = new Date(item.created_at);
-        const mins = Math.max(
-          0,
-          Math.floor((Date.now() - created.getTime()) / 60000),
-        );
-        if (mins < 1) return "À l'instant";
-        if (mins < 60) return `${mins} min`;
-        const h = Math.floor(mins / 60);
-        return `${h}h`;
-      } catch {
-        return "--";
-      }
-    })();
+    const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
 
     return (
       <View
-        style={[
-          styles.ticketRow,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 10,
+          marginBottom: 5,
+          borderWidth: 1,
+          borderColor: colors.border,
+          paddingVertical: 9,
+          paddingHorizontal: 10,
+          gap: 10,
+        }}
       >
+        {/* Position + priority pill */}
         <View
-          style={[styles.rankPill, { backgroundColor: priorityColor + "20" }]}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 9,
+            backgroundColor: prio.color + "18",
+            justifyContent: "center",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: prio.color + "40",
+          }}
         >
-          <Text style={[styles.rankText, { color: priorityColor }]}>
+          <Text style={{ color: prio.color, fontWeight: "800", fontSize: 15 }}>
             {item.position ?? index + 1}
           </Text>
         </View>
 
-        <View style={styles.ticketMain}>
-          <Text
-            style={[styles.ticketNumber, { color: colors.textPrimary }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
+        {/* Ticket number + meta */}
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 3,
+            }}
           >
-            {item.number}
-          </Text>
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontWeight: "700",
+                fontSize: 15,
+              }}
+              numberOfLines={1}
+            >
+              {item.number}
+            </Text>
+            {/* Priority badge */}
+            <View
+              style={{
+                backgroundColor: prio.color + "20",
+                paddingHorizontal: 5,
+                paddingVertical: 1,
+                borderRadius: 5,
+              }}
+            >
+              <Text
+                style={{
+                  color: prio.color,
+                  fontSize: 9,
+                  fontWeight: "800",
+                  letterSpacing: 0.3,
+                }}
+              >
+                {prio.label}
+              </Text>
+            </View>
+          </View>
           <Text
-            style={[styles.ticketMeta, { color: colors.textSecondary }]}
+            style={{
+              color: colors.textSecondary,
+              fontSize: 11,
+              lineHeight: 14,
+            }}
             numberOfLines={1}
-            ellipsizeMode="tail"
           >
-            {item.priority.toUpperCase()} · Pris à{" "}
-            {new Date(item.created_at).toLocaleTimeString("fr-FR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            Pris à {fmtTime(item.created_at)}
+            {"  ·  "}
+            {timeAgo(item.created_at)}
           </Text>
         </View>
 
-        <View style={styles.ticketRight}>
-          <Text style={[styles.waitText, { color: colors.textSecondary }]}>
-            {formattedWait}
-          </Text>
-          <TouchableOpacity
-            style={[styles.smallBtn, { backgroundColor: "#FF3B30" }]}
-            onPress={() => markAbsent(item.id, item.number)}
-          >
-            <Ionicons name="person-remove" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
+        {/* Status badge */}
+        {(() => {
+          const sc = STATUS_CFG[item.status] ?? {
+            color: "#8E8E93",
+            label: item.status,
+          };
+          return (
+            <View
+              style={{
+                backgroundColor: sc.color + "18",
+                paddingHorizontal: 7,
+                paddingVertical: 3,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: sc.color + "35",
+              }}
+            >
+              <Text
+                style={{ color: sc.color, fontSize: 10, fontWeight: "700" }}
+              >
+                {sc.label}
+              </Text>
+            </View>
+          );
+        })()}
+
+        {/* Absent action */}
+        <TouchableOpacity
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            backgroundColor: "#FF3B3010",
+            borderWidth: 1,
+            borderColor: "#FF3B3028",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+          onPress={() => handleMarkAbsent(item.id, item.number)}
+        >
+          <Ionicons name="person-remove-outline" size={15} color="#FF3B30" />
+        </TouchableOpacity>
       </View>
     );
   };
 
+  // ── Loading screen ─────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <SafeAreaView
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.background,
-            justifyContent: "center",
-            alignItems: "center",
-          },
-        ]}
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
-        <Text style={{ color: colors.textSecondary }}>Chargement...</Text>
+        <Ionicons
+          name="hourglass-outline"
+          size={32}
+          color={colors.textSecondary}
+        />
+        <Text
+          style={{ color: colors.textSecondary, marginTop: 8, fontSize: 14 }}
+        >
+          Chargement...
+        </Text>
       </SafeAreaView>
     );
   }
 
+  // ── Derived UI state ───────────────────────────────────────────────────────
+  const isCallNextDisabled = isActing || tickets.length === 0;
+
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View
-        style={[
-          styles.header,
-          {
-            borderBottomColor: colors.border,
-            paddingTop:
-              Platform.OS === "ios" ? 12 : StatusBar.currentHeight || 12,
-          },
-        ]}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: hPad,
+          paddingBottom: 10,
+          paddingTop:
+            Platform.OS === "ios" ? 6 : (StatusBar.currentHeight ?? 6) + 4,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          gap: 8,
+        }}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 6 }}>
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          File d attente
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontWeight: "700",
+              fontSize: 17,
+            }}
+          >
+            {"File d'attente"}
+          </Text>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: 11,
+              marginTop: 1,
+            }}
+          >
+            Service #{serviceId}
+            {counterId ? `  ·  Guichet ${counterId}` : ""}
+          </Text>
+        </View>
 
+        {/* Service open/close toggle */}
         <TouchableOpacity
-          style={[
-            styles.statusToggle,
-            {
-              backgroundColor: serviceStatus === "open" ? "#22C55E" : "#EF4444",
-            },
-          ]}
-          onPress={() => {
-            // Toggle service open/closed
-            const newStatus = serviceStatus === "open" ? "closed" : "open";
-            (async () => {
-              setIsActing(true);
-              try {
-                if (serviceStatus === "open") {
-                  await axiosClient.post(
-                    `/services/${parseInt(serviceId || "0")}/close`,
-                  );
-                } else {
-                  await axiosClient.post(
-                    `/services/${parseInt(serviceId || "0")}/open`,
-                  );
-                }
-                setServiceStatus(newStatus);
-                showSuccess(
-                  "Succès",
-                  `Service ${newStatus === "open" ? "ouvert" : "fermé"}`,
-                );
-              } catch (err: any) {
-                showError(
-                  "Erreur",
-                  err?.response?.data?.message || err?.message || "Erreur",
-                );
-              } finally {
-                setIsActing(false);
-              }
-            })();
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: serviceStatus === "open" ? "#34C759" : "#FF3B30",
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 14,
+            gap: 5,
+            opacity: isActing ? 0.6 : 1,
           }}
+          onPress={() =>
+            serviceStatus === "open"
+              ? handleCloseService()
+              : handleOpenService()
+          }
           disabled={isActing}
         >
           <Ionicons
             name={
               serviceStatus === "open" ? "checkmark-circle" : "close-circle"
             }
-            size={16}
+            size={14}
             color="white"
           />
-          <Text style={styles.statusToggleText}>
+          <Text style={{ color: "white", fontSize: 12, fontWeight: "700" }}>
             {serviceStatus === "open" ? "Ouvert" : "Fermé"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Current Called Ticket (compact) */}
-      {currentTicket ? (
+      {/* ── KPI Pills ──────────────────────────────────────────────────────── */}
+      {stats && (
         <View
-          style={[styles.currentCompact, { backgroundColor: colors.primary }]}
+          style={{
+            flexDirection: "row",
+            paddingHorizontal: hPad,
+            paddingVertical: 8,
+            gap: 6,
+          }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View style={styles.currentIcon}>
-              <Ionicons name="megaphone" size={20} color="white" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "white", fontWeight: "800", fontSize: 16 }}>
-                {currentTicket.number}
-              </Text>
-              {currentTicket.called_at && (
-                <Text style={{ color: "rgba(255,255,255,0.9)", marginTop: 4 }}>
-                  Appelé à{" "}
-                  {new Date(currentTicket.called_at).toLocaleTimeString(
-                    "fr-FR",
-                    { hour: "2-digit", minute: "2-digit" },
-                  )}
-                </Text>
-              )}
-              {currentTicket.en_route_at && (
-                <Text style={{ color: "rgba(255,255,255,0.95)", marginTop: 4 }}>
-                  {currentTicket.status === "present"
-                    ? "Usager présent sur place"
-                    : currentTicket.estimated_travel_minutes != null
-                      ? `Usager en route · ≈ ${currentTicket.estimated_travel_minutes} min`
-                      : "Réponse reçue"}
-                </Text>
-              )}
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                style={[
-                  styles.compactActionBtn,
-                  { backgroundColor: "rgba(255,255,255,0.12)" },
-                ]}
-                onPress={() => recall(currentTicket.id)}
-              >
-                <Ionicons name="volume-high" size={18} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.compactActionBtn,
-                  { backgroundColor: "#FF3B30" },
-                ]}
-                onPress={() =>
-                  markAbsent(currentTicket.id, currentTicket.number)
-                }
-              >
-                <Ionicons name="person-remove" size={18} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.compactActionBtn,
-                  { backgroundColor: "#22C55E" },
-                ]}
-                onPress={() => closeTicket(currentTicket.id)}
-              >
-                <Ionicons name="checkmark-circle" size={18} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <KpiPill
+            icon="people-outline"
+            label="En attente"
+            value={String(stats.waiting)}
+            accent="#007AFF"
+            colors={colors}
+          />
+          <KpiPill
+            icon="checkmark-done-outline"
+            label="Traités"
+            value={String(stats.processed)}
+            accent="#34C759"
+            colors={colors}
+          />
+          <KpiPill
+            icon="timer-outline"
+            label="Moy. attente"
+            value={
+              stats.avg_wait_time > 0
+                ? `${Math.round(stats.avg_wait_time)}min`
+                : "--"
+            }
+            accent="#FF9500"
+            colors={colors}
+          />
         </View>
-      ) : (
-        // Call Next button when there is no current ticket
-        serviceStatus === "open" && (
-          <TouchableOpacity
-            style={[
-              styles.callNextBtn,
-              { backgroundColor: colors.primary, margin: 12 },
-            ]}
-            onPress={callNext}
-            disabled={isActing || tickets.length === 0}
-          >
-            <Ionicons name="arrow-forward" size={20} color="white" />
-            <Text style={styles.callNextText}>Appeler le suivant</Text>
-            {tickets.length > 0 && (
-              <View style={styles.queueBadge}>
-                <Text style={styles.queueBadgeText}>{tickets.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )
       )}
 
-      {/* Search */}
+      {/* ── Current Ticket ─────────────────────────────────────────────────── */}
+      {currentTicket && (
+        <View style={{ paddingHorizontal: hPad - 12, marginBottom: 2 }}>
+          <CurrentTicketCard
+            ticket={currentTicket}
+            onRecall={() => handleRecall(currentTicket.id)}
+            onAbsent={() =>
+              handleMarkAbsent(currentTicket.id, currentTicket.number)
+            }
+            onClose={() => handleClose(currentTicket.id)}
+            isActing={isActing}
+          />
+        </View>
+      )}
+
+      {/* ── Search bar ─────────────────────────────────────────────────────── */}
       <View
-        style={[
-          styles.searchRow,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 10,
+          marginHorizontal: hPad,
+          marginBottom: 4,
+          marginTop: 2,
+          paddingHorizontal: 10,
+          paddingVertical: 7,
+          borderWidth: 1,
+          borderColor: colors.border,
+          gap: 8,
+        }}
       >
-        <Ionicons name="search" size={18} color={colors.textSecondary} />
+        <Ionicons name="search" size={15} color={colors.textSecondary} />
         <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary }]}
-          placeholder="Rechercher un numéro..."
+          style={{
+            flex: 1,
+            fontSize: 14,
+            color: colors.textPrimary,
+            padding: 0,
+          }}
+          placeholder="Rechercher un ticket..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -573,19 +944,24 @@ export default function AgentQueue() {
           <TouchableOpacity onPress={() => setSearchQuery("")}>
             <Ionicons
               name="close-circle"
-              size={18}
+              size={15}
               color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* List */}
+      {/* ── Ticket FlatList ────────────────────────────────────────────────── */}
       <FlatList
-        style={{ flex: 1 }}
         data={filteredTickets}
         renderItem={renderTicket}
         keyExtractor={(item) => item.id.toString()}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: hPad,
+          paddingTop: 6,
+          paddingBottom: serviceStatus === "open" ? 108 : 24,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -595,133 +971,132 @@ export default function AgentQueue() {
             }}
           />
         }
-        contentContainerStyle={{ padding: 12, paddingBottom: 120 }}
+        ListHeaderComponent={
+          filteredTickets.length > 0 ? (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.6,
+                }}
+              >
+                {"File d'attente"}
+              </Text>
+              <View
+                style={{
+                  backgroundColor: "#007AFF18",
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                }}
+              >
+                <Text
+                  style={{ color: "#007AFF", fontSize: 12, fontWeight: "700" }}
+                >
+                  {filteredTickets.length} ticket
+                  {filteredTickets.length > 1 ? "s" : ""}
+                </Text>
+              </View>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
+          <View style={{ alignItems: "center", paddingVertical: 48 }}>
             <Ionicons
               name="ticket-outline"
-              size={56}
+              size={48}
               color={colors.textSecondary}
             />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontWeight: "700",
+                fontSize: 15,
+                marginTop: 12,
+              }}
+            >
               File vide
             </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
               Aucun ticket en attente
             </Text>
           </View>
         )}
       />
 
+      {/* ── Sticky "Appeler le suivant" button ─────────────────────────────── */}
+      {serviceStatus === "open" && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            paddingHorizontal: hPad,
+            paddingTop: 12,
+            paddingBottom: Platform.OS === "ios" ? 28 : 16,
+            backgroundColor: colors.background,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              backgroundColor: isCallNextDisabled
+                ? colors.textSecondary
+                : "#007AFF",
+              borderRadius: 14,
+              paddingVertical: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              opacity: isCallNextDisabled ? 0.45 : 1,
+            }}
+            onPress={handleCallNext}
+            disabled={isCallNextDisabled}
+          >
+            <Ionicons name="megaphone" size={20} color="white" />
+            <Text style={{ color: "white", fontSize: 16, fontWeight: "700" }}>
+              Appeler le suivant
+            </Text>
+            {tickets.length > 0 && (
+              <View
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.25)",
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 10,
+                }}
+              >
+                <Text
+                  style={{ color: "white", fontSize: 13, fontWeight: "700" }}
+                >
+                  {tickets.length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {AlertComponent}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: { padding: 8 },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", marginLeft: 8 },
-  statusToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-  },
-  statusToggleText: { color: "white", fontSize: 13, fontWeight: "600" },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    margin: 12,
-    gap: 8,
-  },
-  searchInput: { flex: 1, fontSize: 15, fontWeight: "500", padding: 0 },
-  queueSection: { flex: 1 },
-  ticketRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 0.5,
-  },
-  rankPill: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  rankText: { fontWeight: "800", fontSize: 16 },
-  ticketMain: { flex: 1, justifyContent: "center" },
-  ticketNumber: { fontSize: 16, fontWeight: "700" },
-  ticketMeta: { fontSize: 12, marginTop: 2 },
-  ticketRight: { alignItems: "flex-end", justifyContent: "center", gap: 8 },
-  waitText: { fontSize: 12, fontWeight: "600" },
-  smallBtn: { marginTop: 6, padding: 8, borderRadius: 8 },
-
-  // Compact current ticket styles
-  currentCompact: {
-    margin: 12,
-    borderRadius: 12,
-    padding: 12,
-  },
-  currentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  compactActionBtn: {
-    padding: 8,
-    borderRadius: 8,
-  },
-
-  // Call next button (compact)
-  callNextBtn: {
-    marginHorizontal: 12,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  callNextText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  queueBadge: {
-    backgroundColor: "rgba(255,255,255,0.3)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  queueBadgeText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  emptyState: { alignItems: "center", paddingVertical: 40 },
-  emptyTitle: { fontSize: 16, fontWeight: "700", marginTop: 12 },
-  emptyText: { fontSize: 13, marginTop: 4 },
-});
