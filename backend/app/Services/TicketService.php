@@ -179,6 +179,10 @@ class TicketService
 
             // Diffusion sur le canal de présence du service: nouveau ticket en file
             $this->broadcastSafely(fn() => event(new ServiceTicketEnqueued($service->id, [
+                'service_id' => $service->id,
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->number,
+                'priority' => $ticket->priority,
                 'ticket' => [
                     'id' => $ticket->id,
                     'number' => $ticket->number,
@@ -270,6 +274,10 @@ class TicketService
 
             // Diffusion sur le canal de présence du service
             $this->broadcastSafely(fn() => event(new ServiceTicketEnqueued($service->id, [
+                'service_id' => $service->id,
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->number,
+                'priority' => $ticket->priority,
                 'ticket' => [
                     'id' => $ticket->id,
                     'number' => $ticket->number,
@@ -356,17 +364,21 @@ class TicketService
                 $ticket->counter_id = $counterId;
             }
             $ticket->called_at = Carbon::now();
+            $ticket->position = 1;
             $ticket->eta_minutes = 0; // Called = no more waiting
             $ticket->save();
 
             // Diffusion: ticket appelé
             $this->broadcastSafely(fn() => event(new TicketCalled($ticket->id, [
+                'ticket_id' => $ticket->id,
                 'number' => $ticket->number,
                 'counter_id' => $ticket->counter_id,
                 'service_id' => $service->id,
+                'position' => 1,
             ])));
             $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
                 'status' => $ticket->status,
+                'position' => 1,
                 'eta_minutes' => 0,
             ])));
 
@@ -377,12 +389,16 @@ class TicketService
                     'status' => $ticket->status,
                     'number' => $ticket->number,
                     'counter_id' => $ticket->counter_id,
+                    'position' => 1,
                     'eta_minutes' => 0,
                 ])));
             }
 
             // Diffusion service: ticket appelé
             $this->broadcastSafely(fn() => event(new ServiceTicketCalled($service->id, [
+                'service_id' => $service->id,
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->number,
                 'ticket' => [
                     'id' => $ticket->id,
                     'number' => $ticket->number,
@@ -418,11 +434,13 @@ class TicketService
 
         $ticket->status = 'absent';
         $ticket->absent_at = Carbon::now();
+        $ticket->position = null;
         $ticket->eta_minutes = null; // No longer in queue
         $ticket->save();
 
         $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
             'status' => $ticket->status,
+            'position' => null,
             'eta_minutes' => null,
         ])));
 
@@ -431,9 +449,10 @@ class TicketService
                 'ticket_id' => $ticket->id,
                 'service_id' => $ticket->service_id,
                 'status' => $ticket->status,
+                'position' => null,
                 'eta_minutes' => null,
             ])));
-            
+
             // Send push notification for absent
             dispatch(new SendPushNotification($ticket->user->id, 'Ticket marqué absent', 'Vous avez été marqué absent pour le ticket '.$ticket->number, [
                 'ticket_id' => $ticket->id,
@@ -444,6 +463,9 @@ class TicketService
 
         // Diffusion service: ticket marqué absent
         $this->broadcastSafely(fn() => event(new ServiceTicketAbsent($ticket->service_id, [
+            'service_id' => $ticket->service_id,
+            'ticket_id' => $ticket->id,
+            'ticket_number' => $ticket->number,
             'ticket' => [
                 'id' => $ticket->id,
                 'number' => $ticket->number,
@@ -469,11 +491,13 @@ class TicketService
     {
         $ticket->status = 'closed';
         $ticket->closed_at = Carbon::now();
+        $ticket->position = null;
         $ticket->eta_minutes = null;
         $ticket->save();
 
         $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
             'status' => $ticket->status,
+            'position' => null,
             'eta_minutes' => null,
         ])));
 
@@ -482,6 +506,7 @@ class TicketService
                 'ticket_id' => $ticket->id,
                 'service_id' => $ticket->service_id,
                 'status' => $ticket->status,
+                'position' => null,
                 'eta_minutes' => null,
             ])));
 
@@ -582,7 +607,7 @@ class TicketService
             $ticket->save();
 
             // Le ticket suivant est appelé à la place
-            $nextTicket->position = $ticketOriginalPosition;
+            $nextTicket->position = 1;
             $nextTicket->status = 'called';
             $nextTicket->en_route_at = null; // Nouvel appel : pas encore de réponse
             $nextTicket->called_at = Carbon::now();
@@ -620,7 +645,7 @@ class TicketService
             ])));
             $this->broadcastSafely(fn() => event(new TicketUpdated($nextTicket->id, [
                 'status' => 'called',
-                'position' => $nextTicket->position,
+                'position' => 1,
                 'eta_minutes' => 0,
                 'is_swapped' => true,
             ])));
@@ -641,7 +666,7 @@ class TicketService
                     'ticket_id' => $nextTicket->id,
                     'service_id' => $service->id,
                     'status' => 'called',
-                    'position' => $nextTicket->position,
+                    'position' => 1,
                     'eta_minutes' => 0,
                     'swapped' => true,
                 ])));
@@ -661,8 +686,8 @@ class TicketService
 
         // Vérifier si on peut déférer (période de grâce de 24h)
         $referenceTime = $ticket->original_called_at ?? $ticket->called_at;
-        $canDefer = $ticket->status === 'called' && 
-                    $referenceTime && 
+        $canDefer = $ticket->status === 'called' &&
+                    $referenceTime &&
                     !Carbon::parse($referenceTime)->addHours(24)->isPast();
 
         if ($canDefer) {
@@ -691,10 +716,12 @@ class TicketService
     public function cancel(Ticket $ticket): Ticket
     {
         $ticket->status = 'canceled';
+        $ticket->position = null;
         $ticket->eta_minutes = null;
         $ticket->save();
         $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
             'status' => $ticket->status,
+            'position' => null,
             'eta_minutes' => null,
         ])));
 
@@ -703,6 +730,7 @@ class TicketService
                 'ticket_id' => $ticket->id,
                 'service_id' => $ticket->service_id,
                 'status' => $ticket->status,
+                'position' => null,
                 'eta_minutes' => null,
             ])));
         }
@@ -720,14 +748,25 @@ class TicketService
         $ticket->status = 'called';
         $ticket->en_route_at = null; // Rappel : réinitialise la réponse précédente
         $ticket->called_at = Carbon::now();
+        $ticket->position = 1;
         $ticket->eta_minutes = 0; // Called = no more waiting
         $ticket->save();
         $this->broadcastSafely(fn() => event(new TicketCalled($ticket->id, [
+            'ticket_id' => $ticket->id,
             'number' => $ticket->number,
             'counter_id' => $ticket->counter_id,
             'service_id' => $ticket->service_id,
+            'position' => 1,
+        ])));
+        $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
+            'status' => $ticket->status,
+            'position' => 1,
+            'eta_minutes' => 0,
         ])));
         $this->broadcastSafely(fn() => event(new ServiceTicketCalled($ticket->service_id, [
+            'service_id' => $ticket->service_id,
+            'ticket_id' => $ticket->id,
+            'ticket_number' => $ticket->number,
             'ticket' => [
                 'id' => $ticket->id,
                 'number' => $ticket->number,
@@ -741,16 +780,17 @@ class TicketService
                 'status' => $ticket->status,
                 'number' => $ticket->number,
                 'counter_id' => $ticket->counter_id,
+                'position' => 1,
                 'eta_minutes' => 0,
             ])));
-            
+
             // Send push notification for recall
             dispatch(new SendPushNotification($ticket->user->id, 'Rappel - Votre ticket est appelé', 'Présentez-vous au guichet pour le ticket '.$ticket->number, [
                 'ticket_id' => $ticket->id,
                 'service_id' => $ticket->service_id,
                 'type' => 'recall',
             ]));
-            
+
             // Send SMS if phone available
             if (!empty($ticket->user->phone)) {
                 dispatch(new SendSmsNotification($ticket->user->phone, 'Rappel: Votre ticket '.$ticket->number.' est appelé. Présentez-vous au guichet.', [

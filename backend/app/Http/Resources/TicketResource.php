@@ -26,11 +26,20 @@ class TicketResource extends JsonResource
             $eta = ($avg !== null && $pos !== null) ? (int) max(0, ($pos - 1) * $avg) : null;
         }
 
-        // Queue length = nombre de personnes en attente dans ce service
-        $queueLength = Ticket::query()
+        $waitingCount = Ticket::query()
             ->where('service_id', $this->service_id)
-            ->whereIn('status', ['waiting', 'called'])
+            ->where('status', 'waiting')
             ->count();
+
+        // Cohérence métier :
+        // - waiting => taille réelle de la file d'attente
+        // - called  => l'utilisateur est au guichet, donc file restante = 1 pour lui
+        // - absent/closed/canceled/expired => plus de file active
+        $queueLength = match ($this->status) {
+            'called' => 1,
+            'waiting' => $waitingCount,
+            default => 0,
+        };
 
         return [
             'id' => $this->id,

@@ -1,11 +1,25 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, Platform, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
-import { CameraView, CameraType, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTicket } from '../../src/store/ticketStore';
-import axiosClient from '../../src/api/axiosClient';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Linking,
+  Platform,
+  Modal,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
+import {
+  CameraView,
+  CameraType,
+  useCameraPermissions,
+  BarcodeScanningResult,
+} from "expo-camera";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTicket } from "../../src/store/ticketStore";
+import axiosClient from "../../src/api/axiosClient";
 
 export default function ScanScreen() {
   const insets = useSafeAreaInsets();
@@ -16,141 +30,163 @@ export default function ScanScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showExistingModal, setShowExistingModal] = useState(false);
   const [ticketInfo, setTicketInfo] = useState<any>(null);
-  const { hasActiveTicket } = useTicket();
+  const { hasActiveTicket, fetchActiveTicket } = useTicket();
 
   // Handle QR code scan result
-  const handleBarCodeScanned = useCallback(async (result: BarcodeScanningResult) => {
-    if (scanned || isProcessing) return;
-    
-    setScanned(true);
-    setIsProcessing(true);
+  const handleBarCodeScanned = useCallback(
+    async (result: BarcodeScanningResult) => {
+      if (scanned || isProcessing) return;
 
-    try {
-      const { data } = result;
-      
-      // Parse QR code data - supported formats:
-      // 1. vqs://service/{uuid} - Service QR code (new VQS format)
-      // 2. smartqueue://establishment/{id} - Legacy establishment QR
-      // 3. Just a number - Legacy establishment ID
-      
-      let serviceToken: string | null = null;
-      let establishmentId: string | null = null;
-      
-      // New VQS service QR code format
-      if (data.startsWith('vqs://service/')) {
-        serviceToken = data.replace('vqs://service/', '');
-      } else if (data.startsWith('https://') && data.includes('/s/')) {
-        // Web URL format: https://app.vqs.com/s/{uuid}
-        const parts = data.split('/s/');
-        if (parts.length > 1) {
-          serviceToken = parts[1];
-        }
-      } else if (data.startsWith('smartqueue://establishment/')) {
-        // Legacy format
-        establishmentId = data.replace('smartqueue://establishment/', '');
-      } else if (data.startsWith('http')) {
-        // Handle web URLs - extract ID from URL
-        const urlParts = data.split('/');
-        establishmentId = urlParts[urlParts.length - 1];
-      } else if (/^\d+$/.test(data)) {
-        // Just a number
-        establishmentId = data;
-      }
+      setScanned(true);
+      setIsProcessing(true);
 
-      // Handle VQS service QR code - direct ticket creation
-      if (serviceToken) {
-        try {
-          const response = await axiosClient.post('/qr-scan', {
-            qr_content: data,
-          });
+      try {
+        const { data } = result;
 
-          const resultData = response.data;
-          
-          if (resultData.action === 'show_existing') {
-            // User already has a ticket for this service today
-            setTicketInfo(resultData.ticket);
-            setShowExistingModal(true);
-          } else if (resultData.action === 'created') {
-            // New ticket created
-            setTicketInfo(resultData.ticket);
-            setShowSuccessModal(true);
+        // Parse QR code data - supported formats:
+        // 1. vqs://service/{uuid} - Service QR code (new VQS format)
+        // 2. smartqueue://establishment/{id} - Legacy establishment QR
+        // 3. Just a number - Legacy establishment ID
+
+        let serviceToken: string | null = null;
+        let establishmentId: string | null = null;
+
+        // New VQS service QR code format
+        if (data.startsWith("vqs://service/")) {
+          serviceToken = data.replace("vqs://service/", "");
+        } else if (data.startsWith("https://") && data.includes("/s/")) {
+          // Web URL format: https://app.vqs.com/s/{uuid}
+          const parts = data.split("/s/");
+          if (parts.length > 1) {
+            serviceToken = parts[1];
           }
-        } catch (error: any) {
-          const errorMsg = error?.response?.data?.message || 'Erreur lors de la création du ticket';
-          const serviceStatus = error?.response?.data?.service_status;
-          
-          if (error?.response?.status === 401) {
-            Alert.alert(
-              'Connexion requise',
-              'Vous devez être connecté pour créer un ticket.',
-              [
-                { text: 'Annuler', style: 'cancel', onPress: () => {
-                  setScanned(false);
-                  setIsProcessing(false);
-                }},
-                { text: 'Se connecter', onPress: () => {
-                  router.push('/login');
-                }}
-              ]
-            );
-          } else if (serviceStatus === 'closed') {
-            Alert.alert('File fermée', errorMsg);
-            setScanned(false);
-            setIsProcessing(false);
-          } else {
-            Alert.alert('Erreur', errorMsg);
-            setScanned(false);
-            setIsProcessing(false);
-          }
+        } else if (data.startsWith("smartqueue://establishment/")) {
+          // Legacy format
+          establishmentId = data.replace("smartqueue://establishment/", "");
+        } else if (data.startsWith("http")) {
+          // Handle web URLs - extract ID from URL
+          const urlParts = data.split("/");
+          establishmentId = urlParts[urlParts.length - 1];
+        } else if (/^\d+$/.test(data)) {
+          // Just a number
+          establishmentId = data;
         }
-        return;
-      }
 
-      // Legacy establishment QR code handling
-      if (!establishmentId) {
-        Alert.alert('QR Code invalide', 'Ce QR code n\'est pas un code SmartQueue valide.');
-        setScanned(false);
-        setIsProcessing(false);
-        return;
-      }
+        // Handle VQS service QR code - direct ticket creation
+        if (serviceToken) {
+          try {
+            const response = await axiosClient.post("/qr-scan", {
+              qr_content: data,
+            });
 
-      // Check if user already has active ticket
-      if (hasActiveTicket) {
-        Alert.alert(
-          'Ticket actif',
-          'Vous avez déjà un ticket actif. Voulez-vous le remplacer ?',
-          [
-            { text: 'Annuler', style: 'cancel', onPress: () => {
+            const resultData = response.data;
+
+            if (resultData.action === "show_existing") {
+              // User already has a ticket for this service today
+              setTicketInfo(resultData.ticket);
+              setShowExistingModal(true);
+            } else if (resultData.action === "created") {
+              // New ticket created
+              setTicketInfo(resultData.ticket);
+              setShowSuccessModal(true);
+            }
+          } catch (error: any) {
+            const errorMsg =
+              error?.response?.data?.message ||
+              "Erreur lors de la création du ticket";
+            const serviceStatus = error?.response?.data?.service_status;
+
+            if (error?.response?.status === 401) {
+              Alert.alert(
+                "Connexion requise",
+                "Vous devez être connecté pour créer un ticket.",
+                [
+                  {
+                    text: "Annuler",
+                    style: "cancel",
+                    onPress: () => {
+                      setScanned(false);
+                      setIsProcessing(false);
+                    },
+                  },
+                  {
+                    text: "Se connecter",
+                    onPress: () => {
+                      router.push("/login");
+                    },
+                  },
+                ],
+              );
+            } else if (serviceStatus === "closed") {
+              Alert.alert("File fermée", errorMsg);
               setScanned(false);
               setIsProcessing(false);
-            }},
-            { 
-              text: 'Continuer', 
-              onPress: () => {
-                router.push({
-                  pathname: '/service-details',
-                  params: { establishmentId, fromQr: 'true' },
-                });
-                setIsProcessing(false);
-              }
-            },
-          ]
+            } else {
+              Alert.alert("Erreur", errorMsg);
+              setScanned(false);
+              setIsProcessing(false);
+            }
+          }
+          return;
+        }
+
+        // Legacy establishment QR code handling
+        if (!establishmentId) {
+          Alert.alert(
+            "QR Code invalide",
+            "Ce QR code n'est pas un code SmartQueue valide.",
+          );
+          setScanned(false);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Check if user already has active ticket
+        if (hasActiveTicket) {
+          Alert.alert(
+            "Ticket actif",
+            "Vous avez déjà un ticket actif. Voulez-vous le remplacer ?",
+            [
+              {
+                text: "Annuler",
+                style: "cancel",
+                onPress: () => {
+                  setScanned(false);
+                  setIsProcessing(false);
+                },
+              },
+              {
+                text: "Continuer",
+                onPress: () => {
+                  router.push({
+                    pathname: "/service-details",
+                    params: { establishmentId, fromQr: "true" },
+                  });
+                  setIsProcessing(false);
+                },
+              },
+            ],
+          );
+        } else {
+          // Navigate to establishment details
+          router.push({
+            pathname: "/service-details",
+            params: { establishmentId, fromQr: "true" },
+          });
+          setIsProcessing(false);
+        }
+      } catch (error) {
+        console.error("Error processing QR code:", error);
+        Alert.alert(
+          "Erreur",
+          "Impossible de traiter le QR code. Veuillez réessayer.",
         );
-      } else {
-        // Navigate to establishment details
-        router.push({
-          pathname: '/service-details',
-          params: { establishmentId, fromQr: 'true' },
-        });
+        setScanned(false);
         setIsProcessing(false);
       }
-    } catch (error) {
-      console.error('Error processing QR code:', error);
-      Alert.alert('Erreur', 'Impossible de traiter le QR code. Veuillez réessayer.');
-      setScanned(false);
-      setIsProcessing(false);
-    }
-  }, [scanned, isProcessing, hasActiveTicket]);
+    },
+    [scanned, isProcessing, hasActiveTicket],
+  );
 
   // Request permission if not granted
   useEffect(() => {
@@ -180,16 +216,20 @@ export default function ScanScreen() {
           </View>
           <Text style={styles.permissionTitle}>Accès à la caméra requis</Text>
           <Text style={styles.permissionText}>
-            Pour scanner des QR codes, SmartQueue a besoin d&apos;accéder à votre caméra.
+            Pour scanner des QR codes, SmartQueue a besoin d&apos;accéder à
+            votre caméra.
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={requestPermission}
+          >
             <Text style={styles.permissionButtonText}>Autoriser la caméra</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.settingsButton} 
+          <TouchableOpacity
+            style={styles.settingsButton}
             onPress={() => {
-              if (Platform.OS === 'ios') {
-                Linking.openURL('app-settings:');
+              if (Platform.OS === "ios") {
+                Linking.openURL("app-settings:");
               } else {
                 Linking.openSettings();
               }
@@ -211,7 +251,7 @@ export default function ScanScreen() {
         enableTorch={flashEnabled}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
+          barcodeTypes: ["qr"],
         }}
       />
 
@@ -219,21 +259,21 @@ export default function ScanScreen() {
       <View style={[styles.overlay, { paddingTop: insets.top + 20 }]}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={() => router.back()}
           >
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Scanner QR Code</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.flashButton}
             onPress={() => setFlashEnabled(!flashEnabled)}
           >
-            <Ionicons 
-              name={flashEnabled ? "flash" : "flash-off"} 
-              size={24} 
-              color={flashEnabled ? "#FFD60A" : "white"} 
+            <Ionicons
+              name={flashEnabled ? "flash" : "flash-off"}
+              size={24}
+              color={flashEnabled ? "#FFD60A" : "white"}
             />
           </TouchableOpacity>
         </View>
@@ -246,14 +286,14 @@ export default function ScanScreen() {
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
-            
+
             {/* Scanning line animation */}
-            {isProcessing && (
-              <View style={styles.scanningLine} />
-            )}
+            {isProcessing && <View style={styles.scanningLine} />}
           </View>
           <Text style={styles.scannerHint}>
-            {isProcessing ? 'Traitement en cours...' : 'Positionnez le QR code dans le cadre'}
+            {isProcessing
+              ? "Traitement en cours..."
+              : "Positionnez le QR code dans le cadre"}
           </Text>
         </View>
 
@@ -263,25 +303,35 @@ export default function ScanScreen() {
             <View style={styles.instructionIcon}>
               <Ionicons name="sunny-outline" size={20} color="#007AFF" />
             </View>
-            <Text style={styles.instructionText}>Assurez-vous d&apos;avoir suffisamment de lumière</Text>
+            <Text style={styles.instructionText}>
+              Assurez-vous d&apos;avoir suffisamment de lumière
+            </Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionIcon}>
-              <Ionicons name="phone-portrait-outline" size={20} color="#007AFF" />
+              <Ionicons
+                name="phone-portrait-outline"
+                size={20}
+                color="#007AFF"
+              />
             </View>
-            <Text style={styles.instructionText}>Tenez votre téléphone à environ 20cm du QR code</Text>
+            <Text style={styles.instructionText}>
+              Tenez votre téléphone à environ 20cm du QR code
+            </Text>
           </View>
           <View style={styles.instructionItem}>
             <View style={styles.instructionIcon}>
               <Ionicons name="scan-outline" size={20} color="#007AFF" />
             </View>
-            <Text style={styles.instructionText}>Le scan se fait automatiquement</Text>
+            <Text style={styles.instructionText}>
+              Le scan se fait automatiquement
+            </Text>
           </View>
         </View>
 
         {/* Rescan button */}
         {scanned && !isProcessing && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.rescanButton}
             onPress={() => setScanned(false)}
           >
@@ -305,7 +355,7 @@ export default function ScanScreen() {
             </View>
             <Text style={styles.modalTitle}>Ticket créé !</Text>
             <Text style={styles.modalSubtitle}>{ticketInfo?.service_name}</Text>
-            
+
             <View style={styles.ticketInfoBox}>
               <View style={styles.ticketRow}>
                 <Text style={styles.ticketLabel}>Numéro:</Text>
@@ -317,16 +367,19 @@ export default function ScanScreen() {
               </View>
               <View style={styles.ticketRow}>
                 <Text style={styles.ticketLabel}>Attente estimée:</Text>
-                <Text style={styles.ticketValue}>{ticketInfo?.estimated_wait_minutes} min</Text>
+                <Text style={styles.ticketValue}>
+                  {ticketInfo?.estimated_wait_minutes} min
+                </Text>
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => {
+              onPress={async () => {
                 setShowSuccessModal(false);
                 setScanned(false);
                 setIsProcessing(false);
+                await fetchActiveTicket().catch(() => undefined);
                 router.push(`/live-ticket?ticketId=${ticketInfo?.id}`);
               }}
             >
@@ -350,7 +403,7 @@ export default function ScanScreen() {
             </View>
             <Text style={styles.modalTitle}>Ticket existant</Text>
             <Text style={styles.modalSubtitle}>{ticketInfo?.service_name}</Text>
-            
+
             <View style={styles.ticketInfoBox}>
               <View style={styles.ticketRow}>
                 <Text style={styles.ticketLabel}>Numéro:</Text>
@@ -365,13 +418,14 @@ export default function ScanScreen() {
                 <Text style={styles.ticketValue}>{ticketInfo?.status}</Text>
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => {
+              onPress={async () => {
                 setShowExistingModal(false);
                 setScanned(false);
                 setIsProcessing(false);
+                await fetchActiveTicket().catch(() => undefined);
                 router.push(`/live-ticket?ticketId=${ticketInfo?.id}`);
               }}
             >
@@ -387,29 +441,29 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
   camera: {
     flex: 1,
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   centerContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
@@ -417,38 +471,38 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
+    fontWeight: "700",
+    color: "white",
   },
   flashButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   scannerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   scannerFrame: {
     width: 280,
     height: 280,
-    position: 'relative',
+    position: "relative",
   },
   corner: {
-    position: 'absolute',
+    position: "absolute",
     width: 40,
     height: 40,
-    borderColor: '#007AFF',
+    borderColor: "#007AFF",
   },
   topLeft: {
     top: 0,
@@ -479,13 +533,13 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   scanningLine: {
-    position: 'absolute',
-    top: '50%',
+    position: "absolute",
+    top: "50%",
     left: 10,
     right: 10,
     height: 2,
-    backgroundColor: '#007AFF',
-    shadowColor: '#007AFF',
+    backgroundColor: "#007AFF",
+    shadowColor: "#007AFF",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 10,
@@ -493,112 +547,112 @@ const styles = StyleSheet.create({
   scannerHint: {
     marginTop: 24,
     fontSize: 16,
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: '500',
+    color: "white",
+    textAlign: "center",
+    fontWeight: "500",
   },
   instructions: {
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: "rgba(0,0,0,0.7)",
     marginHorizontal: 20,
     marginBottom: 60,
     borderRadius: 16,
     padding: 20,
   },
   instructionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   instructionIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,122,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,122,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   instructionText: {
     flex: 1,
     fontSize: 14,
-    color: 'white',
+    color: "white",
     lineHeight: 20,
   },
   rescanButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
-    alignSelf: 'center',
-    backgroundColor: '#007AFF',
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignSelf: "center",
+    backgroundColor: "#007AFF",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 25,
     gap: 8,
   },
   rescanButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   permissionIconContainer: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255,59,48,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,59,48,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   permissionTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1D1D1F',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#1D1D1F",
+    textAlign: "center",
     marginBottom: 12,
   },
   permissionText: {
     fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
+    color: "#8E8E93",
+    textAlign: "center",
     lineHeight: 24,
     marginBottom: 32,
   },
   permissionButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
     marginBottom: 12,
   },
   permissionButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   settingsButton: {
     paddingHorizontal: 32,
     paddingVertical: 14,
   },
   settingsButtonText: {
-    color: '#007AFF',
+    color: "#007AFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 24,
     padding: 32,
-    width: '85%',
+    width: "85%",
     maxWidth: 340,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.25,
     shadowRadius: 40,
@@ -609,50 +663,50 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1D1D1F',
+    fontWeight: "700",
+    color: "#1D1D1F",
     marginBottom: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalSubtitle: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: "#8E8E93",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   ticketInfoBox: {
-    backgroundColor: '#F5F5F7',
+    backgroundColor: "#F5F5F7",
     borderRadius: 16,
     padding: 20,
-    width: '100%',
+    width: "100%",
     marginBottom: 24,
   },
   ticketRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
   },
   ticketLabel: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: "#8E8E93",
   },
   ticketValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1D1D1F',
+    fontWeight: "600",
+    color: "#1D1D1F",
   },
   modalButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 14,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   modalButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

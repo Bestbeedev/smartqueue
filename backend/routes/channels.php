@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
-use Illuminate\Support\Facades\Log;
 use App\Models\Ticket;
 
 /*
@@ -24,19 +23,11 @@ Broadcast::channel('user.{userId}', function ($user, int $userId) {
     return (int) $user->id === (int) $userId;
 });
 
-// Canal de présence d'un service: agents/admins + usagers avec ticket actif
+// Canal de présence d'un service: réservé aux agents/admins.
+// Les usagers doivent écouter exclusivement user.{userId} / ticket.{ticketId}
+// pour éviter de recevoir des événements globaux concernant d'autres tickets.
 Broadcast::channel('presence-service.{serviceId}', function ($user, int $serviceId) {
     if (in_array($user->role, ['agent','admin'], true)) {
-        return ['id' => $user->id, 'name' => $user->name, 'role' => $user->role];
-    }
-
-    // Allow users with an active ticket for this service (need real-time queue updates)
-    $hasActiveTicket = Ticket::where('service_id', $serviceId)
-        ->where('user_id', $user->id)
-        ->whereIn('status', ['waiting', 'called', 'absent'])
-        ->exists();
-
-    if ($hasActiveTicket) {
         return ['id' => $user->id, 'name' => $user->name, 'role' => $user->role];
     }
 

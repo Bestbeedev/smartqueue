@@ -30,7 +30,10 @@ function navigateFromNotification(
   const ticketId = data.ticket_id ?? data.ticketId;
   try {
     if (ticketId) {
-      router.push("/(tabs)/live-ticket");
+      router.push({
+        pathname: "/(tabs)/live-ticket",
+        params: { ticketId: String(ticketId) },
+      });
     } else {
       router.push("/notifications");
     }

@@ -14,7 +14,7 @@ import { useTicket } from "../../store/ticketStore";
 import type { Ticket } from "../../api/ticketsApi";
 import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { useSimpleNotification } from "../../hooks/useSimpleNotification";
+
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -38,7 +38,6 @@ export const TicketsScreen: React.FC = () => {
     isInitialized,
   } = useTicket();
   const { AlertComponent, showWarning, showError } = useCustomAlert();
-  const { notifyTicketCreated } = useSimpleNotification();
 
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = new Animated.Value(0);
@@ -47,20 +46,6 @@ export const TicketsScreen: React.FC = () => {
     () => activeTickets.filter((ticket) => ticket.id !== activeTicket?.id),
     [activeTickets, activeTicket?.id],
   );
-
-  // Notify when active ticket is detected
-  const hasNotifiedRef = React.useRef(false);
-  useEffect(() => {
-    if (hasActiveTicket && activeTicket && !hasNotifiedRef.current) {
-      notifyTicketCreated(
-        activeTicket.number,
-        activeTicket.establishment?.name || "Établissement",
-      );
-      hasNotifiedRef.current = true;
-    } else if (!hasActiveTicket) {
-      hasNotifiedRef.current = false;
-    }
-  }, [hasActiveTicket, activeTicket, notifyTicketCreated]);
 
   // Debug log
   useEffect(() => {

@@ -9,7 +9,7 @@
  *
  * Dans les deux cas : gratuit, tokens stockés dans PostgreSQL sur Railway.
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
@@ -73,11 +73,6 @@ export const useNotifications = () => {
   const [scheduledNotifications, setScheduledNotifications] = useState<
     ScheduledNotification[]
   >([]);
-
-  const foregroundListener = useRef<Notifications.EventSubscription | null>(
-    null,
-  );
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   // ── Vérifier la permission ────────────────────────────────────────────────
   const checkPermission =
@@ -265,7 +260,11 @@ export const useNotifications = () => {
 
         const id = await Notifications.scheduleNotificationAsync({
           content: { title, body, data: data ?? {}, sound: "default" },
-          trigger: { seconds: secondsUntil, repeats: false },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: secondsUntil,
+            repeats: false,
+          },
         });
 
         setScheduledNotifications((prev) => [
@@ -324,13 +323,16 @@ export const useNotifications = () => {
     try {
       // Canal Android (obligatoire Android 8+)
       if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync(ANDROID_DEFAULT_CHANNEL_ID, {
-          name: "SmartQueue",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: "#3B82F6",
-          sound: "default",
-        });
+        await Notifications.setNotificationChannelAsync(
+          ANDROID_DEFAULT_CHANNEL_ID,
+          {
+            name: "SmartQueue",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: "#3B82F6",
+            sound: "default",
+          },
+        );
       }
 
       const perm = await checkPermission();
@@ -348,44 +350,9 @@ export const useNotifications = () => {
     }
   }, [checkPermission, getFCMToken]);
 
-  // ── Listeners ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    // Notif reçue en premier plan
-    foregroundListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const { title, body } = notification.request.content;
-        console.log("[Notifications] Reçue en FG:", title, body);
-      },
-    );
-
-    // Utilisateur a tapé sur la notif
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content.data as Record<
-          string,
-          any
-        >;
-        console.log("[Notifications] Tap sur notif, data:", data);
-        // Navigation possible ici selon data.type / data.ticket_id
-        // ex: router.push(`/(tabs)/tickets?id=${data.ticket_id}`)
-      });
-
-    return () => {
-      foregroundListener.current?.remove();
-      responseListener.current?.remove();
-    };
-  }, []);
-
-  // ── Initialisation au montage ─────────────────────────────────────────────
-  useEffect(() => {
-    // Charger le token stocké
-    AsyncStorage.getItem("push_token").then((stored) => {
-      if (stored) setFcmToken(stored);
-    });
-
-    initializeNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Le provider racine pilote désormais seul l'initialisation, l'enregistrement
+  // du token et la navigation après tap sur une notification. Ce hook reste
+  // volontairement sans listeners globaux pour éviter les doublons.
 
   return {
     permission,

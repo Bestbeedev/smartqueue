@@ -78,7 +78,7 @@ class TicketsNotifyApproaching extends Command
             );
 
             $shouldByPosition = $ticket->position <= (int) $prefs->notify_before_positions;
-            $etaMinutes = $this->ticketService->estimateWaitTime($ticket->service, $ticket);
+            $etaMinutes = $ticket->eta_minutes ?? $this->ticketService->estimateWaitTime($ticket->service, $ticket);
             $shouldByEta = $etaMinutes !== null && $etaMinutes <= (int) $prefs->notify_before_minutes;
 
             if (!$shouldByPosition && !$shouldByEta) {

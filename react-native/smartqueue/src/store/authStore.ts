@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authApi, LoginCredentials, RegisterData, User } from "../api/authApi";
+import { useTicketStore } from "./ticketStore";
 
 // Types pour le store d'authentification
 export interface AuthState {
@@ -103,6 +104,16 @@ export const useAuthStore = create<AuthState>()(
       // Action de déconnexion
       logout: async () => {
         try {
+          const pushToken = await AsyncStorage.getItem("push_token");
+
+          if (pushToken) {
+            try {
+              await authApi.unregisterCurrentDevice(pushToken);
+            } catch (unregisterError) {
+              console.warn("Unregister device API error:", unregisterError);
+            }
+          }
+
           await authApi.logout();
         } catch (error) {
           // Ignorer les erreurs de déconnexion côté serveur
@@ -112,14 +123,12 @@ export const useAuthStore = create<AuthState>()(
           // au prochain login avec le bon user_id (évite les notifications
           // envoyées au mauvais utilisateur sur un device partagé).
           try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            await AsyncStorage.removeItem('push_token');
+            await AsyncStorage.removeItem("push_token");
           } catch (e) {
-            console.warn('Failed to clear push token on logout:', e);
+            console.warn("Failed to clear push token on logout:", e);
           }
 
           // Clear ticket store to prevent stale data from previous user
-          const { useTicketStore } = require("./ticketStore");
           useTicketStore.getState().clearActiveTicket();
 
           set({
@@ -182,7 +191,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-        } catch (error) {
+        } catch {
           // Token invalide, déconnecter
           set({
             user: null,
