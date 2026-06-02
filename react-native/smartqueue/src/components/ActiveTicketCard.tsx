@@ -60,9 +60,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const { distanceInfo } = useDistanceTracking({
     targetCoordinates: hasValidCoordinates
       ? {
-          latitude: (activeTicket.establishment as any).lat,
-          longitude: (activeTicket.establishment as any).lng,
-        }
+        latitude: (activeTicket.establishment as any).lat,
+        longitude: (activeTicket.establishment as any).lng,
+      }
       : null,
     enabled: hasValidCoordinates,
   });
@@ -87,33 +87,33 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
   const queueState = isTicketPresent
     ? {
-        label: "Statut du ticket",
-        value: "Présent au point de service",
-        etaLabel: "Priorité conservée",
-      }
+      label: "Statut du ticket",
+      value: "Présent au point de service",
+      etaLabel: "Priorité conservée",
+    }
     : isTicketEnRoute
       ? {
-          label: "Statut du ticket",
-          value: "Usager en route",
-          etaLabel: "En attente d'arrivée",
-        }
+        label: "Statut du ticket",
+        value: "Usager en route",
+        etaLabel: "En attente d'arrivée",
+      }
       : isTicketCalledState
         ? {
-            label: "Statut du ticket",
-            value: "Appelé au guichet",
-            etaLabel: "Présentez-vous maintenant",
-          }
+          label: "Statut du ticket",
+          value: "Appelé au guichet",
+          etaLabel: "Présentez-vous maintenant",
+        }
         : {
-            label: "Position dans la file",
-            value:
-              typeof position === "number" && position > 0
-                ? `${position}ème / ${queueLength}`
-                : "Estimation indisponible",
-            etaLabel:
-              typeof etaMinutes === "number" && etaMinutes > 0
-                ? `≈ ${etaMinutes} minutes`
-                : "—",
-          };
+          label: "Position dans la file",
+          value:
+            typeof position === "number" && position > 0
+              ? `${position}ème / ${queueLength}`
+              : "Estimation indisponible",
+          etaLabel:
+            typeof etaMinutes === "number" && etaMinutes > 0
+              ? `≈ ${etaMinutes} minutes`
+              : "—",
+        };
 
   // Calculate when to leave
   const getWhenToLeave = useCallback(() => {
@@ -664,30 +664,36 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* When to Leave Alert */}
         {whenToLeave && (
           <View
-            style={[
-              styles.leaveAlert,
-              {
-                backgroundColor: whenToLeave.urgent
-                  ? colors.danger + "20"
-                  : colors.warning + "20",
-              },
-            ]}
-          >
-            <Ionicons
-              name={whenToLeave.urgent ? "warning" : "time"}
-              size={16}
-              color={whenToLeave.urgent ? colors.danger : colors.warning}
-              style={{ alignItems:"center", }}
-            />
-            <Text
-              style={[
-                styles.leaveText,
-                { color: whenToLeave.urgent ? colors.danger : colors.warning, textAlign:"center" },
-              ]}
-            >
-              {whenToLeave.message}
-            </Text>
-          </View>
+  style={[
+    styles.leaveAlert,
+    {
+      backgroundColor: whenToLeave.urgent
+        ? colors.danger + "20"
+        : colors.warning + "20",
+    },
+  ]}
+>
+  <View style={styles.leaveAlertContent}>
+    <Ionicons
+      name={whenToLeave.urgent ? "warning" : "time"}
+      size={16}
+      color={whenToLeave.urgent ? colors.danger : colors.warning}
+    />
+
+    <Text
+      style={[
+        styles.leaveText,
+        {
+          color: whenToLeave.urgent
+            ? colors.danger
+            : colors.warning,
+        },
+      ]}
+    >
+      {whenToLeave.message}
+    </Text>
+  </View>
+</View>
         )}
 
         {/* Actions */}
@@ -925,14 +931,23 @@ const styles = StyleSheet.create({
 
   leaveAlert: {
     flexDirection: "row",
-    alignItems: "center",
-    flex:1,
+    justifyContent: "center",
     backgroundColor: "#FEF3C7",
     paddingHorizontal: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 5,
     paddingVertical: 12,
+    alignItems: "center", // centre le contenu horizontalement
   },
+
+
+leaveAlertContent: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+
   leaveAlertUrgent: {
     backgroundColor: "#FEE2E2",
   },
@@ -941,9 +956,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#B45309",
     marginLeft: 8,
-    textAlign:"center",
-    flex:1,
-    alignItems:"center"
+    textAlign: "center",
+    alignItems: "center"
   },
   leaveTextUrgent: {
     color: "#DC2626",
@@ -1021,7 +1035,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    marginTop:10,
+    marginTop: 10,
     gap: 8,
   },
   presentButtonText: {
@@ -1051,7 +1065,7 @@ const styles = StyleSheet.create({
   cancelTicketButton: {
     flexDirection: "row",
     alignItems: "center",
-    flex:1,
+    flex: 1,
     justifyContent: "center",
     backgroundColor: "#FEE2E2",
     paddingHorizontal: 16,

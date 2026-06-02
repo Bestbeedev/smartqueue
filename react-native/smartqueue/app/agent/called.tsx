@@ -1,14 +1,17 @@
+import React, { useCallback, useRef, useState } from "react";
 import {
+  SafeAreaView,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  StatusBar,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useCallback, useRef } from "react";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useAuth } from "../../src/store/authStore";
 import axiosClient from "../../src/api/axiosClient";
@@ -37,7 +40,6 @@ export default function CalledTickets() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ serviceId: string }>();
 
-  // Get serviceId from URL params or fallback to first assigned service
   const assignedServices = (user as any)?.services || [];
   const serviceId =
     params.serviceId ||
@@ -46,13 +48,12 @@ export default function CalledTickets() {
       : undefined);
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const echoRef = useRef<any>(null);
 
   const fetchData = useCallback(async () => {
     if (!serviceId) {
-      console.log("[CalledTickets] No serviceId available");
       setIsLoading(false);
       return;
     }
@@ -140,7 +141,6 @@ export default function CalledTickets() {
             fetchData();
           })
           .listen(".service.ticket.served", () => {
-            // Usager a cliqué "Je suis déjà là" → ticket retiré de la liste appelés
             if (!isActive) return;
             fetchData();
           });
@@ -202,6 +202,7 @@ export default function CalledTickets() {
           Appelé à {formatTime(item.called_at || item.created_at)}
         </Text>
       </View>
+
       {item.en_route_at && (
         <View style={styles.presenceRow}>
           <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
@@ -214,6 +215,7 @@ export default function CalledTickets() {
           </Text>
         </View>
       )}
+
       <View style={styles.ticketActions}>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#FF3B30" }]}
@@ -234,8 +236,15 @@ export default function CalledTickets() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        },
+      ]}
+    >
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -254,8 +263,8 @@ export default function CalledTickets() {
         </View>
       </View>
 
-      {/* List */}
       <FlatList
+        style={{ flex: 1 }}
         data={tickets}
         renderItem={renderTicket}
         keyExtractor={(item) => item.id.toString()}
@@ -287,24 +296,20 @@ export default function CalledTickets() {
         }
         contentContainerStyle={styles.listContent}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    paddingTop: 60,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  backButton: {
-    padding: 8,
-  },
+  backButton: { padding: 8 },
   headerContent: {
     flex: 1,
     flexDirection: "row",
@@ -312,94 +317,47 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     gap: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  countBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  countText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
+  headerTitle: { fontSize: 18, fontWeight: "600" },
+  countBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  countText: { color: "white", fontWeight: "700", fontSize: 14 },
+  listContent: { padding: 12, paddingBottom: 100 },
   ticketCard: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
     borderWidth: 1,
   },
   ticketHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  ticketNumber: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  ticketNumberText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 18,
-  },
-  ticketTime: {
-    fontSize: 12,
-  },
+  ticketNumber: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  ticketNumberText: { color: "white", fontWeight: "700", fontSize: 16 },
+  ticketTime: { fontSize: 12 },
   presenceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 12,
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 10,
   },
-  presenceText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  ticketActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  presenceText: { fontSize: 13, fontWeight: "700" },
+  ticketActions: { flexDirection: "row", gap: 12 },
   actionBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
-    borderRadius: 12,
-    gap: 6,
+    padding: 10,
+    borderRadius: 10,
+    gap: 8,
   },
-  actionBtnText: {
-    color: "white",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingTop: 80,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: "center",
-  },
+  actionBtnText: { color: "white", fontWeight: "600" },
+  emptyState: { alignItems: "center", paddingTop: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: "600", marginTop: 12 },
+  emptySubtitle: { fontSize: 14, marginTop: 6, textAlign: "center" },
 });

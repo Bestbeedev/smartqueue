@@ -1,41 +1,42 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import * as Haptics from 'expo-haptics';
-import { useTicket } from '../store/ticketStore';
-import { useDistanceTracking } from './useDistanceTracking';
-import { useAlertPreferencesStore } from '../store/alertPreferencesStore';
-import { formatTravelTime, formatDistance } from '../utils/distance';
+import { useState, useEffect, useCallback, useRef } from "react";
+import * as Haptics from "expo-haptics";
+import { useTicket } from "../store/ticketStore";
+import { useDistanceTracking } from "./useDistanceTracking";
+import { useAlertPreferencesStore } from "../store/alertPreferencesStore";
+import { formatTravelTime, formatDistance } from "../utils/distance";
 
 // Get notifications module safely (lazy evaluation)
 const getNotifications = () => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Notifications = require('expo-notifications');
+    const Notifications = require("expo-notifications");
     return Notifications;
   } catch (e) {
     return null;
   }
 };
 
-export type SmartAlertType = 
-  | 'LEAVE_NOW'      // Partez maintenant !
-  | 'LEAVE_SOON'     // Partez dans X min
-  | 'ARRIVING_SOON'  // Vous arrivez dans 2 min
-  | 'ARRIVED'        // Vous êtes arrivé
-  | 'CALLED'         // C'est votre tour
-  | 'ALMOST_THERE'   // 5 personnes avant vous
-  | 'TEN_MIN_WARNING'; // Votre tour dans ~10 min
+export type SmartAlertType =
+  | "LEAVE_NOW" // Partez maintenant !
+  | "LEAVE_SOON" // Partez dans X min
+  | "ARRIVING_SOON" // Vous arrivez dans 2 min
+  | "ARRIVED" // Vous êtes arrivé
+  | "CALLED" // C'est votre tour
+  | "ALMOST_THERE" // 5 personnes avant vous
+  | "TEN_MIN_WARNING"; // Votre tour dans ~10 min
 
 export interface SmartAlert {
   type: SmartAlertType;
   title: string;
   body: string;
-  urgency: 'low' | 'medium' | 'high' | 'critical';
+  urgency: "low" | "medium" | "high" | "critical";
   timestamp: Date;
   data?: {
     distanceKm?: number;
     travelTimeMinutes?: number;
     etaMinutes?: number;
     position?: number;
+    peopleAhead?: number;
   };
 }
 
@@ -47,23 +48,22 @@ interface UseSmartNotificationsOptions {
  * Hook for smart geolocation-based notifications
  * Calculates optimal departure time based on distance, travel mode, and queue position
  */
-export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}) => {
+export const useSmartNotifications = (
+  options: UseSmartNotificationsOptions = {},
+) => {
   const { enabled = true } = options;
-  
-  const { 
-    activeTicket, 
-    hasActiveTicket, 
-    position, 
-    etaMinutes, 
+
+  const {
+    activeTicket,
+    hasActiveTicket,
+    position,
+    etaMinutes,
     isCalled,
-    isAlmostThere 
+    isAlmostThere,
   } = useTicket();
-  
-  const { 
-    marginMinutes, 
-    preferredTransportMode,
-    enableSafetyAlert 
-  } = useAlertPreferencesStore();
+
+  const { marginMinutes, preferredTransportMode, enableSafetyAlert } =
+    useAlertPreferencesStore();
 
   // Get establishment coordinates
   const establishmentCoords = (() => {
@@ -86,7 +86,7 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
   // State
   const [lastAlert, setLastAlert] = useState<SmartAlert | null>(null);
   const [alertsSent, setAlertsSent] = useState<Set<SmartAlertType>>(new Set());
-  
+
   // Refs for tracking state without re-renders
   const lastAlertRef = useRef<SmartAlert | null>(null);
   const alertsSentRef = useRef<Set<SmartAlertType>>(new Set());
@@ -134,9 +134,9 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     setLastAlert(alert);
 
     // Haptic feedback based on urgency
-    if (alert.urgency === 'critical' || alert.urgency === 'high') {
+    if (alert.urgency === "critical" || alert.urgency === "high") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } else if (alert.urgency === 'medium') {
+    } else if (alert.urgency === "medium") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
@@ -149,17 +149,17 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
             title: alert.title,
             body: alert.body,
             data: { ...alert.data, alertType: alert.type },
-            sound: alert.urgency === 'critical' ? 'default' : undefined,
-            priority: alert.urgency === 'critical' ? 'high' : 'default',
+            sound: alert.urgency === "critical" ? "default" : undefined,
+            priority: alert.urgency === "critical" ? "high" : "default",
           },
           trigger: null, // Immediate
         });
       } catch (error) {
-        console.error('Failed to send notification:', error);
+        console.error("Failed to send notification:", error);
       }
     } else {
       // In Expo Go, just log the alert
-      console.log('[SmartAlert]', alert.title, alert.body);
+      console.log("[SmartAlert]", alert.title, alert.body);
     }
   }, []);
 
@@ -170,22 +170,22 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     const departureInfo = getDepartureInfo();
     if (!departureInfo) return;
 
-    const { 
-      travelTime, 
-      leaveIn, 
-      shouldLeaveNow, 
-      shouldLeaveSoon, 
+    const {
+      travelTime,
+      leaveIn,
+      shouldLeaveNow,
+      shouldLeaveSoon,
       distanceKm,
-      meters 
+      meters,
     } = departureInfo;
 
     // CRITICAL: Leave immediately (travel time > available time)
-    if (shouldLeaveNow && !alertsSentRef.current.has('LEAVE_NOW')) {
+    if (shouldLeaveNow && !alertsSentRef.current.has("LEAVE_NOW")) {
       sendNotification({
-        type: 'LEAVE_NOW',
-        title: 'Partez maintenant !',
+        type: "LEAVE_NOW",
+        title: "Partez maintenant !",
         body: `Vous risquez d'arriver en retard. Temps de trajet: ${formatTravelTime(travelTime)}, il vous reste ${etaMinutes} min d'attente.`,
-        urgency: 'critical',
+        urgency: "critical",
         timestamp: new Date(),
         data: {
           distanceKm,
@@ -198,12 +198,12 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     }
 
     // HIGH: Leave soon (within 5 minutes)
-    if (shouldLeaveSoon && !alertsSentRef.current.has('LEAVE_SOON')) {
+    if (shouldLeaveSoon && !alertsSentRef.current.has("LEAVE_SOON")) {
       sendNotification({
-        type: 'LEAVE_SOON',
-        title: '⏰ Préparez-vous à partir',
+        type: "LEAVE_SOON",
+        title: "⏰ Préparez-vous à partir",
         body: `Partez dans ${Math.ceil(leaveIn)} min pour arriver à temps. Trajet estimé: ${formatTravelTime(travelTime)}.`,
-        urgency: 'high',
+        urgency: "high",
         timestamp: new Date(),
         data: {
           distanceKm,
@@ -216,28 +216,34 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     }
 
     // MEDIUM: Arriving soon (within 2 minutes of destination)
-    if (meters < 300 && meters > 50 && !alertsSentRef.current.has('ARRIVING_SOON')) {
+    if (
+      meters < 300 &&
+      meters > 50 &&
+      !alertsSentRef.current.has("ARRIVING_SOON")
+    ) {
+      const peopleAhead = Math.max(0, position - 1);
       sendNotification({
-        type: 'ARRIVING_SOON',
-        title: '📍 Vous arrivez bientôt',
-        body: `Vous êtes à ${formatDistance(distanceKm)} de ${activeTicket?.establishment?.name || 'la destination'}. Position dans la file: ${position}ème.`,
-        urgency: 'medium',
+        type: "ARRIVING_SOON",
+        title: "📍 Vous arrivez bientôt",
+        body: `Vous êtes à ${formatDistance(distanceKm)} de ${activeTicket?.establishment?.name || "la destination"}. ${peopleAhead} personne${peopleAhead > 1 ? "s" : ""} avant vous.`,
+        urgency: "medium",
         timestamp: new Date(),
         data: {
           distanceKm,
           position,
+          peopleAhead,
         },
       });
       return;
     }
 
     // LOW: Arrived (within 50m)
-    if (meters <= 50 && !alertsSentRef.current.has('ARRIVED')) {
+    if (meters <= 50 && !alertsSentRef.current.has("ARRIVED")) {
       sendNotification({
-        type: 'ARRIVED',
-        title: '✅ Vous êtes arrivé',
+        type: "ARRIVED",
+        title: "✅ Vous êtes arrivé",
         body: `Vous êtes sur place à ${activeTicket?.establishment?.name || "l'établissement"}. Enregistrez votre présence !`,
-        urgency: 'low',
+        urgency: "low",
         timestamp: new Date(),
         data: {
           position,
@@ -246,21 +252,50 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
       return;
     }
 
-    // HIGH: 5 people ahead (prepare to leave)
-    if (position <= 5 && position > 0 && !isCalled && !alertsSentRef.current.has('ALMOST_THERE')) {
+    // HIGH: few people ahead (prepare to leave)
+    if (
+      position > 0 &&
+      position <= 5 &&
+      !isCalled &&
+      !alertsSentRef.current.has("ALMOST_THERE")
+    ) {
       const travelTime = distanceInfo?.travelTimes[preferredTransportMode] || 0;
       const shouldLeaveNow = travelTime >= etaMinutes;
-      
+      const peopleAhead = Math.max(0, position - 1);
+
+      // If there are zero people ahead (position === 1), treat as 'next'
+      if (peopleAhead === 0) {
+        sendNotification({
+          type: "ALMOST_THERE",
+          title: `⚠️ Vous êtes le prochain`,
+          body: `Vous êtes le prochain à être appelé. Préparez-vous.`,
+          urgency: "high",
+          timestamp: new Date(),
+          data: {
+            position,
+            peopleAhead,
+            travelTimeMinutes: travelTime,
+            etaMinutes,
+          },
+        });
+        return;
+      }
+
+      // Pluralization
+      const peopleLabel =
+        peopleAhead === 1 ? "1 personne" : `${peopleAhead} personnes`;
+
       sendNotification({
-        type: 'ALMOST_THERE',
-        title: '⚠️ 5 personnes avant vous',
-        body: shouldLeaveNow 
-          ? `Préparez-vous ! Il reste ${position} personnes. Temps de trajet: ${formatTravelTime(travelTime)} min.`
-          : `Préparez-vous ! Il reste ${position} personnes avant votre tour.`,
-        urgency: 'high',
+        type: "ALMOST_THERE",
+        title: `⚠️ ${peopleLabel} avant vous`,
+        body: shouldLeaveNow
+          ? `Préparez-vous ! ${peopleLabel} avant votre tour. Temps de trajet: ${formatTravelTime(travelTime)}.`
+          : `Préparez-vous ! ${peopleLabel} avant votre tour.`,
+        urgency: "high",
         timestamp: new Date(),
         data: {
           position,
+          peopleAhead,
           travelTimeMinutes: travelTime,
           etaMinutes,
         },
@@ -269,28 +304,34 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     }
 
     // MEDIUM: 10 minutes warning (ETA based)
-    if (etaMinutes <= 10 && etaMinutes > 5 && !alertsSentRef.current.has('TEN_MIN_WARNING')) {
+    if (
+      etaMinutes <= 10 &&
+      etaMinutes > 5 &&
+      !alertsSentRef.current.has("TEN_MIN_WARNING")
+    ) {
+      const peopleAhead = Math.max(0, position - 1);
       sendNotification({
-        type: 'TEN_MIN_WARNING',
-        title: '⏱️ Votre tour approche',
-        body: `Environ ${etaMinutes} min d'attente restantes. Position: ${position}ème. Préparez-vous à partir !`,
-        urgency: 'medium',
+        type: "TEN_MIN_WARNING",
+        title: "⏱️ Votre tour approche",
+        body: `Environ ${etaMinutes} min d'attente restantes. ${peopleAhead} personne${peopleAhead > 1 ? "s" : ""} avant vous. Préparez-vous à partir !`,
+        urgency: "medium",
         timestamp: new Date(),
         data: {
           etaMinutes,
           position,
+          peopleAhead,
         },
       });
       return;
     }
 
     // CRITICAL: Called (it's your turn)
-    if (isCalled && !alertsSentRef.current.has('CALLED')) {
+    if (isCalled && !alertsSentRef.current.has("CALLED")) {
       sendNotification({
-        type: 'CALLED',
-        title: '🎯 C\'EST VOTRE TOUR !',
-        body: `Présentez-vous immédiatement au guichet. Votre ticket: ${activeTicket?.number || ''}`,
-        urgency: 'critical',
+        type: "CALLED",
+        title: "🎯 C'EST VOTRE TOUR !",
+        body: `Présentez-vous immédiatement au guichet. Votre ticket: ${activeTicket?.number || ""}`,
+        urgency: "critical",
         timestamp: new Date(),
         data: {
           position,
@@ -318,13 +359,16 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
 
     const travelTime = distanceInfo.travelTimes[preferredTransportMode];
     const totalTimeNeeded = travelTime + marginMinutes;
-    
+
     // How much of the needed time do we still have?
     const buffer = etaMinutes - totalTimeNeeded;
-    
+
     return {
       // 100% = perfect timing, <100% = running late, >100% = early
-      timingScore: Math.max(0, Math.min(100, (etaMinutes / totalTimeNeeded) * 100)),
+      timingScore: Math.max(
+        0,
+        Math.min(100, (etaMinutes / totalTimeNeeded) * 100),
+      ),
       bufferMinutes: buffer,
       isLate: buffer < 0,
       isOptimal: buffer >= 0 && buffer <= 5,
@@ -336,11 +380,11 @@ export const useSmartNotifications = (options: UseSmartNotificationsOptions = {}
     // State
     lastAlert,
     alertsSent: Array.from(alertsSent),
-    
+
     // Calculated values
     departureInfo: getDepartureInfo(),
     journeyProgress: getJourneyProgress(),
-    
+
     // Helpers
     hasPendingAlert: (type: SmartAlertType) => alertsSent.has(type),
     resetAlerts: useCallback(() => {
