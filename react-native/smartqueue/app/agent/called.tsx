@@ -57,17 +57,33 @@ export default function CalledTickets() {
       setIsLoading(false);
       return;
     }
+
     try {
-      const response = await axiosClient.get("/agent/tickets", {
-        params: {
-          service_id: parseInt(serviceId),
-          status: "called,en_route,present",
-          per_page: 50,
-        },
-      });
-      setTickets(response.data?.data || []);
+      // Prefer service queue endpoint which returns all statuses for the service
+      const resp = await axiosClient.get(
+        `/services/${parseInt(serviceId)}/queue`,
+      );
+      const all = resp.data?.tickets || resp.data || [];
+      const filtered = Array.isArray(all)
+        ? all.filter((t: any) =>
+            ["called", "en_route", "present"].includes(t.status),
+          )
+        : [];
+      setTickets(filtered);
     } catch (error) {
-      console.error("Error fetching called tickets:", error);
+      // Fallback to agent/tickets if service endpoint fails
+      try {
+        const response = await axiosClient.get("/agent/tickets", {
+          params: {
+            service_id: parseInt(serviceId),
+            status: "called",
+            per_page: 50,
+          },
+        });
+        setTickets(response.data?.data || []);
+      } catch (e) {
+        console.error("Error fetching called tickets (fallback):", e);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);

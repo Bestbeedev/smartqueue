@@ -466,6 +466,94 @@ export default function AgentQueue() {
         </TouchableOpacity>
       </View>
 
+      {/* Current Called Ticket (compact) */}
+      {currentTicket ? (
+        <View
+          style={[styles.currentCompact, { backgroundColor: colors.primary }]}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={styles.currentIcon}>
+              <Ionicons name="megaphone" size={20} color="white" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "white", fontWeight: "800", fontSize: 16 }}>
+                {currentTicket.number}
+              </Text>
+              {currentTicket.called_at && (
+                <Text style={{ color: "rgba(255,255,255,0.9)", marginTop: 4 }}>
+                  Appelé à{" "}
+                  {new Date(currentTicket.called_at).toLocaleTimeString(
+                    "fr-FR",
+                    { hour: "2-digit", minute: "2-digit" },
+                  )}
+                </Text>
+              )}
+              {currentTicket.en_route_at && (
+                <Text style={{ color: "rgba(255,255,255,0.95)", marginTop: 4 }}>
+                  {currentTicket.status === "present"
+                    ? "Usager présent sur place"
+                    : currentTicket.estimated_travel_minutes != null
+                      ? `Usager en route · ≈ ${currentTicket.estimated_travel_minutes} min`
+                      : "Réponse reçue"}
+                </Text>
+              )}
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                style={[
+                  styles.compactActionBtn,
+                  { backgroundColor: "rgba(255,255,255,0.12)" },
+                ]}
+                onPress={() => recall(currentTicket.id)}
+              >
+                <Ionicons name="volume-high" size={18} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.compactActionBtn,
+                  { backgroundColor: "#FF3B30" },
+                ]}
+                onPress={() =>
+                  markAbsent(currentTicket.id, currentTicket.number)
+                }
+              >
+                <Ionicons name="person-remove" size={18} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.compactActionBtn,
+                  { backgroundColor: "#22C55E" },
+                ]}
+                onPress={() => closeTicket(currentTicket.id)}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : (
+        // Call Next button when there is no current ticket
+        serviceStatus === "open" && (
+          <TouchableOpacity
+            style={[
+              styles.callNextBtn,
+              { backgroundColor: colors.primary, margin: 12 },
+            ]}
+            onPress={callNext}
+            disabled={isActing || tickets.length === 0}
+          >
+            <Ionicons name="arrow-forward" size={20} color="white" />
+            <Text style={styles.callNextText}>Appeler le suivant</Text>
+            {tickets.length > 0 && (
+              <View style={styles.queueBadge}>
+                <Text style={styles.queueBadgeText}>{tickets.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )
+      )}
+
       {/* Search */}
       <View
         style={[
@@ -584,6 +672,55 @@ const styles = StyleSheet.create({
   ticketRight: { alignItems: "flex-end", justifyContent: "center", gap: 8 },
   waitText: { fontSize: 12, fontWeight: "600" },
   smallBtn: { marginTop: 6, padding: 8, borderRadius: 8 },
+
+  // Compact current ticket styles
+  currentCompact: {
+    margin: 12,
+    borderRadius: 12,
+    padding: 12,
+  },
+  currentIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  compactActionBtn: {
+    padding: 8,
+    borderRadius: 8,
+  },
+
+  // Call next button (compact)
+  callNextBtn: {
+    marginHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  callNextText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  queueBadge: {
+    backgroundColor: "rgba(255,255,255,0.3)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  queueBadgeText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   emptyState: { alignItems: "center", paddingVertical: 40 },
   emptyTitle: { fontSize: 16, fontWeight: "700", marginTop: 12 },
   emptyText: { fontSize: 13, marginTop: 4 },

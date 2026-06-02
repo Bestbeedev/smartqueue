@@ -37,16 +37,29 @@ export default function AbsentTickets() {
   const fetchData = useCallback(async () => {
     if (!serviceId) return;
     try {
-      const response = await axiosClient.get("/agent/tickets", {
-        params: {
-          service_id: parseInt(serviceId),
-          status: "absent",
-          per_page: 50,
-        },
-      });
-      setTickets(response.data?.data || []);
+      // Prefer service queue endpoint
+      const resp = await axiosClient.get(
+        `/services/${parseInt(serviceId)}/queue`,
+      );
+      const all = resp.data?.tickets || resp.data || [];
+      const filtered = Array.isArray(all)
+        ? all.filter((t: any) => t.status === "absent")
+        : [];
+      setTickets(filtered);
     } catch (error) {
-      console.error("Error fetching absent tickets:", error);
+      // fallback
+      try {
+        const response = await axiosClient.get("/agent/tickets", {
+          params: {
+            service_id: parseInt(serviceId),
+            status: "absent",
+            per_page: 50,
+          },
+        });
+        setTickets(response.data?.data || []);
+      } catch (e) {
+        console.error("Error fetching absent tickets (fallback):", e);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
