@@ -13,13 +13,9 @@ import { useDistanceTracking } from "../hooks/useDistanceTracking";
 import { useAlertPreferencesStore } from "../store/alertPreferencesStore";
 import { useCustomAlert } from "../hooks/useCustomAlert";
 import { useThemeColors } from "../hooks/useThemeColors";
-import {
-  formatDistance,
-  formatTravelTime,
-} from "../utils/distance";
+import { formatDistance, formatTravelTime } from "../utils/distance";
 import "../../global.css";
 import axiosClient from "../api/axiosClient";
-import { ticketsApi } from "../api/ticketsApi";
 import { getApiErrorMessage } from "../utils/errors";
 
 interface ActiveTicketCardProps {
@@ -43,22 +39,27 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     counterNumber,
     hasRecalled,
     setRecalled,
-    clearActiveTicket,
+    cancelTicket,
   } = useTicket();
 
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
-  const { AlertComponent, showWarning, showError, showInfo, showSuccess } = useCustomAlert();
+  const { AlertComponent, showWarning, showError, showInfo, showSuccess } =
+    useCustomAlert();
 
   // Debug: log establishment coordinates
   useEffect(() => {
     if (activeTicket?.establishment) {
-      console.log('[ActiveTicketCard] Establishment:', JSON.stringify(activeTicket.establishment));
+      console.log(
+        "[ActiveTicketCard] Establishment:",
+        JSON.stringify(activeTicket.establishment),
+      );
     }
   }, [activeTicket?.establishment]);
 
   // Check if establishment has valid coordinates
-  const hasValidCoordinates = activeTicket?.establishment && 
-    (activeTicket.establishment as any)?.lat !== null && 
+  const hasValidCoordinates =
+    activeTicket?.establishment &&
+    (activeTicket.establishment as any)?.lat !== null &&
     (activeTicket.establishment as any)?.lat !== undefined &&
     (activeTicket.establishment as any)?.lng !== null &&
     (activeTicket.establishment as any)?.lng !== undefined;
@@ -150,18 +151,20 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       async () => {
         try {
           if (activeTicket?.id) {
-            await ticketsApi.cancelTicket(activeTicket.id);
+            await cancelTicket(activeTicket.id);
           }
-          clearActiveTicket();
           onCancel?.();
         } catch (error: any) {
-          const errorMsg = error?.response?.data?.message || error?.message || "Impossible d'annuler le ticket";
+          const errorMsg =
+            error?.response?.data?.message ||
+            error?.message ||
+            "Impossible d'annuler le ticket";
           showError("Erreur", errorMsg);
         }
       },
-      "Non"
+      "Non",
     );
-  }, [activeTicket, clearActiveTicket, onCancel, showWarning, showError]);
+  }, [activeTicket, cancelTicket, onCancel, showWarning, showError]);
 
   // Handle confirm presence
   const handleConfirmPresence = useCallback(async () => {
@@ -171,16 +174,29 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       if (typeof rawTravel === "number" && Number.isFinite(rawTravel)) {
         // Le backend valide estimated_travel_minutes en integer|min:1|max:60 ;
         // on borne pour éviter un 422 (qui crashait l'app en build).
-        payload.estimated_travel_minutes = Math.min(60, Math.max(1, Math.round(rawTravel)));
+        payload.estimated_travel_minutes = Math.min(
+          60,
+          Math.max(1, Math.round(rawTravel)),
+        );
       }
       await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showSuccess("Présence confirmée", "L'agent a été notifié de votre arrivée");
+      showSuccess(
+        "Présence confirmée",
+        "L'agent a été notifié de votre arrivée",
+      );
       onConfirmPresence?.();
     } catch (error: any) {
       showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer"));
     }
-  }, [activeTicket, distanceInfo, preferredTransportMode, onConfirmPresence, showSuccess, showError]);
+  }, [
+    activeTicket,
+    distanceInfo,
+    preferredTransportMode,
+    onConfirmPresence,
+    showSuccess,
+    showError,
+  ]);
 
   // Handle recall
   const handleRecall = useCallback(async () => {
@@ -194,7 +210,10 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       setRecalled();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch (error: any) {
-      showError("Erreur", getApiErrorMessage(error, "Impossible d'envoyer le rappel"));
+      showError(
+        "Erreur",
+        getApiErrorMessage(error, "Impossible d'envoyer le rappel"),
+      );
     }
   }, [activeTicket, hasRecalled, setRecalled, showInfo, showError]);
 
@@ -207,7 +226,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={[styles.container, { backgroundColor: colors.surface , borderColor:colors.borderSecondary, borderWidth: 1 }]}
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.borderSecondary,
+            borderWidth: 1,
+          },
+        ]}
         onPress={onPress}
         activeOpacity={0.95}
       >
@@ -215,21 +241,39 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         <View style={styles.header}>
           <View style={styles.establishmentInfo}>
             <Ionicons name="business" size={18} color={colors.primary} />
-            <Text style={[styles.establishmentName, { color: colors.textPrimary }]}>
+            <Text
+              style={[styles.establishmentName, { color: colors.textPrimary }]}
+            >
               {activeTicket.establishment?.name || "Établissement"}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
-            <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
-            <Text style={[styles.statusText, { color: colors.success }]}>File ouverte</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: colors.success + "20" },
+            ]}
+          >
+            <View
+              style={[styles.statusDot, { backgroundColor: colors.success }]}
+            />
+            <Text style={[styles.statusText, { color: colors.success }]}>
+              File ouverte
+            </Text>
           </View>
         </View>
 
         {/* Ticket Info */}
         <View style={styles.ticketSection}>
           <View style={styles.ticketNumberContainer}>
-            <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>VOTRE TICKET</Text>
-            <View style={[styles.ticketNumberBox, { backgroundColor: colors.danger }]}>
+            <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>
+              VOTRE TICKET
+            </Text>
+            <View
+              style={[
+                styles.ticketNumberBox,
+                { backgroundColor: colors.danger },
+              ]}
+            >
               <Text style={styles.ticketNumber}>
                 N°{activeTicket.number?.split("-").pop() || position}
               </Text>
@@ -241,10 +285,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             </Text>
             <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
               Pris à{" "}
-              {new Date(activeTicket.created_at || Date.now()).toLocaleTimeString(
-                "fr-FR",
-                { hour: "2-digit", minute: "2-digit" },
-              )}
+              {new Date(
+                activeTicket.created_at || Date.now(),
+              ).toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </Text>
           </View>
         </View>
@@ -252,15 +298,23 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* Position & ETA */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Position dans la file</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Position dans la file
+            </Text>
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              <Text style={[styles.statHighlight, { color: colors.primary }]}>{position}ème</Text> /{" "}
-              {queueLength}
+              <Text style={[styles.statHighlight, { color: colors.primary }]}>
+                {position}ème
+              </Text>{" "}
+              / {queueLength}
             </Text>
           </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
+          <View
+            style={[styles.statDivider, { backgroundColor: colors.separator }]}
+          />
           <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps d&apos;attente estimé</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Temps d&apos;attente estimé
+            </Text>
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>
               ≈ <Text style={styles.statHighlight}>{etaMinutes}</Text> minutes
             </Text>
@@ -269,7 +323,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
         {/* Progress Bar */}
         <View style={styles.progressSection}>
-          <View style={[styles.progressBar, { backgroundColor: colors.surfaceSecondary }]}>
+          <View
+            style={[
+              styles.progressBar,
+              { backgroundColor: colors.surfaceSecondary },
+            ]}
+          >
             <Animated.View
               style={[
                 styles.progressFill,
@@ -313,18 +372,60 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 value: formatTravelTime(distanceInfo.travelTimes.car),
               },
             ].map((item, index) => (
-              <View key={index} style={[styles.distanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Ionicons name={item.icon as any} size={24} color={colors.textSecondary} />
-                <Text style={[styles.distanceValue, { color: colors.textPrimary }]}>{item.value}</Text>
-                <Text style={[styles.distanceLabel, { color: colors.textTertiary }]}>{item.label}</Text>
+              <View
+                key={index}
+                style={[
+                  styles.distanceCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={24}
+                  color={colors.textSecondary}
+                />
+                <Text
+                  style={[styles.distanceValue, { color: colors.textPrimary }]}
+                >
+                  {item.value}
+                </Text>
+                <Text
+                  style={[styles.distanceLabel, { color: colors.textTertiary }]}
+                >
+                  {item.label}
+                </Text>
               </View>
             ))}
           </View>
         ) : (
-          <View style={[styles.noCoordinatesContainer, { backgroundColor: colors.surfaceSecondary }]}>
-            <Ionicons name="location-outline" size={24} color={colors.textTertiary} />
-            <Text style={[styles.noCoordinatesText, { color: colors.textSecondary }]}>Coordonnées non disponibles</Text>
-            <Text style={[styles.noCoordinatesSubtext, { color: colors.textTertiary }]}>
+          <View
+            style={[
+              styles.noCoordinatesContainer,
+              { backgroundColor: colors.surfaceSecondary },
+            ]}
+          >
+            <Ionicons
+              name="location-outline"
+              size={24}
+              color={colors.textTertiary}
+            />
+            <Text
+              style={[
+                styles.noCoordinatesText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Coordonnées non disponibles
+            </Text>
+            <Text
+              style={[
+                styles.noCoordinatesSubtext,
+                { color: colors.textTertiary },
+              ]}
+            >
               L&apos;établissement n&lsquo;a pas renseigné sa position GPS
             </Text>
           </View>
@@ -335,7 +436,11 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           <View
             style={[
               styles.leaveAlert,
-              { backgroundColor: whenToLeave.urgent ? colors.danger + '20' : colors.warning + '20' },
+              {
+                backgroundColor: whenToLeave.urgent
+                  ? colors.danger + "20"
+                  : colors.warning + "20",
+              },
             ]}
           >
             <Ionicons
@@ -357,21 +462,37 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* Actions */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={[styles.confirmPresenceButton, { backgroundColor: colors.success + '20' }]}
+            style={[
+              styles.confirmPresenceButton,
+              { backgroundColor: colors.success + "20" },
+            ]}
             onPress={handleConfirmPresence}
             activeOpacity={0.8}
           >
-            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={[styles.confirmPresenceText, { color: colors.success }]}>Je suis présent</Text>
+            <Ionicons
+              name="checkmark-circle"
+              size={18}
+              color={colors.success}
+            />
+            <Text
+              style={[styles.confirmPresenceText, { color: colors.success }]}
+            >
+              Je suis présent
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.cancelTicketButton, { backgroundColor: colors.danger + '20' }]}
+            style={[
+              styles.cancelTicketButton,
+              { backgroundColor: colors.danger + "20" },
+            ]}
             onPress={handleCancel}
             activeOpacity={0.8}
           >
             <Ionicons name="close-circle" size={18} color={colors.danger} />
-            <Text style={[styles.cancelTicketText, { color: colors.danger }]}>Annuler</Text>
+            <Text style={[styles.cancelTicketText, { color: colors.danger }]}>
+              Annuler
+            </Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>

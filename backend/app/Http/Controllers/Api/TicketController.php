@@ -30,9 +30,28 @@ class TicketController extends Controller
     /**
      * Liste des tickets actifs de l'utilisateur (waiting/called/absent).
      */
-    public function active(Request $request)
+    public function active(Request $request, TicketService $service)
     {
         $today = now()->format('Y-m-d');
+
+        $expiredServiceIds = Ticket::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('status', ['waiting','called','absent'])
+            ->where(function ($query) use ($today) {
+                $query
+                    ->where(function ($q) use ($today) {
+                        $q->whereNotNull('valid_date')
+                          ->whereDate('valid_date', '<', $today);
+                    })
+                    ->orWhere(function ($q) {
+                        $q->whereNull('valid_date')
+                          ->where('created_at', '<', now()->subHours(24));
+                    });
+            })
+            ->pluck('service_id')
+            ->filter()
+            ->unique()
+            ->values();
 
         // Expire tickets whose valid_date is before today
         Ticket::query()
@@ -49,6 +68,13 @@ class TicketController extends Controller
             ->whereNull('valid_date')
             ->where('created_at', '<', now()->subHours(24))
             ->update(['status' => 'expired', 'position' => null, 'eta_minutes' => null]);
+
+        foreach ($expiredServiceIds as $serviceId) {
+            $serviceModel = \App\Models\Service::find($serviceId);
+            if ($serviceModel) {
+                $service->recomputePositions($serviceModel);
+            }
+        }
 
         // Only return tickets valid for today
         $tickets = Ticket::query()
@@ -72,7 +98,7 @@ class TicketController extends Controller
     public function history(Request $request)
     {
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
-        
+
         $query = Ticket::query()
             ->where('user_id', $request->user()->id)
             ->with(['service.establishment'])
@@ -80,7 +106,7 @@ class TicketController extends Controller
 
         // Status filter - can be 'active', 'completed', or specific status
         $statusFilter = $request->query('status');
-        
+
         if ($statusFilter === 'active') {
             // Active tickets: waiting, called, created
             $query->whereIn('status', ['waiting', 'called', 'created']);
@@ -92,7 +118,7 @@ class TicketController extends Controller
             $query->where('status', $statusFilter);
         }
         // If status is 'all' or not specified, show all tickets
-        
+
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->query('from'));
         }

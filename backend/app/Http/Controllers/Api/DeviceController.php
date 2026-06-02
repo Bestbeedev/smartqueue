@@ -53,4 +53,24 @@ class DeviceController extends Controller
             'device_id' => $device->id,
         ]);
     }
+
+    /**
+     * Désenregistre le token push courant pour éviter qu'un appareil déconnecté
+     * continue à recevoir les notifications de l'utilisateur précédent.
+     */
+    public function unregister(Request $request)
+    {
+        $data = $request->validate([
+            'fcm_token' => ['required', 'string'],
+        ]);
+
+        Device::query()
+            ->where('user_id', $request->user()->id)
+            ->where('fcm_token', $data['fcm_token'])
+            ->delete();
+
+        return response()->json([
+            'message' => 'Device unregistered',
+        ]);
+    }
 }

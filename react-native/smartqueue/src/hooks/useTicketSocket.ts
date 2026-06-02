@@ -14,15 +14,16 @@
  *  5. scheduleResync ne réécrase plus en_route_at local : on fusionne la valeur
  *     locale dans le résultat du fetch pour éviter la réouverture de l'overlay.
  */
-import { useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-import { useTicketStore } from '../store/ticketStore';
-import { useAuthStore } from '../store/authStore';
-import { useUserStatsStore } from '../store/userStatsStore';
-import axiosClient from '../api/axiosClient';
+import { useEffect, useRef, useCallback } from "react";
+import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Echo from "laravel-echo";
+import Pusher from "pusher-js";
+import * as Notifications from "expo-notifications";
+import * as Haptics from "expo-haptics";
+import { useTicketStore } from "../store/ticketStore";
+import { useAuthStore } from "../store/authStore";
+import axiosClient from "../api/axiosClient";
 
 // Rendre Pusher disponible globalement pour Laravel Echo
 (window as any).Pusher = Pusher;
@@ -59,19 +60,12 @@ interface UserTicketUpdatedEvent {
   swapped?: boolean;
 }
 
-interface QueueHighDemandEvent {
-  service_id: number;
-  message: string;
-  estimated_wait_increase: number;
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useTicketSocket = (ticketId: string | number | null) => {
   const echoInstance = useRef<any>(null);
   const reconnectAttempts = useRef(0);
   const subscribedUserId = useRef<number | null>(null);
-  const subscribedServiceId = useRef<number | null>(null);
   const resyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Sélecteurs store ────────────────────────────────────────────────────────
@@ -118,7 +112,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           }
         }
       } catch (err: any) {
-        console.warn('[Echo] resync failed:', err?.message || err);
+        console.warn("[Echo] resync failed:", err?.message || err);
       }
     }, 400);
   }, []);
@@ -128,41 +122,53 @@ export const useTicketSocket = (ticketId: string | number | null) => {
     if (!ticketId || echoInstance.current) return;
 
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await AsyncStorage.getItem("access_token");
       if (!token) {
-        console.warn('[Echo] Pas de token auth pour la connexion WebSocket');
+        console.warn("[Echo] Pas de token auth pour la connexion WebSocket");
         return;
       }
 
       const wsUrlStr =
         process.env.EXPO_PUBLIC_WS_URL ||
-        'wss://reverb-production-b4e5.up.railway.app';
-      const isWss = wsUrlStr.startsWith('wss://');
+        "wss://reverb-production-b4e5.up.railway.app";
+      const isWss = wsUrlStr.startsWith("wss://");
       const hostWithoutScheme = wsUrlStr
-        .replace('wss://', '')
-        .replace('ws://', '');
-      const hostParts = hostWithoutScheme.split(':');
+        .replace("wss://", "")
+        .replace("ws://", "");
+      const hostParts = hostWithoutScheme.split(":");
       const host = hostParts[0];
       const portStr = hostParts[1];
       const port = portStr ? parseInt(portStr, 10) : isWss ? 443 : 80;
 
-      console.log('[Echo] Connexion à Reverb:', host, 'port:', port, 'TLS:', isWss);
+      console.log(
+        "[Echo] Connexion à Reverb:",
+        host,
+        "port:",
+        port,
+        "TLS:",
+        isWss,
+      );
 
       echoInstance.current = new Echo({
-        broadcaster: 'reverb',
-        key: process.env.EXPO_PUBLIC_REVERB_APP_KEY || 'smartqueue_key',
-        appid: process.env.EXPO_PUBLIC_REVERB_APP_ID || 'smartqueue_id',
+        broadcaster: "reverb",
+        key: process.env.EXPO_PUBLIC_REVERB_APP_KEY || "smartqueue_key",
+        appid: process.env.EXPO_PUBLIC_REVERB_APP_ID || "smartqueue_id",
         wsHost: host,
         wsPort: port,
         wssPort: port,
         forceTLS: isWss,
-        enabledTransports: ['ws', 'wss'],
+        enabledTransports: ["ws", "wss"],
         disableStats: true,
         authorizer: (channel: any) => ({
           authorize: (socketId: string, callback: Function) => {
-            console.log('[Echo] Auth canal:', channel.name, 'socket_id:', socketId);
+            console.log(
+              "[Echo] Auth canal:",
+              channel.name,
+              "socket_id:",
+              socketId,
+            );
             axiosClient
-              .post('/broadcasting/auth', {
+              .post("/broadcasting/auth", {
                 socket_id: socketId,
                 channel_name: channel.name,
               })
@@ -170,7 +176,10 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 callback(false, response.data);
               })
               .catch((error) => {
-                console.error('[Echo] Auth error:', error.response?.data || error);
+                console.error(
+                  "[Echo] Auth error:",
+                  error.response?.data || error,
+                );
                 callback(true, error);
               });
           },
@@ -180,20 +189,20 @@ export const useTicketSocket = (ticketId: string | number | null) => {
       // ── Événements de connexion ──────────────────────────────────────────────
       const connection = echoInstance.current.connector.pusher.connection;
 
-      connection.bind('connected', () => {
-        console.log('[Echo] Connecté pour ticket:', ticketId);
+      connection.bind("connected", () => {
+        console.log("[Echo] Connecté pour ticket:", ticketId);
         setWebSocketConnected(true);
         reconnectAttempts.current = 0;
         setLastUpdate(new Date());
       });
 
-      connection.bind('disconnected', () => {
-        console.log('[Echo] Déconnecté');
+      connection.bind("disconnected", () => {
+        console.log("[Echo] Déconnecté");
         setWebSocketConnected(false);
       });
 
-      connection.bind('error', (err: any) => {
-        console.error('[Echo] Erreur:', err);
+      connection.bind("error", (err: any) => {
+        console.error("[Echo] Erreur:", err);
         setWebSocketConnected(false);
       });
 
@@ -203,29 +212,26 @@ export const useTicketSocket = (ticketId: string | number | null) => {
       // Reçoit les mises à jour de position, statut et appel pour CE ticket.
       echoInstance.current
         .private(`ticket.${ticketId}`)
-        .listen('.ticket.called', (data: TicketCalledEvent) => {
-          console.log('[Echo] ticket.called:', data);
+        .listen(".ticket.called", (data: TicketCalledEvent) => {
+          console.log("[Echo] ticket.called:", data);
           // Filtre strict : ignorer si ce n'est pas notre ticket
           if (data.ticket_id !== numericTicketId) return;
 
           const counterNum = data.counter ?? data.counter_id;
           markAsCalled(counterNum?.toString());
-          updateTicketStatus('called');
+          updateTicketStatus("called");
           setLastUpdate(new Date());
 
-          // Ne déclencher la notification locale que si l'overlay n'est pas
-          // déjà visible (évite le doublon quand l'app est en premier plan).
-          const { isCalled } = useTicketStore.getState();
-          if (!isCalled) {
-            triggerLocalNotification("C'est votre tour !", 'Présentez-vous au guichet');
-          }
-          triggerHapticFeedback('success');
+          // En premier plan, l'overlay global prend déjà le relais pour l'état
+          // "appelé". On évite donc une notification locale supplémentaire.
+          triggerHapticFeedback("success");
           scheduleResync();
         })
-        .listen('.ticket.updated', (data: TicketUpdatedEvent) => {
-          console.log('[Echo] ticket.updated:', data);
+        .listen(".ticket.updated", (data: TicketUpdatedEvent) => {
+          console.log("[Echo] ticket.updated:", data);
           // Filtre strict
-          if (data.ticket_id != null && data.ticket_id !== numericTicketId) return;
+          if (data.ticket_id != null && data.ticket_id !== numericTicketId)
+            return;
 
           setLastUpdate(new Date());
 
@@ -233,23 +239,25 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             updateTicketStatus(data.status as any);
 
             switch (data.status) {
-              case 'called': {
+              case "called": {
                 markAsCalled(data.counter_id?.toString());
-                const { isCalled } = useTicketStore.getState();
-                if (!isCalled) {
-                  triggerLocalNotification("C'est votre tour !", 'Votre ticket est appelé');
-                }
-                triggerHapticFeedback('success');
+                triggerHapticFeedback("success");
                 break;
               }
-              case 'absent':
-                triggerLocalNotification('Ticket absent', 'Vous avez été marqué absent');
-                triggerHapticFeedback('warning');
+              case "absent":
+                triggerLocalNotification(
+                  "Ticket absent",
+                  "Vous avez été marqué absent",
+                );
+                triggerHapticFeedback("warning");
                 break;
-              case 'closed':
-              case 'served':
-                triggerLocalNotification('Service terminé', 'Votre ticket a été servi. Merci !');
-                triggerHapticFeedback('success');
+              case "closed":
+              case "served":
+                triggerLocalNotification(
+                  "Service terminé",
+                  "Votre ticket a été servi. Merci !",
+                );
+                triggerHapticFeedback("success");
                 break;
             }
           }
@@ -270,15 +278,15 @@ export const useTicketSocket = (ticketId: string | number | null) => {
       if (userId) {
         echoInstance.current
           .private(`user.${userId}`)
-          .listen('.user.ticket.updated', (data: UserTicketUpdatedEvent) => {
-            console.log('[Echo] user.ticket.updated:', data);
+          .listen(".user.ticket.updated", (data: UserTicketUpdatedEvent) => {
+            console.log("[Echo] user.ticket.updated:", data);
 
             // Filtre strict : ignorer les événements d'autres tickets
             if (data.ticket_id !== numericTicketId) {
               console.log(
-                '[Echo] Ignoré — ticket_id',
+                "[Echo] Ignoré — ticket_id",
                 data.ticket_id,
-                '!= ticket suivi',
+                "!= ticket suivi",
                 numericTicketId,
               );
               return;
@@ -290,20 +298,19 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               updateTicketStatus(data.status as any);
 
               switch (data.status) {
-                case 'called': {
+                case "called": {
                   markAsCalled(data.counter_id?.toString());
-                  const { isCalled } = useTicketStore.getState();
-                  if (!isCalled) {
-                    triggerLocalNotification("C'est votre tour !", 'Votre ticket est appelé');
-                  }
-                  triggerHapticFeedback('success');
+                  triggerHapticFeedback("success");
                   break;
                 }
-                case 'absent':
-                  triggerLocalNotification('Ticket absent', 'Vous avez été marqué absent');
-                  triggerHapticFeedback('warning');
+                case "absent":
+                  triggerLocalNotification(
+                    "Ticket absent",
+                    "Vous avez été marqué absent",
+                  );
+                  triggerHapticFeedback("warning");
                   break;
-                case 'waiting':
+                case "waiting":
                   // Mise à jour silencieuse de position — pas de notification
                   break;
               }
@@ -316,34 +323,16 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             scheduleResync();
           });
       } else {
-        console.warn('[Echo] userId non disponible — canal user.* non souscrit');
+        console.warn(
+          "[Echo] userId non disponible — canal user.* non souscrit",
+        );
       }
 
-      // ── Canal de présence du service ─────────────────────────────────────────
-      // Utiliser .join() (PresenceChannel) et non .private() — correction du
-      // bug qui empêchait la réception des événements service.*.
-      const storeTicket = useTicketStore.getState().activeTicket;
-      const serviceId = storeTicket?.service_id ?? null;
-      subscribedServiceId.current = serviceId;
-
-      if (serviceId) {
-        echoInstance.current
-          .join(`service.${serviceId}`)
-          .listen('.queue.high_demand', (data: QueueHighDemandEvent) => {
-            console.log('[Echo] queue.high_demand:', data);
-            triggerLocalNotification(
-              'Forte demande',
-              data.message || "Le temps d'attente a augmenté",
-            );
-            triggerHapticFeedback('warning');
-          })
-          // Écouter aussi service.ticket.called pour les agents (info seulement)
-          .listen('.service.ticket.called', (data: any) => {
-            console.log('[Echo] service.ticket.called:', data);
-          });
-      }
+      // Côté usager mobile, on ne s'abonne plus au canal service.*.
+      // Ce canal diffuse des événements globaux du service qui peuvent concerner
+      // d'autres tickets et provoquer des réactions UI/notifications hors contexte.
     } catch (error) {
-      console.error('[Echo] Erreur de connexion:', error);
+      console.error("[Echo] Erreur de connexion:", error);
       setWebSocketConnected(false);
     }
   }, [
@@ -370,19 +359,16 @@ export const useTicketSocket = (ticketId: string | number | null) => {
         if (subscribedUserId.current) {
           echoInstance.current.leave(`user.${subscribedUserId.current}`);
         }
-        if (subscribedServiceId.current) {
-          echoInstance.current.leave(`service.${subscribedServiceId.current}`);
-        }
+
         echoInstance.current.disconnect();
       } catch (e) {
-        console.warn('[Echo] Erreur lors de la déconnexion:', e);
+        console.warn("[Echo] Erreur lors de la déconnexion:", e);
       }
 
       echoInstance.current = null;
       subscribedUserId.current = null;
-      subscribedServiceId.current = null;
       setWebSocketConnected(false);
-      console.log('[Echo] Déconnecté proprement');
+      console.log("[Echo] Déconnecté proprement");
     }
   }, [ticketId, setWebSocketConnected]);
 
@@ -398,7 +384,8 @@ export const useTicketSocket = (ticketId: string | number | null) => {
 
   return {
     isConnected:
-      echoInstance.current?.connector?.pusher?.connection?.state === 'connected',
+      echoInstance.current?.connector?.pusher?.connection?.state ===
+      "connected",
     connect,
     disconnect,
     echo: echoInstance.current,
@@ -414,62 +401,51 @@ export const useTicketSocket = (ticketId: string | number | null) => {
  */
 const triggerLocalNotification = async (title: string, body: string) => {
   try {
-    const Notifications = require('expo-notifications');
-    if (!Notifications) return;
-
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: 'default',
-        priority:
-          Notifications.AndroidNotificationPriority?.HIGH || 'high',
+        sound: "default",
+        priority: Notifications.AndroidNotificationPriority?.HIGH || "high",
       },
       trigger:
-        Platform.OS === 'android'
-          ? { channelId: 'smartqueue-default' }
-          : null,
+        Platform.OS === "android" ? { channelId: "smartqueue-default" } : null,
     });
   } catch (error) {
-    console.warn('[Echo] Notification locale échouée:', error);
+    console.warn("[Echo] Notification locale échouée:", error);
   }
 };
 
 const triggerHapticFeedback = async (
-  type: 'success' | 'warning' | 'error' | 'light' | 'medium' | 'heavy',
+  type: "success" | "warning" | "error" | "light" | "medium" | "heavy",
 ) => {
   try {
-    const Haptics = require('expo-haptics');
-    if (!Haptics) return;
-
     switch (type) {
-      case 'success':
+      case "success":
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
         );
         break;
-      case 'warning':
+      case "warning":
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Warning,
         );
         break;
-      case 'error':
-        await Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Error,
-        );
+      case "error":
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         break;
-      case 'light':
+      case "light":
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         break;
-      case 'medium':
+      case "medium":
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         break;
-      case 'heavy':
+      case "heavy":
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         break;
     }
   } catch (error) {
-    console.warn('[Echo] Haptic feedback non disponible:', error);
+    console.warn("[Echo] Haptic feedback non disponible:", error);
   }
 };
 

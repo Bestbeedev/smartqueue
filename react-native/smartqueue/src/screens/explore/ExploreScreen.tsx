@@ -8,13 +8,18 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
-  Modal
+  Modal,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from "react-native-maps";
+import MapView, {
+  Marker,
+  Polyline,
+  PROVIDER_DEFAULT,
+  Region,
+} from "react-native-maps";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
-import {  Theme } from "../../theme";
+import { Theme } from "../../theme";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { Badge } from "../../components/ui/Badge";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,25 +31,36 @@ import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
 import { Coordinates } from "../../utils/distance";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
-import useExploreCacheStore, { useExploreCache } from "../../store/exploreCacheStore";
+import useExploreCacheStore, {
+  useExploreCache,
+} from "../../store/exploreCacheStore";
+import { useUnreadNotifications } from "../../hooks/useUnreadNotifications";
 // Types pour les filtres
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
-
-
 // Composant ExploreScreen
 export const ExploreScreen: React.FC = () => {
-
   const colors = useThemeColors();
   const { location, getCurrentPosition } = useGeolocation();
   const [placeName, setPlaceName] = useState<string | null>(null);
-  const { hasActiveTicket, activeTicket, fetchActiveTicket, isInitialized } = useTicket();
+  const {
+    hasActiveTicket,
+    activeTicket,
+    activeTickets,
+    fetchActiveTicket,
+    isInitialized,
+  } = useTicket();
   const { AlertComponent, showError } = useCustomAlert();
+  const { unreadCount, refresh: refreshUnread } = useUnreadNotifications();
 
   // Debug log
   useEffect(() => {
-    console.log('[ExploreScreen] State:', { hasActiveTicket, isInitialized, activeTicketId: activeTicket?.id });
+    console.log("[ExploreScreen] State:", {
+      hasActiveTicket,
+      isInitialized,
+      activeTicketId: activeTicket?.id,
+    });
   }, [hasActiveTicket, isInitialized, activeTicket]);
 
   // Re-synchronise le ticket actif à chaque fois que l'écran reçoit le focus
@@ -52,16 +68,20 @@ export const ExploreScreen: React.FC = () => {
   // à rafraîchir manuellement pour voir un changement de statut.
   useFocusEffect(
     useCallback(() => {
-      console.log('[ExploreScreen] Fetching active ticket...');
-      fetchActiveTicket().catch(err => console.error('Error fetching active ticket:', err));
-    }, [fetchActiveTicket]),
+      console.log("[ExploreScreen] Fetching active ticket...");
+      fetchActiveTicket().catch((err) =>
+        console.error("Error fetching active ticket:", err),
+      );
+      // Rafraîchir aussi le compteur de notifications non lues
+      refreshUnread();
+    }, [fetchActiveTicket, refreshUnread]),
   );
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [filteredEstablishments, setFilteredEstablishments] = useState<
     Establishment[]
   >([]);
-    const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
@@ -73,10 +93,12 @@ export const ExploreScreen: React.FC = () => {
   const mapRef = useRef<MapView>(null);
   const [sortOption, setSortOption] = useState<SortOption>("default");
   const [showSortModal, setShowSortModal] = useState(false);
-  const { setCachedData, shouldUseCache, cachedEstablishments, forceRefresh } = useExploreCache();
+  const { setCachedData, shouldUseCache, cachedEstablishments, forceRefresh } =
+    useExploreCache();
 
   // Simple notifications
-  const { notifyCrowdLevelChange, notifyEstablishmentOpen } = useSimpleNotification();
+  const { notifyCrowdLevelChange, notifyEstablishmentOpen } =
+    useSimpleNotification();
   const notifiedEstablishmentsRef = useRef<Set<string>>(new Set());
 
   // Get establishment coordinates from active ticket for navigation
@@ -155,158 +177,188 @@ export const ExploreScreen: React.FC = () => {
     setRouteCoordinates(points);
   }, [location, establishmentCoords, hasActiveTicket]);
 
-//Ajouter le reverse geocoding
-useEffect(() => {
-  const fetchPlaceName = async () => {
-    if (!location) return;
+  //Ajouter le reverse geocoding
+  useEffect(() => {
+    const fetchPlaceName = async () => {
+      if (!location) return;
 
-    try {
-      const result = await Location.reverseGeocodeAsync({
-        latitude: location.latitude,
-        longitude: location.longitude,
-      });
+      try {
+        const result = await Location.reverseGeocodeAsync({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
 
-      if (result.length > 0) {
-        const place = result[0];
+        if (result.length > 0) {
+          const place = result[0];
 
-        const normalize = (str?: string) =>
-          str
-            ? str.toLowerCase().replace(/[-\s]+/g, "").trim()
-            : "";
+          const normalize = (str?: string) =>
+            str
+              ? str
+                  .toLowerCase()
+                  .replace(/[-\s]+/g, "")
+                  .trim()
+              : "";
 
-        const city = place.city?.trim();
-        const subregion = place.subregion?.trim();
-        const district = place.district?.trim();
-        const region = place.region?.trim();
-        const primary = district || subregion || city;
-        const secondary = city || region;
+          const city = place.city?.trim();
+          const subregion = place.subregion?.trim();
+          const district = place.district?.trim();
+          const region = place.region?.trim();
+          const primary = district || subregion || city;
+          const secondary = city || region;
 
-        let name = "";
+          let name = "";
 
-        if (
-          primary &&
-          secondary &&
-          normalize(primary) !== normalize(secondary)
-        ) {
-          name = `${primary}, ${secondary}`;
-        } else {
-          name = primary || secondary || place.country || "Ma position";
+          if (
+            primary &&
+            secondary &&
+            normalize(primary) !== normalize(secondary)
+          ) {
+            name = `${primary}, ${secondary}`;
+          } else {
+            name = primary || secondary || place.country || "Ma position";
+          }
+
+          setPlaceName(name);
         }
-
-        setPlaceName(name);
+      } catch (error) {
+        console.log("Reverse geocode error", error);
+        setPlaceName("Ma position");
       }
-    } catch (error) {
-      console.log("Reverse geocode error", error);
-      setPlaceName("Ma position");
-    }
-  };
+    };
 
-  fetchPlaceName();
-}, [location]);
-
+    fetchPlaceName();
+  }, [location]);
 
   // Charger les établissements
-  const loadEstablishments = useCallback(async (forceReload = false) => {
-    let currentLocation = location;
+  const loadEstablishments = useCallback(
+    async (forceReload = false) => {
+      let currentLocation = location;
 
-    if (!currentLocation) {
-      currentLocation = await getCurrentPosition();
-    }
+      if (!currentLocation) {
+        currentLocation = await getCurrentPosition();
+      }
 
-    if (!currentLocation) {
-      // Si pas de localisation mais qu'on a du cache, l'utiliser quand même
-      if (cachedEstablishments && !forceReload && !searchQuery) {
-        console.log('[ExploreScreen] Using cached establishments without location');
-        setEstablishments(cachedEstablishments);
-        setFilteredEstablishments(cachedEstablishments);
-        // Utiliser la dernière localisation connue du cache
-        const cacheLocation = useExploreCacheStore.getState().cachedData?.location;
-        if (cacheLocation) {
-          setMapRegion({
-            latitude: cacheLocation.latitude,
-            longitude: cacheLocation.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          });
+      if (!currentLocation) {
+        // Si pas de localisation mais qu'on a du cache, l'utiliser quand même
+        if (cachedEstablishments && !forceReload && !searchQuery) {
+          console.log(
+            "[ExploreScreen] Using cached establishments without location",
+          );
+          setEstablishments(cachedEstablishments);
+          setFilteredEstablishments(cachedEstablishments);
+          // Utiliser la dernière localisation connue du cache
+          const cacheLocation =
+            useExploreCacheStore.getState().cachedData?.location;
+          if (cacheLocation) {
+            setMapRegion({
+              latitude: cacheLocation.latitude,
+              longitude: cacheLocation.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            });
+          }
+          return;
         }
+
+        showError(
+          "Localisation requise",
+          "Veuillez autoriser la localisation pour trouver les établissements proches.",
+        );
         return;
       }
-      
-      showError(
-        "Localisation requise",
-        "Veuillez autoriser la localisation pour trouver les établissements proches.",
-      );
-      return;
-    }
 
-    const currentLat = currentLocation.latitude;
-    const currentLng = currentLocation.longitude;
+      const currentLat = currentLocation.latitude;
+      const currentLng = currentLocation.longitude;
 
-    // Vérifier si on peut utiliser le cache (sauf si force reload)
-    if (!forceReload && !searchQuery && shouldUseCache({ latitude: currentLat, longitude: currentLng }) && cachedEstablishments) {
-      console.log('[ExploreScreen] Using cached establishments');
-      setEstablishments(cachedEstablishments);
-      setFilteredEstablishments(cachedEstablishments);
-      setMapRegion({
-        latitude: currentLat,
-        longitude: currentLng,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const data = await establishmentsApi.getEstablishments({
-        lat: currentLat,
-        lng: currentLng,
-        q: searchQuery || undefined,
-      });
-
-      if (data && data.length > 0) {
-        setEstablishments(data);
-        setFilteredEstablishments(data);
-        // Sauvegarder dans le cache seulement si pas de recherche
-        if (!searchQuery) {
-          setCachedData({
-            establishments: data,
-            location: { latitude: currentLat, longitude: currentLng },
-          });
-        }
-      } else {
-        // Empty response - still set empty arrays
-        setEstablishments([]);
-        setFilteredEstablishments([]);
-      }
-
-      // Mettre à jour la région de la carte
-      if (data.length > 0 || location) { // Update map region if data is available or location is known
+      // Vérifier si on peut utiliser le cache (sauf si force reload)
+      if (
+        !forceReload &&
+        !searchQuery &&
+        shouldUseCache({ latitude: currentLat, longitude: currentLng }) &&
+        cachedEstablishments
+      ) {
+        console.log("[ExploreScreen] Using cached establishments");
+        setEstablishments(cachedEstablishments);
+        setFilteredEstablishments(cachedEstablishments);
         setMapRegion({
           latitude: currentLat,
           longitude: currentLng,
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         });
+        return;
       }
-    } catch (error: any) {
-      console.error("Error loading establishments:", error?.response?.status, error?.message);
-      // Only show alert if it's a network/auth error, not if it's a backend issue
-      if (error?.response?.status === 401 || error?.code === 'NETWORK_ERROR' || !error?.response) {
-        showError(
-          "Erreur",
-          "Impossible de charger les établissements. Vérifiez votre connexion.",
+
+      setIsLoading(true);
+
+      try {
+        const data = await establishmentsApi.getEstablishments({
+          lat: currentLat,
+          lng: currentLng,
+          q: searchQuery || undefined,
+        });
+
+        if (data && data.length > 0) {
+          setEstablishments(data);
+          setFilteredEstablishments(data);
+          // Sauvegarder dans le cache seulement si pas de recherche
+          if (!searchQuery) {
+            setCachedData({
+              establishments: data,
+              location: { latitude: currentLat, longitude: currentLng },
+            });
+          }
+        } else {
+          // Empty response - still set empty arrays
+          setEstablishments([]);
+          setFilteredEstablishments([]);
+        }
+
+        // Mettre à jour la région de la carte
+        if (data.length > 0 || location) {
+          // Update map region if data is available or location is known
+          setMapRegion({
+            latitude: currentLat,
+            longitude: currentLng,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+        }
+      } catch (error: any) {
+        console.error(
+          "Error loading establishments:",
+          error?.response?.status,
+          error?.message,
         );
-      } else {
-        // For other errors (500, 404, etc), just log and show empty state
-        setEstablishments([]);
-        setFilteredEstablishments([]);
+        // Only show alert if it's a network/auth error, not if it's a backend issue
+        if (
+          error?.response?.status === 401 ||
+          error?.code === "NETWORK_ERROR" ||
+          !error?.response
+        ) {
+          showError(
+            "Erreur",
+            "Impossible de charger les établissements. Vérifiez votre connexion.",
+          );
+        } else {
+          // For other errors (500, 404, etc), just log and show empty state
+          setEstablishments([]);
+          setFilteredEstablishments([]);
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [location, getCurrentPosition, showError, searchQuery, shouldUseCache, cachedEstablishments, setCachedData]);
+    },
+    [
+      location,
+      getCurrentPosition,
+      showError,
+      searchQuery,
+      shouldUseCache,
+      cachedEstablishments,
+      setCachedData,
+    ],
+  );
 
   // Effet initial pour charger la position si non disponible
   useEffect(() => {
@@ -318,10 +370,11 @@ useEffect(() => {
   // Effet pour charger les données cached immédiatement au montage
   useEffect(() => {
     if (cachedEstablishments && !location && !isLoading) {
-      console.log('[ExploreScreen] Loading cached data on mount');
+      console.log("[ExploreScreen] Loading cached data on mount");
       setEstablishments(cachedEstablishments);
       setFilteredEstablishments(cachedEstablishments);
-      const cacheLocation = useExploreCacheStore.getState().cachedData?.location;
+      const cacheLocation =
+        useExploreCacheStore.getState().cachedData?.location;
       if (cacheLocation) {
         setMapRegion({
           latitude: cacheLocation.latitude,
@@ -336,39 +389,49 @@ useEffect(() => {
   // Effet pour charger les établissements quand la position ou les filtres changent
   useEffect(() => {
     loadEstablishments(false); // false = permettre l'utilisation du cache
-  }, [location?.latitude, location?.longitude, searchQuery, loadEstablishments]);
+  }, [
+    location?.latitude,
+    location?.longitude,
+    searchQuery,
+    loadEstablishments,
+  ]);
 
   // Calculer la distance depuis la position de l'utilisateur
-  const calculateDistance = useCallback((est: Establishment) => {
-    if (!location) return Infinity;
-    // Check for null/undefined/invalid coordinates
-    if (est.lat == null || est.lng == null) return Infinity;
-    const estLat = Number(est.lat);
-    const estLng = Number(est.lng);
-    if (isNaN(estLat) || isNaN(estLng) || estLat === 0 && estLng === 0) return Infinity;
+  const calculateDistance = useCallback(
+    (est: Establishment) => {
+      if (!location) return Infinity;
+      // Check for null/undefined/invalid coordinates
+      if (est.lat == null || est.lng == null) return Infinity;
+      const estLat = Number(est.lat);
+      const estLng = Number(est.lng);
+      if (isNaN(estLat) || isNaN(estLng) || (estLat === 0 && estLng === 0))
+        return Infinity;
 
-    const R = 6371; // Rayon de la Terre en km
-    const dLat = (estLat - location.latitude) * (Math.PI / 180);
-    const dLng = (estLng - location.longitude) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(location.latitude * (Math.PI / 180)) *
-        Math.cos(estLat * (Math.PI / 180)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }, [location]);
+      const R = 6371; // Rayon de la Terre en km
+      const dLat = (estLat - location.latitude) * (Math.PI / 180);
+      const dLng = (estLng - location.longitude) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(location.latitude * (Math.PI / 180)) *
+          Math.cos(estLat * (Math.PI / 180)) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    },
+    [location],
+  );
 
   // Notify for nearby low crowd establishments
   useEffect(() => {
     if (!location || establishments.length === 0) return;
 
     // Find nearby establishments with low crowd level
-    const nearbyLowCrowd = establishments.filter(est => {
-      if (est.crowd_level !== 'low') return false;
-      if (notifiedEstablishmentsRef.current.has(`crowd_${est.id}`)) return false;
-      
+    const nearbyLowCrowd = establishments.filter((est) => {
+      if (est.crowd_level !== "low") return false;
+      if (notifiedEstablishmentsRef.current.has(`crowd_${est.id}`))
+        return false;
+
       const dist = calculateDistance(est);
       return dist < 1; // Within 1km
     });
@@ -376,15 +439,15 @@ useEffect(() => {
     // Notify for first nearby low crowd establishment
     if (nearbyLowCrowd.length > 0) {
       const est = nearbyLowCrowd[0];
-      notifyCrowdLevelChange(est.name, 'high', 'low', est.people_waiting ?? 0);
+      notifyCrowdLevelChange(est.name, "high", "low", est.people_waiting ?? 0);
       notifiedEstablishmentsRef.current.add(`crowd_${est.id}`);
     }
 
     // Find newly opened establishments
-    const newlyOpened = establishments.filter(est => {
+    const newlyOpened = establishments.filter((est) => {
       if (est.open_now !== true) return false;
       if (notifiedEstablishmentsRef.current.has(`open_${est.id}`)) return false;
-      
+
       const dist = calculateDistance(est);
       return dist < 2; // Within 2km
     });
@@ -395,36 +458,49 @@ useEffect(() => {
       notifyEstablishmentOpen(est.name);
       notifiedEstablishmentsRef.current.add(`open_${est.id}`);
     }
-  }, [establishments, location, calculateDistance, notifyCrowdLevelChange, notifyEstablishmentOpen]);
+  }, [
+    establishments,
+    location,
+    calculateDistance,
+    notifyCrowdLevelChange,
+    notifyEstablishmentOpen,
+  ]);
 
   // Fonction de tri
-  const sortEstablishments = useCallback((estList: Establishment[]) => {
-    const sorted = [...estList];
-    switch (sortOption) {
-      case "distance":
-        return sorted.sort((a, b) => {
-          const distA = calculateDistance(a);
-          const distB = calculateDistance(b);
-          // Put establishments with invalid coordinates at the end
-          if (distA === Infinity && distB === Infinity) return 0;
-          if (distA === Infinity) return 1;
-          if (distB === Infinity) return -1;
-          return distA - distB;
-        });
-      case "name":
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      case "crowd_level":
-        // Sort by crowd level: low first, then moderate, then high, undefined last
-        const crowdOrder: Record<string, number> = { low: 0, moderate: 1, high: 2 };
-        return sorted.sort((a, b) => {
-          const levelA = a.crowd_level ? crowdOrder[a.crowd_level] ?? 3 : 3;
-          const levelB = b.crowd_level ? crowdOrder[b.crowd_level] ?? 3 : 3;
-          return levelA - levelB;
-        });
-      default:
-        return sorted;
-    }
-  }, [sortOption, calculateDistance]);
+  const sortEstablishments = useCallback(
+    (estList: Establishment[]) => {
+      const sorted = [...estList];
+      switch (sortOption) {
+        case "distance":
+          return sorted.sort((a, b) => {
+            const distA = calculateDistance(a);
+            const distB = calculateDistance(b);
+            // Put establishments with invalid coordinates at the end
+            if (distA === Infinity && distB === Infinity) return 0;
+            if (distA === Infinity) return 1;
+            if (distB === Infinity) return -1;
+            return distA - distB;
+          });
+        case "name":
+          return sorted.sort((a, b) => a.name.localeCompare(b.name));
+        case "crowd_level":
+          // Sort by crowd level: low first, then moderate, then high, undefined last
+          const crowdOrder: Record<string, number> = {
+            low: 0,
+            moderate: 1,
+            high: 2,
+          };
+          return sorted.sort((a, b) => {
+            const levelA = a.crowd_level ? (crowdOrder[a.crowd_level] ?? 3) : 3;
+            const levelB = b.crowd_level ? (crowdOrder[b.crowd_level] ?? 3) : 3;
+            return levelA - levelB;
+          });
+        default:
+          return sorted;
+      }
+    },
+    [sortOption, calculateDistance],
+  );
 
   // Effet pour filtrer et trier les établissements
   useEffect(() => {
@@ -460,26 +536,38 @@ useEffect(() => {
 
   // Obtenir l'icône et la couleur de tendance
   const getTrendIndicator = (establishment: Establishment) => {
-    const trend = establishment.crowd_trend || 'stable';
+    const trend = establishment.crowd_trend || "stable";
     const peopleWaiting = establishment.people_waiting ?? 0;
-    
+
     // Simulation: si plus de 10 personnes, tendance à la hausse probable
     // Si 0-3 personnes, tendance à la baisse probable
     // Sinon stable
     let effectiveTrend = trend;
     if (!establishment.crowd_trend) {
-      if (peopleWaiting > 10) effectiveTrend = 'up';
-      else if (peopleWaiting <= 3) effectiveTrend = 'down';
-      else effectiveTrend = 'stable';
+      if (peopleWaiting > 10) effectiveTrend = "up";
+      else if (peopleWaiting <= 3) effectiveTrend = "down";
+      else effectiveTrend = "stable";
     }
 
     switch (effectiveTrend) {
-      case 'up':
-        return { icon: 'trending-up', color: colors.danger, bg: colors.danger + '20' };
-      case 'down':
-        return { icon: 'trending-down', color: colors.success, bg: colors.success + '20' };
+      case "up":
+        return {
+          icon: "trending-up",
+          color: colors.danger,
+          bg: colors.danger + "20",
+        };
+      case "down":
+        return {
+          icon: "trending-down",
+          color: colors.success,
+          bg: colors.success + "20",
+        };
       default:
-        return { icon: 'remove', color: colors.textTertiary, bg: colors.border };
+        return {
+          icon: "remove",
+          color: colors.textTertiary,
+          bg: colors.border,
+        };
     }
   };
 
@@ -519,27 +607,29 @@ useEffect(() => {
         }}
         onPress={() => handleMarkerPress(establishment)}
       >
-        <View style={{ position: 'relative' }}>
+        <View style={{ position: "relative" }}>
           <View
             className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-md"
-            style={{ backgroundColor: getMarkerColor(establishment.crowd_level) }}
+            style={{
+              backgroundColor: getMarkerColor(establishment.crowd_level),
+            }}
           >
             <Ionicons name="location" size={18} color="#FFFFFF" />
           </View>
           {/* Badge tendance */}
           <View
             style={{
-              position: 'absolute',
+              position: "absolute",
               bottom: -2,
               right: -2,
               width: 16,
               height: 16,
               borderRadius: 8,
               backgroundColor: trend.bg,
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: "center",
+              justifyContent: "center",
               borderWidth: 1.5,
-              borderColor: '#FFFFFF',
+              borderColor: "#FFFFFF",
             }}
           >
             <Ionicons name={trend.icon as any} size={10} color={trend.color} />
@@ -557,7 +647,18 @@ useEffect(() => {
 
     return (
       <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: colors.surface, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 16,
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          marginBottom: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+        }}
         onPress={() => handleEstablishmentPress(item)}
         activeOpacity={0.7}
       >
@@ -574,41 +675,132 @@ useEffect(() => {
 
         <View className="flex-1">
           {/* Ligne titre + badge ouvert/fermé */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "bold",
+                color: colors.textPrimary,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
               {item.name}
             </Text>
-            <View style={{ backgroundColor: isOpen ? colors.success + '20' : colors.textTertiary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
-              <Text style={{ fontSize: 10, color: isOpen ? colors.success : colors.textTertiary, fontWeight: '600' }}>
-                {isOpen ? 'Ouvert' : 'Fermé'}
+            <View
+              style={{
+                backgroundColor: isOpen
+                  ? colors.success + "20"
+                  : colors.textTertiary + "20",
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 4,
+                marginLeft: 8,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: isOpen ? colors.success : colors.textTertiary,
+                  fontWeight: "600",
+                }}
+              >
+                {isOpen ? "Ouvert" : "Fermé"}
               </Text>
             </View>
           </View>
 
           {/* Adresse + Distance */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
-            <Text style={{ fontSize: 13, color: colors.textSecondary, marginLeft: 4, flex: 1 }} numberOfLines={1}>
+          <View
+            style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}
+          >
+            <Ionicons
+              name="location-outline"
+              size={12}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={{
+                fontSize: 13,
+                color: colors.textSecondary,
+                marginLeft: 4,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
               {item.address}
             </Text>
             {distance !== null && distance !== Infinity && (
-              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600', marginLeft: 4 }}>
-                {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: colors.primary,
+                  fontWeight: "600",
+                  marginLeft: 4,
+                }}
+              >
+                {distance < 1
+                  ? `${(distance * 1000).toFixed(0)}m`
+                  : `${distance.toFixed(1)}km`}
               </Text>
             )}
           </View>
 
           {/* Infos services et file */}
           <View className="flex-row items-center mt-2">
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.warning + '15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 8 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: colors.warning + "15",
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 6,
+                marginRight: 8,
+              }}
+            >
               <Ionicons name="grid-outline" size={12} color={colors.warning} />
-              <Text style={{ fontSize: 11, color: colors.warning, marginLeft: 4, fontWeight: '500' }}>
-                {servicesCount} service{servicesCount > 1 ? 's' : ''}
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: colors.warning,
+                  marginLeft: 4,
+                  fontWeight: "500",
+                }}
+              >
+                {servicesCount} service{servicesCount > 1 ? "s" : ""}
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 8 }}>
-              <Ionicons name="people-outline" size={12} color={colors.primary} />
-              <Text style={{ fontSize: 11, color: colors.primary, marginLeft: 4, fontWeight: '500' }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: colors.primary + "15",
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 6,
+                marginRight: 8,
+              }}
+            >
+              <Ionicons
+                name="people-outline"
+                size={12}
+                color={colors.primary}
+              />
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: colors.primary,
+                  marginLeft: 4,
+                  fontWeight: "500",
+                }}
+              >
                 {item.people_waiting ?? 0} personne(s) en attente
               </Text>
             </View>
@@ -616,8 +808,11 @@ useEffect(() => {
         </View>
 
         <View className="items-end ml-2">
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Badge variant={(item.crowd_level as any) || "moderate"} size="small">
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Badge
+              variant={(item.crowd_level as any) || "moderate"}
+              size="small"
+            >
               {item.crowd_level || "moderate"}
             </Badge>
             {/* Indicateur tendance */}
@@ -630,12 +825,16 @@ useEffect(() => {
                     height: 18,
                     borderRadius: 9,
                     backgroundColor: trend.bg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    alignItems: "center",
+                    justifyContent: "center",
                     marginLeft: 6,
                   }}
                 >
-                  <Ionicons name={trend.icon as any} size={10} color={trend.color} />
+                  <Ionicons
+                    name={trend.icon as any}
+                    size={10}
+                    color={trend.color}
+                  />
                 </View>
               );
             })()}
@@ -653,34 +852,193 @@ useEffect(() => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Search Header - iOS Style */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 43, paddingBottom: 16, backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <TouchableOpacity 
-            onPress={()=>getCurrentPosition()} 
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '20', borderColor: colors.primary + '30', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999 }}
+      {/* ── Header principal ─────────────────────────────────────────────── */}
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 43,
+          paddingBottom: 16,
+          backgroundColor: colors.surface,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+        }}
+      >
+        {/* Ligne 1 : localisation · tickets actifs · cloche */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
+          {/* Bouton localisation — width fit-content, tronqué si trop long */}
+          <TouchableOpacity
+            onPress={() => getCurrentPosition()}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: colors.primary + "20",
+              borderColor: colors.primary + "30",
+              borderWidth: 1,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+              maxWidth: "55%",
+              marginRight: 8,
+            }}
           >
-            <Ionicons name="location-sharp" size={16} color={colors.primary} />
-            <Text style={{ marginLeft: 4, fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
+            <Ionicons
+              name="location-sharp"
+              size={16}
+              color={colors.primary}
+              style={{ flexShrink: 0 }}
+            />
+            <Text
+              style={{
+                marginLeft: 4,
+                fontSize: 14,
+                fontWeight: "600",
+                color: colors.textPrimary,
+                flexShrink: 1,
+              }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {placeName || "Localisation en cours..."}
             </Text>
-            <Ionicons name="chevron-down" size={12} color={colors.textSecondary} style={{ marginLeft: 4 }} />
+            <Ionicons
+              name="chevron-down"
+              size={12}
+              color={colors.textSecondary}
+              style={{ marginLeft: 4, flexShrink: 0 }}
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: 'red' , borderColor: colors.danger + '30', borderWidth: 1, borderRadius: 999,  }}
-            onPress={() => router.push('/notifications' as any)}
+          {/* Badge tickets actifs — visible seulement si ≥ 1 ticket */}
+          {isInitialized && hasActiveTicket && activeTickets.length > 0 && (
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/tickets")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: activeTickets.some(
+                  (t) => t.status === "called",
+                )
+                  ? colors.danger + "15"
+                  : colors.success + "15",
+                borderWidth: 1,
+                borderColor: activeTickets.some((t) => t.status === "called")
+                  ? colors.danger + "50"
+                  : colors.success + "50",
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                marginRight: 8,
+                flexShrink: 0,
+              }}
+            >
+              <View
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 4,
+                  backgroundColor: activeTickets.some(
+                    (t) => t.status === "called",
+                  )
+                    ? colors.danger
+                    : colors.success,
+                  marginRight: 5,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: activeTickets.some((t) => t.status === "called")
+                    ? colors.danger
+                    : colors.success,
+                }}
+              >
+                {activeTickets.length} ticket
+                {activeTickets.length > 1 ? "s" : ""}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Bouton notifications */}
+          <TouchableOpacity
+            style={{
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.primary,
+              borderRadius: 999,
+              flexShrink: 0,
+            }}
+            onPress={() => {
+              refreshUnread();
+              router.push("/notifications" as any);
+            }}
           >
-            <Ionicons name="notifications-outline" size={20} color={'white'} />
-            {/* <View style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, backgroundColor: colors.background, borderRadius: 99, }} /> */}
+            <Ionicons name="notifications-outline" size={20} color={"white"} />
+            {unreadCount > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -4,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: colors.danger,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 4,
+                  borderWidth: 2,
+                  borderColor: colors.surface,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 10,
+                    fontWeight: "800",
+                    lineHeight: 12,
+                  }}
+                >
+                  {unreadCount > 99 ? "99+" : String(unreadCount)}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* Search Input Container */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderRadius: 16, paddingHorizontal: 16 }}>
-          <Ionicons name="search-outline" size={20} color={colors.textTertiary} />
+        {/* Ligne 2 : Searchbar */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.surfaceSecondary,
+            borderRadius: 16,
+            paddingHorizontal: 16,
+          }}
+        >
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color={colors.textTertiary}
+          />
           <TextInput
-            style={{ flex: 1, marginLeft: 8, fontSize: 16, color: colors.textPrimary }}
+            style={{
+              flex: 1,
+              marginLeft: 8,
+              fontSize: 16,
+              color: colors.textPrimary,
+            }}
             placeholder="Rechercher un etablissement ..."
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
@@ -699,23 +1057,34 @@ useEffect(() => {
           <TouchableOpacity
             onPress={() => setSelectedFilter("all")}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              flexDirection: "row",
+              alignItems: "center",
               paddingHorizontal: 16,
               paddingVertical: 8,
               borderRadius: 999,
               marginRight: 8,
               borderWidth: 1,
-              backgroundColor: selectedFilter === "all" ? colors.primary : colors.surface,
-              borderColor: selectedFilter === "all" ? colors.primary : colors.border,
+              backgroundColor:
+                selectedFilter === "all" ? colors.primary : colors.surface,
+              borderColor:
+                selectedFilter === "all" ? colors.primary : colors.border,
             }}
           >
-            <Ionicons name="grid-outline" size={16} color={selectedFilter === "all" ? '#FFFFFF' : colors.textSecondary} />
-            <Text style={{
-              marginLeft: 4,
-              fontWeight: '500',
-              color: selectedFilter === "all" ? '#FFFFFF' : colors.textSecondary,
-            }}>
+            <Ionicons
+              name="grid-outline"
+              size={16}
+              color={
+                selectedFilter === "all" ? "#FFFFFF" : colors.textSecondary
+              }
+            />
+            <Text
+              style={{
+                marginLeft: 4,
+                fontWeight: "500",
+                color:
+                  selectedFilter === "all" ? "#FFFFFF" : colors.textSecondary,
+              }}
+            >
               Tous
             </Text>
           </TouchableOpacity>
@@ -724,13 +1093,19 @@ useEffect(() => {
           {filteredEstablishments.slice(0, 3).map((est) => (
             <TouchableOpacity
               key={est.id}
-              onPress={() => router.push({
-                pathname: "/service-details",
-                params: { establishmentId: String(est.id), serviceId: "", fromQr: "false" },
-              })}
+              onPress={() =>
+                router.push({
+                  pathname: "/service-details",
+                  params: {
+                    establishmentId: String(est.id),
+                    serviceId: "",
+                    fromQr: "false",
+                  },
+                })
+              }
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
+                flexDirection: "row",
+                alignItems: "center",
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 999,
@@ -740,8 +1115,19 @@ useEffect(() => {
                 borderColor: colors.border,
               }}
             >
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <Text style={{ marginLeft: 4, fontWeight: '500', color: colors.textSecondary }} numberOfLines={1}>
+              <Ionicons
+                name="location-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={{
+                  marginLeft: 4,
+                  fontWeight: "500",
+                  color: colors.textSecondary,
+                }}
+                numberOfLines={1}
+              >
                 {est.name}
               </Text>
             </TouchableOpacity>
@@ -749,7 +1135,13 @@ useEffect(() => {
         </ScrollView>
       </View>
 
-      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary, marginTop: 1 }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.surfaceSecondary,
+          marginTop: 1,
+        }}
+      >
         {mapRegion && (
           <MapView
             provider={PROVIDER_DEFAULT}
@@ -786,11 +1178,11 @@ useEffect(() => {
                     height: 44,
                     borderRadius: 22,
                     backgroundColor: colors.danger,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    alignItems: "center",
+                    justifyContent: "center",
                     borderWidth: 3,
-                    borderColor: '#FFFFFF',
-                    shadowColor: '#000',
+                    borderColor: "#FFFFFF",
+                    shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.3,
                     shadowRadius: 4,
@@ -821,14 +1213,14 @@ useEffect(() => {
           {/* Navigation Button - Shows when active ticket with coordinates */}
           {hasActiveTicket && establishmentCoords && (
             <TouchableOpacity
-              onPress={() => router.push('/navigation')}
+              onPress={() => router.push("/navigation")}
               style={{
                 width: 56,
                 height: 56,
                 backgroundColor: colors.primary,
                 borderRadius: 28,
-                alignItems: 'center',
-                justifyContent: 'center',
+                alignItems: "center",
+                justifyContent: "center",
                 shadowColor: colors.primary,
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.4,
@@ -842,7 +1234,7 @@ useEffect(() => {
               {distanceInfo && (
                 <View
                   style={{
-                    position: 'absolute',
+                    position: "absolute",
                     bottom: -4,
                     backgroundColor: colors.surface,
                     borderRadius: 8,
@@ -852,7 +1244,13 @@ useEffect(() => {
                     borderColor: colors.border,
                   }}
                 >
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "700",
+                      color: colors.primary,
+                    }}
+                  >
                     {Math.round(distanceInfo.kilometers * 10) / 10}km
                   </Text>
                 </View>
@@ -862,7 +1260,19 @@ useEffect(() => {
 
           <TouchableOpacity
             onPress={recenter}
-            style={{ width: 48, height: 48, backgroundColor: colors.surface, borderRadius: 999, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 8, marginBottom: 12 }}
+            style={{
+              width: 48,
+              height: 48,
+              backgroundColor: colors.surface,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              marginBottom: 12,
+            }}
           >
             <Ionicons name="locate" size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -870,7 +1280,15 @@ useEffect(() => {
 
         {/* Indicateur de chargement */}
         {isLoading && (
-          <View style={{ position: 'absolute', inset: 0, backgroundColor: colors.surface + '99', alignItems: 'center', justifyContent: 'center' }}>
+          <View
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: colors.surface + "99",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
@@ -893,32 +1311,69 @@ useEffect(() => {
           shadowRadius: 10,
         }}
       >
-        <View style={{ paddingHorizontal: 20, paddingVertical: 12, paddingBottom: 15, marginBottom: 8, backgroundColor: colors.surfaceSecondary, borderRadius: 20, overflow: 'hidden', width: '92%', alignSelf: 'center' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, flex: 1, marginRight: 12 }} numberOfLines={1}>
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+            paddingBottom: 15,
+            marginBottom: 8,
+            backgroundColor: colors.surfaceSecondary,
+            borderRadius: 20,
+            overflow: "hidden",
+            width: "92%",
+            alignSelf: "center",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 1,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                color: colors.textPrimary,
+                flex: 1,
+                marginRight: 12,
+              }}
+              numberOfLines={1}
+            >
               Établissements
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
               <TouchableOpacity
-                onPress={() => { forceRefresh(); loadEstablishments(true); }}
+                onPress={() => {
+                  forceRefresh();
+                  loadEstablishments(true);
+                }}
                 style={{
                   width: 36,
                   height: 36,
                   borderRadius: 50,
-                  backgroundColor: 'red',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  backgroundColor: "red",
+                  alignItems: "center",
+                  justifyContent: "center",
                   marginRight: 8,
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="refresh" size={18} color={'white'} />
+                <Ionicons name="refresh" size={18} color={"white"} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setShowSortModal(true)}
                 style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
+                  flexDirection: "row",
+                  alignItems: "center",
                   paddingHorizontal: 10,
                   paddingVertical: 8,
                   borderRadius: 10,
@@ -926,12 +1381,23 @@ useEffect(() => {
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="funnel-outline" size={14} color={'white'} style={{ marginRight: 4 }} />
-                <Text style={{ color: 'white', fontWeight: '600', fontSize: 13 }}>Trier</Text>
+                <Ionicons
+                  name="funnel-outline"
+                  size={14}
+                  color={"white"}
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  style={{ color: "white", fontWeight: "600", fontSize: 13 }}
+                >
+                  Trier
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={{ fontSize: 14, color: colors.textTertiary,marginTop:-8, }}>
+          <Text
+            style={{ fontSize: 14, color: colors.textTertiary, marginTop: -8 }}
+          >
             {filteredEstablishments.length} résultats trouvés
           </Text>
         </View>
@@ -943,7 +1409,14 @@ useEffect(() => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.border, width: '80%' ,alignSelf:"center", }} />
+            <View
+              style={{
+                height: 1,
+                backgroundColor: colors.border,
+                width: "80%",
+                alignSelf: "center",
+              }}
+            />
           )}
           ListHeaderComponent={
             isInitialized && hasActiveTicket && activeTicket ? (
@@ -966,10 +1439,25 @@ useEffect(() => {
                 size={48}
                 color={colors.textTertiary}
               />
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginTop: 16, textAlign: 'center' }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: colors.textPrimary,
+                  marginTop: 16,
+                  textAlign: "center",
+                }}
+              >
                 Aucun établissement
               </Text>
-              <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 }}>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  textAlign: "center",
+                  marginTop: 8,
+                  paddingHorizontal: 20,
+                }}
+              >
                 Essayez de modifier votre recherche
               </Text>
             </View>
@@ -985,60 +1473,216 @@ useEffect(() => {
         onRequestClose={() => setShowSortModal(false)}
       >
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           activeOpacity={1}
           onPress={() => setShowSortModal(false)}
         >
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary }}>Trier par</Text>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: "bold",
+                  color: colors.textPrimary,
+                }}
+              >
+                Trier par
+              </Text>
               <TouchableOpacity onPress={() => setShowSortModal(false)}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderColor: colors.border }}
-              onPress={() => { setSortOption("default"); setShowSortModal(false); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => {
+                setSortOption("default");
+                setShowSortModal(false);
+              }}
             >
-              <Ionicons name="list-outline" size={20} color={sortOption === "default" ? colors.primary : colors.textSecondary} />
-              <Text style={{ marginLeft: 12, fontSize: 16, color: sortOption === "default" ? colors.primary : colors.textPrimary, fontWeight: sortOption === "default" ? '600' : '400' }}>
+              <Ionicons
+                name="list-outline"
+                size={20}
+                color={
+                  sortOption === "default"
+                    ? colors.primary
+                    : colors.textSecondary
+                }
+              />
+              <Text
+                style={{
+                  marginLeft: 12,
+                  fontSize: 16,
+                  color:
+                    sortOption === "default"
+                      ? colors.primary
+                      : colors.textPrimary,
+                  fontWeight: sortOption === "default" ? "600" : "400",
+                }}
+              >
                 Par défaut
               </Text>
-              {sortOption === "default" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+              {sortOption === "default" && (
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={colors.primary}
+                  style={{ marginLeft: "auto" }}
+                />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderColor: colors.border }}
-              onPress={() => { setSortOption("distance"); setShowSortModal(false); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => {
+                setSortOption("distance");
+                setShowSortModal(false);
+              }}
             >
-              <Ionicons name="navigate-outline" size={20} color={sortOption === "distance" ? colors.primary : colors.textSecondary} />
-              <Text style={{ marginLeft: 12, fontSize: 16, color: sortOption === "distance" ? colors.primary : colors.textPrimary, fontWeight: sortOption === "distance" ? '600' : '400' }}>
+              <Ionicons
+                name="navigate-outline"
+                size={20}
+                color={
+                  sortOption === "distance"
+                    ? colors.primary
+                    : colors.textSecondary
+                }
+              />
+              <Text
+                style={{
+                  marginLeft: 12,
+                  fontSize: 16,
+                  color:
+                    sortOption === "distance"
+                      ? colors.primary
+                      : colors.textPrimary,
+                  fontWeight: sortOption === "distance" ? "600" : "400",
+                }}
+              >
                 Distance
               </Text>
-              {sortOption === "distance" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+              {sortOption === "distance" && (
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={colors.primary}
+                  style={{ marginLeft: "auto" }}
+                />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderColor: colors.border }}
-              onPress={() => { setSortOption("name"); setShowSortModal(false); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => {
+                setSortOption("name");
+                setShowSortModal(false);
+              }}
             >
-              <Ionicons name="text-outline" size={20} color={sortOption === "name" ? colors.primary : colors.textSecondary} />
-              <Text style={{ marginLeft: 12, fontSize: 16, color: sortOption === "name" ? colors.primary : colors.textPrimary, fontWeight: sortOption === "name" ? '600' : '400' }}>
+              <Ionicons
+                name="text-outline"
+                size={20}
+                color={
+                  sortOption === "name" ? colors.primary : colors.textSecondary
+                }
+              />
+              <Text
+                style={{
+                  marginLeft: 12,
+                  fontSize: 16,
+                  color:
+                    sortOption === "name" ? colors.primary : colors.textPrimary,
+                  fontWeight: sortOption === "name" ? "600" : "400",
+                }}
+              >
                 Nom (A-Z)
               </Text>
-              {sortOption === "name" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+              {sortOption === "name" && (
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={colors.primary}
+                  style={{ marginLeft: "auto" }}
+                />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16 }}
-              onPress={() => { setSortOption("crowd_level"); setShowSortModal(false); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 16,
+              }}
+              onPress={() => {
+                setSortOption("crowd_level");
+                setShowSortModal(false);
+              }}
             >
-              <Ionicons name="people-outline" size={20} color={sortOption === "crowd_level" ? colors.primary : colors.textSecondary} />
-              <Text style={{ marginLeft: 12, fontSize: 16, color: sortOption === "crowd_level" ? colors.primary : colors.textPrimary, fontWeight: sortOption === "crowd_level" ? '600' : '400' }}>
+              <Ionicons
+                name="people-outline"
+                size={20}
+                color={
+                  sortOption === "crowd_level"
+                    ? colors.primary
+                    : colors.textSecondary
+                }
+              />
+              <Text
+                style={{
+                  marginLeft: 12,
+                  fontSize: 16,
+                  color:
+                    sortOption === "crowd_level"
+                      ? colors.primary
+                      : colors.textPrimary,
+                  fontWeight: sortOption === "crowd_level" ? "600" : "400",
+                }}
+              >
                 Niveau d&apos;affluence
               </Text>
-              {sortOption === "crowd_level" && <Ionicons name="checkmark" size={20} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+              {sortOption === "crowd_level" && (
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={colors.primary}
+                  style={{ marginLeft: "auto" }}
+                />
+              )}
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

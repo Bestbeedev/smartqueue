@@ -1,15 +1,72 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ticketsApi, Ticket, CreateTicketData } from '../api/ticketsApi';
-import { shallow } from 'zustand/shallow';
-import { useUserStatsStore } from './userStatsStore';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ticketsApi, Ticket, CreateTicketData } from "../api/ticketsApi";
+import { shallow } from "zustand/shallow";
+import { useUserStatsStore } from "./userStatsStore";
 
 // L'overlay "ticket appelé" ne doit s'afficher que tant que l'utilisateur n'a pas
 // répondu. Le backend garde status='called' après "en route" (il pose seulement
 // en_route_at) ; sans ce filtre, toute resynchro/navigation rouvrait l'overlay.
 const isTicketCalled = (ticket: Ticket | null | undefined): boolean =>
-  ticket?.status === 'called' && !ticket?.en_route_at;
+  ticket?.status === "called" && !ticket?.en_route_at;
+
+const getTicketStatusPriority = (status: Ticket["status"]): number => {
+  switch (status) {
+    case "called":
+      return 0;
+    case "waiting":
+      return 1;
+    case "created":
+      return 2;
+    case "absent":
+      return 3;
+    default:
+      return 4;
+  }
+};
+
+const sortActiveTickets = (tickets: Ticket[]): Ticket[] => {
+  return [...tickets].sort((a, b) => {
+    const statusDiff =
+      getTicketStatusPriority(a.status) - getTicketStatusPriority(b.status);
+    if (statusDiff !== 0) return statusDiff;
+
+    const aPosition =
+      typeof a.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
+    const bPosition =
+      typeof b.position === "number" ? b.position : Number.MAX_SAFE_INTEGER;
+    if (aPosition !== bPosition) return aPosition - bPosition;
+
+    const aEta =
+      typeof a.eta_minutes === "number"
+        ? a.eta_minutes
+        : Number.MAX_SAFE_INTEGER;
+    const bEta =
+      typeof b.eta_minutes === "number"
+        ? b.eta_minutes
+        : Number.MAX_SAFE_INTEGER;
+    if (aEta !== bEta) return aEta - bEta;
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+};
+
+const buildPrimaryTicketState = (tickets: Ticket[]) => {
+  const sortedTickets = sortActiveTickets(tickets);
+  const primaryTicket = sortedTickets.length > 0 ? sortedTickets[0] : null;
+
+  return {
+    activeTickets: sortedTickets,
+    activeTicket: primaryTicket,
+    position: primaryTicket?.position || 0,
+    etaMinutes: primaryTicket?.eta_minutes || 0,
+    isAlmostThere: primaryTicket?.position
+      ? primaryTicket.position <= 2
+      : false,
+    isCalled: isTicketCalled(primaryTicket),
+  };
+};
 
 // Types pour le store de tickets
 export interface TicketState {
@@ -52,7 +109,7 @@ export interface TicketState {
   cancelTicket: (ticketId: number) => Promise<void>;
   refreshActiveTicket: () => Promise<void>;
   fetchActiveTicket: () => Promise<void>;
-  updateTicketStatus: (status: Ticket['status']) => void;
+  updateTicketStatus: (status: Ticket["status"]) => void;
   setWebSocketConnected: (connected: boolean) => void;
   setLastUpdate: (date: Date) => void;
 
@@ -103,14 +160,8 @@ export const useTicketStore = create<TicketState>()(
 
       // Définir tous les tickets actifs
       setActiveTickets: (tickets: Ticket[]) => {
-        const firstTicket = tickets.length > 0 ? tickets[0] : null;
         set({
-          activeTickets: tickets,
-          activeTicket: firstTicket,
-          position: firstTicket?.position || 0,
-          etaMinutes: firstTicket?.eta_minutes || 0,
-          isAlmostThere: firstTicket?.position ? firstTicket.position <= 2 : false,
-          isCalled: isTicketCalled(firstTicket),
+          ...buildPrimaryTicketState(tickets),
           isInitialized: true,
           error: null,
         });
@@ -120,22 +171,18 @@ export const useTicketStore = create<TicketState>()(
       // Correction : met aussi à jour activeTicket pour que tous les composants
       // qui lisent activeTicket.position/eta_minutes voient la valeur fraîche.
       updatePosition: (position: number, etaMinutes: number) => {
-        const { isCalled, activeTicket, activeTickets } = get();
-
-        set({
-          position,
-          etaMinutes,
-          isAlmostThere: !isCalled && position <= 2,
-          lastUpdate: new Date(),
-          // Synchroniser aussi l'objet ticket pour les composants qui le lisent directement
-          activeTicket: activeTicket
-            ? { ...activeTicket, position, eta_minutes: etaMinutes }
-            : null,
-          activeTickets: activeTickets.map((t) =>
+        const { activeTicket, activeTickets } = get();
+        const updatedTickets = sortActiveTickets(
+          activeTickets.map((t) =>
             t.id === activeTicket?.id
               ? { ...t, position, eta_minutes: etaMinutes }
               : t,
           ),
+        );
+
+        set({
+          ...buildPrimaryTicketState(updatedTickets),
+          lastUpdate: new Date(),
         });
       },
 
@@ -174,7 +221,7 @@ export const useTicketStore = create<TicketState>()(
         set({
           activeTicket: updatedTicket,
           activeTickets: activeTickets.map((t) =>
-            t.id === activeTicket.id ? { ...t, en_route_at: enRouteAt } : t
+            t.id === activeTicket.id ? { ...t, en_route_at: enRouteAt } : t,
           ),
           isCalled: false,
           lastUpdate: new Date(),
@@ -226,14 +273,10 @@ export const useTicketStore = create<TicketState>()(
           const ticketData = (ticket as any)?.data || ticket;
 
           const { activeTickets } = get();
+          const nextTickets = [...activeTickets, ticketData];
 
           set({
-            activeTicket: ticketData,
-            activeTickets: [...activeTickets, ticketData],
-            position: ticketData.position || 0,
-            etaMinutes: ticketData.eta_minutes || 0,
-            isAlmostThere: ticketData.position ? ticketData.position <= 2 : false,
-            isCalled: isTicketCalled(ticketData),
+            ...buildPrimaryTicketState(nextTickets),
             isLoading: false,
             error: null,
             lastUpdate: new Date(),
@@ -244,13 +287,19 @@ export const useTicketStore = create<TicketState>()(
           statsStore.recordTicketCreated({
             service_id: ticketData.service_id,
             establishment_id: ticketData.establishment_id,
-            lat: ticketData.establishment?.lat ? Number(ticketData.establishment.lat) : undefined,
-            lng: ticketData.establishment?.lng ? Number(ticketData.establishment.lng) : undefined,
+            lat: ticketData.establishment?.lat
+              ? Number(ticketData.establishment.lat)
+              : undefined,
+            lng: ticketData.establishment?.lng
+              ? Number(ticketData.establishment.lng)
+              : undefined,
           });
 
           return ticketData;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Erreur lors de la création du ticket';
+          const errorMessage =
+            error.response?.data?.message ||
+            "Erreur lors de la création du ticket";
           set({
             isLoading: false,
             error: errorMessage,
@@ -267,27 +316,13 @@ export const useTicketStore = create<TicketState>()(
           await ticketsApi.cancelTicket(ticketId);
 
           // Effacer le ticket actif si c'est celui qu'on annule
-          const { activeTicket, activeTickets } = get();
-          if (activeTicket?.id === ticketId) {
-            // Remove cancelled ticket from activeTickets array
-            const updatedTickets = activeTickets.filter(t => t.id !== ticketId);
-            set({
-              activeTicket: updatedTickets.length > 0 ? updatedTickets[0] : null,
-              activeTickets: updatedTickets,
-              position: 0,
-              etaMinutes: 0,
-              isAlmostThere: false,
-              isCalled: false,
-              lastUpdate: new Date(),
-            });
-          } else {
-            // Just remove from activeTickets if not the current active one
-            const updatedTickets = activeTickets.filter(t => t.id !== ticketId);
-            set({
-              activeTickets: updatedTickets,
-              lastUpdate: new Date(),
-            });
-          }
+          const { activeTickets } = get();
+          const updatedTickets = activeTickets.filter((t) => t.id !== ticketId);
+
+          set({
+            ...buildPrimaryTicketState(updatedTickets),
+            lastUpdate: new Date(),
+          });
 
           // Record cancellation in stats
           const statsStore = useUserStatsStore.getState();
@@ -295,7 +330,9 @@ export const useTicketStore = create<TicketState>()(
 
           set({ isLoading: false });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Erreur lors de l\'annulation du ticket';
+          const errorMessage =
+            error.response?.data?.message ||
+            "Erreur lors de l'annulation du ticket";
           set({
             isLoading: false,
             error: errorMessage,
@@ -317,18 +354,23 @@ export const useTicketStore = create<TicketState>()(
         try {
           const updatedTicket = await ticketsApi.getTicket(activeTicket.id);
 
+          const { activeTickets } = get();
+          const updatedTickets = sortActiveTickets(
+            activeTickets.map((ticket) =>
+              ticket.id === updatedTicket.id ? updatedTicket : ticket,
+            ),
+          );
+
           set({
-            activeTicket: updatedTicket,
-            position: updatedTicket.position,
-            etaMinutes: updatedTicket.eta_minutes,
-            isAlmostThere: updatedTicket.position <= 2,
-            isCalled: isTicketCalled(updatedTicket),
+            ...buildPrimaryTicketState(updatedTickets),
             isLoading: false,
             error: null,
             lastUpdate: new Date(),
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Erreur lors du rafraîchissement du ticket';
+          const errorMessage =
+            error.response?.data?.message ||
+            "Erreur lors du rafraîchissement du ticket";
           set({
             isLoading: false,
             error: errorMessage,
@@ -343,42 +385,42 @@ export const useTicketStore = create<TicketState>()(
 
         try {
           const tickets = await ticketsApi.getMyActiveTickets();
-          console.log('[ticketStore] fetchActiveTicket got tickets:', tickets.length);
+          console.log(
+            "[ticketStore] fetchActiveTicket got tickets:",
+            tickets.length,
+          );
 
           if (tickets.length > 0) {
-            const firstTicket = tickets[0];
-            console.log('[ticketStore] firstTicket:', JSON.stringify(firstTicket).substring(0, 300));
-
-            // Préserver en_route_at local si le backend ne l'a pas encore persisté.
-            // Évite la réouverture de l'overlay après un resync quand l'utilisateur
-            // a déjà cliqué "Je suis en route" (latence de persistance backend).
             const currentState = get();
-            const localEnRouteAt =
-              currentState.activeTicket?.id === firstTicket.id
-                ? currentState.activeTicket?.en_route_at ?? null
-                : null;
+            const localTicketsById = new Map(
+              currentState.activeTickets.map((ticket) => [ticket.id, ticket]),
+            );
 
-            const mergedTicket: Ticket = {
-              ...firstTicket,
-              en_route_at: firstTicket.en_route_at ?? localEnRouteAt,
-            };
+            const mergedTickets = tickets.map((ticket) => {
+              const localTicket = localTicketsById.get(ticket.id);
+              return {
+                ...ticket,
+                en_route_at:
+                  ticket.en_route_at ?? localTicket?.en_route_at ?? null,
+              };
+            });
+
+            const primaryTicket =
+              buildPrimaryTicketState(mergedTickets).activeTicket;
+            console.log(
+              "[ticketStore] firstTicket:",
+              JSON.stringify(primaryTicket).substring(0, 300),
+            );
 
             set({
-              activeTickets: tickets.map((t) =>
-                t.id === mergedTicket.id ? mergedTicket : t,
-              ),
-              activeTicket: mergedTicket,
-              position: mergedTicket.position || 0,
-              etaMinutes: mergedTicket.eta_minutes || 0,
-              isAlmostThere: mergedTicket.position ? mergedTicket.position <= 2 : false,
-              isCalled: isTicketCalled(mergedTicket),
+              ...buildPrimaryTicketState(mergedTickets),
               isLoading: false,
               isInitialized: true,
               error: null,
               lastUpdate: new Date(),
             });
           } else {
-            console.log('[ticketStore] No active tickets');
+            console.log("[ticketStore] No active tickets");
             set({
               activeTickets: [],
               activeTicket: null,
@@ -393,7 +435,7 @@ export const useTicketStore = create<TicketState>()(
             });
           }
         } catch (error: any) {
-          console.log('[ticketStore] fetchActiveTicket error:', error);
+          console.log("[ticketStore] fetchActiveTicket error:", error);
           // 404 = pas de ticket actif, ce n'est pas une erreur
           if (error.response?.status === 404) {
             set({
@@ -410,7 +452,9 @@ export const useTicketStore = create<TicketState>()(
             });
             return;
           }
-          const errorMessage = error.response?.data?.message || 'Erreur lors de la récupération du ticket';
+          const errorMessage =
+            error.response?.data?.message ||
+            "Erreur lors de la récupération du ticket";
           set({
             isLoading: false,
             isInitialized: true,
@@ -422,7 +466,7 @@ export const useTicketStore = create<TicketState>()(
 
       // Mettre à jour le statut du ticket (feedback instantané ; une
       // re-synchronisation complète via fetchActiveTicket suit côté socket).
-      updateTicketStatus: (status: Ticket['status']) => {
+      updateTicketStatus: (status: Ticket["status"]) => {
         const { activeTicket, activeTickets } = get();
 
         if (activeTicket) {
@@ -431,16 +475,23 @@ export const useTicketStore = create<TicketState>()(
           const updatedTicket: Ticket = {
             ...activeTicket,
             status,
-            en_route_at: status === 'called' ? null : activeTicket.en_route_at,
+            en_route_at: status === "called" ? null : activeTicket.en_route_at,
           };
 
-          set({
-            activeTicket: updatedTicket,
-            // Garder le tableau cohérent pour les écrans qui le consomment.
-            activeTickets: activeTickets.map((t) =>
-              t.id === activeTicket.id ? { ...t, status: updatedTicket.status, en_route_at: updatedTicket.en_route_at } : t
+          const updatedTickets = sortActiveTickets(
+            activeTickets.map((t) =>
+              t.id === activeTicket.id
+                ? {
+                    ...t,
+                    status: updatedTicket.status,
+                    en_route_at: updatedTicket.en_route_at,
+                  }
+                : t,
             ),
-            isCalled: isTicketCalled(updatedTicket),
+          );
+
+          set({
+            ...buildPrimaryTicketState(updatedTickets),
             lastUpdate: new Date(),
           });
         }
@@ -485,7 +536,7 @@ export const useTicketStore = create<TicketState>()(
       },
     }),
     {
-      name: 'ticket-storage',
+      name: "ticket-storage",
       storage: createJSONStorage(() => AsyncStorage),
       // Don't persist ticket data - always fetch fresh from backend
       // This prevents showing stale data from previous user sessions
@@ -493,8 +544,8 @@ export const useTicketStore = create<TicketState>()(
         // Only persist non-user-specific data if needed
         // activeTicket, position, etc. are NOT persisted
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Hooks personnalisés pour le store de tickets
@@ -563,12 +614,13 @@ export const useTicket = () => {
 
     // Computed properties (reactive because they depend on reactive state)
     hasActiveTicket: activeTicket !== null,
-    ticketNumber: activeTicket?.number || '',
-    serviceName: activeTicket?.service?.name || '',
-    establishmentName: activeTicket?.establishment?.name || '',
-    ticketStatus: activeTicket?.status || 'created',
+    ticketNumber: activeTicket?.number || "",
+    serviceName: activeTicket?.service?.name || "",
+    establishmentName: activeTicket?.establishment?.name || "",
+    ticketStatus: activeTicket?.status || "created",
     peopleAhead: Math.max(0, position - 1),
-    progressPercentage: position > 0 ? Math.max(0, (1 - position / 10) * 100) : 100,
+    progressPercentage:
+      position > 0 ? Math.max(0, (1 - position / 10) * 100) : 100,
     timeAgo: lastUpdate
       ? Math.floor((Date.now() - lastUpdate.getTime()) / 1000 / 60)
       : 0,

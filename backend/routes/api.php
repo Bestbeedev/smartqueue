@@ -54,6 +54,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
     // Enregistrement / mise à jour du device FCM pour notifications push
     Route::middleware('auth:sanctum')->post('devices/register', [DeviceController::class, 'register']);
+    Route::middleware('auth:sanctum')->delete('devices/current', [DeviceController::class, 'unregister']);
     // Google OAuth
     Route::post('google', [AuthController::class, 'googleLogin']);
     Route::post('google/register', [AuthController::class, 'googleRegister']);
@@ -205,105 +206,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Authentification pour canaux de broadcast via Sanctum (Echo auth)
 Route::post('broadcasting/auth', function (Request $request) {
-    $channelName = $request->input('channel_name');
-    $socketId = $request->input('socket_id');
-
-    // Log for debugging
     \Log::info('Broadcasting auth request', [
-        'channel_name' => $channelName,
-        'socket_id' => $socketId,
+        'channel_name' => $request->input('channel_name'),
+        'socket_id' => $request->input('socket_id'),
         'user_id' => $request->user()?->id,
     ]);
 
-    // Remove 'private-' or 'presence-' prefix if present
-    $normalizedChannel = $channelName;
-    if (str_starts_with($channelName, 'private-')) {
-        $normalizedChannel = substr($channelName, 8);
-    } elseif (str_starts_with($channelName, 'presence-')) {
-        $normalizedChannel = substr($channelName, 9);
-    }
-
-    // Validate the channel and return auth signature
-    if (str_starts_with($normalizedChannel, 'ticket.')) {
-        // Private ticket channel - user must own the ticket
-        $ticketId = (int) str_replace('ticket.', '', $normalizedChannel);
-        $ticket = \App\Models\Ticket::find($ticketId);
-
-        \Log::info('Ticket channel auth', ['ticket_id' => $ticketId, 'ticket_found' => !!$ticket, 'user_id' => $request->user()->id]);
-
-        if (!$ticket || $ticket->user_id !== $request->user()->id) {
-            abort(403, 'Unauthorized for ticket channel');
-        }
-
-        // Generate auth signature for Reverb
-        $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
-        $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
-        // Sign with the ORIGINAL channel name (with private- prefix if present)
-        $stringToSign = $socketId . ':' . $channelName;
-        $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-
-        \Log::info('Generated auth signature', ['auth' => $pusherKey . ':' . $signature]);
-
-        return response()->json([
-            'auth' => $pusherKey . ':' . $signature,
-        ]);
-    }
-
-    // Presence channel for service (agents/admins)
-    if (str_starts_with($normalizedChannel, 'service.') || str_starts_with($normalizedChannel, 'presence-service.')) {
-        // Handle both service.{id} and presence-service.{id}
-        if (str_starts_with($normalizedChannel, 'presence-service.')) {
-            $serviceId = (int) str_replace('presence-service.', '', $normalizedChannel);
-        } else {
-            $serviceId = (int) str_replace('service.', '', $normalizedChannel);
-        }
-        $user = $request->user();
-
-        // For presence channels, agents/admins can join
-        if ($user && in_array($user->role, ['agent', 'admin'])) {
-            $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
-            $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
-
-            // Presence channel auth includes user data
-            $userData = json_encode([
-                'id' => $user->id,
-                'name' => $user->name,
-                'role' => $user->role,
-            ]);
-
-            $stringToSign = $socketId . ':' . $channelName . ':' . $userData;
-            $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-
-            \Log::info('Presence channel auth for agent', ['service_id' => $serviceId, 'user_id' => $user->id]);
-
-            return response()->json([
-                'auth' => $pusherKey . ':' . $signature,
-                'channel_data' => $userData,
-            ]);
-        }
-
-        // For regular users, check if they have active ticket
-        $hasActiveTicket = \App\Models\Ticket::where('user_id', $user->id)
-            ->where('service_id', $serviceId)
-            ->whereIn('status', ['waiting', 'called', 'absent'])
-            ->exists();
-
-        if (!$hasActiveTicket) {
-            abort(403, 'Unauthorized for service channel');
-        }
-
-        // Generate auth signature for Reverb
-        $pusherKey = env('REVERB_APP_KEY', 'smartqueue_key');
-        $pusherSecret = env('REVERB_APP_SECRET', 'smartqueue_secret');
-        $stringToSign = $socketId . ':' . $channelName;
-        $signature = hash_hmac('sha256', $stringToSign, $pusherSecret);
-
-        return response()->json([
-            'auth' => $pusherKey . ':' . $signature,
-        ]);
-    }
-
-    // Default: use Laravel's built-in auth for other channels
-    //vd
     return Broadcast::auth($request);
 })->middleware('auth:sanctum');
