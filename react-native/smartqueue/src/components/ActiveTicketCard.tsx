@@ -511,7 +511,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               <View
                 style={[
                   styles.enRouteTimerBadge,
-                  { backgroundColor: colors.warning + "20" },
+                  { backgroundColor: colors.warning + "20", },
                 ]}
               >
                 <Ionicons name="time" size={14} color={colors.warning} />
@@ -525,7 +525,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <TouchableOpacity
               style={[
                 styles.presentButton,
-                { backgroundColor: colors.primary + "18" },
+                { backgroundColor: colors.primary + "18",paddingTop:20, },
               ]}
               onPress={handleMarkPresent}
               activeOpacity={0.8}

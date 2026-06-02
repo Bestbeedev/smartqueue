@@ -47,6 +47,7 @@ export const GlobalCalledTicketOverlay: React.FC<
     resetDeferred,
     fetchActiveTicket,
     markEnRoute,
+    markPresent,
   } = useTicket();
 
   const router = useRouter();
@@ -130,6 +131,70 @@ export const GlobalCalledTicketOverlay: React.FC<
     }
   }, [effectiveTicketId, distanceInfo, markEnRoute, showSuccess, showError]);
 
+  // Handle "Je suis déjà là" - present
+  const handlePresent = useCallback(async () => {
+    if (!effectiveTicketId) return;
+
+    try {
+      const response = await axiosClient.post(
+        `/tickets/${effectiveTicketId}/present`,
+      );
+
+      const updatedTicket = response.data?.data || response.data;
+      if (updatedTicket?.present_at) {
+        const s = useTicketStore.getState();
+        if (s.activeTicket?.id === effectiveTicketId) {
+          useTicketStore.setState({
+            activeTicket: {
+              ...s.activeTicket,
+              status: "present",
+              present_at: updatedTicket.present_at,
+              response_received_at: updatedTicket.response_received_at,
+            },
+            activeTickets: s.activeTickets.map((t: any) =>
+              t.id === effectiveTicketId
+                ? {
+                    ...t,
+                    status: "present",
+                    present_at: updatedTicket.present_at,
+                    response_received_at: updatedTicket.response_received_at,
+                  }
+                : t,
+            ),
+          });
+        }
+      }
+
+      // Mark local state so overlay closes and UI reflects 'present'
+      markPresent();
+      // Refresh server state to ensure full sync
+      try {
+        await fetchActiveTicket();
+      } catch (err) {
+        console.warn(
+          "[GlobalCalledTicketOverlay] fetchActiveTicket after present failed",
+          err,
+        );
+      }
+
+      showSuccess(
+        "Présence confirmée",
+        "L'agent a été notifié que vous êtes présent au guichet",
+      );
+    } catch (error: any) {
+      showError(
+        "Erreur",
+        getApiErrorMessage(error, "Impossible de confirmer la présence"),
+      );
+    }
+  }, [
+    effectiveTicketId,
+    markPresent,
+    showSuccess,
+    showError,
+    fetchActiveTicket,
+  ]);
+
   // Handle "Me rappeler"
   const handleRecall = useCallback(async () => {
     if (!effectiveTicketId || hasRecalled) return;
@@ -199,12 +264,61 @@ export const GlobalCalledTicketOverlay: React.FC<
   ]);
 
   // Handle dismiss (expired / take new ticket)
-  const handleDismiss = useCallback(() => {
+  const handleDismiss = useCallback(async () => {
     clearCalled();
     resetRecall();
     resetDeferred();
+    try {
+      await fetchActiveTicket();
+    } catch (err) {
+      console.warn(
+        "[GlobalCalledTicketOverlay] fetchActiveTicket on dismiss failed",
+        err,
+      );
+    }
     router.replace("/(tabs)");
-  }, [clearCalled, resetRecall, resetDeferred, router]);
+  }, [clearCalled, resetRecall, resetDeferred, router, fetchActiveTicket]);
+
+  // Poll countdown endpoint while overlay is visible to keep timer aligned
+  React.useEffect(() => {
+    let interval: any = null;
+
+    const fetchCountdown = async () => {
+      if (!effectiveTicketId) return;
+      try {
+        const response = await axiosClient.get(
+          `/tickets/${effectiveTicketId}/countdown`,
+        );
+        const data = response.data;
+        if (data?.countdown_seconds != null) {
+          setCountdownSeconds(data.countdown_seconds);
+        }
+        // If backend reports ticket is no longer in called state, refresh and close overlay
+        if (data && !data.is_called) {
+          // Sync full ticket state and close overlay
+          await fetchActiveTicket();
+          clearCalled();
+          return;
+        }
+      } catch (error: any) {
+        console.warn(
+          "[GlobalCalledTicketOverlay] countdown fetch error",
+          error?.message,
+        );
+      }
+    };
+
+    if (isCalled && effectiveTicketId) {
+      // Immediate fetch
+      fetchCountdown();
+      // Poll every 5 seconds
+      interval = setInterval(fetchCountdown, 5000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isCalled, effectiveTicketId, fetchActiveTicket, clearCalled]);
 
   return (
     <CalledTicketOverlay
@@ -215,6 +329,7 @@ export const GlobalCalledTicketOverlay: React.FC<
       hasRecalled={hasRecalled}
       isSwapped={hasDeferred}
       onEnRoute={handleEnRoute}
+      onPresent={handlePresent}
       onRecall={handleRecall}
       onDefer={handleDefer}
       onDismiss={handleDismiss}
