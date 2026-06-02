@@ -42,6 +42,8 @@ class AgentQueueController extends Controller
                     'created_at' => $t->created_at->toDateTimeString(),
                     'called_at' => optional($t->called_at)->toDateTimeString(),
                     'absent_at' => optional($t->absent_at)->toDateTimeString(),
+                    'en_route_at' => optional($t->en_route_at)->toDateTimeString(),
+                    'estimated_travel_minutes' => $t->estimated_travel_minutes,
                     'user' => $t->user ? [
                         'id' => $t->user->id,
                         'name' => $t->user->name,

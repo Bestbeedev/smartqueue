@@ -90,9 +90,25 @@ class TicketsNotifyApproaching extends Command
             }
 
             $title = 'Bientôt votre tour';
-            $body = $shouldByPosition
-                ? ('Vous êtes bientôt appelé (position '.$ticket->position.').')
-                : ('Votre tour approche (≈ '.$etaMinutes.' min).');
+            $peopleBefore = max(0, ((int) $ticket->position) - 1);
+
+            if ($shouldByPosition) {
+                if ($peopleBefore === 0) {
+                    $body = 'Vous êtes le prochain à être appelé. Préparez-vous.';
+                } elseif ($peopleBefore === 1) {
+                    $body = 'Il reste 1 personne avant vous. Préparez-vous.';
+                } else {
+                    $body = 'Il reste '.$peopleBefore.' personnes avant vous. Préparez-vous.';
+                }
+
+                if ($etaMinutes !== null) {
+                    $body .= ' Temps estimé: ≈ '.$etaMinutes.' min.';
+                }
+            } else {
+                $body = $etaMinutes !== null
+                    ? ('Votre tour approche (≈ '.$etaMinutes.' min).')
+                    : 'Votre tour approche. Préparez-vous.';
+            }
 
             if ($dryRun) {
                 $this->line('[dry-run] notify user_id='.$ticket->user->id.' ticket_id='.$ticket->id.' service_id='.$ticket->service_id.' pos='.$ticket->position.' eta='.(string) $etaMinutes);

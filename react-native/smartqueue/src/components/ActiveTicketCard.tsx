@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -30,20 +30,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   onConfirmPresence,
 }) => {
   const colors = useThemeColors();
-  const isDark = !!colors.dark?.background;
-  const {
-    activeTicket,
-    position,
-    etaMinutes,
-    isCalled,
-    counterNumber,
-    hasRecalled,
-    setRecalled,
-    cancelTicket,
-  } = useTicket();
+
+  const { activeTicket, position, etaMinutes, isCalled, cancelTicket } =
+    useTicket();
 
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
-  const { AlertComponent, showWarning, showError, showInfo, showSuccess } =
+  const { AlertComponent, showWarning, showError, showSuccess } =
     useCustomAlert();
 
   // Debug: log establishment coordinates
@@ -78,13 +70,16 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   // Animation refs
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   // Queue length (from ticket data from backend)
   const queueLength = (activeTicket as any)?.queue_length || position || 1;
   const processedCount = Math.max(0, queueLength - (position || 0));
 
   const isTicketCalledState = activeTicket?.status === "called";
+  const canCancelTicket =
+    activeTicket?.status === "waiting" || activeTicket?.status === "called";
+  const canConfirmPresence =
+    activeTicket?.status === "called" && !activeTicket?.en_route_at;
 
   const queueState = isTicketCalledState
     ? {
@@ -196,8 +191,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showSuccess(
-        "Présence confirmée",
-        "L'agent a été notifié de votre arrivée",
+        "En route confirmé",
+        "L'agent a été notifié que vous êtes en route",
       );
       onConfirmPresence?.();
     } catch (error: any) {
@@ -211,25 +206,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     showSuccess,
     showError,
   ]);
-
-  // Handle recall
-  const handleRecall = useCallback(async () => {
-    if (hasRecalled) {
-      showInfo("Info", "Le rappel a déjà été utilisé");
-      return;
-    }
-
-    try {
-      await axiosClient.post(`/tickets/${activeTicket?.id}/request-recall`);
-      setRecalled();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } catch (error: any) {
-      showError(
-        "Erreur",
-        getApiErrorMessage(error, "Impossible d'envoyer le rappel"),
-      );
-    }
-  }, [activeTicket, hasRecalled, setRecalled, showInfo, showError]);
 
   if (!activeTicket) return null;
 
@@ -489,41 +465,52 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         )}
 
         {/* Actions */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[
-              styles.confirmPresenceButton,
-              { backgroundColor: colors.success + "20" },
-            ]}
-            onPress={handleConfirmPresence}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={18}
-              color={colors.success}
-            />
-            <Text
-              style={[styles.confirmPresenceText, { color: colors.success }]}
-            >
-              Je suis présent
-            </Text>
-          </TouchableOpacity>
+        {(canConfirmPresence || canCancelTicket) && (
+          <View style={styles.actionsRow}>
+            {canConfirmPresence && (
+              <TouchableOpacity
+                style={[
+                  styles.confirmPresenceButton,
+                  { backgroundColor: colors.success + "20" },
+                ]}
+                onPress={handleConfirmPresence}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={18}
+                  color={colors.success}
+                />
+                <Text
+                  style={[
+                    styles.confirmPresenceText,
+                    { color: colors.success },
+                  ]}
+                >
+                  Je suis en route
+                </Text>
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={[
-              styles.cancelTicketButton,
-              { backgroundColor: colors.danger + "20" },
-            ]}
-            onPress={handleCancel}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close-circle" size={18} color={colors.danger} />
-            <Text style={[styles.cancelTicketText, { color: colors.danger }]}>
-              Annuler
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {canCancelTicket && (
+              <TouchableOpacity
+                style={[
+                  styles.cancelTicketButton,
+                  { backgroundColor: colors.danger + "20" },
+                ]}
+                onPress={handleCancel}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.danger} />
+                <Text
+                  style={[styles.cancelTicketText, { color: colors.danger }]}
+                >
+                  Annuler
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </TouchableOpacity>
       {AlertComponent}
     </>

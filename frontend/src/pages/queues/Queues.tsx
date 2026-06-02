@@ -4,25 +4,25 @@
  * - Actions: appeler suivant, marquer absent, rappeler
  * - Écoute temps réel des évènements via Laravel Echo
  */
-import React, { useEffect, useState } from 'react';
-import { 
-  Ticket, 
-  User, 
-  Users, 
-  TrendingUp, 
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Ticket,
+  User,
+  Users,
+  TrendingUp,
   RefreshCw,
   Phone,
   PhoneOff,
   UserX,
   CheckCircle,
   Volume2,
-  X
-} from 'lucide-react';
-import { getEcho } from '@/api/echo';
-import { cn } from '@/lib/utils';
-import { api } from '@/api/axios';
-import { useAppSelector } from '@/store';
-import { toast } from 'sonner';
+  X,
+} from "lucide-react";
+import { getEcho } from "@/api/echo";
+import { cn } from "@/lib/utils";
+import { api } from "@/api/axios";
+import { useAppSelector } from "@/store";
+import { toast } from "sonner";
 
 type Ticket = {
   id: number;
@@ -33,6 +33,16 @@ type Ticket = {
   service_name: string;
   priority: string;
   client_name?: string;
+};
+
+type QueueTicket = {
+  id: number;
+  number: string;
+  status: string;
+  priority: string;
+  en_route_at?: string | null;
+  estimated_travel_minutes?: number | null;
+  position?: number | null;
 };
 
 type ServiceStats = {
@@ -61,19 +71,21 @@ type Counter = {
 
 const Queues: React.FC = () => {
   const { user } = useAppSelector((s) => s.auth);
-  const assignedServices = (user as any)?.services as AssignedService[] | undefined;
+  const assignedServices = (user as any)?.services as
+    | AssignedService[]
+    | undefined;
   const counters = (user as any)?.counters as Counter[] | undefined;
 
-  const [serviceId, setServiceId] = useState<string>('');
-  const [counterId, setCounterId] = useState<string>('');
+  const [serviceId, setServiceId] = useState<string>("");
+  const [counterId, setCounterId] = useState<string>("");
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [queue, setQueue] = useState<any[]>([]);
+  const [queue, setQueue] = useState<QueueTicket[]>([]);
   const [stats, setStats] = useState<ServiceStats | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isActing, setIsActing] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [error, setError] = useState<string>("");
+  const [lastUpdated, setLastUpdated] = useState<string>("");
   const echo = getEcho();
 
   // Default service selection from assigned services
@@ -95,7 +107,7 @@ const Queues: React.FC = () => {
   const fetchQueue = async (id: string) => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId) || numericId <= 0) {
-      throw new Error('Identifiant de service invalide');
+      throw new Error("Identifiant de service invalide");
     }
     const { data } = await api.get(`/api/services/${numericId}/queue`);
     return data;
@@ -104,32 +116,39 @@ const Queues: React.FC = () => {
   const refreshQueueAndStats = async () => {
     if (!serviceId) return;
     try {
-      const [q, s] = await Promise.all([fetchQueue(serviceId), fetchStats(serviceId)]);
+      const [q, s] = await Promise.all([
+        fetchQueue(serviceId),
+        fetchStats(serviceId),
+      ]);
       setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
       const mapped: ServiceStats = {
         service_id: Number(serviceId),
-        service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+        service_name: String(
+          s?.service?.name || s?.service_name || `Service ${serviceId}`,
+        ),
         waiting: Number(s?.people ?? s?.waiting ?? 0),
         processed: Number(s?.processed ?? 0),
-        average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+        average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? "—"),
       };
       setStats(mapped);
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (e: any) {
-      setError(e?.message || 'Erreur');
+      setError(e?.message || "Erreur");
     }
   };
 
   const callNext = async () => {
     if (!serviceId) return;
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       const numericCounterId = counterId ? Number(counterId) : null;
-      await api.post(`/api/services/${Number(serviceId)}/call-next`, { counter_id: numericCounterId });
+      await api.post(`/api/services/${Number(serviceId)}/call-next`, {
+        counter_id: numericCounterId,
+      });
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      setError(e?.response?.data?.message || e?.message || "Erreur");
     } finally {
       setIsActing(false);
     }
@@ -138,12 +157,12 @@ const Queues: React.FC = () => {
   const openService = async () => {
     if (!serviceId) return;
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/services/${Number(serviceId)}/open`);
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      setError(e?.response?.data?.message || e?.message || "Erreur");
     } finally {
       setIsActing(false);
     }
@@ -152,12 +171,12 @@ const Queues: React.FC = () => {
   const closeService = async () => {
     if (!serviceId) return;
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/services/${Number(serviceId)}/close`);
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      setError(e?.response?.data?.message || e?.message || "Erreur");
     } finally {
       setIsActing(false);
     }
@@ -166,11 +185,11 @@ const Queues: React.FC = () => {
   const openCounter = async () => {
     if (!counterId) return;
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/counters/${Number(counterId)}/open`);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      setError(e?.response?.data?.message || e?.message || "Erreur");
     } finally {
       setIsActing(false);
     }
@@ -179,11 +198,11 @@ const Queues: React.FC = () => {
   const closeCounter = async () => {
     if (!counterId) return;
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/counters/${Number(counterId)}/close`);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
+      setError(e?.response?.data?.message || e?.message || "Erreur");
     } finally {
       setIsActing(false);
     }
@@ -191,14 +210,18 @@ const Queues: React.FC = () => {
 
   const markAbsent = async (ticketId: number) => {
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/tickets/${ticketId}/mark-absent`);
-      toast.success('Ticket marqué absent', { description: 'L\'usager a été notifié' });
+      toast.success("Ticket marqué absent", {
+        description: "L'usager a été notifié",
+      });
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
-      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
+      setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", {
+        description: e?.response?.data?.message || e?.message,
+      });
     } finally {
       setIsActing(false);
     }
@@ -206,14 +229,16 @@ const Queues: React.FC = () => {
 
   const recall = async (ticketId: number) => {
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/tickets/${ticketId}/recall`);
-      toast.success('Rappel envoyé', { description: 'L\'usager a été notifié' });
+      toast.success("Rappel envoyé", { description: "L'usager a été notifié" });
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
-      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
+      setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", {
+        description: e?.response?.data?.message || e?.message,
+      });
     } finally {
       setIsActing(false);
     }
@@ -221,14 +246,16 @@ const Queues: React.FC = () => {
 
   const closeTicket = async (ticketId: number) => {
     setIsActing(true);
-    setError('');
+    setError("");
     try {
       await api.post(`/api/tickets/${ticketId}/close`);
-      toast.success('Ticket clôturé', { description: 'Le ticket a été fermé' });
+      toast.success("Ticket clôturé", { description: "Le ticket a été fermé" });
       await refreshQueueAndStats();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erreur');
-      toast.error('Erreur', { description: e?.response?.data?.message || e?.message });
+      setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", {
+        description: e?.response?.data?.message || e?.message,
+      });
     } finally {
       setIsActing(false);
     }
@@ -268,7 +295,7 @@ const Queues: React.FC = () => {
             setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
           }
         } catch (e: any) {
-          if (!cancelled) setError(e?.message || 'Erreur');
+          if (!cancelled) setError(e?.message || "Erreur");
         }
 
         // Charger les stats initiales
@@ -277,10 +304,14 @@ const Queues: React.FC = () => {
           if (!cancelled) {
             const mapped: ServiceStats = {
               service_id: Number(serviceId),
-              service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
+              service_name: String(
+                s?.service?.name || s?.service_name || `Service ${serviceId}`,
+              ),
               waiting: Number(s?.people ?? s?.waiting ?? 0),
               processed: Number(s?.processed ?? 0),
-              average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? '—'),
+              average_wait_time: String(
+                s?.eta_avg ?? s?.average_wait_time ?? "—",
+              ),
             };
             setStats(mapped);
           }
@@ -295,18 +326,25 @@ const Queues: React.FC = () => {
 
         // S'abonner au canal de présence pour le service (optionnel)
         try {
-          console.log(`[Queues] Tentative de connexion au canal service.${serviceId}`);
+          console.log(
+            `[Queues] Tentative de connexion au canal service.${serviceId}`,
+          );
           channel = echo.join(`service.${serviceId}`);
 
           channel
             .subscribed(() => {
-              console.log(`[Queues] ✓ Abonné au canal presence-service.${serviceId}`);
+              console.log(
+                `[Queues] ✓ Abonné au canal presence-service.${serviceId}`,
+              );
               setIsConnected(true);
               setLastUpdated(new Date().toLocaleTimeString());
               toast.success(`Connecté au service ${serviceId}`);
             })
             .here((users: any[]) => {
-              console.log(`[Queues] Utilisateurs présents sur le canal:`, users);
+              console.log(
+                `[Queues] Utilisateurs présents sur le canal:`,
+                users,
+              );
             })
             .joining((user: any) => {
               console.log(`[Queues] Utilisateur rejoint:`, user);
@@ -314,7 +352,7 @@ const Queues: React.FC = () => {
             .leaving((user: any) => {
               console.log(`[Queues] Utilisateur part:`, user);
             })
-            .listen('.service.ticket.called', (e: any) => {
+            .listen(".service.ticket.called", (e: any) => {
               console.log("[Queues] Ticket appelé reçu:", e);
               setTickets((prevTickets) =>
                 [
@@ -334,11 +372,11 @@ const Queues: React.FC = () => {
               setLastUpdated(new Date().toLocaleTimeString());
               refreshQueueAndStats();
             })
-            .listen('.service.ticket.enqueued', () => {
+            .listen(".service.ticket.enqueued", () => {
               if (cancelled) return;
               refreshQueueAndStats();
             })
-            .listen('.service.ticket.absent', () => {
+            .listen(".service.ticket.absent", () => {
               if (cancelled) return;
               refreshQueueAndStats();
             })
@@ -347,13 +385,23 @@ const Queues: React.FC = () => {
               setStats(e.stats);
               setLastUpdated(new Date().toLocaleTimeString());
             })
-            .listen('.user.en_route', (e: any) => {
+            .listen(".user.en_route", (e: any) => {
               console.log("[Queues] ✓✓✓ UserEnRoute reçu:", e);
-              console.log("[Queues] ticket_id:", e.ticket_id, "ticket_number:", e.ticket_number);
-              console.log("[Queues] Appel toast.success avec message:", e.message);
+              console.log(
+                "[Queues] ticket_id:",
+                e.ticket_id,
+                "ticket_number:",
+                e.ticket_number,
+              );
+              console.log(
+                "[Queues] Appel toast.success avec message:",
+                e.message,
+              );
               try {
-                toast.success('Usager en route', {
-                  description: e.message || `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
+                toast.success("Usager en route", {
+                  description:
+                    e.message ||
+                    `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
                   duration: 5000,
                 });
                 console.log("[Queues] Toast appelé avec succès");
@@ -361,12 +409,16 @@ const Queues: React.FC = () => {
                 console.error("[Queues] Erreur toast:", err);
               }
               // Update the queue to show en_route status
-              setQueue((prevQueue: any[]) => 
-                prevQueue.map((t: any) => 
-                  t.id === e.ticket_id 
-                    ? { ...t, en_route_at: new Date().toISOString(), estimated_travel_minutes: e.estimated_minutes }
-                    : t
-                )
+              setQueue((prevQueue) =>
+                prevQueue.map((t) =>
+                  t.id === e.ticket_id
+                    ? {
+                        ...t,
+                        en_route_at: new Date().toISOString(),
+                        estimated_travel_minutes: e.estimated_minutes ?? null,
+                      }
+                    : t,
+                ),
               );
               setLastUpdated(new Date().toLocaleTimeString());
             })
@@ -375,7 +427,10 @@ const Queues: React.FC = () => {
               setIsConnected(false);
             });
         } catch (wsError) {
-          console.warn("WebSocket non disponible, fonctionnement en mode polling:", wsError);
+          console.warn(
+            "WebSocket non disponible, fonctionnement en mode polling:",
+            wsError,
+          );
           setIsConnected(false);
         }
       } catch (error) {
@@ -393,11 +448,11 @@ const Queues: React.FC = () => {
       cancelled = true;
       try {
         if (channel) {
-          channel.stopListening('.service.ticket.called');
-          channel.stopListening('.service.ticket.enqueued');
-          channel.stopListening('.service.ticket.absent');
-          channel.stopListening('.service.stats.updated');
-          channel.stopListening('.user.en_route');
+          channel.stopListening(".service.ticket.called");
+          channel.stopListening(".service.ticket.enqueued");
+          channel.stopListening(".service.ticket.absent");
+          channel.stopListening(".service.stats.updated");
+          channel.stopListening(".user.en_route");
         }
       } catch (error) {
         console.error("Erreur lors du nettoyage du canal:", error);
@@ -474,6 +529,14 @@ const Queues: React.FC = () => {
     );
   }
 
+  const enRouteCount = useMemo(
+    () =>
+      queue.filter(
+        (ticket) => ticket.status === "called" && !!ticket.en_route_at,
+      ).length,
+    [queue],
+  );
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
@@ -525,7 +588,10 @@ const Queues: React.FC = () => {
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="serviceId"
+                    className="block text-sm font-medium text-foreground mb-1"
+                  >
                     Service
                   </label>
                   <div className="relative rounded-md shadow-sm">
@@ -684,71 +750,94 @@ const Queues: React.FC = () => {
           {/* Derniers tickets appelés */}
           <div className="p-6">
             {serviceId && (
-              <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={callNext}
-                    disabled={!isConnected || isActing}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!isConnected || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-                    )}
-                  >
-                    Appeler suivant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openService}
-                    disabled={!serviceId || isActing}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!serviceId || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-card text-foreground border-border hover:bg-muted'
-                    )}
-                  >
-                    Ouvrir service
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeService}
-                    disabled={!serviceId || isActing}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!serviceId || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-card text-foreground border-border hover:bg-muted'
-                    )}
-                  >
-                    Fermer service
-                  </button>
-                  <button
-                    type="button"
-                    onClick={refreshQueueAndStats}
-                    disabled={!serviceId || isActing}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!serviceId || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-card text-foreground border-border hover:bg-muted'
-                    )}
-                  >
-                    Rafraîchir la file
-                  </button>
+              <>
+                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                        Confirmation de présence usager
+                      </h3>
+                      <p className="text-sm text-emerald-700/90 dark:text-emerald-200/80">
+                        Les tickets appelés qui ont répondu affichent désormais
+                        un indicateur visible dans la file.
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                      <CheckCircle className="h-4 w-4" />
+                      {enRouteCount} usager{enRouteCount > 1 ? "s" : ""} en
+                      route
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {isActing ? 'Action en cours…' : ''}
+                <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={callNext}
+                      disabled={!isConnected || isActing}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                        !isConnected || isActing
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-primary text-primary-foreground border-primary hover:bg-primary/90",
+                      )}
+                    >
+                      Appeler suivant
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openService}
+                      disabled={!serviceId || isActing}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                        !serviceId || isActing
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-card text-foreground border-border hover:bg-muted",
+                      )}
+                    >
+                      Ouvrir service
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeService}
+                      disabled={!serviceId || isActing}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                        !serviceId || isActing
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-card text-foreground border-border hover:bg-muted",
+                      )}
+                    >
+                      Fermer service
+                    </button>
+                    <button
+                      type="button"
+                      onClick={refreshQueueAndStats}
+                      disabled={!serviceId || isActing}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                        !serviceId || isActing
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-card text-foreground border-border hover:bg-muted",
+                      )}
+                    >
+                      Rafraîchir la file
+                    </button>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {isActing ? "Action en cours…" : ""}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {counters && counters.length > 0 && (
               <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center">
                 <div className="w-full md:w-96">
-                  <label htmlFor="counterId" className="block text-sm font-medium text-foreground mb-1">
+                  <label
+                    htmlFor="counterId"
+                    className="block text-sm font-medium text-foreground mb-1"
+                  >
                     Guichet
                   </label>
                   <select
@@ -771,10 +860,10 @@ const Queues: React.FC = () => {
                     onClick={openCounter}
                     disabled={!counterId || isActing}
                     className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!counterId || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-card text-foreground border-border hover:bg-muted'
+                      "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                      !counterId || isActing
+                        ? "bg-muted text-muted-foreground border-border"
+                        : "bg-card text-foreground border-border hover:bg-muted",
                     )}
                   >
                     Ouvrir guichet
@@ -784,10 +873,10 @@ const Queues: React.FC = () => {
                     onClick={closeCounter}
                     disabled={!counterId || isActing}
                     className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      (!counterId || isActing)
-                        ? 'bg-muted text-muted-foreground border-border'
-                        : 'bg-card text-foreground border-border hover:bg-muted'
+                      "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                      !counterId || isActing
+                        ? "bg-muted text-muted-foreground border-border"
+                        : "bg-card text-foreground border-border hover:bg-muted",
                     )}
                   >
                     Fermer guichet
@@ -798,52 +887,110 @@ const Queues: React.FC = () => {
 
             {serviceId && (
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-foreground mb-3">File actuelle</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-3">
+                  File actuelle
+                </h2>
                 {queue.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">Aucun ticket en waiting/called/absent</div>
+                  <div className="text-sm text-muted-foreground">
+                    Aucun ticket en waiting/called/absent
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Ticket
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Statut
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Priorité
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Présence usager
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Actions
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
-                          {queue.map((t: any) => (
-                            <tr key={t.id} className="hover-card transition-colors">
+                          {queue.map((t) => (
+                            <tr
+                              key={t.id}
+                              className="hover-card transition-colors"
+                            >
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="font-semibold text-foreground">{t.number}</div>
+                                <div className="font-semibold text-foreground">
+                                  {t.number}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={cn(
-                                  'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
-                                  t.status === 'waiting' && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
-                                  t.status === 'called' && 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
-                                  t.status === 'absent' && 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200',
-                                  t.status === 'closed' && 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
-                                )}>
-                                  {t.status === 'waiting' && 'En attente'}
-                                  {t.status === 'called' && 'Appelé'}
-                                  {t.status === 'absent' && 'Absent'}
-                                  {t.status === 'closed' && 'Clôturé'}
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                    t.status === "waiting" &&
+                                      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
+                                    t.status === "called" &&
+                                      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
+                                    t.status === "absent" &&
+                                      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                    t.status === "closed" &&
+                                      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
+                                  )}
+                                >
+                                  {t.status === "waiting" && "En attente"}
+                                  {t.status === "called" && "Appelé"}
+                                  {t.status === "absent" && "Absent"}
+                                  {t.status === "closed" && "Clôturé"}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={cn(
-                                  'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
-                                  t.priority === 'vip' && 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200',
-                                  t.priority === 'high' && 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200',
-                                  t.priority === 'normal' && 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-                                )}>
-                                  {t.priority === 'vip' && '⭐ VIP'}
-                                  {t.priority === 'high' && '🔥 Haute'}
-                                  {t.priority === 'normal' && '📋 Normal'}
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                                    t.priority === "vip" &&
+                                      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
+                                    t.priority === "high" &&
+                                      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                    t.priority === "normal" &&
+                                      "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                                  )}
+                                >
+                                  {t.priority === "vip" && "⭐ VIP"}
+                                  {t.priority === "high" && "🔥 Haute"}
+                                  {t.priority === "normal" && "📋 Normal"}
                                 </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {t.status === "called" && t.en_route_at ? (
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      {t.estimated_travel_minutes != null
+                                        ? `En route · ≈ ${t.estimated_travel_minutes} min`
+                                        : "Présence confirmée"}
+                                    </span>
+                                    <div className="text-xs text-muted-foreground">
+                                      Réponse reçue à{" "}
+                                      {new Date(
+                                        t.en_route_at,
+                                      ).toLocaleTimeString()}
+                                    </div>
+                                  </div>
+                                ) : t.status === "called" ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                    <Phone className="h-3.5 w-3.5" />
+                                    En attente de réponse
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    —
+                                  </span>
+                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex gap-2">
@@ -851,63 +998,71 @@ const Queues: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => callNext()}
-                                    disabled={isActing || t.status !== 'waiting'}
+                                    disabled={
+                                      isActing || t.status !== "waiting"
+                                    }
                                     className={cn(
-                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                                      (isActing || t.status !== 'waiting')
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow'
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                      isActing || t.status !== "waiting"
+                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                        : "bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow",
                                     )}
                                     title="Appeler ce ticket"
                                   >
                                     <Phone className="h-3.5 w-3.5" />
                                     Appeler
                                   </button>
-                                  
+
                                   {/* Recall button - for called/absent tickets */}
                                   <button
                                     type="button"
                                     onClick={() => recall(Number(t.id))}
-                                    disabled={isActing || t.status === 'waiting' || t.status === 'closed'}
+                                    disabled={
+                                      isActing ||
+                                      t.status === "waiting" ||
+                                      t.status === "closed"
+                                    }
                                     className={cn(
-                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                                      (isActing || t.status === 'waiting' || t.status === 'closed')
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                      isActing ||
+                                        t.status === "waiting" ||
+                                        t.status === "closed"
+                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow",
                                     )}
                                     title="Rappeler ce ticket"
                                   >
                                     <Volume2 className="h-3.5 w-3.5" />
                                     Rappel
                                   </button>
-                                  
+
                                   {/* Absent button - for called tickets */}
                                   <button
                                     type="button"
                                     onClick={() => markAbsent(Number(t.id))}
-                                    disabled={isActing || t.status !== 'called'}
+                                    disabled={isActing || t.status !== "called"}
                                     className={cn(
-                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                                      (isActing || t.status !== 'called')
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-orange-600 text-white hover:bg-orange-700 shadow-sm hover:shadow'
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                      isActing || t.status !== "called"
+                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                        : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm hover:shadow",
                                     )}
                                     title="Marquer comme absent"
                                   >
                                     <UserX className="h-3.5 w-3.5" />
                                     Absent
                                   </button>
-                                  
+
                                   {/* Close button - for called tickets */}
                                   <button
                                     type="button"
                                     onClick={() => closeTicket(Number(t.id))}
-                                    disabled={isActing || t.status !== 'called'}
+                                    disabled={isActing || t.status !== "called"}
                                     className={cn(
-                                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                                      (isActing || t.status !== 'called')
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow'
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                      isActing || t.status !== "called"
+                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow",
                                     )}
                                     title="Clôturer le ticket"
                                   >
