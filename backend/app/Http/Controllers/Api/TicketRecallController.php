@@ -217,6 +217,54 @@ class TicketRecallController extends Controller
             'response_received_at' => $ticket->response_received_at ?? now(),
         ]);
 
+        // Broadcast updates to keep mobile and agent UI in sync
+        try {
+            // Private ticket channel update
+            event(new \App\Events\TicketUpdated($ticket->id, [
+                'status' => $ticket->status,
+                'position' => null,
+                'eta_minutes' => null,
+            ]));
+
+            // Private user channel update
+            event(new \App\Events\UserTicketUpdated($ticket->user_id, [
+                'ticket_id' => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'status' => $ticket->status,
+                'position' => null,
+                'eta_minutes' => null,
+            ]));
+
+            // Notify agents via presence channel that the user is present
+            event(new \App\Events\UserEnRoute(
+                $ticket->id,
+                $ticket->service_id,
+                null,
+                $ticket->number,
+                true // confirmedPresence
+            ));
+
+            // Create in-app notifications for agents
+            $service = \App\Models\Service::find($ticket->service_id);
+            if ($service) {
+                $agents = $service->agents()->get();
+                foreach ($agents as $agent) {
+                    $agent->notify(new \App\Notifications\InAppNotification(
+                        'Usager présent',
+                        "L'usager est présent au guichet (Ticket {$ticket->number})",
+                        'user_present',
+                        [
+                            'ticket_id' => $ticket->id,
+                            'ticket_number' => $ticket->number,
+                            'service_id' => $ticket->service_id,
+                        ]
+                    ));
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('[TicketRecallController] present - broadcast/notify failed: '. $e->getMessage());
+        }
+
         return response()->json([
             'data' => $ticket->fresh(),
             'message' => 'Présence confirmée',

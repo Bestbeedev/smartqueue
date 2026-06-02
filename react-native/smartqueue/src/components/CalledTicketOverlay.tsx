@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   Animated,
   Vibration,
   Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { formatDistance, formatTravelTime, DistanceInfo } from '../utils/distance';
-import { useThemeColors } from '../hooks/useThemeColors';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import {
+  formatDistance,
+  formatTravelTime,
+  DistanceInfo,
+} from "../utils/distance";
+import { useThemeColors } from "../hooks/useThemeColors";
 
 interface CalledTicketOverlayProps {
   visible: boolean;
@@ -22,6 +26,7 @@ interface CalledTicketOverlayProps {
   isSwapped?: boolean; // If ticket was already swapped/deferred
   gracePeriodExpiresAt?: string | null;
   onEnRoute: () => void;
+  onPresent?: () => Promise<void> | void; // New callback when user confirms already present
   onRecall: () => Promise<void>;
   onDefer: () => void; // New callback for defer action
   onDismiss: () => void;
@@ -36,6 +41,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   isSwapped = false,
   gracePeriodExpiresAt,
   onEnRoute,
+  onPresent,
   onRecall,
   onDefer,
   onDismiss,
@@ -65,6 +71,15 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     return () => clearInterval(interval);
   }, [visible, isExpired]);
 
+  // Auto-dismiss overlay when expired to allow global handler to refresh state
+  useEffect(() => {
+    if (!isExpired) return;
+    const t = setTimeout(() => {
+      onDismiss();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [isExpired, onDismiss]);
+
   // Reset when visibility changes
   useEffect(() => {
     if (visible) {
@@ -88,7 +103,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
             duration: 500,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
       flash.start();
       return () => flash.stop();
@@ -101,7 +116,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       // Vibrate pattern
       const pattern = [0, 500, 200, 500, 200, 500];
-      Vibration.vibrate(Platform.OS === 'ios' ? [0, 500, 200, 500] : pattern);
+      Vibration.vibrate(Platform.OS === "ios" ? [0, 500, 200, 500] : pattern);
     }
   }, [visible]);
 
@@ -109,7 +124,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   const formatCountdown = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Handle "I'm on my way" button
@@ -128,6 +143,33 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     ]).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onEnRoute();
+  };
+
+  // Handle "I'm already there" / present button
+  const handlePresent = async () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      // onPresent is optional (kept backward compat). It may return a promise.
+      const res = onPresent && onPresent();
+      if (res && typeof (res as any).then === "function") {
+        await res;
+      }
+    } catch (err) {
+      console.log("handlePresent error:", err);
+    }
   };
 
   // Handle "Recall me" button
@@ -152,7 +194,9 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
     if (!gracePeriodExpiresAt) return null;
     const expires = new Date(gracePeriodExpiresAt);
     const now = new Date();
-    const hoursLeft = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60));
+    const hoursLeft = Math.ceil(
+      (expires.getTime() - now.getTime()) / (1000 * 60 * 60),
+    );
     return `${hoursLeft}h restantes`;
   };
 
@@ -170,17 +214,23 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
         {/* Header */}
         <View className="pt-16 px-6 items-center">
           <Animated.View style={{ opacity: flashAnim }}>
-            <View className="w-24 h-24 rounded-full items-center justify-center mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+            <View
+              className="w-24 h-24 rounded-full items-center justify-center mb-4"
+              style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+            >
               <Ionicons name="notifications" size={48} color="#FFFFFF" />
             </View>
           </Animated.View>
-          
+
           <Text className="text-white text-3xl font-bold text-center mb-2">
             C&apos;est votre tour !
           </Text>
-          
+
           {counterNumber && (
-            <View className="px-6 py-2 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+            <View
+              className="px-6 py-2 rounded-full"
+              style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+            >
               <Text className="text-white text-lg font-bold">
                 Guichet N° {counterNumber}
               </Text>
@@ -191,7 +241,10 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
         {/* Countdown */}
         <View className="items-center mt-8">
           {isExpired ? (
-            <View className="px-8 py-4 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+            <View
+              className="px-8 py-4 rounded-2xl"
+              style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
+            >
               <Text className="text-white text-2xl font-bold text-center">
                 Délai expiré
               </Text>
@@ -202,7 +255,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
           ) : (
             <>
               <Text className="text-white/80 text-lg mb-2">Temps restant</Text>
-              <Animated.Text 
+              <Animated.Text
                 className="text-white text-7xl font-black"
                 style={{ opacity: flashAnim }}
               >
@@ -214,10 +267,15 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
         {/* Distance Info */}
         {distanceInfo && !isExpired && (
-          <View className="mx-6 mt-6 rounded-2xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+          <View
+            className="mx-6 mt-6 rounded-2xl p-4"
+            style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+          >
             <View className="flex-row items-center justify-center mb-3">
               <Ionicons name="location" size={20} color="#FFFFFF" />
-              <Text className="text-white font-bold ml-2">Distance actuelle</Text>
+              <Text className="text-white font-bold ml-2">
+                Distance actuelle
+              </Text>
             </View>
             <View className="flex-row mt-4 justify-around">
               <View className="items-center">
@@ -243,13 +301,38 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
             <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
               <TouchableOpacity
                 className="h-16 rounded-2xl flex-row items-center justify-center mb-4"
-                style={{ backgroundColor: '#FFFFFF' }}
+                style={{ backgroundColor: "#FFFFFF" }}
                 onPress={handleEnRoute}
                 activeOpacity={0.8}
               >
                 <Ionicons name="walk" size={24} color={colors.danger} />
-                <Text className="font-bold text-lg ml-2" style={{ color: colors.danger }}>
+                <Text
+                  className="font-bold text-lg ml-2"
+                  style={{ color: colors.danger }}
+                >
                   Je suis en route
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* "I'm already there" / present button */}
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <TouchableOpacity
+                className="h-16 rounded-2xl flex-row items-center justify-center mb-4"
+                style={{ backgroundColor: "#FFFFFF" }}
+                onPress={handlePresent}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="checkmark-done-circle"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text
+                  className="font-bold text-lg ml-2"
+                  style={{ color: colors.primary }}
+                >
+                  Je suis déjà là
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -258,7 +341,9 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
             <TouchableOpacity
               className="h-16 rounded-2xl flex-row items-center justify-center mb-4"
               style={{
-                backgroundColor: isSwapped ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)',
+                backgroundColor: isSwapped
+                  ? "rgba(255,255,255,0.15)"
+                  : "rgba(255,255,255,0.25)",
               }}
               onPress={handleDefer}
               disabled={isSwapped}
@@ -271,9 +356,11 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               />
               <Text
                 className="font-bold text-lg ml-2"
-                style={{ color: isSwapped ? 'rgba(255,255,255,0.5)' : '#FFFFFF' }}
+                style={{
+                  color: isSwapped ? "rgba(255,255,255,0.5)" : "#FFFFFF",
+                }}
               >
-                {isSwapped ? 'Déjà différé' : 'Laisser passer'}
+                {isSwapped ? "Déjà différé" : "Laisser passer"}
               </Text>
             </TouchableOpacity>
 
@@ -281,8 +368,10 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
             <TouchableOpacity
               className="h-16 rounded-2xl flex-row items-center justify-center border-2 mb-4"
               style={{
-                backgroundColor: hasRecalled ? 'rgba(0,0,0,0.3)' : 'transparent',
-                borderColor: hasRecalled ? 'rgba(255,255,255,0.3)' : '#FFFFFF',
+                backgroundColor: hasRecalled
+                  ? "rgba(0,0,0,0.3)"
+                  : "transparent",
+                borderColor: hasRecalled ? "rgba(255,255,255,0.3)" : "#FFFFFF",
               }}
               onPress={handleRecall}
               disabled={hasRecalled || isRecallLoading}
@@ -295,9 +384,11 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               />
               <Text
                 className="font-bold text-lg ml-2"
-                style={{ color: hasRecalled ? 'rgba(255,255,255,0.6)' : '#FFFFFF' }}
+                style={{
+                  color: hasRecalled ? "rgba(255,255,255,0.6)" : "#FFFFFF",
+                }}
               >
-                {hasRecalled ? 'Rappel déjà utilisé' : 'Me rappeler'}
+                {hasRecalled ? "Rappel déjà utilisé" : "Me rappeler"}
               </Text>
             </TouchableOpacity>
 
@@ -308,13 +399,11 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               </Text>
             )}
 
-
             {/* Info text */}
             <Text className="text-white/60 text-center text-sm mt-4">
-              {hasRecalled 
-                ? 'Le rappel ne peut être utilisé qu\'une seule fois'
-                : 'Un rappel vous sera envoyé par SMS et notification'
-              }
+              {hasRecalled
+                ? "Le rappel ne peut être utilisé qu'une seule fois"
+                : "Un rappel vous sera envoyé par SMS et notification"}
             </Text>
           </View>
         )}
@@ -324,12 +413,15 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
           <View className="flex-1 justify-end pb-12 px-6">
             <TouchableOpacity
               className="h-16 rounded-2xl flex-row items-center justify-center"
-              style={{ backgroundColor: '#FFFFFF' }}
+              style={{ backgroundColor: "#FFFFFF" }}
               onPress={onDismiss}
               activeOpacity={0.8}
             >
               <Ionicons name="add-circle" size={24} color={colors.danger} />
-              <Text className="font-bold text-lg ml-2" style={{ color: colors.danger }}>
+              <Text
+                className="font-bold text-lg ml-2"
+                style={{ color: colors.danger }}
+              >
                 Prendre un nouveau ticket
               </Text>
             </TouchableOpacity>

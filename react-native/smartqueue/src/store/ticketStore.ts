@@ -119,6 +119,7 @@ export interface TicketState {
 
   // Rappel actions
   markEnRoute: () => void;
+  markPresent: () => void;
   setRecalled: () => void;
   resetRecall: () => void;
   setCountdownExpiry: (expiry: Date | null) => void;
@@ -231,6 +232,37 @@ export const useTicketStore = create<TicketState>()(
           activeTickets: activeTickets.map((t) =>
             t.id === activeTicket.id
               ? { ...t, status: "en_route" as const, en_route_at: enRouteAt }
+              : t,
+          ),
+          isCalled: false,
+          lastUpdate: new Date(),
+        });
+      },
+
+      // Marquer comme présent localement : met status='present' et present_at
+      markPresent: () => {
+        const { activeTicket, activeTickets } = get();
+        if (!activeTicket) {
+          set({ isCalled: false, lastUpdate: new Date() });
+          return;
+        }
+        const presentAt = new Date().toISOString();
+        const updatedTicket = {
+          ...activeTicket,
+          status: "present" as const,
+          present_at: presentAt,
+          response_received_at: presentAt,
+        };
+        set({
+          activeTicket: updatedTicket,
+          activeTickets: activeTickets.map((t) =>
+            t.id === activeTicket.id
+              ? {
+                  ...t,
+                  status: "present" as const,
+                  present_at: presentAt,
+                  response_received_at: presentAt,
+                }
               : t,
           ),
           isCalled: false,
@@ -616,9 +648,12 @@ export const useTicket = () => {
     setWebSocketConnected: actions.setWebSocketConnected,
     setLastUpdate: actions.setLastUpdate,
     markEnRoute: actions.markEnRoute,
+    markPresent: actions.markPresent,
     setRecalled: actions.setRecalled,
     resetRecall: actions.resetRecall,
     setCountdownExpiry: actions.setCountdownExpiry,
+
+    // Defer actions
     setDeferred: actions.setDeferred,
     resetDeferred: actions.resetDeferred,
 

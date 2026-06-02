@@ -10,4 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('tickets:notify-approaching')->everyMinute()->withoutOverlapping();
 Schedule::command('tickets:expire-en-route')->everyMinute()->withoutOverlapping();
+Schedule::command('tickets:expire-called')->everyMinute()->withoutOverlapping();
 Schedule::command('tickets:expire-stale')->everyFiveMinutes()->withoutOverlapping();
