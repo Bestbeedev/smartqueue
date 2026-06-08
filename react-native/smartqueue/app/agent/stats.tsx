@@ -42,6 +42,8 @@ type TodayTicket = {
   priority: string;
   service_name: string;
   user_name: string;
+  user_email: string;
+  user_phone: string;
   counter_name: string | null;
   called_at: string | null;
   closed_at: string | null;
@@ -87,10 +89,10 @@ export default function AgentStats() {
 
   const formatTime = (minutes: number | null) => {
     if (!minutes) return '--';
-    if (minutes < 60) return `${Math.round(minutes)} min`;
+    if (minutes < 60) return `${Math.round(minutes)}min`;
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
+    return mins > 0 ? `${hours}h${mins}` : `${hours}h`;
   };
 
   const formatTicketTime = (dateStr: string | null) => {
@@ -113,12 +115,11 @@ export default function AgentStats() {
       case 'closed': return 'Terminé';
       case 'called': return 'Appelé';
       case 'absent': return 'Absent';
-      case 'waiting': return 'En attente';
+      case 'waiting': return 'Attente';
       default: return status;
     }
   };
 
-  // Chart data preparation
   const chartData = performance?.daily ? {
     labels: performance.daily.slice(-7).map(d => 
       new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 3)
@@ -140,85 +141,36 @@ export default function AgentStats() {
 
   const renderOverview = () => (
     <View style={styles.tabContent}>
-      {/* Stats Cards Grid */}
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#3B82F620' }]}>
-            <Ionicons name="ticket-outline" size={24} color="#3B82F6" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.today_total || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total aujourd&apos;hui</Text>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#22C55E20' }]}>
-            <Ionicons name="checkmark-circle-outline" size={24} color="#22C55E" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.today_closed || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Traités</Text>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#FF950020' }]}>
-            <Ionicons name="megaphone-outline" size={24} color="#FF9500" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.today_called || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Appelés</Text>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#FF3B3020' }]}>
-            <Ionicons name="person-remove-outline" size={24} color="#FF3B30" />
-          </View>
-          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.today_absent || 0}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Absents</Text>
-        </View>
+        <StatCard icon="ticket-outline" value={stats?.today_total || 0} label="Total" color="#3B82F6" colors={colors} />
+        <StatCard icon="checkmark-circle-outline" value={stats?.today_closed || 0} label="Traités" color="#22C55E" colors={colors} />
+        <StatCard icon="megaphone-outline" value={stats?.today_called || 0} label="Appelés" color="#FF9500" colors={colors} />
+        <StatCard icon="person-remove-outline" value={stats?.today_absent || 0} label="Absents" color="#FF3B30" colors={colors} />
       </View>
 
-      {/* Time Metrics */}
       <View style={[styles.timeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Temps moyens</Text>
         <View style={styles.timeRow}>
           <View style={styles.timeItem}>
-            <Ionicons name="timer-outline" size={28} color={colors.primary} />
-            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>
-              {formatTime(stats?.avg_service_time ?? null)}
-            </Text>
-            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Temps de service</Text>
+            <Ionicons name="timer-outline" size={22} color={colors.primary} />
+            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_service_time ?? null)}</Text>
+            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Service</Text>
           </View>
           <View style={[styles.timeDivider, { backgroundColor: colors.border }]} />
           <View style={styles.timeItem}>
-            <Ionicons name="hourglass-outline" size={28} color={colors.primary} />
-            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>
-              {formatTime(stats?.avg_wait_time ?? null)}
-            </Text>
-            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Temps d&apos;attente</Text>
+            <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
+            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_wait_time ?? null)}</Text>
+            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Attente</Text>
           </View>
         </View>
       </View>
 
-      {/* Current Status */}
       <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>État actuel</Text>
         <View style={styles.statusRow}>
-          <View style={styles.statusItem}>
-            <View style={[styles.statusBadge, { backgroundColor: '#22C55E20' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#22C55E' }]}>{stats?.active_services || 0}</Text>
-            </View>
-            <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Services ouverts</Text>
-          </View>
-          <View style={styles.statusItem}>
-            <View style={[styles.statusBadge, { backgroundColor: '#F59E0B20' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#F59E0B' }]}>{stats?.current_queue_size || 0}</Text>
-            </View>
-            <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>En file d&apos;attente</Text>
-          </View>
-          <View style={styles.statusItem}>
-            <View style={[styles.statusBadge, { backgroundColor: '#8B5CF620' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#8B5CF6' }]}>{stats?.tickets_per_day || 0}</Text>
-            </View>
-            <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Moy/jour (7j)</Text>
-          </View>
+          <StatusItem value={stats?.active_services || 0} label="Services ouverts" color="#22C55E" colors={colors} />
+          <StatusItem value={stats?.current_queue_size || 0} label="En file" color="#F59E0B" colors={colors} />
+          <StatusItem value={stats?.tickets_per_day || 0} label="Moy/jour (7j)" color="#8B5CF6" colors={colors} />
         </View>
       </View>
     </View>
@@ -226,34 +178,21 @@ export default function AgentStats() {
 
   const renderPerformance = () => (
     <View style={styles.tabContent}>
-      {/* Performance Summary */}
       <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: '#22C55E' }]}>{performance?.total_closed || 0}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Traités (7j)</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: '#FF3B30' }]}>{performance?.total_absent || 0}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Absents (7j)</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: colors.primary }]}>
-              {formatTime(performance?.avg_service_time ?? null)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Temps moyen</Text>
-          </View>
+          <SummaryItem value={performance?.total_closed || 0} label="Traités (7j)" color="#22C55E" colors={colors} />
+          <SummaryItem value={performance?.total_absent || 0} label="Absents (7j)" color="#FF3B30" colors={colors} />
+          <SummaryItem value={formatTime(performance?.avg_service_time ?? null)} label="Temps moyen" color={colors.primary} colors={colors} />
         </View>
       </View>
 
-      {/* Chart */}
       {chartData && (
         <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Performance sur 7 jours</Text>
           <LineChart
             data={chartData}
-            width={width - 72}
-            height={200}
+            width={width - 32}
+            height={180}
             chartConfig={{
               backgroundColor: colors.surface,
               backgroundGradientFrom: colors.surface,
@@ -261,13 +200,8 @@ export default function AgentStats() {
               decimalPlaces: 0,
               color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
               labelColor: () => colors.textSecondary,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-              },
+              style: { borderRadius: 12 },
+              propsForDots: { r: '3', strokeWidth: '2' },
             }}
             bezier
             style={styles.chart}
@@ -275,27 +209,17 @@ export default function AgentStats() {
         </View>
       )}
 
-      {/* Daily Breakdown */}
       <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Détail par jour</Text>
         {performance?.daily.slice().reverse().map((day, index) => (
-          <View key={day.date} style={[styles.dailyRow, index < performance.daily.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
+          <View key={day.date} style={[styles.dailyRow, index > 0 && { borderTopColor: colors.border, borderTopWidth: 0.5 }]}>
             <Text style={[styles.dailyDate, { color: colors.textPrimary }]}>
               {new Date(day.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })}
             </Text>
             <View style={styles.dailyStats}>
-              <View style={styles.dailyStat}>
-                <View style={[styles.dailyDot, { backgroundColor: '#3B82F6' }]} />
-                <Text style={[styles.dailyStatText, { color: colors.textSecondary }]}>{day.total}</Text>
-              </View>
-              <View style={styles.dailyStat}>
-                <View style={[styles.dailyDot, { backgroundColor: '#22C55E' }]} />
-                <Text style={[styles.dailyStatText, { color: colors.textSecondary }]}>{day.closed}</Text>
-              </View>
-              <View style={styles.dailyStat}>
-                <View style={[styles.dailyDot, { backgroundColor: '#FF3B30' }]} />
-                <Text style={[styles.dailyStatText, { color: colors.textSecondary }]}>{day.absent}</Text>
-              </View>
+              <DailyStat value={day.total} label="Total" color="#3B82F6" />
+              <DailyStat value={day.closed} label="Traités" color="#22C55E" />
+              <DailyStat value={day.absent} label="Absents" color="#FF3B30" />
             </View>
           </View>
         ))}
@@ -307,47 +231,48 @@ export default function AgentStats() {
     <View style={styles.tabContent}>
       {todayTickets.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="ticket-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket aujourd&apos;hui</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Les tickets traités apparaîtront ici
-          </Text>
+          <Ionicons name="ticket-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket aujourd'hui</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Les tickets traités apparaîtront ici</Text>
         </View>
       ) : (
         todayTickets.map((ticket, index) => (
-          <View 
-            key={ticket.id} 
-            style={[
-              styles.ticketCard, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              index === 0 && { marginTop: 0 }
-            ]}
-          >
+          <View key={ticket.id} style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.ticketHeader}>
               <View style={[styles.ticketNumber, { backgroundColor: getStatusColor(ticket.status) }]}>
                 <Text style={styles.ticketNumberText}>{ticket.number}</Text>
               </View>
-              <View style={[styles.ticketStatusBadge, { backgroundColor: getStatusColor(ticket.status) + '20' }]}>
-                <Text style={[styles.ticketStatusText, { color: getStatusColor(ticket.status) }]}>
-                  {getStatusLabel(ticket.status)}
-                </Text>
+              <View style={[styles.ticketStatusBadge, { backgroundColor: getStatusColor(ticket.status) + '15' }]}>
+                <Text style={[styles.ticketStatusText, { color: getStatusColor(ticket.status) }]}>{getStatusLabel(ticket.status)}</Text>
               </View>
             </View>
             
             <View style={styles.ticketInfo}>
               <View style={styles.ticketInfoRow}>
-                <Ionicons name="business-outline" size={16} color={colors.textSecondary} />
+                <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
                 <Text style={[styles.ticketInfoText, { color: colors.textPrimary }]}>{ticket.service_name}</Text>
               </View>
               {ticket.user_name && (
                 <View style={styles.ticketInfoRow}>
-                  <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
+                  <Ionicons name="person-outline" size={14} color={colors.textSecondary} />
                   <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.user_name}</Text>
+                </View>
+              )}
+              {ticket.user_email && (
+                <View style={styles.ticketInfoRow}>
+                  <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>{ticket.user_email}</Text>
+                </View>
+              )}
+              {ticket.user_phone && (
+                <View style={styles.ticketInfoRow}>
+                  <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.user_phone}</Text>
                 </View>
               )}
               {ticket.counter_name && (
                 <View style={styles.ticketInfoRow}>
-                  <Ionicons name="desktop-outline" size={16} color={colors.textSecondary} />
+                  <Ionicons name="desktop-outline" size={14} color={colors.textSecondary} />
                   <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.counter_name}</Text>
                 </View>
               )}
@@ -355,11 +280,11 @@ export default function AgentStats() {
 
             <View style={styles.ticketFooter}>
               <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
-                Créé à {formatTicketTime(ticket.created_at)}
+                Créé {formatTicketTime(ticket.created_at)}
               </Text>
               {ticket.called_at && (
                 <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
-                  Appelé à {formatTicketTime(ticket.called_at)}
+                  Appelé {formatTicketTime(ticket.called_at)}
                 </Text>
               )}
             </View>
@@ -371,340 +296,140 @@ export default function AgentStats() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Ionicons name="stats-chart" size={24} color={colors.primary} />
+          <Ionicons name="stats-chart" size={22} color={colors.primary} />
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Statistiques</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* Tab Navigation */}
       <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'overview' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Text style={[
-            styles.tabText, 
-            { color: activeTab === 'overview' ? colors.primary : colors.textSecondary }
-          ]}>
-            Vue d&apos;ensemble
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'performance' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveTab('performance')}
-        >
-          <Text style={[
-            styles.tabText, 
-            { color: activeTab === 'performance' ? colors.primary : colors.textSecondary }
-          ]}>
-            Performance
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'tickets' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveTab('tickets')}
-        >
-          <Text style={[
-            styles.tabText, 
-            { color: activeTab === 'tickets' ? colors.primary : colors.textSecondary }
-          ]}>
-            Tickets
-          </Text>
-        </TouchableOpacity>
+        <TabButton label="Vue d'ensemble" active={activeTab === 'overview'} onPress={() => setActiveTab('overview')} colors={colors} />
+        <TabButton label="Performance" active={activeTab === 'performance'} onPress={() => setActiveTab('performance')} colors={colors} />
+        <TabButton label="Tickets" active={activeTab === 'tickets'} onPress={() => setActiveTab('tickets')} colors={colors} />
       </View>
 
-      {/* Content */}
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'performance' && renderPerformance()}
         {activeTab === 'tickets' && renderTickets()}
-        <View style={{ height: 120 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
+// Composants réutilisables
+const StatCard = ({ icon, value, label, color, colors }: any) => (
+  <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={20} color={color} />
+    </View>
+    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
+  </View>
+);
+
+const StatusItem = ({ value, label, color, colors }: any) => (
+  <View style={styles.statusItem}>
+    <View style={[styles.statusBadge, { backgroundColor: color + '15' }]}>
+      <Text style={[styles.statusBadgeText, { color }]}>{value}</Text>
+    </View>
+    <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>{label}</Text>
+  </View>
+);
+
+const SummaryItem = ({ value, label, color, colors }: any) => (
+  <View style={styles.summaryItem}>
+    <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
+  </View>
+);
+
+const DailyStat = ({ value, label, color }: any) => (
+  <View style={styles.dailyStat}>
+    <View style={[styles.dailyDot, { backgroundColor: color }]} />
+    <Text style={styles.dailyStatText}>{value}</Text>
+  </View>
+);
+
+const TabButton = ({ label, active, onPress, colors }: any) => (
+  <TouchableOpacity style={[styles.tab, active && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]} onPress={onPress}>
+    <Text style={[styles.tabText, { color: active ? colors.primary : colors.textSecondary }]}>{label}</Text>
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 8,
-    width: 40,
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  tabContent: {
-    gap: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    width: (width - 52) / 2,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  timeCard: {
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  timeDivider: {
-    width: 1,
-    height: 60,
-  },
-  timeValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  timeLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statusCard: {
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statusItem: {
-    alignItems: 'center',
-  },
-  statusBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusBadgeText: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  summaryCard: {
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  chartCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  dailyCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  dailyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  dailyDate: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  dailyStats: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  dailyStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dailyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dailyStatText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  ticketCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 12,
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  ticketNumber: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  ticketNumberText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  ticketStatusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  ticketStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  ticketInfo: {
-    gap: 8,
-    marginBottom: 12,
-  },
-  ticketInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  ticketInfoText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  ticketFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  ticketTime: {
-    fontSize: 12,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 55, paddingBottom: 12, borderBottomWidth: 1 },
+  backButton: { padding: 6, width: 36 },
+  headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  headerTitle: { fontSize: 17, fontWeight: '700' },
+  tabBar: { flexDirection: 'row', borderBottomWidth: 1 },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabText: { fontSize: 13, fontWeight: '600' },
+  content: { flex: 1, padding: 16 },
+  tabContent: { gap: 16 },
+  
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statCard: { width: (width - 52) / 2, padding: 14, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
+  statIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  statValue: { fontSize: 24, fontWeight: '800', marginBottom: 2 },
+  statLabel: { fontSize: 11, fontWeight: '500' },
+  
+  timeCard: { padding: 16, borderRadius: 14, borderWidth: 1 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 12 },
+  timeRow: { flexDirection: 'row', alignItems: 'center' },
+  timeItem: { flex: 1, alignItems: 'center' },
+  timeDivider: { width: 1, height: 40 },
+  timeValue: { fontSize: 18, fontWeight: '700', marginTop: 6, marginBottom: 2 },
+  timeLabel: { fontSize: 11, fontWeight: '500' },
+  
+  statusCard: { padding: 16, borderRadius: 14, borderWidth: 1 },
+  statusRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  statusItem: { alignItems: 'center' },
+  statusBadge: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  statusBadgeText: { fontSize: 18, fontWeight: '700' },
+  statusLabel: { fontSize: 11, fontWeight: '500' },
+  
+  summaryCard: { padding: 16, borderRadius: 14, borderWidth: 1 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  summaryItem: { alignItems: 'center' },
+  summaryValue: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  summaryLabel: { fontSize: 11, fontWeight: '500' },
+  
+  chartCard: { padding: 14, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
+  chart: { marginVertical: 6, borderRadius: 12 },
+  
+  dailyCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
+  dailyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+  dailyDate: { fontSize: 12, fontWeight: '500', flex: 1 },
+  dailyStats: { flexDirection: 'row', gap: 12 },
+  dailyStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dailyDot: { width: 6, height: 6, borderRadius: 3 },
+  dailyStatText: { fontSize: 12, fontWeight: '600' },
+  
+  emptyState: { alignItems: 'center', paddingTop: 60 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginTop: 12 },
+  emptySubtitle: { fontSize: 13, marginTop: 6, textAlign: 'center' },
+  
+  ticketCard: { padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
+  ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  ticketNumber: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10 },
+  ticketNumberText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  ticketStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  ticketStatusText: { fontSize: 10, fontWeight: '600' },
+  ticketInfo: { gap: 6, marginBottom: 10 },
+  ticketInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ticketInfoText: { fontSize: 13, fontWeight: '500', flex: 1 },
+  ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+  ticketTime: { fontSize: 10 },
 });

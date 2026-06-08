@@ -18,7 +18,6 @@ import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { router } from 'expo-router';
 
-
 export const PersonalInfoScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -61,61 +60,52 @@ export const PersonalInfoScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: colors.background }]} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Gradient Header */}
+      {/* Header compact */}
       <LinearGradient
-        colors={isDark ? ['#1E3A5F', '#2563EB', '#3B82F6'] : [colors.primary, colors.secondary, '#1D4ED8']}
-        style={[styles.header, { paddingTop: insets.top + 20 }]}
+        colors={[colors.primary, colors.secondary]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
-        {/* Top Bar */}
         <View style={styles.topBar}>
-          <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={styles.iconButton}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} activeOpacity={0.8}>
             <View style={[styles.iconButtonBg, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
             </View>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Profil</Text>
-          <TouchableOpacity 
-            onPress={() => setIsEditing(!isEditing)}
-            style={styles.iconButton}
-            activeOpacity={0.8}
-          >
+          <Text style={styles.headerTitle}>Profil</Text>
+          <TouchableOpacity onPress={() => setIsEditing(!isEditing)} style={styles.iconButton} activeOpacity={0.8}>
             <View style={[styles.iconButtonBg, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Ionicons name={isEditing ? "close" : "pencil"} size={22} color="#FFFFFF" />
+              <Ionicons name={isEditing ? "close" : "pencil"} size={20} color="#FFF" />
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Avatar Section */}
+        {/* Avatar compact */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
             <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
               <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials()}</Text>
             </View>
             <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: colors.surface }]} activeOpacity={0.8}>
-              <Ionicons name="camera" size={16} color="#FFFFFF" />
+              <Ionicons name="camera" size={14} color="#FFF" />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.userName, { color: '#FFFFFF' }]}>{user?.name || 'Utilisateur'}</Text>
-          <Text style={[styles.userEmail, { color: 'rgba(255,255,255,0.8)' }]}>{user?.email}</Text>
+          <Text style={styles.userName}>{user?.name || 'Utilisateur'}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
         </View>
       </LinearGradient>
 
-      {/* Content */}
+      {/* Content compact */}
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Info Cards */}
-        <View style={[styles.formContainer, { backgroundColor: colors.surface }]}>
+        {/* Info Cards compactes */}
+        <View style={[styles.formContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Name Field */}
           <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
             <View style={[styles.fieldIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons name="person" size={20} color={colors.primary} />
+              <Ionicons name="person-outline" size={18} color={colors.primary} />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Nom complet</Text>
@@ -133,7 +123,7 @@ export const PersonalInfoScreen: React.FC = () => {
           {/* Email Field */}
           <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
             <View style={[styles.fieldIconContainer, { backgroundColor: colors.secondary + '15' }]}>
-              <Ionicons name="mail" size={20} color={colors.secondary} />
+              <Ionicons name="mail-outline" size={18} color={colors.secondary} />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Email</Text>
@@ -145,14 +135,14 @@ export const PersonalInfoScreen: React.FC = () => {
               />
             </View>
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
             </View>
           </View>
 
           {/* Phone Field */}
           <View style={[styles.fieldContainer, { borderBottomColor: colors.border }]}>
             <View style={[styles.fieldIconContainer, { backgroundColor: colors.success + '15' }]}>
-              <Ionicons name="call" size={20} color={colors.success} />
+              <Ionicons name="call-outline" size={18} color={colors.success} />
             </View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: colors.textTertiary }]}>Téléphone</Text>
@@ -169,41 +159,38 @@ export const PersonalInfoScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Save Button */}
+        {/* Save Button compact */}
         {isEditing && (
           <TouchableOpacity
-            style={[styles.saveButton, { shadowColor: colors.primary }, isLoading && styles.saveButtonDisabled]}
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={isLoading}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={[colors.primary, colors.secondary]}
-              style={styles.saveButtonGradient}
-            >
+            <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.saveButtonGradient}>
               {isLoading ? (
-                <Ionicons name="sync" size={24} color="#FFFFFF" />
+                <Ionicons name="sync" size={20} color="#FFF" />
               ) : (
                 <>
-                  <Ionicons name="checkmark" size={24} color="#FFFFFF" />
-                  <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>Enregistrer</Text>
+                  <Ionicons name="checkmark" size={20} color="#FFF" />
+                  <Text style={styles.saveButtonText}>Enregistrer</Text>
                 </>
               )}
             </LinearGradient>
           </TouchableOpacity>
         )}
 
-        {/* Delete Account Section */}
+        {/* Danger Section compact */}
         <View style={styles.dangerSection}>
           <Text style={[styles.dangerTitle, { color: colors.textTertiary }]}>Zone de danger</Text>
           <TouchableOpacity 
-            style={[styles.dangerButton, { backgroundColor: colors.danger + '10', borderColor: colors.danger + '30' }]}
+            style={[styles.dangerButton, { backgroundColor: colors.danger + '10', borderColor: colors.danger + '20' }]}
             onPress={() => showError('Supprimer mon compte', 'Cette action est irréversible. Contactez le support à support@smartqueue.com pour supprimer votre compte.', 'J\'ai compris')}
             activeOpacity={0.8}
           >
-            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
             <Text style={[styles.dangerButtonText, { color: colors.danger }]}>Supprimer mon compte</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+            <Ionicons name="chevron-forward" size={18} color={colors.danger} />
           </TouchableOpacity>
         </View>
 
@@ -218,140 +205,133 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   iconButton: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
   },
   iconButtonBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
+    color: '#FFF',
   },
   avatarSection: {
     alignItems: 'center',
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 4,
   },
   avatarText: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '700',
   },
   cameraButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 2,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 4,
+    color: '#FFF',
+    marginBottom: 2,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 30,
   },
   formContainer: {
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 16,
   },
   fieldContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-   
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
   },
   fieldIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   fieldContent: {
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   fieldInput: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
     padding: 0,
-    height: 24,
-  },
-  fieldInputDisabled: {
+    height: 22,
   },
   verifiedBadge: {
     marginLeft: 8,
   },
   saveButton: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   saveButtonDisabled: {
     opacity: 0.7,
@@ -360,36 +340,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 14,
     gap: 8,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    color: '#FFF',
   },
   dangerSection: {
-    marginTop: 10,
+    marginTop: 8,
   },
   dangerTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 8,
     marginLeft: 4,
   },
   dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
   },
   dangerButtonText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 12,
+    marginLeft: 10,
   },
 });
 

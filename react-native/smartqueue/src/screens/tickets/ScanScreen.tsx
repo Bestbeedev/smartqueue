@@ -13,10 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Theme } from '../../theme';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
-import colors from '@/src/theme/colors';
 
 const { width, height } = Dimensions.get('window');
 const SCAN_SIZE = width * 0.65;
@@ -31,46 +29,23 @@ export const ScanScreen: React.FC = () => {
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
-  const cornerAnim = useRef(new Animated.Value(1)).current;
 
   // Animate scan line
   useEffect(() => {
     const scanLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(scanLineAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanLineAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
+        Animated.timing(scanLineAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(scanLineAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
       ])
     );
     scanLoop.start();
-
-    const cornerLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(cornerAnim, { toValue: 0.85, duration: 800, useNativeDriver: true }),
-        Animated.timing(cornerAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    cornerLoop.start();
-
-    return () => {
-      scanLoop.stop();
-      cornerLoop.stop();
-    };
+    return () => scanLoop.stop();
   }, []);
 
   // Request camera permission
   useEffect(() => {
     (async () => {
       try {
-        // In a real implementation, use expo-camera to request permissions
-        // For now, simulate permission granted
         setHasPermission(true);
       } catch (e) {
         setHasPermission(false);
@@ -85,7 +60,6 @@ export const ScanScreen: React.FC = () => {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Parse QR data - expect JSON with establishment_id and service_id
       let qrData: { establishment_id?: number; service_id?: number } = {};
       try {
         qrData = JSON.parse(data);
@@ -103,7 +77,7 @@ export const ScanScreen: React.FC = () => {
           },
         });
       } else {
-        showError('QR invalide', 'Ce QR code n\'est pas reconnu par SmartQueue.', 'OK', () => setIsProcessing(false));
+        showError('QR invalide', 'Ce QR code n\'est pas reconnu.', 'OK', () => setIsProcessing(false));
       }
     } catch (error) {
       showError('Erreur', 'Impossible de traiter ce QR code.', 'OK', () => setIsProcessing(false));
@@ -123,72 +97,62 @@ export const ScanScreen: React.FC = () => {
   });
 
   return (
-    <View className="flex-1 bg-black">
-      {/* Top Header */}
-      <View className="absolute top-0 left-0 right-0 z-10 px-5 pt-12 pb-6 flex-row items-center justify-between">
-        <TouchableOpacity 
-          className="w-10 h-10 items-center justify-center rounded-full bg-white/20" 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
+    <View style={[styles.container, { backgroundColor: '#000' }]}>
+      {/* Header compact */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-white">Scan to Join Queue</Text>
-        <View className="w-10" /> {/* Spacer */}
+        <Text style={styles.headerTitle}>Scanner</Text>
+        <View style={styles.headerPlaceholder} />
       </View>
 
-      {/* Camera View Overlay */}
-      <View className="flex-1 items-center justify-center">
-        {/* Scanning Frame */}
-        <View 
-          className="w-72 h-72 border-2 border-white/50 rounded-3xl overflow-hidden relative items-center justify-center"
-        >
-          {/* Animated Scan Line */}
-          <Animated.View
-            className="absolute left-0 right-0 h-1 bg-green-500 shadow-lg"
-            style={[
-              { shadowColor: '#34C759', shadowOpacity: 0.9, shadowRadius: 6 },
-              { transform: [{ translateY: scanLineTranslateY }] }
-            ]}
-          />
+      {/* Zone de scan */}
+      <View style={styles.scanContainer}>
+        <View style={[styles.scanFrame, { width: SCAN_SIZE, height: SCAN_SIZE }]}>
+          {/* Coins */}
+          <View style={[styles.corner, styles.cornerTL, { borderColor: '#FFF' }]} />
+          <View style={[styles.corner, styles.cornerTR, { borderColor: '#FFF' }]} />
+          <View style={[styles.corner, styles.cornerBL, { borderColor: '#FFF' }]} />
+          <View style={[styles.corner, styles.cornerBR, { borderColor: '#FFF' }]} />
+          
+          {/* Ligne de scan animée */}
+          <Animated.View style={[styles.scanLine, { transform: [{ translateY: scanLineTranslateY }] }]} />
         </View>
 
-        <Text className="text-white/70 text-center mt-10 px-10 text-base">
-          Position your QR code within the frame to automatically join the queue.
+        <Text style={styles.scanHint}>
+          Placez le QR code dans le cadre
         </Text>
       </View>
 
-      {/* Bottom Controls */}
-      <View className="absolute bottom-10 left-0 right-0 flex-row justify-center gap-8 px-10 pb-6">
-        <TouchableOpacity 
-          className="items-center"
-          onPress={() => setShowManualEntry(true)}
-        >
-          <View className="w-16 h-16 rounded-full bg-white/10 items-center justify-center mb-2 border border-white/20">
-            <Ionicons name="keypad" size={28} color="white" />
+      {/* Contrôles en bas */}
+      <View style={styles.bottomControls}>
+        <TouchableOpacity style={styles.controlBtn} onPress={() => setShowManualEntry(true)}>
+          <View style={[styles.controlIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+            <Ionicons name="keypad-outline" size={24} color="#FFF" />
           </View>
-          <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">Manual Entry</Text>
+          <Text style={styles.controlLabel}>Manuel</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          className="items-center"
-          onPress={() => setIsTorchOn(!isTorchOn)}
-        >
-          <View className={`w-16 h-16 rounded-full ${isTorchOn ? 'bg-yellow-500' : 'bg-white/10'} items-center justify-center mb-2 border border-white/20`}>
-            <Ionicons name={isTorchOn ? "flashlight" : "flashlight-outline"} size={28} color="white" />
+        <TouchableOpacity style={styles.controlBtn} onPress={() => setIsTorchOn(!isTorchOn)}>
+          <View style={[styles.controlIcon, { backgroundColor: isTorchOn ? '#F59E0B' : 'rgba(255,255,255,0.15)' }]}>
+            <Ionicons name={isTorchOn ? "flashlight" : "flashlight-outline"} size={24} color="#FFF" />
           </View>
-          <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">Flashlight</Text>
+          <Text style={styles.controlLabel}>Lampe</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Manual entry bottom sheet model */}
+      {/* Bottom Sheet pour saisie manuelle */}
       {showManualEntry && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 32, zIndex: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 12 }}>
-          <View style={{ width: 48, height: 4, backgroundColor: colors.separator, borderRadius: 2, alignSelf: 'center', marginBottom: 24 }} />
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 }}>Manual Entry</Text>
-          <Text style={{ color: colors.textSecondary, marginBottom: 24 }}>Enter the 6-digit code shown below the QR code.</Text>
+        <View style={[styles.manualSheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+          <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Code manuel</Text>
+          <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
+            Entrez le code à 6 chiffres
+          </Text>
           
           <TextInput
-            style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: 16, textAlign: 'center', fontSize: 24, fontWeight: 'bold', letterSpacing: 8, color: colors.textPrimary, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}
+            style={[styles.codeInput, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
             placeholder="000000"
             placeholderTextColor={colors.textTertiary}
             value={manualCode}
@@ -198,19 +162,16 @@ export const ScanScreen: React.FC = () => {
             autoFocus
           />
 
-          <View style={{ flexDirection: 'row', gap: 16 }}>
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: colors.surfaceSecondary, padding: 16, borderRadius: 16, alignItems: 'center' }}
-              onPress={() => { setShowManualEntry(false); setManualCode(''); }}
-            >
-              <Text style={{ color: colors.textSecondary, fontWeight: 'bold' }}>Cancel</Text>
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setShowManualEntry(false); setManualCode(''); }}>
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: manualCode.length === 6 ? colors.primary : colors.surfaceSecondary, padding: 16, borderRadius: 16, alignItems: 'center' }}
+              style={[styles.confirmBtn, { backgroundColor: manualCode.length === 6 ? colors.primary : colors.surfaceSecondary }]}
               onPress={handleManualSubmit}
               disabled={manualCode.length !== 6}
             >
-              <Text style={{ color: manualCode.length === 6 ? '#FFFFFF' : colors.textTertiary, fontWeight: 'bold' }}>Verify Code</Text>
+              <Text style={[styles.confirmBtnText, { color: manualCode.length === 6 ? '#FFF' : colors.textTertiary }]}>Valider</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -221,214 +182,34 @@ export const ScanScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-  },
-  darkSection: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 54,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  middleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  darkSide: {
-    flex: 1,
-    height: SCAN_SIZE,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-  },
-  torchSide: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  torchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  torchActive: {
-    backgroundColor: Theme.colors.warning + 'AA',
-  },
-  scanFrame: {
-    width: SCAN_SIZE,
-    height: SCAN_SIZE,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  scanLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 2.5,
-    backgroundColor: '#34C759',
-    shadowColor: '#34C759',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-  },
-  corner: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: '#FFFFFF',
-    borderWidth: 3,
-  },
-  cornerTL: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 4,
-  },
-  cornerTR: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 4,
-  },
-  cornerBL: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 4,
-  },
-  cornerBR: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 4,
-  },
-  hintText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  manualButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  manualButtonText: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  manualSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.separator,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 16,
-  },
-  codeInput: {
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: colors.textPrimary,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.separator,
-  },
-  sheetActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  sheetButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtn: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.separator,
-  },
-  cancelBtnText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    backgroundColor: colors.primary,
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledBtn: {
-    opacity: 0.4,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16 },
+  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  headerPlaceholder: { width: 36 },
+  scanContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scanFrame: { position: 'relative', justifyContent: 'center', alignItems: 'center' },
+  corner: { position: 'absolute', width: 20, height: 20, borderWidth: 2 },
+  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
+  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
+  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
+  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
+  scanLine: { position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: '#34C759', shadowColor: '#34C759', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 4 },
+  scanHint: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', marginTop: 24, paddingHorizontal: 40 },
+  bottomControls: { flexDirection: 'row', justifyContent: 'center', gap: 32, paddingBottom: 30 },
+  controlBtn: { alignItems: 'center' },
+  controlIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  controlLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '600' },
+  manualSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 10 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  sheetSubtitle: { fontSize: 13, marginBottom: 20 },
+  codeInput: { height: 52, borderRadius: 14, paddingHorizontal: 16, textAlign: 'center', fontSize: 22, fontWeight: '700', letterSpacing: 6, borderWidth: 1, marginBottom: 20 },
+  sheetActions: { flexDirection: 'row', gap: 12 },
+  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  cancelBtnText: { fontSize: 15, fontWeight: '600' },
+  confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  confirmBtnText: { fontSize: 15, fontWeight: '600' },
 });
 
 export default ScanScreen;

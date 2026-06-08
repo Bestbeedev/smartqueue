@@ -37,73 +37,90 @@ export const NotificationPrefsScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.separator, paddingTop: insets.top + 10 }]}>
+      {/* Header compact */}
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Canaux de notification</Text>
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={[styles.row, { borderBottomColor: colors.separator }]}>
+        {/* Canaux de notification */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>Canaux</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+              <View style={[styles.iconBadge, { backgroundColor: colors.primary + "15" }]}>
+                <Ionicons name="notifications-outline" size={18} color={colors.primary} />
+              </View>
               <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Notifications Push</Text>
             </View>
             <Switch
               value={pushNotificationsEnabled}
               onValueChange={handleTogglePush}
-              trackColor={{ false: colors.separator, true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="chatbubble-outline" size={20} color={colors.success} />
+              <View style={[styles.iconBadge, { backgroundColor: colors.success + "15" }]}>
+                <Ionicons name="chatbubble-outline" size={18} color={colors.success} />
+              </View>
               <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Alertes SMS</Text>
             </View>
             <Switch
               value={smsEnabled}
               onValueChange={setSmsEnabled}
-              trackColor={{ false: colors.separator, true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Types de notification</Text>
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={[styles.row, { borderBottomColor: colors.separator }]}>
+        {/* Types de notification */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>Types</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
             <View style={styles.rowLeft}>
-              <Text style={[styles.rowLabel, { color: colors.textPrimary, marginLeft: 0 }]}>Mises à jour des tickets</Text>
+              <View style={[styles.iconBadge, { backgroundColor: colors.warning + "15" }]}>
+                <Ionicons name="ticket-outline" size={18} color={colors.warning} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Mises à jour des tickets</Text>
             </View>
             <Switch
               value={ticketUpdates}
               onValueChange={setTicketUpdates}
-              trackColor={{ false: colors.separator, true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Text style={[styles.rowLabel, { color: colors.textPrimary, marginLeft: 0 }]}>Offres et promotions</Text>
+              <View style={[styles.iconBadge, { backgroundColor: colors.secondary + "15" }]}>
+                <Ionicons name="megaphone-outline" size={18} color={colors.secondary} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Offres et promotions</Text>
             </View>
             <Switch
               value={promotions}
               onValueChange={setPromotions}
-              trackColor={{ false: colors.separator, true: colors.primary }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
-        <Text style={[styles.hintText, { color: colors.textTertiary }]}>
-          Nous vous recommandons de garder les notifications activées pour ne pas manquer votre tour dans la file d&apos;attente.
-        </Text>
+        {/* Message d'information compact */}
+        <View style={[styles.infoBox, { backgroundColor: colors.primary + "08" }]}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+          <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+            Activez les notifications pour ne pas manquer votre tour
+          </Text>
+        </View>
+
         {AlertComponent}
       </ScrollView>
     </View>
@@ -117,27 +134,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: Theme.colors.surface,
+    paddingBottom: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: Theme.colors.separator,
   },
-  backButton: { padding: 8 },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: Theme.colors.textPrimary },
-  content: { padding: 20 },
+  backButton: { padding: 6, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
+  content: { padding: 16, paddingBottom: 30 },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
-    color: Theme.colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    letterSpacing: 0.8,
+    marginBottom: 8,
     marginLeft: 4,
   },
   section: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 12,
-    marginBottom: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 20,
     overflow: 'hidden',
   },
   row: {
@@ -145,19 +159,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: Theme.colors.separator,
   },
-  rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  rowLabel: { fontSize: 16, color: Theme.colors.textPrimary, marginLeft: 12 },
-  hintText: {
-    fontSize: 14,
-    color: Theme.colors.textTertiary,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 20,
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBadge: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { fontSize: 14, fontWeight: '500' },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 16,
   },
+  hintText: { fontSize: 12, textAlign: 'center', flex: 1 },
 });
 
 export default NotificationPrefsScreen;
