@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Admin: manage per-service sound alert configuration.
+ * Admin: 1 manage per-service sound alert configuration.
  *
  * sound_settings shape stored in services.sound_settings (jsonb):
  * {
