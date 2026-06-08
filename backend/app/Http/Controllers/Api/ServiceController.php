@@ -198,12 +198,24 @@ class ServiceController extends Controller
     public function availability(int $id, ServiceAvailabilityService $availability, SmartQueueEngine $smartQueue)
     {
         $service = Service::with(['workingDays','exceptions'])->findOrFail($id);
+        $defaultSoundSettings = [
+            'enabled'                 => true,
+            'sound_uri'               => null,
+            'repeat_interval_seconds' => 30,
+            'volume'                  => 1.0,
+            'push_channel_id'         => 'smartqueue-calls',
+        ];
+
         return response()->json([
-            'service_id' => $service->id,
-            'status' => $service->status,
+            'service_id'               => $service->id,
+            'status'                   => $service->status,
             'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
-            'availability' => $availability->snapshot($service),
-            'capacity' => $smartQueue->loadSnapshot($service),
+            'availability'             => $availability->snapshot($service),
+            'capacity'                 => $smartQueue->loadSnapshot($service),
+            'sound_settings'           => array_merge(
+                $defaultSoundSettings,
+                $service->sound_settings ?? []
+            ),
         ]);
     }
 }

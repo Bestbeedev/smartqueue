@@ -1,7 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CalledTicketOverlay } from "./CalledTicketOverlay";
 import { useTicket, useTicketStore } from "../store/ticketStore";
 import { useDistanceTracking } from "../hooks/useDistanceTracking";
+import {
+  useCalledTicketSound,
+  CalledTicketSoundConfig,
+} from "../hooks/useCalledTicketSound";
 import axiosClient from "../api/axiosClient";
 import { getApiErrorMessage } from "../utils/errors";
 import { useRouter } from "expo-router";
@@ -55,7 +59,34 @@ export const GlobalCalledTicketOverlay: React.FC<
 
   const effectiveTicketId = activeTicket?.id || null;
 
-  // Distance tracking for the overlay
+  // ── Sound config from service settings ──────────────────────────────────────
+  const [soundConfig, setSoundConfig] = useState<CalledTicketSoundConfig>({});
+  const soundConfigFetchedFor = useRef<number | null>(null);
+
+  useEffect(() => {
+    const serviceId = activeTicket?.service_id ?? (activeTicket as any)?.service?.id ?? null;
+    if (!serviceId || soundConfigFetchedFor.current === serviceId) return;
+    soundConfigFetchedFor.current = serviceId;
+
+    axiosClient
+      .get(`/services/${serviceId}/availability`)
+      .then((res) => {
+        const d = res.data?.sound_settings ?? {};
+        setSoundConfig({
+          enabled: d.enabled ?? true,
+          soundSource: d.sound_uri ? { uri: d.sound_uri } : null,
+          repeatIntervalSeconds: d.repeat_interval_seconds ?? 30,
+          volume: d.volume ?? 1.0,
+        });
+      })
+      .catch(() => {
+        setSoundConfig({ enabled: true });
+      });
+  }, [activeTicket]);
+
+  const { stopSound } = useCalledTicketSound(isCalled, soundConfig);
+
+  // ── Distance tracking for the overlay ───────────────────────────────────────
   const hasValidCoordinates =
     activeTicket?.establishment &&
     (activeTicket.establishment as any)?.lat != null &&
@@ -121,6 +152,7 @@ export const GlobalCalledTicketOverlay: React.FC<
 
       // Mémorise la réponse localement pour que l'overlay ne se rouvre pas après
       // une resynchro/navigation (le backend garde status='called').
+      stopSound();
       markEnRoute();
       showSuccess(
         "Confirmation",
@@ -136,6 +168,7 @@ export const GlobalCalledTicketOverlay: React.FC<
     showSuccess,
     showError,
     fetchActiveTicket,
+    stopSound,
   ]);
 
   // Handle "Je suis en route" - ensure we sync server state after optimistic update
@@ -179,6 +212,7 @@ export const GlobalCalledTicketOverlay: React.FC<
       }
 
       // 2. Fermer l'overlay
+      stopSound();
       clearCalled();
       resetRecall();
       resetDeferred();
@@ -208,6 +242,7 @@ export const GlobalCalledTicketOverlay: React.FC<
     showSuccess,
     showError,
     router,
+    stopSound,
   ]);
 
   // Handle "Me rappeler"
@@ -282,6 +317,7 @@ export const GlobalCalledTicketOverlay: React.FC<
 
   // Handle dismiss (expired / take new ticket)
   const handleDismiss = useCallback(async () => {
+    stopSound();
     clearCalled();
     resetRecall();
     resetDeferred();
@@ -294,7 +330,7 @@ export const GlobalCalledTicketOverlay: React.FC<
       );
     }
     router.replace("/(tabs)");
-  }, [clearCalled, resetRecall, resetDeferred, router, fetchActiveTicket]);
+  }, [clearCalled, resetRecall, resetDeferred, router, fetchActiveTicket, stopSound]);
 
   // Poll countdown endpoint while overlay is visible to keep timer aligned
   React.useEffect(() => {

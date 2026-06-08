@@ -12,9 +12,10 @@ import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download, CalendarClock } from 'lucide-react'
+import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download, CalendarClock, Bell } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import ServiceScheduleModal from '@/components/ServiceScheduleModal'
+import ServiceSoundModal from '@/components/ServiceSoundModal'
 
 type Service = { 
   id:number; 
@@ -40,6 +41,8 @@ export default function Services(){
   const [openQr, setOpenQr] = useState(false)
   const [openSchedule, setOpenSchedule] = useState(false)
   const [scheduleServiceId, setScheduleServiceId] = useState<number | null>(null)
+  const [openSound, setOpenSound] = useState(false)
+  const [soundService, setSoundService] = useState<Service | null>(null)
   const [editing, setEditing] = useState<Service | null>(null)
   const [qrService, setQrService] = useState<Service | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
@@ -358,6 +361,13 @@ export default function Services(){
                 <CalendarClock className="h-4 w-4" />
               </button>
               <button
+                className="p-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                onClick={()=>{ setSoundService(r); setOpenSound(true) }}
+                title="Alertes sonores"
+              >
+                <Bell className="h-4 w-4" />
+              </button>
+              <button
                 className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                 onClick={()=>openQrModal(r)}
                 title="QR Code"
@@ -508,6 +518,14 @@ export default function Services(){
         open={openSchedule}
         onClose={() => { setOpenSchedule(false); setScheduleServiceId(null); load() }}
         serviceId={scheduleServiceId}
+      />
+
+      {/* Modal Alertes sonores */}
+      <ServiceSoundModal
+        open={openSound}
+        onClose={() => { setOpenSound(false); setSoundService(null) }}
+        serviceId={soundService?.id ?? null}
+        serviceName={soundService?.name}
       />
 
       {/* Modal QR Code */}

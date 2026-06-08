@@ -106,14 +106,18 @@ class SendPushNotification implements ShouldQueue
     {
         $client = new Client(['base_uri' => 'https://exp.host']);
 
-        $messages = array_map(fn($t) => [
-            'to'    => $t,
-            'title' => $this->title,
-            'body'  => $this->body,
-            'data'  => $this->data,
-            'sound' => 'default',
-            'priority' => 'high',
-        ], $tokens);
+        $isCalledAlert = ($this->data['type'] ?? '') === 'ticket_called';
+
+        $messages = array_map(fn($t) => array_filter([
+            'to'                   => $t,
+            'title'                => $this->title,
+            'body'                 => $this->body,
+            'data'                 => $this->data,
+            'sound'                => 'default',
+            'priority'             => $isCalledAlert ? 'high' : 'default',
+            'channelId'            => $isCalledAlert ? 'smartqueue-calls' : 'smartqueue-default',
+            'ttl'                  => $isCalledAlert ? 300 : 3600,
+        ], fn($v) => $v !== null), $tokens);
 
         try {
             $res  = $client->post('/--/api/v2/push/send', [
@@ -148,6 +152,54 @@ class SendPushNotification implements ShouldQueue
             Log::error('[Push] Expo send exception: '.$e->getMessage());
             return [false, true];
         }
+    }
+
+    private function isCalledAlert(): bool
+    {
+        return ($this->data['type'] ?? '') === 'ticket_called';
+    }
+
+    private function buildAndroidConfig(): array
+    {
+        $channelId = $this->isCalledAlert() ? 'smartqueue-calls' : 'smartqueue-default';
+
+        $config = [
+            'priority'     => 'high',
+            'notification' => [
+                'channel_id'            => $channelId,
+                'sound'                 => 'default',
+                'notification_priority' => $this->isCalledAlert() ? 'PRIORITY_MAX' : 'PRIORITY_HIGH',
+                'visibility'            => 'PUBLIC',
+            ],
+        ];
+
+        if ($this->isCalledAlert()) {
+            // Allow full-screen intent on locked screens (Android 10+)
+            $config['ttl'] = '300s';
+        }
+
+        return $config;
+    }
+
+    private function buildApnsConfig(): array
+    {
+        $aps = [
+            'sound'             => 'default',
+            'content-available' => 1,
+        ];
+
+        if ($this->isCalledAlert()) {
+            // time-sensitive = shows on Focus / DND modes (iOS 15+)
+            $aps['interruption-level'] = 'time-sensitive';
+        }
+
+        return [
+            'headers' => [
+                'apns-priority'  => '10',
+                'apns-push-type' => 'alert',
+            ],
+            'payload' => ['aps' => $aps],
+        ];
     }
 
     /**
@@ -204,20 +256,8 @@ class SendPushNotification implements ShouldQueue
                             'token'        => $token,
                             'notification' => ['title' => $this->title, 'body' => $this->body],
                             'data'         => array_map('strval', $this->data),
-                            'android'      => [
-                                'priority'     => 'high',
-                                // Doit correspondre au canal créé côté app
-                                // (ANDROID_DEFAULT_CHANNEL_ID) pour un affichage
-                                // heads-up en arrière-plan / app fermée.
-                                'notification' => [
-                                    'channel_id' => 'smartqueue-default',
-                                    'sound'      => 'default',
-                                ],
-                            ],
-                            'apns'         => [
-                                'headers'  => ['apns-priority' => '10'],
-                                'payload'  => ['aps' => ['sound' => 'default']],
-                            ],
+                            'android'      => $this->buildAndroidConfig(),
+                            'apns'         => $this->buildApnsConfig(),
                         ],
                     ],
                     'timeout' => 10,

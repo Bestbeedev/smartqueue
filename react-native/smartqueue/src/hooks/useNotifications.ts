@@ -45,6 +45,11 @@ export interface ScheduledNotification {
 //    notifications push système s'affichent en heads-up (importance MAX).
 export const ANDROID_DEFAULT_CHANNEL_ID = "smartqueue-default";
 
+// ─── Canal Android haute priorité pour appels de tickets ─────────────────────
+//    Déclenche un heads-up immédiat + vibration forte même en mode Ne pas déranger.
+//    Correspond à 'smartqueue-calls' dans FCM v1 (SendPushNotification.php).
+export const ANDROID_CALLS_CHANNEL_ID = "smartqueue-calls";
+
 // ─── Foreground handler : affiche la notif même quand l'app est ouverte ───────
 //    SDK 54 : utiliser shouldShowBanner / shouldShowList (shouldShowAlert est
 //    déprécié). On conserve shouldShowAlert pour compat ascendante.
@@ -321,7 +326,7 @@ export const useNotifications = () => {
   const initializeNotifications = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
-      // Canal Android (obligatoire Android 8+)
+      // Canaux Android (obligatoire Android 8+)
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync(
           ANDROID_DEFAULT_CHANNEL_ID,
@@ -331,6 +336,24 @@ export const useNotifications = () => {
             vibrationPattern: [0, 250, 250, 250],
             lightColor: "#3B82F6",
             sound: "default",
+          },
+        );
+
+        // Canal dédié aux appels de tickets : importance maximale, vibration forte,
+        // visible sur écran verrouillé (VISIBILITY_PUBLIC).
+        await Notifications.setNotificationChannelAsync(
+          ANDROID_CALLS_CHANNEL_ID,
+          {
+            name: "SmartQueue — Appel de ticket",
+            description:
+              "Alerte haute priorité quand votre ticket est appelé au guichet",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 500, 300, 500, 300, 500],
+            lightColor: "#F59E0B",
+            sound: "default",
+            lockscreenVisibility:
+              Notifications.AndroidNotificationVisibility.PUBLIC,
+            bypassDnd: false,
           },
         );
       }
