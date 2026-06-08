@@ -38,12 +38,27 @@ type Ticket = {
   response_received_at?: string | null;
   en_route_expires_at?: string | null;
   estimated_travel_minutes?: number | null;
+  eta_minutes?: number | null;
+  auto_deferred?: boolean;
+  defer_reason?: string | null;
+  valid_date?: string | null;
 };
 
 type ServiceStats = {
   waiting: number;
   processed: number;
   avg_wait_time: number;
+};
+
+/** Data returned by GET /services/{id}/availability */
+type SmartQueueData = {
+  critical_zone: boolean;
+  intelligent_cutoff_at: string | null;
+  waiting_count_today: number;
+  estimated_load_minutes: number;
+  is_open_now: boolean;
+  closing_time: string | null;
+  reason_if_closed: string | null;
 };
 
 type ThemeColors = ReturnType<typeof useThemeColors>;
@@ -75,6 +90,27 @@ function fmtTime(dateStr?: string | null): string {
     return "--";
   }
 }
+
+function fmtCutoff(iso?: string | null): string {
+  if (!iso) return "--";
+  try {
+    return new Date(iso).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "--";
+  }
+}
+
+const REASON_LABELS: Record<string, string> = {
+  critical_zone: "Zone critique",
+  past_cutoff: "Hors capacité",
+  day_off: "Jour non ouvré",
+  holiday: "Jour férié",
+  outside_hours: "Hors horaires",
+  manually_closed: "Fermé manuellement",
+};
 
 // ─── Config maps ──────────────────────────────────────────────────────────────
 
@@ -153,6 +189,130 @@ function KpiPill({
           {label}
         </Text>
       </View>
+    </View>
+  );
+}
+
+/**
+ * Smart-queue status banner.
+ * Shows the intelligent cutoff state: critical zone (new tickets deferred) or
+ * estimated load with the cutoff time.
+ */
+function SmartQueueBanner({
+  data,
+  colors,
+}: {
+  data: SmartQueueData;
+  colors: ThemeColors;
+}) {
+  if (data.critical_zone) {
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#FF3B300F",
+          borderWidth: 1,
+          borderColor: "#FF3B3030",
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+          gap: 9,
+        }}
+      >
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            backgroundColor: "#FF3B3018",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Ionicons name="warning" size={16} color="#FF3B30" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{ color: "#FF3B30", fontWeight: "800", fontSize: 13 }}
+          >
+            Zone critique — file saturée
+          </Text>
+          <Text style={{ color: "#FF3B30CC", fontSize: 11, marginTop: 1 }}>
+            Les nouveaux tickets sont automatiquement reportés au prochain jour
+            ouvrable
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const loadH = Math.floor(data.estimated_load_minutes / 60);
+  const loadM = data.estimated_load_minutes % 60;
+  const loadLabel =
+    data.estimated_load_minutes <= 0
+      ? "—"
+      : loadH > 0
+        ? `${loadH}h${loadM > 0 ? loadM + "min" : ""}`
+        : `${loadM}min`;
+
+  const cutoffLabel = fmtCutoff(data.intelligent_cutoff_at);
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#34C7590F",
+        borderWidth: 1,
+        borderColor: "#34C75930",
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        gap: 9,
+      }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          backgroundColor: "#34C75918",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: "#34C759", fontWeight: "800", fontSize: 13 }}>
+          Capacité normale
+        </Text>
+        <Text
+          style={{ color: colors.textSecondary, fontSize: 11, marginTop: 1 }}
+        >
+          Charge estimée : {loadLabel}
+          {"  ·  "}Coupure intelligente à {cutoffLabel}
+        </Text>
+      </View>
+      {data.intelligent_cutoff_at && (
+        <View
+          style={{
+            backgroundColor: "#007AFF18",
+            paddingHorizontal: 7,
+            paddingVertical: 3,
+            borderRadius: 7,
+            borderWidth: 1,
+            borderColor: "#007AFF30",
+          }}
+        >
+          <Text
+            style={{ color: "#007AFF", fontSize: 11, fontWeight: "700" }}
+          >
+            {cutoffLabel}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -341,6 +501,7 @@ export default function AgentQueue() {
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [currentTicket, setCurrentTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<ServiceStats | null>(null);
+  const [smartQueue, setSmartQueue] = useState<SmartQueueData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -355,10 +516,13 @@ export default function AgentQueue() {
   const fetchData = useCallback(async () => {
     if (!serviceId) return;
     try {
-      const [queueRes, statsRes, serviceRes] = await Promise.all([
+      const [queueRes, statsRes, serviceRes, availRes] = await Promise.all([
         axiosClient.get(`/services/${serviceId}/queue`),
         axiosClient.get(`/services/${serviceId}/affluence`),
         axiosClient.get(`/services/${serviceId}`),
+        axiosClient
+          .get(`/services/${serviceId}/availability`)
+          .catch(() => null),
       ]);
 
       const waitingTickets = (queueRes.data?.tickets || []).filter(
@@ -382,6 +546,21 @@ export default function AgentQueue() {
           statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
       setServiceStatus(serviceRes.data?.status || "open");
+
+      // Smart queue data from availability endpoint
+      if (availRes?.data) {
+        const cap = availRes.data.capacity ?? {};
+        const avail = availRes.data.availability ?? {};
+        setSmartQueue({
+          critical_zone: cap.critical_zone ?? false,
+          intelligent_cutoff_at: cap.intelligent_cutoff_at ?? null,
+          waiting_count_today: cap.waiting_count_today ?? 0,
+          estimated_load_minutes: cap.estimated_load_minutes ?? 0,
+          is_open_now: avail.is_open_now ?? true,
+          closing_time: avail.closing_time ?? null,
+          reason_if_closed: avail.reason_if_closed ?? null,
+        });
+      }
 
       const calledTicket = (queueRes.data?.tickets || []).find(
         (t: Ticket) =>
@@ -619,6 +798,10 @@ export default function AgentQueue() {
   // ── Ticket row renderer ────────────────────────────────────────────────────
   const renderTicket = ({ item, index }: { item: Ticket; index: number }) => {
     const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
+    const etaLabel =
+      typeof item.eta_minutes === "number" && item.eta_minutes > 0
+        ? `≈ ${item.eta_minutes}min`
+        : null;
 
     return (
       <View
@@ -635,7 +818,7 @@ export default function AgentQueue() {
           gap: 10,
         }}
       >
-        {/* Position + priority pill */}
+        {/* Position bubble */}
         <View
           style={{
             width: 36,
@@ -659,8 +842,9 @@ export default function AgentQueue() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 6,
+              gap: 5,
               marginBottom: 3,
+              flexWrap: "wrap",
             }}
           >
             <Text
@@ -673,6 +857,7 @@ export default function AgentQueue() {
             >
               {item.number}
             </Text>
+
             {/* Priority badge */}
             <View
               style={{
@@ -693,7 +878,32 @@ export default function AgentQueue() {
                 {prio.label}
               </Text>
             </View>
+
+            {/* ETA badge */}
+            {etaLabel && (
+              <View
+                style={{
+                  backgroundColor: "#007AFF12",
+                  paddingHorizontal: 5,
+                  paddingVertical: 1,
+                  borderRadius: 5,
+                  borderWidth: 1,
+                  borderColor: "#007AFF28",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#007AFF",
+                    fontSize: 9,
+                    fontWeight: "700",
+                  }}
+                >
+                  {etaLabel}
+                </Text>
+              </View>
+            )}
           </View>
+
           <Text
             style={{
               color: colors.textSecondary,
@@ -822,6 +1032,9 @@ export default function AgentQueue() {
           >
             Service #{serviceId}
             {counterId ? `  ·  Guichet ${counterId}` : ""}
+            {smartQueue?.closing_time
+              ? `  ·  Ferme à ${smartQueue.closing_time.substring(0, 5)}`
+              : ""}
           </Text>
         </View>
 
@@ -892,6 +1105,29 @@ export default function AgentQueue() {
             accent="#FF9500"
             colors={colors}
           />
+          {/* Estimated load from smart queue */}
+          {smartQueue && (
+            <KpiPill
+              icon={smartQueue.critical_zone ? "warning-outline" : "flash-outline"}
+              label="Charge totale"
+              value={
+                smartQueue.estimated_load_minutes > 0
+                  ? smartQueue.estimated_load_minutes >= 60
+                    ? `${Math.floor(smartQueue.estimated_load_minutes / 60)}h${smartQueue.estimated_load_minutes % 60 > 0 ? (smartQueue.estimated_load_minutes % 60) + "m" : ""}`
+                    : `${smartQueue.estimated_load_minutes}min`
+                  : "—"
+              }
+              accent={smartQueue.critical_zone ? "#FF3B30" : "#8B5CF6"}
+              colors={colors}
+            />
+          )}
+        </View>
+      )}
+
+      {/* ── Smart queue status banner ───────────────────────────────────────── */}
+      {smartQueue && serviceStatus === "open" && (
+        <View style={{ paddingHorizontal: hPad, marginBottom: 6 }}>
+          <SmartQueueBanner data={smartQueue} colors={colors} />
         </View>
       )}
 
@@ -994,17 +1230,24 @@ export default function AgentQueue() {
               </Text>
               <View
                 style={{
-                  backgroundColor: "#007AFF18",
+                  backgroundColor: smartQueue?.critical_zone
+                    ? "#FF3B3018"
+                    : "#007AFF18",
                   paddingHorizontal: 8,
                   paddingVertical: 3,
                   borderRadius: 8,
                 }}
               >
                 <Text
-                  style={{ color: "#007AFF", fontSize: 12, fontWeight: "700" }}
+                  style={{
+                    color: smartQueue?.critical_zone ? "#FF3B30" : "#007AFF",
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
                 >
                   {filteredTickets.length} ticket
                   {filteredTickets.length > 1 ? "s" : ""}
+                  {smartQueue?.critical_zone ? "  ⚠" : ""}
                 </Text>
               </View>
             </View>
@@ -1034,7 +1277,9 @@ export default function AgentQueue() {
                 marginTop: 4,
               }}
             >
-              Aucun ticket en attente
+              {smartQueue?.critical_zone
+                ? "Zone critique — les nouveaux tickets sont reportés"
+                : "Aucun ticket en attente"}
             </Text>
           </View>
         )}
