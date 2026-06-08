@@ -138,6 +138,8 @@ class DashboardController extends Controller
                 'service_id' => $ticket->service_id,
                 'service_name' => $ticket->service?->name,
                 'user_name' => $ticket->user?->name,
+                'user_email'=> $ticket->user?->email,
+                'user_phone'=> $ticket->user?->phone,
                 'counter_name' => $ticket->counter?->name,
                 'called_at' => $ticket->called_at?->toDateTimeString(),
                 'closed_at' => $ticket->closed_at?->toDateTimeString(),

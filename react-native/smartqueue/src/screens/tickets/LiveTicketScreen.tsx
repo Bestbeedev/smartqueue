@@ -626,6 +626,7 @@ const styles = StyleSheet.create({
   },
   headerMain: {
     marginTop: 8,
+    alignItems:"center",
   },
   ticketLabel: {
     fontSize: 12,

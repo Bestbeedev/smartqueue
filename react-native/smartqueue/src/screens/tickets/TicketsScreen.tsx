@@ -40,7 +40,7 @@ const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: config.color + "15" }]}>
-      <Ionicons name={config.icon as any} size={14} color={config.color} />
+      <Ionicons name={config.icon as any} size={12} color={config.color} />
       <Text style={[styles.statusBadgeText, { color: config.color }]}>
         {config.label}
       </Text>
@@ -48,68 +48,51 @@ const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors
   );
 };
 
-// Carte de progression
+// Carte de progression compacte
 const ProgressCard: React.FC<{
   position: number;
   etaMinutes: number;
   colors: any;
 }> = ({ position, etaMinutes, colors }) => {
   const progress = position > 0 ? Math.min(100, (1 / position) * 100) : 0;
+  const isSoon = position <= 3 && position > 0;
 
   return (
     <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.progressHeader}>
-        <View style={styles.progressInfo}>
-          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-            Votre position
-          </Text>
-          <Text style={[styles.progressValue, { color: colors.primary }]}>
+      <View style={styles.progressStats}>
+        <View style={styles.progressStat}>
+          <Text style={[styles.progressStatLabel, { color: colors.textTertiary }]}>Position</Text>
+          <Text style={[styles.progressStatValue, { color: isSoon ? colors.warning : colors.primary }]}>
             {position > 0 ? `${position}e` : "—"}
           </Text>
         </View>
-        <View style={styles.progressInfo}>
-          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-            Temps estimé
-          </Text>
-          <Text style={[styles.progressValue, { color: colors.warning }]}>
+        <View style={styles.progressStat}>
+          <Text style={[styles.progressStatLabel, { color: colors.textTertiary }]}>Estimation</Text>
+          <Text style={[styles.progressStatValue, { color: colors.primary }]}>
             {etaMinutes > 0 ? `${etaMinutes} min` : "—"}
           </Text>
         </View>
       </View>
-      
-      <View style={styles.progressBarContainer}>
-        <View 
-          style={[
-            styles.progressBar, 
-            { 
-              width: `${progress}%`,
-              backgroundColor: colors.primary 
-            }
-          ]} 
-        />
+      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: isSoon ? colors.warning : colors.primary }]} />
       </View>
-      
-      <Text style={[styles.progressHint, { color: colors.textTertiary }]}>
-        {position > 0 && position <= 3 
-          ? "🎯 C'est bientôt votre tour ! Restez à proximité" 
-          : position > 0 ? "⏱️ Vous serez notifié quand votre tour approche" : "Statut en attente de mise à jour"}
-      </Text>
+      {isSoon && <Text style={[styles.progressSoon, { color: colors.warning }]}>⚡ Bientôt votre tour !</Text>}
     </View>
   );
 };
 
-// Carte de ticket verticale
+// Carte de ticket secondaire compacte
 const TicketCard: React.FC<{
   ticket: Ticket;
   colors: any;
   onPress?: () => void;
 }> = ({ ticket, colors, onPress }) => {
   const getQueueInfo = () => {
-    if (ticket.status === "called") return "Présentez-vous";
+    if (ticket.status === "called") return "Appelé";
     if (ticket.status === "present") return "Présent";
     if (ticket.status === "en_route") return "En route";
     if (ticket.position && ticket.position > 0) return `${ticket.position}e place`;
-    return "En traitement";
+    return "En attente";
   };
 
   return (
@@ -119,13 +102,11 @@ const TicketCard: React.FC<{
       activeOpacity={0.7}
     >
       <View style={styles.ticketCardLeft}>
-        <View style={[styles.ticketNumberBadge, { backgroundColor: colors.primary + "20" }]}>
-          <Text style={[styles.ticketNumber, { color: colors.primary }]}>
-            #{ticket.number}
-          </Text>
+        <View style={[styles.ticketNumberBadge, { backgroundColor: colors.primary + "15" }]}>
+          <Text style={[styles.ticketNumber, { color: colors.primary }]}>{ticket.number}</Text>
         </View>
         <View style={styles.ticketDetails}>
-          <Text style={[styles.ticketService, { color: colors.textPrimary }]}>
+          <Text style={[styles.ticketService, { color: colors.textPrimary }]} numberOfLines={1}>
             {ticket.service?.name || "Service"}
           </Text>
           <Text style={[styles.ticketQueueInfo, { color: colors.textTertiary }]}>
@@ -138,7 +119,7 @@ const TicketCard: React.FC<{
   );
 };
 
-// Action rapide circulaire
+// Action rapide compacte
 const QuickActionCircle: React.FC<{
   icon: string;
   label: string;
@@ -146,12 +127,9 @@ const QuickActionCircle: React.FC<{
   onPress: () => void;
 }> = ({ icon, label, color, onPress }) => (
   <TouchableOpacity style={styles.quickActionCircle} onPress={onPress} activeOpacity={0.8}>
-    <LinearGradient
-      colors={[color, color + "CC"]}
-      style={styles.quickActionCircleGradient}
-    >
-      <Ionicons name={icon as any} size={28} color="#FFFFFF" />
-    </LinearGradient>
+    <View style={[styles.quickActionCircleIcon, { backgroundColor: color + "15" }]}>
+      <Ionicons name={icon as any} size={24} color={color} />
+    </View>
     <Text style={[styles.quickActionCircleLabel, { color }]}>{label}</Text>
   </TouchableOpacity>
 );
@@ -174,7 +152,6 @@ export const TicketsScreen: React.FC = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   const otherActiveTickets = useMemo(
     () => activeTickets.filter((ticket) => ticket.id !== activeTicket?.id),
@@ -188,76 +165,39 @@ export const TicketsScreen: React.FC = () => {
   );
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, scaleAnim]);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await fetchActiveTicket();
-    } finally {
-      setRefreshing(false);
-    }
+    try { await fetchActiveTicket(); } finally { setRefreshing(false); }
   }, [fetchActiveTicket]);
 
   const handleCancelTicket = useCallback(() => {
     if (!activeTicket) return;
-
-    showWarning(
-      "Annuler le ticket",
-      "Vous perdrez votre place dans la file",
-      "Annuler",
-      async () => {
-        try {
-          await cancelTicket(activeTicket.id);
-        } catch (error: any) {
-          showError("Erreur", error?.message || "Impossible d'annuler");
-        }
-      },
-      "Retour",
-    );
+    showWarning("Annuler le ticket", "Vous perdrez votre place dans la file", "Annuler", async () => {
+      try { await cancelTicket(activeTicket.id); } 
+      catch (error: any) { showError("Erreur", error?.message || "Impossible d'annuler"); }
+    }, "Retour");
   }, [activeTicket, cancelTicket, showWarning, showError]);
 
-  // Navigation
   const handleScanQR = useCallback(() => router.push("/(tabs)/scan"), []);
   const handleViewLiveTicket = useCallback(() => {
     if (!activeTicket) return;
-    router.push({
-      pathname: "/(tabs)/live-ticket",
-      params: { ticketId: String(activeTicket.id) },
-    });
+    router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(activeTicket.id) } });
   }, [activeTicket]);
   const handleViewHistory = useCallback(() => router.push("/(tabs)/history"), []);
   const handleNotifications = useCallback(() => router.push("/notifications"), []);
 
-  // Rendu principal
   const renderHeader = () => (
-    <LinearGradient
-      colors={["#3B82F6", "#2563EB"]}
-      style={styles.header}
-    >
+    <LinearGradient colors={["#3B82F6", "#2563EB"]} style={styles.header}>
       <View style={styles.headerTop}>
         <View>
-          <Text style={styles.welcomeText}>Soyez les bienvenus</Text>
-          <Text style={styles.headerTitle}>Ma File d'attente</Text>
+          <Text style={styles.welcomeText}>👋 Apercu de votre </Text>
+          <Text style={styles.headerTitle}>File d'attente</Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.notificationIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-          onPress={handleNotifications}
-        >
-          <Ionicons name="notifications-outline" size={24} color="#FFF" />
+        <TouchableOpacity style={[styles.notificationIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]} onPress={handleNotifications}>
+          <Ionicons name="notifications-outline" size={22} color="#FFF" />
           {hasActiveTicket && <View style={styles.notificationDot} />}
         </TouchableOpacity>
       </View>
@@ -265,28 +205,16 @@ export const TicketsScreen: React.FC = () => {
   );
 
   const renderEmptyState = () => (
-    <Animated.View 
-      style={[
-        styles.emptyContainer,
-        { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }
-      ]}
-    >
+    <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
       <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + "15" }]}>
-        <Ionicons name="ticket-outline" size={64} color={colors.primary} />
+        <Ionicons name="ticket-outline" size={56} color={colors.primary} />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-        Aucun ticket actif
-      </Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-        Scannez un QR code pour rejoindre une file
-      </Text>
+      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket actif</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Scannez un QR code pour rejoindre une file</Text>
       <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
-        <LinearGradient
-          colors={[colors.primary, colors.secondary]}
-          style={styles.scanButtonGradient}
-        >
-          <Ionicons name="qr-code-outline" size={20} color="#FFF" />
-          <Text style={styles.scanButtonText}>Scanner un QR code</Text>
+        <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.scanButtonGradient}>
+          <Ionicons name="qr-code-outline" size={18} color="#FFF" />
+          <Text style={styles.scanButtonText}>Scanner</Text>
         </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
@@ -294,125 +222,82 @@ export const TicketsScreen: React.FC = () => {
 
   const renderActiveTicket = () => {
     // Déterminer si on affiche la position ou le statut
-    const isSpecialStatus = activeTicket?.status === "called" || 
-                           activeTicket?.status === "present" || 
-                           activeTicket?.status === "en_route";
+    const isSpecialStatus = activeTicket?.status === "called" || activeTicket?.status === "present" || activeTicket?.status === "en_route";
+    const queueLength = (activeTicket as any)?.queue_length || position || 1;
     
-    const displayValue = isSpecialStatus ? null : position;
-    const displayLabel = isSpecialStatus ? "Statut" : "Position dans la file";
     const displayText = isSpecialStatus 
-      ? (activeTicket?.status === "called" ? "Appelé" :
-         activeTicket?.status === "present" ? "Présent" :
-         activeTicket?.status === "en_route" ? "En route" : "")
-      : `${position}e`;
+      ? (activeTicket?.status === "called" ? "Appelé" : activeTicket?.status === "present" ? "Présent" : "En route")
+      : `${position}e / ${queueLength}`;
+    const displayLabel = isSpecialStatus ? "Statut" : "Position";
 
     return (
-      <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
-        {/* Ticket principal compact */}
+      <Animated.View style={{ opacity: fadeAnim }}>
         <View style={[styles.mainTicketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.ticketHeader}>
-            <View style={styles.ticketHeaderLeft}>
-              <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>
-                Votre ticket
-              </Text>
-              <Text style={[styles.ticketNumber, { color: colors.primary }]}>
-                {activeTicket?.number}
-              </Text>
+            <View>
+              <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>Votre ticket</Text>
+              <Text style={[styles.ticketNumber, { color: colors.primary }]}>{activeTicket?.number}</Text>
             </View>
             <StatusBadge status={activeTicket?.status || "waiting"} colors={colors} />
           </View>
 
-          {/* Position ou Statut */}
-          <View style={styles.positionContainer}>
-            <View style={[styles.positionBadge, { backgroundColor: isSpecialStatus ? colors.primary + "15" : colors.primary + "15" }]}>
-              <Text style={[styles.positionValue, { color: isSpecialStatus ? colors.primary : colors.primary }]}>
-                {displayText}
-              </Text>
-            </View>
-            <Text style={[styles.positionLabel, { color: colors.textTertiary }]}>
-              {displayLabel}
-            </Text>
-          </View>
-
-          <View style={styles.ticketDivider} />
-
-          <View style={styles.ticketBody}>
-            <View style={styles.ticketInfoRow}>
-              <Ionicons name="business-outline" size={18} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>
+          <View style={styles.ticketInfoCompact}>
+            <View style={styles.ticketInfoItem}>
+              <Ionicons name="business-outline" size={14} color={colors.textTertiary} />
+              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {activeTicket?.establishment?.name || "Établissement"}
               </Text>
             </View>
-            <View style={styles.ticketInfoRow}>
-              <Ionicons name="briefcase-outline" size={18} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>
+            <View style={styles.ticketInfoItem}>
+              <Ionicons name="briefcase-outline" size={14} color={colors.textTertiary} />
+              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {activeTicket?.service?.name || "Service"}
               </Text>
             </View>
           </View>
 
-          <View style={styles.ticketActions}>
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.primary + "10" }]}
-              onPress={handleViewLiveTicket}
-            >
-              <Ionicons name="eye-outline" size={20} color={colors.primary} />
-              <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-                Suivre
-              </Text>
+          <View style={styles.statsRowCompact}>
+            <View style={styles.statItemCompact}>
+              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>{displayLabel}</Text>
+              <Text style={[styles.statValueCompact, { color: isSpecialStatus ? colors.primary : colors.primary }]}>{displayText}</Text>
+            </View>
+            <View style={[styles.statDividerCompact, { backgroundColor: colors.border }]} />
+            <View style={styles.statItemCompact}>
+              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>Estimation</Text>
+              <Text style={[styles.statValueCompact, { color: colors.primary }]}>{etaMinutes > 0 ? `${etaMinutes} min` : "—"}</Text>
+            </View>
+          </View>
+
+          <View style={styles.ticketActionsCompact}>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "10" }]} onPress={handleViewLiveTicket}>
+              <Ionicons name="eye-outline" size={18} color={colors.primary} />
+              <Text style={[styles.actionBtnTextCompact, { color: colors.primary }]}>Suivre</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.danger + "10" }]}
-              onPress={handleCancelTicket}
-            >
-              <Ionicons name="close-outline" size={20} color={colors.danger} />
-              <Text style={[styles.actionButtonText, { color: colors.danger }]}>
-                Annuler
-              </Text>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.danger + "10" }]} onPress={handleCancelTicket}>
+              <Ionicons name="close-outline" size={18} color={colors.danger} />
+              <Text style={[styles.actionBtnTextCompact, { color: colors.danger }]}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Progression - seulement si en attente */}
-        {activeTicket?.status === "waiting" && (
-          <ProgressCard position={position} etaMinutes={etaMinutes} colors={colors} />
-        )}
+        {activeTicket?.status === "waiting" && <ProgressCard position={position} etaMinutes={etaMinutes} colors={colors} />}
         
-        {/* Message pour les statuts spéciaux */}
         {activeTicket?.status === "called" && (
           <View style={[styles.specialStatusCard, { backgroundColor: colors.danger + "10", borderColor: colors.danger }]}>
-            <Ionicons name="notifications" size={24} color={colors.danger} />
-            <Text style={[styles.specialStatusText, { color: colors.danger }]}>
-              Vous êtes appelé au guichet !
-            </Text>
-            <Text style={[styles.specialStatusSubtext, { color: colors.textSecondary }]}>
-              Présentez-vous immédiatement
-            </Text>
+            <Ionicons name="notifications" size={20} color={colors.danger} />
+            <Text style={[styles.specialStatusText, { color: colors.danger }]}>Appelé au guichet !</Text>
           </View>
         )}
-        
         {activeTicket?.status === "present" && (
           <View style={[styles.specialStatusCard, { backgroundColor: colors.success + "10", borderColor: colors.success }]}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-            <Text style={[styles.specialStatusText, { color: colors.success }]}>
-              Vous êtes présent
-            </Text>
-            <Text style={[styles.specialStatusSubtext, { color: colors.textSecondary }]}>
-              Un agent va bientôt vous prendre en charge
-            </Text>
+            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+            <Text style={[styles.specialStatusText, { color: colors.success }]}>Présent - Priorité conservée</Text>
           </View>
         )}
-        
         {activeTicket?.status === "en_route" && (
           <View style={[styles.specialStatusCard, { backgroundColor: colors.warning + "10", borderColor: colors.warning }]}>
-            <Ionicons name="walk" size={24} color={colors.warning} />
-            <Text style={[styles.specialStatusText, { color: colors.warning }]}>
-              Vous êtes en route
-            </Text>
-            <Text style={[styles.specialStatusSubtext, { color: colors.textSecondary }]}>
-              L'agent a été notifié de votre arrivée
-            </Text>
+            <Ionicons name="walk" size={20} color={colors.warning} />
+            <Text style={[styles.specialStatusText, { color: colors.warning }]}>En route - Agent notifié</Text>
           </View>
         )}
       </Animated.View>
@@ -421,19 +306,16 @@ export const TicketsScreen: React.FC = () => {
 
   const renderOtherTickets = () => {
     if (!hasActiveTicket || otherActiveTickets.length === 0) return null;
-
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Autres tickets
-          </Text>
-          <Text style={[styles.sectionBadge, { backgroundColor: colors.primary + "15", color: colors.primary }]}>
-            {otherActiveTickets.length}
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Autres tickets</Text>
+          <View style={[styles.sectionBadge, { backgroundColor: colors.primary + "15" }]}>
+            <Text style={[styles.sectionBadgeText, { color: colors.primary }]}>{otherActiveTickets.length}</Text>
+          </View>
         </View>
         {otherActiveTickets.map((ticket) => (
-          <TicketCard key={ticket.id} ticket={ticket} colors={colors} onPress={() => handleViewLiveTicket()} />
+          <TicketCard key={ticket.id} ticket={ticket} colors={colors} onPress={handleViewLiveTicket} />
         ))}
       </View>
     );
@@ -441,34 +323,12 @@ export const TicketsScreen: React.FC = () => {
 
   const renderQuickActions = () => (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Actions rapides
-      </Text>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Actions Rapides</Text>
       <View style={styles.quickActionsGrid}>
-        <QuickActionCircle
-          icon="qr-code-outline"
-          label="Scanner"
-          color={colors.primary}
-          onPress={handleScanQR}
-        />
-        <QuickActionCircle
-          icon="time-outline"
-          label="Historique"
-          color={colors.success}
-          onPress={handleViewHistory}
-        />
-        <QuickActionCircle
-          icon="map-outline"
-          label="Carte"
-          color={colors.warning}
-          onPress={() => router.push("/navigation" as any)}
-        />
-        <QuickActionCircle
-          icon="call-outline"
-          label="Support"
-          color={colors.secondary}
-          onPress={() => {/* Support logic */}}
-        />
+        <QuickActionCircle icon="qr-code-outline" label="Scanner" color={colors.primary} onPress={handleScanQR} />
+        <QuickActionCircle icon="time-outline" label="Historique" color={colors.success} onPress={handleViewHistory} />
+        <QuickActionCircle icon="map-outline" label="Carte" color={colors.warning} onPress={() => router.push("/navigation")} />
+        <QuickActionCircle icon="call-outline" label="Support" color={colors.secondary} onPress={() => {}} />
       </View>
     </View>
   );
@@ -476,24 +336,16 @@ export const TicketsScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
-      
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={64} color={colors.danger} />
-            <Text style={[styles.errorText, { color: colors.textPrimary }]}>
-              Une erreur est survenue
-            </Text>
-            <TouchableOpacity 
-              style={[styles.retryButton, { backgroundColor: colors.primary }]}
-              onPress={handleRefresh}
-            >
+            <Ionicons name="alert-circle-outline" size={56} color={colors.danger} />
+            <Text style={[styles.errorText, { color: colors.textPrimary }]}>Une erreur est survenue</Text>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
               <Text style={styles.retryButtonText}>Réessayer</Text>
             </TouchableOpacity>
           </View>
@@ -507,11 +359,9 @@ export const TicketsScreen: React.FC = () => {
         {AlertComponent}
         <View style={styles.bottomSpace} />
       </ScrollView>
-
-      {/* Bouton flottant pour scanner si aucun ticket */}
       {!hasActiveTicket && !error && (
         <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={handleScanQR}>
-          <Ionicons name="qr-code" size={28} color="#FFF" />
+          <Ionicons name="qr-code" size={26} color="#FFF" />
         </TouchableOpacity>
       )}
     </View>
@@ -519,372 +369,80 @@ export const TicketsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  welcomeText: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  notificationIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notificationDot: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#EF4444",
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 30,
-  },
-  // Empty state
-  emptyContainer: {
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 32,
-    paddingHorizontal: 40,
-  },
-  scanButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#3B82F6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  scanButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    gap: 8,
-  },
-  scanButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  // Main ticket card
-  mainTicketCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  ticketHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  ticketHeaderLeft: {
-    flex: 1,
-  },
-  ticketLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  ticketNumber: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  positionContainer: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  positionBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  positionValue: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  positionLabel: {
-    fontSize: 12,
-  },
-  ticketDivider: {
-    height: 1,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    marginVertical: 16,
-  },
-  ticketBody: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  ticketInfoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  ticketInfoText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  ticketActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  // Progress card
-  progressCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 24,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  progressInfo: {
-    alignItems: "center",
-  },
-  progressLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  progressValue: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  progressHint: {
-    fontSize: 12,
-    textAlign: "center",
-  },
-  // Section
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  sectionBadge: {
-    fontSize: 14,
-    fontWeight: "600",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  // Ticket card for other tickets
-  ticketCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  ticketCardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  ticketNumberBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ticketNumber: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  ticketDetails: {
-    flex: 1,
-  },
-  ticketService: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  ticketQueueInfo: {
-    fontSize: 12,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  // Quick actions
-  quickActionsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    marginTop:12,
-  },
-  quickActionCircle: {
-    flex: 1,
-    alignItems: "center",
-  },
-  quickActionCircleGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  quickActionCircleLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  // Error
-  errorContainer: {
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  errorText: {
-    fontSize: 16,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  bottomSpace: {
-    height: 20,
-  },
-  // Special status card
-  specialStatusCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  specialStatusText: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  specialStatusSubtext: {
-    fontSize: 13,
-    textAlign: "center",
-  },
+  container: { flex: 1 },
+  header: { paddingTop: Platform.OS === 'ios' ? 55 : 35, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  welcomeText: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 2 },
+  headerTitle: { fontSize: 24, fontWeight: "800", color: "#FFF" },
+  notificationIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  notificationDot: { position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 },
+  
+  emptyContainer: { alignItems: "center", paddingVertical: 40 },
+  emptyIconContainer: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 6 },
+  emptySubtitle: { fontSize: 13, textAlign: "center", marginBottom: 28, paddingHorizontal: 30 },
+  scanButton: { borderRadius: 14, overflow: "hidden" },
+  scanButtonGradient: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 24, gap: 6 },
+  scanButtonText: { fontSize: 14, fontWeight: "600", color: "#FFF" },
+  
+  mainTicketCard: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 16 },
+  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  ticketLabel: { fontSize: 11, marginBottom: 2 },
+  ticketNumber: { fontSize: 22, fontWeight: "800" },
+  ticketInfoCompact: { gap: 8, marginBottom: 12 },
+  ticketInfoItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  ticketInfoText: { fontSize: 13, flex: 1 },
+  statsRowCompact: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
+  statItemCompact: { flex: 1, alignItems: "center" },
+  statLabelCompact: { fontSize: 10, marginBottom: 2 },
+  statValueCompact: { fontSize: 16, fontWeight: "700" },
+  statDividerCompact: { width: 1, height: 30 },
+  ticketActionsCompact: { flexDirection: "row", gap: 10 },
+  actionBtnCompact: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
+  actionBtnTextCompact: { fontSize: 13, fontWeight: "600" },
+  
+  progressCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 16 },
+  progressStats: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
+  progressStat: { alignItems: "center", flex: 1 },
+  progressStatLabel: { fontSize: 11, marginBottom: 3 },
+  progressStatValue: { fontSize: 18, fontWeight: "700" },
+  progressBar: { height: 5, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  progressSoon: { fontSize: 11, textAlign: "center", marginTop: 10, fontWeight: "600" },
+  
+  specialStatusCard: { borderRadius: 14, borderWidth: 1, padding: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 16 },
+  specialStatusText: { fontSize: 14, fontWeight: "600" },
+  
+  section: { marginBottom: 20 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: "700" },
+  sectionBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
+  sectionBadgeText: { fontSize: 13, fontWeight: "700" },
+  
+  ticketCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 10 },
+  ticketCardLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  ticketNumberBadge: { width: 50, height: 50, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  ticketNumber: { fontSize: 16, fontWeight: "800" as any },
+  ticketDetails: { flex: 1 },
+  ticketService: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  ticketQueueInfo: { fontSize: 11 },
+  
+  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 5 },
+  statusBadgeText: { fontSize: 11, fontWeight: "700" },
+  
+  quickActionsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginTop: 10 },
+  quickActionCircle: { flex: 1, alignItems: "center" },
+  quickActionCircleIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  quickActionCircleLabel: { fontSize: 11, fontWeight: "500" },
+  
+  errorContainer: { alignItems: "center", paddingVertical: 50 },
+  errorText: { fontSize: 15, marginTop: 14, marginBottom: 20 },
+  retryButton: { paddingVertical: 10, paddingHorizontal: 22, borderRadius: 12 },
+  retryButtonText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
+  
+  fab: { position: "absolute", bottom: 24, right: 24, width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  bottomSpace: { height: 20 },
 });
 
 export default TicketsScreen;

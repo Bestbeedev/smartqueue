@@ -14,9 +14,9 @@ import { router } from 'expo-router';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const FeatureItem: React.FC<{ icon: any; title: string; description: string; colors: any }> = ({ icon, title, description, colors }) => (
-  <View style={styles.featureItem}>
-    <View style={[styles.featureIcon, { backgroundColor: colors.success + '15' }]}>
-      <Ionicons name={icon} size={24} color={colors.success} />
+  <View style={[styles.featureItem, { borderBottomColor: colors.border }]}>
+    <View style={[styles.featureIcon, { backgroundColor: colors.primary + '15' }]}>
+      <Ionicons name={icon} size={20} color={colors.primary} />
     </View>
     <View style={styles.featureContent}>
       <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>{title}</Text>
@@ -27,7 +27,7 @@ const FeatureItem: React.FC<{ icon: any; title: string; description: string; col
 
 const StatItem: React.FC<{ value: string; label: string; colors: any }> = ({ value, label, colors }) => (
   <View style={styles.statItem}>
-    <Text style={[styles.statValue, { color: colors.success }]}>{value}</Text>
+    <Text style={[styles.statValue, { color: colors.primary }]}>{value}</Text>
     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
   </View>
 );
@@ -39,32 +39,28 @@ export const AboutAppScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Gradient Header */}
+      {/* Header compact */}
       <LinearGradient
-        colors={isDark ? ['#065F46', '#059669', '#10B981'] : [colors.success, '#059669', '#047857']}
-        style={[styles.header, { paddingTop: insets.top + 20 }]}
+        colors={[colors.primary, colors.secondary]}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={styles.iconButton}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} activeOpacity={0.8}>
             <View style={[styles.iconButtonBg, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
             </View>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>À propos</Text>
+          <Text style={styles.headerTitle}>À propos</Text>
           <View style={styles.iconButton} />
         </View>
 
-        {/* App Logo Section */}
+        {/* App Logo Section compact */}
         <View style={styles.logoSection}>
           <View style={[styles.logoContainer, { backgroundColor: colors.surface }]}>
-            <Ionicons name="ticket" size={48} color={colors.success} />
+            <Ionicons name="ticket" size={36} color={colors.primary} />
           </View>
-          <Text style={[styles.appName, { color: '#FFFFFF' }]}>SmartQueue</Text>
-          <Text style={[styles.version, { color: 'rgba(255,255,255,0.8)' }]}>Version 1.0.0</Text>
+          <Text style={styles.appName}>SmartQueue</Text>
+          <Text style={styles.version}>Version 1.0.0</Text>
         </View>
       </LinearGradient>
 
@@ -73,79 +69,55 @@ export const AboutAppScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Stats */}
-        <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
+        {/* Stats compact */}
+        <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <StatItem value="10K+" label="Utilisateurs" colors={colors} />
-          <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <StatItem value="10+" label="Établissements" colors={colors} />
-          <View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
-          <StatItem value="50K+" label="Tickets générés" colors={colors} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <StatItem value="50K+" label="Tickets" colors={colors} />
         </View>
 
-        {/* Description */}
+        {/* Description compact */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>Notre mission</Text>
-          <Text style={[styles.description, { color: colors.textSecondary, backgroundColor: colors.surface }]}>
-            SmartQueue révolutionne la gestion des files d'attente en permettant aux clients de rejoindre une file virtuellement, sans attendre physiquement. Notre solution optimise le temps des clients et améliore l'efficacité des établissements.
+          <Text style={[styles.description, { color: colors.textSecondary, backgroundColor: colors.surface, borderColor: colors.border }]}>
+            SmartQueue révolutionne la gestion des files d'attente en permettant aux clients de rejoindre une file virtuellement, sans attendre physiquement.
           </Text>
         </View>
 
-        {/* Features */}
+        {/* Features compact */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>Fonctionnalités</Text>
-          <View style={[styles.featuresCard, { backgroundColor: colors.surface }]}>
-            <FeatureItem 
-              icon="qr-code" 
-              title="Scan QR Rapide" 
-              description="Rejoignez une file en scannant simplement un QR code"
-              colors={colors}
-            />
-            <FeatureItem 
-              icon="time" 
-              title="Temps Réel" 
-              description="Suivez votre position et le temps d'attente estimé"
-              colors={colors}
-            />
-            <FeatureItem 
-              icon="notifications" 
-              title="Notifications" 
-              description="Recevez des alertes quand c'est votre tour"
-              colors={colors}
-            />
-            <FeatureItem 
-              icon="map" 
-              title="Carte Interactive" 
-              description="Trouvez les établissements proches de vous"
-              colors={colors}
-            />
+          <View style={[styles.featuresCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <FeatureItem icon="qr-code-outline" title="Scan QR" description="Rejoignez une file en scannant un QR code" colors={colors} />
+            <FeatureItem icon="time-outline" title="Temps réel" description="Suivez votre position et l'attente estimée" colors={colors} />
+            <FeatureItem icon="notifications-outline" title="Notifications" description="Alertes quand c'est votre tour" colors={colors} />
+            <FeatureItem icon="map-outline" title="Carte interactive" description="Trouvez les établissements proches" colors={colors} />
           </View>
         </View>
 
-        {/* Legal Links */}
-        <View style={[styles.linksCard, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity 
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://smartqueue.app/terms')}
-          >
-            <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
+        {/* Legal Links compact */}
+        <View style={[styles.linksCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <TouchableOpacity style={styles.linkItem} onPress={() => Linking.openURL('https://smartqueue.app/terms')}>
+            <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.linkText, { color: colors.textPrimary }]}>Conditions d'utilisation</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </TouchableOpacity>
-          <View style={[styles.linkDivider, { backgroundColor: colors.separator }]} />
-          <TouchableOpacity 
-            style={styles.linkItem}
-            onPress={() => Linking.openURL('https://smartqueue.app/privacy')}
-          >
-            <Ionicons name="shield-checkmark-outline" size={22} color={colors.textSecondary} />
+          <View style={[styles.linkDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.linkItem} onPress={() => Linking.openURL('https://smartqueue.app/privacy')}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.linkText, { color: colors.textPrimary }]}>Politique de confidentialité</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
-        {/* Copyright */}
+        {/* Copyright compact */}
         <Text style={[styles.copyright, { color: colors.textTertiary }]}>
-          © 2026 SmartQueue. Tous droits réservés.{'\n'}
-          Conçu avec plein d'amour au Bénin
+          © 2026 SmartQueue
+        </Text>
+        <Text style={[styles.copyrightSub, { color: colors.textTertiary }]}>
+          Conçu avec ❤️ au Bénin
         </Text>
       </ScrollView>
     </View>
@@ -153,180 +125,47 @@ export const AboutAppScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  iconButton: {
-    width: 44,
-    height: 44,
-  },
-  iconButtonBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  logoSection: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 16,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  version: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  statsCard: {
-    flexDirection: 'row',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-    marginLeft: 4,
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 24,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  featuresCard: {
-    borderRadius: 20,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-  },
-  linksCard: {
-    borderRadius: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  linkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 18,
-  },
-  linkDivider: {
-    height: 1,
-    marginLeft: 56,
-  },
-  linkText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  copyright: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  iconButton: { width: 36, height: 36 },
+  iconButtonBg: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  logoSection: { alignItems: 'center', marginTop: 16 },
+  logoContainer: { width: 72, height: 72, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  appName: { fontSize: 24, fontWeight: '800', color: '#FFF' },
+  version: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  content: { flex: 1 },
+  contentContainer: { padding: 16, paddingBottom: 30 },
+  statsCard: { flexDirection: 'row', borderRadius: 16, padding: 14, marginBottom: 20, borderWidth: 1 },
+  statItem: { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, height: 40 },
+  statValue: { fontSize: 20, fontWeight: '800' },
+  statLabel: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  section: { marginBottom: 20 },
+  sectionTitle: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginLeft: 4 },
+  description: { fontSize: 14, lineHeight: 20, borderRadius: 16, padding: 14, borderWidth: 1 },
+  featuresCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  featureItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 0.5 },
+  featureIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  featureContent: { flex: 1 },
+  featureTitle: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  featureDescription: { fontSize: 12 },
+  linksCard: { borderRadius: 16, borderWidth: 1, marginBottom: 20, overflow: 'hidden' },
+  linkItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 },
+  linkDivider: { height: 0.5, marginLeft: 48 },
+  linkText: { flex: 1, fontSize: 14, fontWeight: '500' },
+  copyright: { fontSize: 12, textAlign: 'center', marginTop: 8 },
+  copyrightSub: { fontSize: 11, textAlign: 'center', marginTop: 4 },
 });
 
 export default AboutAppScreen;
-

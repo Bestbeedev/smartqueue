@@ -318,7 +318,7 @@ export const ProfileScreen: React.FC = () => {
 
         {/* Bouton déconnexion */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-          <View style={[styles.logoutContent, { backgroundColor: colors.danger + '10' }]}>
+          <View style={[styles.logoutContent, { backgroundColor: colors.danger + '50' }]}>
             <Ionicons name="log-out-outline" size={20} color={colors.danger} />
             <Text style={[styles.logoutText, { color: colors.danger }]}>Se déconnecter</Text>
           </View>
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   menuContainer: {
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 100 
   },
   section: {
     marginBottom: 20,

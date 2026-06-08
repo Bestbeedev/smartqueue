@@ -88,6 +88,11 @@ const ServiceItem: React.FC<{
             <Text style={[styles.openBadgeText, { color: colors.success }]}>Ouvert</Text>
           </View>
         )}
+        {service.status === "closed" && (
+          <View style={[styles.openBadge, { backgroundColor: colors.danger + "15" }]}>
+            <Text style={[styles.openBadgeText, { color: colors.danger }]}>Fermé</Text>
+          </View>
+        )}
       </View>
       
       {service.description && (

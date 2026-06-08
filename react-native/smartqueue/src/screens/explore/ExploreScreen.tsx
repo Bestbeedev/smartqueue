@@ -521,7 +521,7 @@ export const ExploreScreen: React.FC = () => {
         )}
         <View style={styles.mapActions}>
           {hasActiveTicket && establishmentCoords && (
-            <TouchableOpacity style={[styles.navFab, { backgroundColor: colors.primary }]} onPress={() => router.push("/navigation")}>
+            <TouchableOpacity style={[styles.navFab, { backgroundColor: colors.warning }]} onPress={() => router.push("/navigation")}>
               <Ionicons name="navigate" size={24} color="#FFF" />
               {distanceInfo && <View style={[styles.navDistance, { backgroundColor: colors.surface }]}><Text style={[styles.navDistanceText, { color: colors.primary }]}>{Math.round(distanceInfo.kilometers * 10) / 10}km</Text></View>}
             </TouchableOpacity>
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
 
   activeTicketFab: {
     position: "absolute",
-    right: 16,
+    left: 16,
     top: "50%",
     marginTop: -28,
     width: 56,
