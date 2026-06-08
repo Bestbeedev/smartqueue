@@ -1,10 +1,16 @@
 # Sound assets
 
-Place `ticket_called.mp3` here (MP3, ≤ 2 s, ≤ 100 kB recommended).
+## Default sound: `ticket_called.wav`
 
-The file is referenced in `useCalledTicketSound.ts`:
-```ts
-const DEFAULT_SOUND = require('../../assets/sounds/ticket_called.mp3');
-```
+A generated 880 Hz beep (0.4 s, WAV 8-bit mono 8 kHz) used as the built-in
+alert when a ticket is called. The file is bundled with the app via Metro.
 
-If the file is missing the hook silently degrades to vibration-only via expo-haptics.
+To replace it with a higher-quality sound, swap the file keeping the same name,
+or upload a custom MP3/WAV/OGG via the admin panel (Admin → Services → Bell icon).
+The custom URL from the server then overrides this bundled default at runtime.
+
+## Custom sounds (per service)
+
+Uploaded via `POST /api/admin/services/{id}/sound/upload` (MP3/WAV/OGG ≤ 2 MB).
+Stored in `backend/storage/app/public/services/sounds/`.
+Referenced in `services.sound_settings.sound_uri` (JSON column).

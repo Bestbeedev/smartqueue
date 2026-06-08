@@ -2,15 +2,11 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAudioPlayer, AudioSource } from "expo-audio";
 import * as Haptics from "expo-haptics";
 
-// Drop ticket_called.mp3 in assets/sounds/ to enable bundled audio.
-// The try/catch lets the hook compile even when the file is absent.
-let DEFAULT_SOUND_SOURCE: AudioSource | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  DEFAULT_SOUND_SOURCE = require("../../assets/sounds/ticket_called.mp3") as AudioSource;
-} catch {
-  // file not yet added — hook degrades to haptics only
-}
+// Bundled default alert sound (880 Hz beep, 0.4 s, generated WAV).
+// Replace with a higher-quality MP3 by swapping the file at the same path.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DEFAULT_SOUND_SOURCE: AudioSource =
+  require("../../assets/sounds/ticket_called.wav") as AudioSource;
 
 export interface CalledTicketSoundConfig {
   /** Play audio alerts. Defaults to true. */
