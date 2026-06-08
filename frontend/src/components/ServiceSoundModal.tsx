@@ -208,9 +208,9 @@ export default function ServiceSoundModal({ open, onClose, serviceId, serviceNam
                 <DialogPrimitive.Title className="text-base font-semibold text-foreground">
                   Alertes sonores
                 </DialogPrimitive.Title>
-                {serviceName && (
-                  <p className="text-xs text-muted-foreground">{serviceName}</p>
-                )}
+                <DialogPrimitive.Description className="text-xs text-muted-foreground">
+                  {serviceName ?? 'Configuration du son d\'appel'}
+                </DialogPrimitive.Description>
               </div>
             </div>
             <DialogPrimitive.Close className="rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
