@@ -18,6 +18,8 @@ class ServiceResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'status' => $this->status,
+            'opening_time' => $this->opening_time,
+            'closing_time' => $this->closing_time,
             'avg_service_time_minutes' => (int) $this->avg_service_time_minutes,
             // Nombre de personnes en attente si chargé via withCount
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,

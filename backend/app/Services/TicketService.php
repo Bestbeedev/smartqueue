@@ -24,6 +24,31 @@ class TicketService
 {
     private const ACTIVE_STATUSES = ['waiting','called','en_route','present','absent'];
 
+    public function __construct(private readonly ?ServiceAvailabilityService $availability = null)
+    {
+    }
+
+    private function availability(): ServiceAvailabilityService
+    {
+        return $this->availability ?? app(ServiceAvailabilityService::class);
+    }
+
+    /**
+     * Map a closed-reason code (from ServiceAvailabilityService) to a user-facing message.
+     */
+    private function unavailableMessageFor(?string $reason): string
+    {
+        return match ($reason) {
+            'manually_closed'         => 'Service is closed',
+            'holiday'                 => 'Service is closed for a public holiday',
+            'exceptional_closure'     => 'Service is exceptionally closed today',
+            'temporarily_unavailable' => 'Service is temporarily unavailable',
+            'day_off'                 => 'Service is closed on this day of the week',
+            'outside_hours'           => 'Service is closed outside business hours',
+            default                   => 'Service is unavailable at this time',
+        };
+    }
+
     /**
      * Broadcast event safely - logs error but doesn't crash on failure
      */
@@ -104,9 +129,10 @@ class TicketService
                         ->lockForUpdate()
                         ->firstOrFail();
 
-            // Vérifier que le service est ouvert
-            if ($service->status !== 'open') {
-                abort(422, 'Service is closed');
+            // Vérifier que le service est ouvert (statut + horaires + jours ouvrables + exceptions)
+            $reason = $this->availability()->reasonClosedAt($service, Carbon::now());
+            if ($reason !== null) {
+                abort(422, $this->unavailableMessageFor($reason));
             }
 
             // Vérifier la capacité max de la file (si définie)
@@ -228,9 +254,10 @@ class TicketService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // Vérifier que le service est ouvert
-            if ($service->status !== 'open') {
-                abort(422, 'Service is closed');
+            // Vérifier que le service est ouvert (statut + horaires + jours ouvrables + exceptions)
+            $reason = $this->availability()->reasonClosedAt($service, Carbon::now());
+            if ($reason !== null) {
+                abort(422, $this->unavailableMessageFor($reason));
             }
 
             // Génération d'un numéro lisible

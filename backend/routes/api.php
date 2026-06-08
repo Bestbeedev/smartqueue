@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AgentTicketActionController;
 use App\Http\Controllers\Api\AgentCounterController;
 use App\Http\Controllers\Api\Admin\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
+use App\Http\Controllers\Api\Admin\ServiceScheduleController as AdminServiceScheduleController;
 use App\Http\Controllers\Api\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Api\Admin\CounterController as AdminCounterController;
@@ -77,6 +78,7 @@ Route::get('establishments/{id}/services', [ServiceController::class, 'byEstabli
 Route::get('services/{id}', [ServiceController::class, 'show']);
 Route::get('services/{id}/affluence', [ServiceController::class, 'affluence']);
 Route::get('services/{id}/recommendations', [ServiceController::class, 'recommendations']);
+Route::get('services/{id}/availability', [ServiceController::class, 'availability']);
 
 // Espace utilisateur authentifié (tickets)
 Route::middleware('auth:sanctum')->group(function () {
@@ -153,6 +155,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('services', AdminServiceController::class);
         Route::apiResource('agents', AdminAgentController::class);
         Route::apiResource('counters', AdminCounterController::class);
+
+        // Configuration horaires + jours ouvrables + exceptions / jours fériés
+        Route::get('services/{service}/schedule', [AdminServiceScheduleController::class, 'show']);
+        Route::put('services/{service}/schedule', [AdminServiceScheduleController::class, 'update']);
+        Route::post('services/{service}/exceptions', [AdminServiceScheduleController::class, 'storeException']);
+        Route::put('services/{service}/exceptions/{exception}', [AdminServiceScheduleController::class, 'updateException']);
+        Route::delete('services/{service}/exceptions/{exception}', [AdminServiceScheduleController::class, 'destroyException']);
 
         // QR Code management for services
         Route::post('services/{service}/qr-code', [ServiceQrCodeController::class, 'generate']);

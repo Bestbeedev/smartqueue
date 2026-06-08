@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Services\QrCodeService;
+use App\Services\ServiceAvailabilityService;
 use App\Services\TicketService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -117,12 +118,16 @@ class ServiceQrCodeController extends Controller
             ], 404);
         }
 
-        // Vérifier si la file est ouverte
-        if ($service->status !== 'open') {
+        // Vérifier si la file est disponible (statut + horaires + jours ouvrables + exceptions)
+        $availability = app(ServiceAvailabilityService::class);
+        $reason = $availability->reasonClosedAt($service, Carbon::now());
+        if ($reason !== null) {
             return response()->json([
                 'message' => 'La file d\'attente est actuellement fermée',
                 'service_name' => $service->name,
                 'service_status' => $service->status,
+                'reason' => $reason,
+                'availability' => $availability->snapshot($service),
             ], 400);
         }
 

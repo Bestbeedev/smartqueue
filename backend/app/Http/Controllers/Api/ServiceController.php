@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Service;
 use App\Http\Resources\ServiceResource;
+use App\Services\ServiceAvailabilityService;
 use Illuminate\Support\Facades\DB;
 
 class ServiceController extends Controller
@@ -186,6 +187,21 @@ class ServiceController extends Controller
             'service_id' => $service->id,
             'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
             'windows' => $picked,
+        ]);
+    }
+
+    /**
+     * Disponibilité publique du service (basée sur la configuration backend).
+     * Source unique de vérité — utilisée par le mobile/web pour informer l'usager.
+     */
+    public function availability(int $id, ServiceAvailabilityService $availability)
+    {
+        $service = Service::with(['workingDays','exceptions'])->findOrFail($id);
+        return response()->json([
+            'service_id' => $service->id,
+            'status' => $service->status,
+            'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
+            'availability' => $availability->snapshot($service),
         ]);
     }
 }

@@ -47,6 +47,16 @@ class Service extends Model
         return $this->belongsToMany(User::class, 'agent_service')->withTimestamps();
     }
 
+    public function workingDays()
+    {
+        return $this->hasMany(ServiceWorkingDay::class)->orderBy('day_of_week');
+    }
+
+    public function exceptions()
+    {
+        return $this->hasMany(ServiceException::class)->orderBy('date');
+    }
+
     // Scopes pratiques
     public function scopeOpen($q)
     {

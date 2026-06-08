@@ -12,8 +12,9 @@ import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download } from 'lucide-react'
+import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download, CalendarClock } from 'lucide-react'
 import { jsPDF } from 'jspdf'
+import ServiceScheduleModal from '@/components/ServiceScheduleModal'
 
 type Service = { 
   id:number; 
@@ -37,6 +38,8 @@ export default function Services(){
   const [openCreate, setOpenCreate] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
   const [openQr, setOpenQr] = useState(false)
+  const [openSchedule, setOpenSchedule] = useState(false)
+  const [scheduleServiceId, setScheduleServiceId] = useState<number | null>(null)
   const [editing, setEditing] = useState<Service | null>(null)
   const [qrService, setQrService] = useState<Service | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
@@ -347,15 +350,22 @@ export default function Services(){
           { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
           { key:'actions', header:'Actions', render:(r:Service)=> (
             <div className="flex gap-1">
-              <button 
-                className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors" 
+              <button
+                className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                onClick={()=>{ setScheduleServiceId(r.id); setOpenSchedule(true) }}
+                title="Horaires & jours fériés"
+              >
+                <CalendarClock className="h-4 w-4" />
+              </button>
+              <button
+                className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                 onClick={()=>openQrModal(r)}
                 title="QR Code"
               >
                 <QrCode className="h-4 w-4" />
               </button>
-              <button 
-                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" 
+              <button
+                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 onClick={()=>openEditModal(r)}
                 title="Éditer"
               >
@@ -492,6 +502,13 @@ export default function Services(){
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={updateService}>Enregistrer</button>
         </div>
       </Modal>
+
+      {/* Modal Horaires / Jours ouvrables / Exceptions */}
+      <ServiceScheduleModal
+        open={openSchedule}
+        onClose={() => { setOpenSchedule(false); setScheduleServiceId(null); load() }}
+        serviceId={scheduleServiceId}
+      />
 
       {/* Modal QR Code */}
       <Modal open={openQr} onClose={()=>setOpenQr(false)} title={`QR Code - ${qrService?.name ?? ''}`}>

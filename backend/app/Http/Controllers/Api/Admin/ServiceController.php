@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Service;
 use App\Http\Resources\ServiceResource;
+use App\Services\ServiceAvailabilityService;
 
 class ServiceController extends Controller
 {
@@ -38,6 +39,8 @@ class ServiceController extends Controller
             abort(403, 'Forbidden establishment scope');
         }
         $service = Service::create($data);
+        // Seed working days (Mon-Fri open, Sat-Sun closed) so the schedule is immediately editable
+        app(ServiceAvailabilityService::class)->ensureWorkingDaysExist($service);
         return new ServiceResource($service->load('establishment'));
     }
 
