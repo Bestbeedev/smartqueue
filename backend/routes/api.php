@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\AgentCounterController;
 use App\Http\Controllers\Api\Admin\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\Admin\ServiceScheduleController as AdminServiceScheduleController;
+use App\Http\Controllers\Api\Admin\ServiceSoundController as AdminServiceSoundController;
 use App\Http\Controllers\Api\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Api\Admin\CounterController as AdminCounterController;
@@ -163,6 +164,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('services/{service}/exceptions/{exception}', [AdminServiceScheduleController::class, 'updateException']);
         Route::delete('services/{service}/exceptions/{exception}', [AdminServiceScheduleController::class, 'destroyException']);
         Route::get('services/{service}/deferred-queue', [AdminServiceScheduleController::class, 'deferredQueue']);
+
+        // Son d'alerte par service
+        Route::get('services/{service}/sound', [AdminServiceSoundController::class, 'show']);
+        Route::put('services/{service}/sound', [AdminServiceSoundController::class, 'update']);
+        Route::post('services/{service}/sound/upload', [AdminServiceSoundController::class, 'uploadSound']);
+        Route::delete('services/{service}/sound', [AdminServiceSoundController::class, 'deleteSound']);
 
         // QR Code management for services
         Route::post('services/{service}/qr-code', [ServiceQrCodeController::class, 'generate']);

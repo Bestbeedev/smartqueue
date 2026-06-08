@@ -22,11 +22,13 @@ class Service extends Model
         'qr_generated_at',
         'opening_time',
         'closing_time',
+        'sound_settings',
     ];
 
     // Casting automatique
     protected $casts = [
         'qr_generated_at' => 'datetime',
+        'sound_settings'  => 'array',
     ];
 
     // Relations

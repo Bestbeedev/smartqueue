@@ -37,12 +37,26 @@ type Ticket = {
   response_received_at?: string | null;
   en_route_expires_at?: string | null;
   estimated_travel_minutes?: number | null;
+  eta_minutes?: number | null;
+  auto_deferred?: boolean;
+  defer_reason?: string | null;
+  valid_date?: string | null;
 };
 
 type ServiceStats = {
   waiting: number;
   processed: number;
   avg_wait_time: number;
+};
+
+type SmartQueueData = {
+  critical_zone: boolean;
+  intelligent_cutoff_at: string | null;
+  waiting_count_today: number;
+  estimated_load_minutes: number;
+  is_open_now: boolean;
+  closing_time: string | null;
+  reason_if_closed: string | null;
 };
 
 type ThemeColors = ReturnType<typeof useThemeColors>;
@@ -73,6 +87,18 @@ function fmtTime(dateStr?: string | null): string {
   }
 }
 
+function fmtCutoff(iso?: string | null): string {
+  if (!iso) return "--";
+  try {
+    return new Date(iso).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "--";
+  }
+}
+
 const PRIORITY_CFG: Record<string, { color: string; label: string }> = {
   vip: { color: "#8B5CF6", label: "VIP" },
   high: { color: "#FF9500", label: "PRIO" },
@@ -87,7 +113,6 @@ const STATUS_CFG: Record<string, { color: string; label: string }> = {
   present: { color: "#34C759", label: "Présent" },
 };
 
-// KpiPill compact
 const KpiPill = ({ icon, label, value, accent, colors }: any) => (
   <View style={[styles.kpiPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
     <View style={[styles.kpiIcon, { backgroundColor: accent + "1A" }]}>
@@ -100,19 +125,55 @@ const KpiPill = ({ icon, label, value, accent, colors }: any) => (
   </View>
 );
 
-// CurrentTicketCard - design responsive compact
+const SmartQueueBanner = ({ data, colors }: { data: SmartQueueData; colors: ThemeColors }) => {
+  if (data.critical_zone) {
+    return (
+      <View style={[styles.bannerWarning, { backgroundColor: "#FF3B300F", borderColor: "#FF3B3030" }]}>
+        <View style={styles.bannerIconWarning}>
+          <Ionicons name="warning" size={16} color="#FF3B30" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.bannerTitleWarning}>Zone critique — file saturée</Text>
+          <Text style={styles.bannerSubWarning}>Les nouveaux tickets sont automatiquement reportés</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const loadH = Math.floor(data.estimated_load_minutes / 60);
+  const loadM = data.estimated_load_minutes % 60;
+  const loadLabel = data.estimated_load_minutes <= 0 ? "—" : loadH > 0 ? `${loadH}h${loadM > 0 ? loadM + "min" : ""}` : `${loadM}min`;
+  const cutoffLabel = fmtCutoff(data.intelligent_cutoff_at);
+
+  return (
+    <View style={[styles.bannerNormal, { backgroundColor: "#34C7590F", borderColor: "#34C75930" }]}>
+      <View style={styles.bannerIconNormal}>
+        <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.bannerTitleNormal}>Capacité normale</Text>
+        <Text style={[styles.bannerSubNormal, { color: colors.textSecondary }]}>
+          Charge estimée : {loadLabel} · Coupure à {cutoffLabel}
+        </Text>
+      </View>
+      {data.intelligent_cutoff_at && (
+        <View style={styles.bannerChip}>
+          <Text style={styles.bannerChipText}>{cutoffLabel}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
 const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colors }: any) => {
   const statusCfg = STATUS_CFG[ticket.status] ?? { color: "#007AFF", label: ticket.status };
   let statusLine = "";
   if (ticket.status === "present") statusLine = "Usager présent";
-  else if (ticket.en_route_at) statusLine = ticket.estimated_travel_minutes 
-    ? `En route · ≈ ${ticket.estimated_travel_minutes} min` 
-    : "Réponse reçue";
+  else if (ticket.en_route_at) statusLine = ticket.estimated_travel_minutes ? `En route · ≈ ${ticket.estimated_travel_minutes} min` : "Réponse reçue";
   else if (ticket.called_at) statusLine = `Appelé à ${fmtTime(ticket.called_at)}`;
 
   return (
     <View style={[styles.currentCard, { backgroundColor: "#1558CC" }]}>
-      {/* Ligne 1: Icône + Numéro + Status */}
       <View style={styles.currentRow}>
         <View style={styles.currentIcon}>
           <Ionicons name="megaphone" size={18} color="#FFF" />
@@ -124,13 +185,7 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
           </View>
         </View>
       </View>
-
-      {/* Ligne 2: Message de statut */}
-      {statusLine !== "" && (
-        <Text style={styles.currentStatusLine}>{statusLine}</Text>
-      )}
-
-      {/* Ligne 3: Boutons d'action */}
+      {statusLine !== "" && <Text style={styles.currentStatusLine}>{statusLine}</Text>}
       <View style={styles.currentActions}>
         <TouchableOpacity style={styles.currentActionBtn} onPress={onRecall} disabled={isActing}>
           <Ionicons name="volume-high" size={14} color="#FFF" />
@@ -149,10 +204,10 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
   );
 };
 
-// TicketRow compact
 const TicketRow = ({ item, index, colors, onAbsent }: any) => {
   const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
   const statusCfg = STATUS_CFG[item.status] ?? { color: "#8E8E93", label: item.status };
+  const etaLabel = typeof item.eta_minutes === "number" && item.eta_minutes > 0 ? `≈ ${item.eta_minutes}min` : null;
 
   return (
     <View style={[styles.ticketRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -165,6 +220,11 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
           <View style={[styles.ticketPriorityBadge, { backgroundColor: prio.color + "20" }]}>
             <Text style={[styles.ticketPriorityText, { color: prio.color }]}>{prio.label}</Text>
           </View>
+          {etaLabel && (
+            <View style={styles.ticketEtaBadge}>
+              <Text style={styles.ticketEtaText}>{etaLabel}</Text>
+            </View>
+          )}
         </View>
         <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
           Pris à {fmtTime(item.created_at)} · {timeAgo(item.created_at)}
@@ -192,6 +252,7 @@ export default function AgentQueue() {
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [currentTicket, setCurrentTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<ServiceStats | null>(null);
+  const [smartQueue, setSmartQueue] = useState<SmartQueueData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -203,10 +264,11 @@ export default function AgentQueue() {
   const fetchData = useCallback(async () => {
     if (!serviceId) return;
     try {
-      const [queueRes, statsRes, serviceRes] = await Promise.all([
+      const [queueRes, statsRes, serviceRes, availRes] = await Promise.all([
         axiosClient.get(`/services/${serviceId}/queue`),
         axiosClient.get(`/services/${serviceId}/affluence`),
         axiosClient.get(`/services/${serviceId}`),
+        axiosClient.get(`/services/${serviceId}/availability`).catch(() => null),
       ]);
 
       const waitingTickets = (queueRes.data?.tickets || []).filter((t: Ticket) => t.status === "waiting");
@@ -220,6 +282,20 @@ export default function AgentQueue() {
         avg_wait_time: statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
       setServiceStatus(serviceRes.data?.status || "open");
+
+      if (availRes?.data) {
+        const cap = availRes.data.capacity ?? {};
+        const avail = availRes.data.availability ?? {};
+        setSmartQueue({
+          critical_zone: cap.critical_zone ?? false,
+          intelligent_cutoff_at: cap.intelligent_cutoff_at ?? null,
+          waiting_count_today: cap.waiting_count_today ?? 0,
+          estimated_load_minutes: cap.estimated_load_minutes ?? 0,
+          is_open_now: avail.is_open_now ?? true,
+          closing_time: avail.closing_time ?? null,
+          reason_if_closed: avail.reason_if_closed ?? null,
+        });
+      }
 
       const calledTicket = (queueRes.data?.tickets || []).find(
         (t: Ticket) => t.status === "present" || t.status === "called" || t.status === "en_route"
@@ -368,14 +444,16 @@ export default function AgentQueue() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border, paddingHorizontal: hPad }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>File d'attente</Text>
-          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Service #{serviceId}{counterId ? ` · Guichet ${counterId}` : ""}</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
+            Service #{serviceId}{counterId ? ` · Guichet ${counterId}` : ""}
+            {smartQueue?.closing_time ? ` · Ferme à ${smartQueue.closing_time.substring(0, 5)}` : ""}
+          </Text>
         </View>
         <TouchableOpacity
           style={[styles.serviceToggle, { backgroundColor: serviceStatus === "open" ? "#34C759" : "#FF3B30", opacity: isActing ? 0.6 : 1 }]}
@@ -387,16 +465,38 @@ export default function AgentQueue() {
         </TouchableOpacity>
       </View>
 
-      {/* KPI */}
+      {/* KPI en grille 2x2 */}
       {stats && (
-        <View style={[styles.kpiRow, { paddingHorizontal: hPad }]}>
-          <KpiPill icon="people-outline" label="Attente" value={String(stats.waiting)} accent="#007AFF" colors={colors} />
-          <KpiPill icon="checkmark-done-outline" label="Traités" value={String(stats.processed)} accent="#34C759" colors={colors} />
-          <KpiPill icon="timer-outline" label="Moyenne" value={stats.avg_wait_time > 0 ? `${Math.round(stats.avg_wait_time)}min` : "--"} accent="#FF9500" colors={colors} />
+        <View style={[styles.kpiGrid, { paddingHorizontal: hPad , marginTop:15,}]}>
+          <View style={styles.kpiRow}>
+            <KpiPill icon="people-outline" label="Attente" value={String(stats.waiting)} accent="#007AFF" colors={colors} />
+            <KpiPill icon="checkmark-done-outline" label="Traités" value={String(stats.processed)} accent="#34C759" colors={colors} />
+          </View>
+          <View style={styles.kpiRow}>
+            <KpiPill icon="timer-outline" label="Moyenne" value={stats.avg_wait_time > 0 ? `${Math.round(stats.avg_wait_time)}min` : "--"} accent="#FF9500" colors={colors} />
+            {smartQueue && (
+              <KpiPill
+                icon={smartQueue.critical_zone ? "warning-outline" : "flash-outline"}
+                label="Charge"
+                value={smartQueue.estimated_load_minutes > 0
+                  ? smartQueue.estimated_load_minutes >= 60
+                    ? `${Math.floor(smartQueue.estimated_load_minutes / 60)}h${smartQueue.estimated_load_minutes % 60 > 0 ? (smartQueue.estimated_load_minutes % 60) + "m" : ""}`
+                    : `${smartQueue.estimated_load_minutes}min`
+                  : "—"}
+                accent={smartQueue.critical_zone ? "#FF3B30" : "#8B5CF6"}
+                colors={colors}
+              />
+            )}
+          </View>
         </View>
       )}
 
-      {/* Current Ticket - design responsive */}
+      {smartQueue && serviceStatus === "open" && (
+        <View style={{ paddingHorizontal: hPad, marginBottom: 6 }}>
+          <SmartQueueBanner data={smartQueue} colors={colors} />
+        </View>
+      )}
+
       {currentTicket && (
         <View style={{ paddingHorizontal: hPad }}>
           <CurrentTicketCard
@@ -410,7 +510,6 @@ export default function AgentQueue() {
         </View>
       )}
 
-      {/* Search */}
       <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, marginHorizontal: hPad }]}>
         <Ionicons name="search" size={15} color={colors.textSecondary} />
         <TextInput
@@ -427,18 +526,20 @@ export default function AgentQueue() {
         )}
       </View>
 
-      {/* Liste */}
       <FlatList
         data={filteredTickets}
         renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} />}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 6, paddingBottom: serviceStatus === "open" ? 100 : 20 }}
+        contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 6, paddingBottom: serviceStatus === "open" ? 108 : 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
         ListHeaderComponent={filteredTickets.length > 0 ? (
           <View style={styles.listHeader}>
             <Text style={[styles.listHeaderTitle, { color: colors.textSecondary }]}>File d'attente</Text>
-            <View style={styles.listHeaderBadge}>
-              <Text style={[styles.listHeaderBadgeText, { color: "#007AFF" }]}>{filteredTickets.length}</Text>
+            <View style={[styles.listHeaderBadge, { backgroundColor: smartQueue?.critical_zone ? "#FF3B3018" : "#007AFF18" }]}>
+              <Text style={[styles.listHeaderBadgeText, { color: smartQueue?.critical_zone ? "#FF3B30" : "#007AFF" }]}>
+                {filteredTickets.length} ticket{filteredTickets.length > 1 ? "s" : ""}
+                {smartQueue?.critical_zone ? " ⚠" : ""}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -446,12 +547,13 @@ export default function AgentQueue() {
           <View style={styles.emptyContainer}>
             <Ionicons name="ticket-outline" size={48} color={colors.textSecondary} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>File vide</Text>
-            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>Aucun ticket en attente</Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+              {smartQueue?.critical_zone ? "Zone critique — les nouveaux tickets sont reportés" : "Aucun ticket en attente"}
+            </Text>
           </View>
         )}
       />
 
-      {/* Sticky Button */}
       {serviceStatus === "open" && (
         <View style={[styles.stickyButton, { backgroundColor: colors.background, borderTopColor: colors.border, paddingHorizontal: hPad }]}>
           <TouchableOpacity
@@ -485,17 +587,28 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 11, marginTop: 1 },
   serviceToggle: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, gap: 4 },
   serviceToggleText: { color: "#FFF", fontSize: 11, fontWeight: "700" },
-  kpiRow: { flexDirection: "row", paddingVertical: 8, gap: 6 },
+  // KPI Grid 2x2
+  kpiGrid: { marginBottom: 8 },
+  kpiRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
   kpiPill: { flex: 1, flexDirection: "row", alignItems: "center", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8, gap: 7, borderWidth: 1 },
   kpiIcon: { width: 28, height: 28, borderRadius: 7, justifyContent: "center", alignItems: "center" },
   kpiValue: { fontWeight: "800", fontSize: 15, lineHeight: 18 },
   kpiLabel: { fontSize: 10, lineHeight: 13 },
-  // Current Ticket Card responsive
+  bannerWarning: { flexDirection: "row", alignItems: "center", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, gap: 9, borderWidth: 1 },
+  bannerIconWarning: { width: 32, height: 32, borderRadius: 8, backgroundColor: "#FF3B3018", justifyContent: "center", alignItems: "center" },
+  bannerTitleWarning: { color: "#FF3B30", fontWeight: "800", fontSize: 13 },
+  bannerSubWarning: { color: "#FF3B30CC", fontSize: 11, marginTop: 1 },
+  bannerNormal: { flexDirection: "row", alignItems: "center", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, gap: 9, borderWidth: 1 },
+  bannerIconNormal: { width: 32, height: 32, borderRadius: 8, backgroundColor: "#34C75918", justifyContent: "center", alignItems: "center" },
+  bannerTitleNormal: { color: "#34C759", fontWeight: "800", fontSize: 13 },
+  bannerSubNormal: { fontSize: 11, marginTop: 1 },
+  bannerChip: { backgroundColor: "#007AFF18", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, borderWidth: 1, borderColor: "#007AFF30" },
+  bannerChipText: { color: "#007AFF", fontSize: 11, fontWeight: "700" },
   currentCard: { marginBottom: 6, borderRadius: 12, overflow: "hidden", padding: 12, gap: 5 },
   currentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   currentIcon: { width: 36, height: 36, borderRadius: 9, backgroundColor: "rgba(21, 12, 12, 0.15)", justifyContent: "center", alignItems: "center" },
   currentNumberContainer: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap" },
-  currentNumber: { color: "#FFF", fontWeight: "900", fontSize: 25, },
+  currentNumber: { color: "#FFF", fontWeight: "900", fontSize: 25 },
   currentStatusBadge: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   currentStatusText: { color: "#FFF", fontSize: 10, fontWeight: "800" },
   currentStatusLine: { color: "rgba(255,255,255,0.82)", fontSize: 12, marginLeft: 46 },
@@ -506,15 +619,17 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, padding: 0 },
   listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   listHeaderTitle: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6 },
-  listHeaderBadge: { backgroundColor: "#007AFF18", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  listHeaderBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   listHeaderBadgeText: { fontSize: 12, fontWeight: "700" },
   ticketRow: { flexDirection: "row", alignItems: "center", borderRadius: 10, marginBottom: 5, borderWidth: 1, paddingVertical: 9, paddingHorizontal: 10, gap: 10 },
   ticketPosition: { width: 34, height: 34, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1 },
   ticketPositionText: { fontWeight: "800", fontSize: 14 },
-  ticketHeaderRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 },
+  ticketHeaderRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5, marginBottom: 2 },
   ticketNumber: { fontWeight: "700", fontSize: 14 },
   ticketPriorityBadge: { paddingHorizontal: 4, paddingVertical: 1, borderRadius: 5 },
   ticketPriorityText: { fontSize: 8, fontWeight: "800", letterSpacing: 0.3 },
+  ticketEtaBadge: { backgroundColor: "#007AFF12", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: "#007AFF28" },
+  ticketEtaText: { color: "#007AFF", fontSize: 9, fontWeight: "700" },
   ticketMeta: { fontSize: 10, lineHeight: 13 },
   ticketStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   ticketStatusText: { fontSize: 9, fontWeight: "700" },

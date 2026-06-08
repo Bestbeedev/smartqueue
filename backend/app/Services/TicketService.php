@@ -479,10 +479,18 @@ class TicketService
 
             // Notifications push & SMS (asynchrones via queue)
             if ($ticket->user) {
-                dispatch(new SendPushNotification($ticket->user->id, $wasPresent ? 'Vous êtes prioritaire' : 'Vous êtes appelé', $wasPresent ? 'Votre présence a été enregistrée. Présentez-vous immédiatement au guichet.' : 'Présentez-vous au guichet', [
-                    'ticket_id' => $ticket->id,
-                    'service_id' => $service->id,
-                ]));
+                dispatch(new SendPushNotification(
+                    $ticket->user->id,
+                    $wasPresent ? 'Vous êtes prioritaire' : 'Vous êtes appelé',
+                    $wasPresent
+                        ? 'Votre présence a été enregistrée. Présentez-vous immédiatement au guichet.'
+                        : 'Présentez-vous au guichet',
+                    [
+                        'type'       => 'ticket_called',
+                        'ticket_id'  => $ticket->id,
+                        'service_id' => $service->id,
+                    ]
+                ));
                 if (!empty($ticket->user->phone)) {
                     dispatch(new SendSmsNotification($ticket->user->phone, 'Vous êtes appelé pour le ticket '.$ticket->number, [
                         'ticket_id' => $ticket->id,
@@ -911,11 +919,16 @@ class TicketService
             ])));
 
             // Send push notification for recall
-            dispatch(new SendPushNotification($ticket->user->id, 'Rappel - Votre ticket est appelé', 'Présentez-vous au guichet pour le ticket '.$ticket->number, [
-                'ticket_id' => $ticket->id,
-                'service_id' => $ticket->service_id,
-                'type' => 'recall',
-            ]));
+            dispatch(new SendPushNotification(
+                $ticket->user->id,
+                'Rappel - Votre ticket est appelé',
+                'Présentez-vous au guichet pour le ticket '.$ticket->number,
+                [
+                    'type'       => 'ticket_called',
+                    'ticket_id'  => $ticket->id,
+                    'service_id' => $ticket->service_id,
+                ]
+            ));
 
             // Send SMS if phone available
             if (!empty($ticket->user->phone)) {
