@@ -55,7 +55,6 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
   const [soundConfig] = useState<CalledTicketSoundConfig>({
     enabled: true,
     repeatIntervalSeconds: 30,
-    useSystemSound: true,
   });
 
   const { stopSound } = useCalledTicketSound(isCalled, soundConfig);

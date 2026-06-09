@@ -33,6 +33,13 @@ import { CustomAlert } from "../../components/ui/CustomAlert";
 
 const { width, height } = Dimensions.get("window");
 
+interface WorkingDay {
+  day_of_week: number;  // 1=Lundi … 7=Dimanche (ISO)
+  is_open: boolean;
+  opening_time?: string | null;
+  closing_time?: string | null;
+}
+
 interface ServiceData {
   description: ReactNode;
   id: number;
@@ -42,6 +49,7 @@ interface ServiceData {
   people_waiting: number;
   opening_time?: string;
   closing_time?: string;
+  working_days?: WorkingDay[];
 }
 
 interface EstablishmentData extends Omit<Establishment, "services"> {
@@ -350,14 +358,18 @@ export const ServiceDetailsScreen: React.FC = () => {
     return formatTravelTime(motorcycleMinutes);
   };
 
-  // Construction des options pour l'action sheet des horaires (basé sur les données disponibles)
+  // Construction des options pour l'action sheet des horaires
   const getScheduleOptions = (): Option[] => {
     const options: Option[] = [];
-    
+
     const target = selectedServiceForSchedule || establishment;
     if (!target) return [];
-    
-    // Section STATUT
+
+    // Horaires généraux du service — défaut 08:00-18:00 si non configuré
+    const generalOpen  = (target as any).opening_time || (target as any).open_at  || '08:00:00';
+    const generalClose = (target as any).closing_time || (target as any).close_at || '18:00:00';
+
+    // Statut actuel
     const isOpen = target.status === "open";
     options.push({
       label: isOpen ? "Ouvert maintenant" : "Fermé maintenant",
@@ -366,29 +378,16 @@ export const ServiceDetailsScreen: React.FC = () => {
       type: 'status',
       section: 'status',
     });
-    
-    // Section HORAIRES GÉNÉRAUX
-    const openingTime = (target as any).opening_time || (target as any).open_at;
-    const closingTime = (target as any).closing_time || (target as any).close_at;
-    
-    if (openingTime && closingTime) {
-      options.push({
-        label: `Horaires : ${formatTimeDisplay(openingTime)} - ${formatTimeDisplay(closingTime)}`,
-        value: 'hours',
-        icon: 'time-outline',
-        type: 'hours',
-        section: 'hours',
-      });
-    } else {
-      options.push({
-        label: "Horaires non définis",
-        value: 'hours',
-        icon: 'time-outline',
-        type: 'hours',
-        section: 'hours',
-      });
-    }
-    
+
+    // Horaires généraux
+    options.push({
+      label: `Horaire général : ${formatTimeDisplay(generalOpen)} - ${formatTimeDisplay(generalClose)}`,
+      value: 'hours',
+      icon: 'time-outline',
+      type: 'hours',
+      section: 'hours',
+    });
+
     // Temps de service moyen
     if ((target as any).avg_service_time_minutes) {
       options.push({
@@ -399,8 +398,8 @@ export const ServiceDetailsScreen: React.FC = () => {
         section: 'hours',
       });
     }
-    
-    // Section INFORMATION FILE D'ATTENTE
+
+    // File d'attente
     if ((target as any).people_waiting !== undefined) {
       options.push({
         label: `${(target as any).people_waiting || 0} personne(s) en attente pour ce service`,
@@ -410,7 +409,6 @@ export const ServiceDetailsScreen: React.FC = () => {
         section: 'info',
       });
     }
-    
     if (establishment?.total_people_waiting !== undefined) {
       options.push({
         label: `${establishment.total_people_waiting || 0} personne(s) au total dans l'établissement`,
@@ -420,8 +418,12 @@ export const ServiceDetailsScreen: React.FC = () => {
         section: 'info',
       });
     }
-    
-    // Section JOURS OUVRABLES
+
+    // Index des working_days par numéro de jour (1-7)
+    const workingDays: WorkingDay[] = (selectedServiceForSchedule as any)?.working_days || [];
+    const wdMap: Record<number, WorkingDay> = {};
+    workingDays.forEach(wd => { wdMap[wd.day_of_week] = wd; });
+
     const weekDays = [
       { day: 1, name: 'Lundi' },
       { day: 2, name: 'Mardi' },
@@ -431,38 +433,53 @@ export const ServiceDetailsScreen: React.FC = () => {
       { day: 6, name: 'Samedi' },
       { day: 7, name: 'Dimanche' },
     ];
-    
-    weekDays.forEach(day => {
-      const isWeekend = day.day === 6 || day.day === 7;
-      const isOpenDay = !isWeekend;
-      
-      if (openingTime && closingTime && isOpenDay) {
+
+    weekDays.forEach(({ day, name }) => {
+      const wd = wdMap[day];
+
+      if (wd) {
+        // Entrée configurée pour ce jour
+        if (!wd.is_open) {
+          options.push({
+            label: `${name} : Fermé`,
+            value: `day_${day}`,
+            icon: 'close-circle-outline',
+            type: 'day',
+            section: 'days',
+          });
+        } else {
+          // Horaire du jour ou fallback général (garanti non-null)
+          const open  = wd.opening_time  || generalOpen;
+          const close = wd.closing_time || generalClose;
+          options.push({
+            label: `${name} : ${formatTimeDisplay(open)} - ${formatTimeDisplay(close)}`,
+            value: `day_${day}`,
+            icon: 'calendar-outline',
+            type: 'day',
+            section: 'days',
+          });
+        }
+      } else if (workingDays.length > 0) {
+        // working_days définis mais ce jour absent → fermé
         options.push({
-          label: `${day.name} : ${formatTimeDisplay(openingTime)} - ${formatTimeDisplay(closingTime)}`,
-          value: `day_${day.day}`,
-          icon: 'calendar-outline',
-          type: 'day',
-          section: 'days',
-        });
-      } else if (isOpenDay) {
-        options.push({
-          label: `${day.name} : Ouvert`,
-          value: `day_${day.day}`,
-          icon: 'checkmark-circle-outline',
+          label: `${name} : Fermé`,
+          value: `day_${day}`,
+          icon: 'close-circle-outline',
           type: 'day',
           section: 'days',
         });
       } else {
+        // Aucun working_day configuré → horaire général (toujours défini)
         options.push({
-          label: `${day.name} : Fermé`,
-          value: `day_${day.day}`,
-          icon: 'close-circle-outline',
+          label: `${name} : ${formatTimeDisplay(generalOpen)} - ${formatTimeDisplay(generalClose)}`,
+          value: `day_${day}`,
+          icon: 'calendar-outline',
           type: 'day',
           section: 'days',
         });
       }
     });
-    
+
     return options;
   };
 

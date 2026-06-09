@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Establishment;
 use App\Http\Resources\EstablishmentResource;
+use App\Services\ServiceAvailabilityService;
 use Illuminate\Support\Facades\DB;
 
 class EstablishmentController extends Controller
 {
+    public function __construct(private readonly ServiceAvailabilityService $availability) {}
+
     /**
      * Liste des établissements.
      * Si lat/lng fournis, ajoute une estimation de distance et trie par distance.
@@ -89,15 +92,25 @@ class EstablishmentController extends Controller
         $est = Establishment::query()
             ->where('id', $id)
             ->with(['services' => function ($q) {
-                $q->withCount(['tickets as people_waiting' => function ($q2) {
-                    $q2->where('status', 'waiting');
-                }]);
+                $q->with('workingDays')
+                  ->withCount(['tickets as people_waiting' => function ($q2) {
+                      $q2->where('status', 'waiting');
+                  }]);
             }])
             ->findOrFail($id);
-        
+
+        // Initialise les working_days pour tout service qui n'en aurait pas encore
+        foreach ($est->services as $service) {
+            if ($service->workingDays->isEmpty()) {
+                $this->availability->ensureWorkingDaysExist($service);
+                // Recharger la relation directement sur l'objet (pas de new instance)
+                $service->load('workingDays');
+            }
+        }
+
         // Calculate total people waiting across all services
         $totalPeopleWaiting = $est->services->sum('people_waiting');
-        
+
         $resource = new EstablishmentResource($est);
         $data = $resource->resolve(request());
         $data['total_people_waiting'] = $totalPeopleWaiting;
@@ -106,8 +119,17 @@ class EstablishmentController extends Controller
                 'id' => $service->id,
                 'name' => $service->name,
                 'status' => $service->status,
+                'description' => $service->description,
+                'opening_time' => $service->opening_time,
+                'closing_time' => $service->closing_time,
                 'avg_service_time_minutes' => (int) $service->avg_service_time_minutes,
                 'people_waiting' => (int) ($service->people_waiting ?? 0),
+                'working_days' => $service->workingDays->map(fn($wd) => [
+                    'day_of_week'  => $wd->day_of_week,
+                    'is_open'      => $wd->is_open,
+                    'opening_time' => $wd->opening_time,
+                    'closing_time' => $wd->closing_time,
+                ])->values(),
             ];
         });
         

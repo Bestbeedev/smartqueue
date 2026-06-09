@@ -309,45 +309,127 @@ export default function ServiceScheduleModal({ open, onClose, serviceId }: Props
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Jours ouvrables
                   </h3>
-                  <div className="rounded-lg border border-border divide-y divide-border">
-                    {workingDays.map((wd, idx) => (
-                      <div key={wd.day_of_week} className="grid grid-cols-12 gap-3 items-center p-3 text-sm">
-                        <div className="col-span-3 font-medium">{DAY_LABELS[wd.day_of_week]}</div>
-                        <div className="col-span-2">
-                          <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" checked={wd.is_open}
-                              onChange={e => {
-                                const copy = [...workingDays]; copy[idx] = { ...wd, is_open: e.target.checked }; setWorkingDays(copy)
-                              }} />
-                            <span>{wd.is_open ? 'Ouvert' : 'Fermé'}</span>
-                          </label>
-                        </div>
-                        <div className="col-span-3">
-                          <input type="time" disabled={!wd.is_open}
-                            placeholder={openingTime || '08:00'}
-                            value={toHHMM(wd.opening_time)}
-                            onChange={e => {
-                              const copy = [...workingDays]; copy[idx] = { ...wd, opening_time: e.target.value || null }; setWorkingDays(copy)
-                            }}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-50" />
-                        </div>
-                        <div className="col-span-3">
-                          <input type="time" disabled={!wd.is_open}
-                            placeholder={closingTime || '18:00'}
-                            value={toHHMM(wd.closing_time)}
-                            onChange={e => {
-                              const copy = [...workingDays]; copy[idx] = { ...wd, closing_time: e.target.value || null }; setWorkingDays(copy)
-                            }}
-                            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-50" />
-                        </div>
-                        <div className="col-span-1 text-xs text-muted-foreground text-right">
-                          (override)
-                        </div>
-                      </div>
-                    ))}
+
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {/* En-tête */}
+                    <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      <div className="col-span-3">Jour</div>
+                      <div className="col-span-2">Statut</div>
+                      <div className="col-span-3">Ouverture</div>
+                      <div className="col-span-3">Fermeture</div>
+                      <div className="col-span-1"></div>
+                    </div>
+
+                    <div className="divide-y divide-border">
+                      {workingDays.map((wd, idx) => {
+                        const hasSpecificOpen  = !!wd.opening_time
+                        const hasSpecificClose = !!wd.closing_time
+                        const hasOverride      = hasSpecificOpen || hasSpecificClose
+                        const effectiveOpen    = toHHMM(wd.opening_time)  || openingTime || '08:00'
+                        const effectiveClose   = toHHMM(wd.closing_time) || closingTime  || '18:00'
+
+                        return (
+                          <div
+                            key={wd.day_of_week}
+                            className={`grid grid-cols-12 gap-2 items-center px-3 py-3 text-sm ${!wd.is_open ? 'opacity-60' : ''}`}
+                          >
+                            {/* Nom du jour */}
+                            <div className="col-span-3 font-medium">{DAY_LABELS[wd.day_of_week]}</div>
+
+                            {/* Toggle Ouvert / Fermé */}
+                            <div className="col-span-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const copy = [...workingDays]
+                                  copy[idx] = { ...wd, is_open: !wd.is_open }
+                                  setWorkingDays(copy)
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+                                  wd.is_open
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                }`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${wd.is_open ? 'bg-green-500' : 'bg-red-500'}`} />
+                                {wd.is_open ? 'Ouvert' : 'Fermé'}
+                              </button>
+                            </div>
+
+                            {/* Ouverture */}
+                            <div className="col-span-3">
+                              <div className="relative">
+                                <input
+                                  type="time"
+                                  disabled={!wd.is_open}
+                                  value={toHHMM(wd.opening_time)}
+                                  onChange={e => {
+                                    const copy = [...workingDays]
+                                    copy[idx] = { ...wd, opening_time: e.target.value || null }
+                                    setWorkingDays(copy)
+                                  }}
+                                  placeholder={openingTime || '08:00'}
+                                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-40"
+                                />
+                                {!hasSpecificOpen && wd.is_open && (
+                                  <span className="pointer-events-none absolute inset-0 flex items-center px-2 text-sm text-muted-foreground italic">
+                                    {effectiveOpen}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Fermeture */}
+                            <div className="col-span-3">
+                              <div className="relative">
+                                <input
+                                  type="time"
+                                  disabled={!wd.is_open}
+                                  value={toHHMM(wd.closing_time)}
+                                  onChange={e => {
+                                    const copy = [...workingDays]
+                                    copy[idx] = { ...wd, closing_time: e.target.value || null }
+                                    setWorkingDays(copy)
+                                  }}
+                                  placeholder={closingTime || '18:00'}
+                                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-40"
+                                />
+                                {!hasSpecificClose && wd.is_open && (
+                                  <span className="pointer-events-none absolute inset-0 flex items-center px-2 text-sm text-muted-foreground italic">
+                                    {effectiveClose}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Badge + reset */}
+                            <div className="col-span-1 flex items-center justify-end">
+                              {hasOverride && wd.is_open ? (
+                                <button
+                                  type="button"
+                                  title="Horaire spécifique — cliquer pour revenir à l'horaire général"
+                                  onClick={() => {
+                                    const copy = [...workingDays]
+                                    copy[idx] = { ...wd, opening_time: null, closing_time: null }
+                                    setWorkingDays(copy)
+                                  }}
+                                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200 transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              ) : wd.is_open ? (
+                                <span className="text-xs text-muted-foreground">Gén.</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
+
                   <p className="text-xs text-muted-foreground">
-                    Laissez les heures vides pour utiliser les horaires par défaut du service.
+                    <strong>Gén.</strong> = horaire général du service ({openingTime || '08:00'}–{closingTime || '18:00'}).
+                    Renseignez une heure spécifique pour ce jour uniquement. Cliquez sur le badge bleu <strong>✕</strong> pour revenir au général.
                   </p>
                 </section>
 

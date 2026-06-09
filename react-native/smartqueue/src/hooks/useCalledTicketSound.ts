@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
-import * as Notifications from "expo-notifications";
+import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { Platform, Vibration } from "react-native";
+
+const TICKET_CALLED_SOUND = require("../../assets/sounds/ticket_called.wav");
 
 export interface CalledTicketSoundConfig {
   enabled?: boolean;
@@ -12,70 +14,31 @@ interface UseCalledTicketSoundReturn {
   stopSound: () => void;
 }
 
-// Configurer les notifications pour utiliser le son système
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: false, // Ajout requis pour satisfaire le type
-    shouldShowList: false,   // Ajout requis pour satisfaire le type
-  }),
-});
-
 export function useCalledTicketSound(
   isCalled: boolean,
   config: CalledTicketSoundConfig = {},
 ): UseCalledTicketSoundReturn {
-  const {
-    enabled = true,
-    repeatIntervalSeconds = 30,
-  } = config;
+  const { enabled = true, repeatIntervalSeconds = 30 } = config;
 
+  const soundRef = useRef<Audio.Sound | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
-
-  // Demander la permission pour les notifications
-  useEffect(() => {
-    const requestPermissions = async () => {
-      try {
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-          console.log("[useCalledTicketSound] Notification permission not granted");
-        }
-        
-        if (Platform.OS === "android") {
-          await Notifications.setNotificationChannelAsync("alerts", {
-            name: "Alertes",
-            importance: Notifications.AndroidImportance.HIGH,
-            sound: "default", // Son système par défaut
-            vibrationPattern: [0, 800, 300, 800],
-            enableVibrate: true,
-          });
-        }
-      } catch (error) {
-        console.log("[useCalledTicketSound] Permission error:", error);
-      }
-    };
-    requestPermissions();
-  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      soundRef.current?.unloadAsync().catch(() => {});
     };
   }, []);
 
-  const playNotification = useCallback(async () => {
+  const playSound = useCallback(async () => {
     if (!enabled || !isMountedRef.current) return;
 
-    // Haptic
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } catch {}
 
-    // Vibration
     try {
       if (Platform.OS === "ios") {
         Vibration.vibrate([0, 500, 200, 500]);
@@ -84,19 +47,26 @@ export function useCalledTicketSound(
       }
     } catch {}
 
-    // Notification silencieuse avec son système
     try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Votre tour est arrivé !",
-          body: "Présentez-vous au guichet",
-          sound: true, // Utilise le son système par défaut
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-        },
-        trigger: null, // Immédiat
+      // Unload previous instance before creating a new one
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(TICKET_CALLED_SOUND, {
+        shouldPlay: true,
+        volume: 1.0,
       });
-    } catch (error) {
-      console.log("[useCalledTicketSound] Notification error:", error);
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          if (soundRef.current === sound) soundRef.current = null;
+        }
+      });
+    } catch (e) {
+      console.log("[useCalledTicketSound] audio error:", e);
     }
   }, [enabled]);
 
@@ -105,9 +75,11 @@ export function useCalledTicketSound(
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    try { Vibration.cancel(); } catch {}
     try {
-      Vibration.cancel();
-      Notifications.dismissAllNotificationsAsync();
+      soundRef.current?.stopAsync();
+      soundRef.current?.unloadAsync();
+      soundRef.current = null;
     } catch {}
   }, []);
 
@@ -117,17 +89,15 @@ export function useCalledTicketSound(
       return;
     }
 
-    playNotification();
+    playSound();
 
     const intervalMs = Math.max(10000, repeatIntervalSeconds * 1000);
     intervalRef.current = setInterval(() => {
-      if (isMountedRef.current) {
-        playNotification();
-      }
+      if (isMountedRef.current) playSound();
     }, intervalMs);
 
     return () => stopSound();
-  }, [isCalled, enabled, repeatIntervalSeconds, playNotification, stopSound]);
+  }, [isCalled, enabled, repeatIntervalSeconds, playSound, stopSound]);
 
   return { stopSound };
 }

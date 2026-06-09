@@ -25,6 +25,15 @@ class ServiceResource extends JsonResource
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
             // Nombre d'agents assignés si chargé via withCount
             'agents_count' => isset($this->agents_count) ? (int) $this->agents_count : null,
+            // Jours ouvrables avec horaires (fallback sur opening_time/closing_time du service)
+            'working_days' => $this->whenLoaded('workingDays', function () {
+                return $this->workingDays->map(fn($wd) => [
+                    'day_of_week' => $wd->day_of_week,
+                    'is_open'     => $wd->is_open,
+                    'opening_time' => $wd->opening_time,
+                    'closing_time' => $wd->closing_time,
+                ])->values();
+            }),
             // Etablissement parent (résumé)
             'establishment' => $this->whenLoaded('establishment', function () {
                 return [

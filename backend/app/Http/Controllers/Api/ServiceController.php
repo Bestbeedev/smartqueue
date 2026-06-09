@@ -26,6 +26,7 @@ class ServiceController extends Controller
 
         $builder = Service::query()
             ->where('establishment_id', $id)
+            ->with('workingDays')
             ->withCount(['tickets as people_waiting' => function ($q2) {
                 $q2->where('status', 'waiting');
             }])
@@ -55,7 +56,7 @@ class ServiceController extends Controller
     public function show(int $id)
     {
         $service = Service::query()
-            ->with('establishment')
+            ->with(['establishment', 'workingDays'])
             ->withCount(['tickets as people_waiting' => function ($q) {
                 $q->where('status', 'waiting');
             }])
