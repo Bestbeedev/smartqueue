@@ -21,6 +21,7 @@ import { useThemeColors } from "../hooks/useThemeColors";
 interface CalledTicketOverlayProps {
   visible: boolean;
   counterNumber?: string;
+  ticketNumber?: string;
   distanceInfo: DistanceInfo | null;
   countdownSeconds: number;
   hasRecalled: boolean;
@@ -37,6 +38,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   visible,
   counterNumber,
   distanceInfo,
+  ticketNumber,
   countdownSeconds,
   hasRecalled,
   isSwapped = false,
@@ -195,7 +197,9 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                 </View>
               ) : (
                 <>
-                  <Text style={styles.countdownLabel}>Temps restant</Text>
+                 <Text style={styles.countdownLabel}>POUR LE TICKET NUMERO : </Text>
+                  <Text style={styles.ticketNumber}>{ticketNumber}</Text>
+                  <Text style={styles.countdownLabel}>Votre temps restant est de :</Text>
                   <Text style={[styles.countdownValue, { opacity: countdownSeconds <= 60 ? flashAnim : 1 }]}>
                     {formatCountdown(countdownSeconds)}
                   </Text>
@@ -231,6 +235,8 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                   <Text style={styles.distanceLabel}>Moto</Text>
                 </View>
               </View>
+
+              
             </View>
           )}
 
@@ -278,6 +284,8 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               </TouchableOpacity>
             </View>
           )}
+
+          
         </Animated.View>
       </View>
     </Modal>
@@ -292,14 +300,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
-    marginTop: 40,
+    marginTop: 10,
   },
   title: {
     fontSize: 24,
     fontWeight: "800",
     color: "#FFF",
-    marginBottom: 8,
   },
+  ticketNumber: {
+    fontSize: 30,
+    fontWeight: "800",
+    color: "#FFF",
+    marginBottom:20,
+  },
+
   counterBadge: {
     paddingHorizontal: 14,
     paddingVertical: 5,

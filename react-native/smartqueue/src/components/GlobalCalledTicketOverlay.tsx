@@ -306,6 +306,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
     <>
       <CalledTicketOverlay
         visible={isCalled && !isExpired}
+        ticketNumber={activeTicket?.number || ""}
         counterNumber={counterNumber || undefined}
         distanceInfo={distanceInfo}
         countdownSeconds={localCountdown}
