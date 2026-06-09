@@ -3,7 +3,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Linking,
   Platform,
   Modal,
@@ -13,12 +12,12 @@ import { router } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import {
   CameraView,
-  CameraType,
   useCameraPermissions,
   BarcodeScanningResult,
 } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTicket } from "../../src/store/ticketStore";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 import axiosClient from "../../src/api/axiosClient";
 
 export default function ScanScreen() {
@@ -30,7 +29,8 @@ export default function ScanScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showExistingModal, setShowExistingModal] = useState(false);
   const [ticketInfo, setTicketInfo] = useState<any>(null);
-  const { hasActiveTicket, fetchActiveTicket } = useTicket();
+  const { fetchActiveTicket } = useTicket();
+  const { AlertComponent, showError, showWarning } = useCustomAlert();
 
   // Handle QR code scan result
   const handleBarCodeScanned = useCallback(
@@ -97,32 +97,21 @@ export default function ScanScreen() {
             const serviceStatus = error?.response?.data?.service_status;
 
             if (error?.response?.status === 401) {
-              Alert.alert(
+              showWarning(
                 "Connexion requise",
                 "Vous devez être connecté pour créer un ticket.",
-                [
-                  {
-                    text: "Annuler",
-                    style: "cancel",
-                    onPress: () => {
-                      setScanned(false);
-                      setIsProcessing(false);
-                    },
-                  },
-                  {
-                    text: "Se connecter",
-                    onPress: () => {
-                      router.push("/login");
-                    },
-                  },
-                ],
+                "Se connecter",
+                () => router.push("/login"),
+                "Annuler",
               );
+              setScanned(false);
+              setIsProcessing(false);
             } else if (serviceStatus === "closed") {
-              Alert.alert("File fermée", errorMsg);
+              showError("File fermée", errorMsg);
               setScanned(false);
               setIsProcessing(false);
             } else {
-              Alert.alert("Erreur", errorMsg);
+              showError("Erreur", errorMsg);
               setScanned(false);
               setIsProcessing(false);
             }
@@ -132,60 +121,26 @@ export default function ScanScreen() {
 
         // Legacy establishment QR code handling
         if (!establishmentId) {
-          Alert.alert(
-            "QR Code invalide",
-            "Ce QR code n'est pas un code SmartQueue valide.",
-          );
+          showError("QR Code invalide", "Ce QR code n'est pas un code SmartQueue valide.");
           setScanned(false);
           setIsProcessing(false);
           return;
         }
 
-        // Check if user already has active ticket
-        if (hasActiveTicket) {
-          Alert.alert(
-            "Ticket actif",
-            "Vous avez déjà un ticket actif. Voulez-vous le remplacer ?",
-            [
-              {
-                text: "Annuler",
-                style: "cancel",
-                onPress: () => {
-                  setScanned(false);
-                  setIsProcessing(false);
-                },
-              },
-              {
-                text: "Continuer",
-                onPress: () => {
-                  router.push({
-                    pathname: "/service-details",
-                    params: { establishmentId, fromQr: "true" },
-                  });
-                  setIsProcessing(false);
-                },
-              },
-            ],
-          );
-        } else {
-          // Navigate to establishment details
-          router.push({
-            pathname: "/service-details",
-            params: { establishmentId, fromQr: "true" },
-          });
-          setIsProcessing(false);
-        }
+        // Navigate to service selection — per-service duplicate check happens in ServiceDetailsScreen
+        router.push({
+          pathname: "/service-details",
+          params: { establishmentId, fromQr: "true" },
+        });
+        setIsProcessing(false);
       } catch (error) {
         console.error("Error processing QR code:", error);
-        Alert.alert(
-          "Erreur",
-          "Impossible de traiter le QR code. Veuillez réessayer.",
-        );
+        showError("Erreur", "Impossible de traiter le QR code. Veuillez réessayer.");
         setScanned(false);
         setIsProcessing(false);
       }
     },
-    [scanned, isProcessing, hasActiveTicket],
+    [scanned, isProcessing, showError],
   );
 
   // Request permission if not granted
@@ -434,6 +389,8 @@ export default function ScanScreen() {
           </View>
         </View>
       </Modal>
+
+      {AlertComponent}
     </View>
   );
 }

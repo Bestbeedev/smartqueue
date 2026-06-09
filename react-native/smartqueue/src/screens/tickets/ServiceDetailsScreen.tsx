@@ -200,7 +200,7 @@ export const ServiceDetailsScreen: React.FC = () => {
   const serviceId = params.serviceId ? Number(params.serviceId) : undefined;
   const fromQr = params.fromQr === "true";
   const { isAuthenticated } = useAuth();
-  const { hasActiveTicket, activeTicket, fetchActiveTicket, isInitialized } = useTicket();
+  const { hasActiveTicket, activeTicket, activeTickets, fetchActiveTicket, isInitialized } = useTicket();
   const { AlertComponent, showError, showInfo, showWarning, showSuccess } = useCustomAlert();
   const { notifyTicketCreated, notifyCrowdLevelChange } = useSimpleNotification();
 
@@ -295,14 +295,17 @@ export const ServiceDetailsScreen: React.FC = () => {
       return;
     }
 
-    const hasTicketOnThisService = activeTicket?.service_id === selectedServiceId;
+    const ACTIVE_STATUSES = ['waiting', 'called', 'en_route', 'present'];
+    const existingTicket = activeTickets.find(
+      t => t.service_id === selectedServiceId && ACTIVE_STATUSES.includes(t.status)
+    );
 
-    if (isInitialized && hasTicketOnThisService && hasActiveTicket && activeTicket) {
+    if (isInitialized && existingTicket) {
       showWarning(
-        "Ticket actif",
-        "Vous avez déjà un ticket actif pour ce service.",
+        "Ticket déjà actif",
+        `Vous avez déjà un ticket actif pour ce service (N° ${existingTicket.number}). Vous ne pouvez pas en créer un nouveau.`,
         "Voir mon ticket",
-        () => router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(activeTicket.id) } }),
+        () => router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(existingTicket.id) } }),
         "Annuler",
       );
       return;
