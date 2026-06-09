@@ -210,6 +210,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const colors = useThemeColors();
   const {
     activeTicket,
+    activeTickets,
     position,
     etaMinutes,
     isAlmostThere,
@@ -246,22 +247,32 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     return activeTicket?.id || null;
   }, [ticketId, activeTicket?.id]);
 
+  // Ticket à afficher : celui identifié par ticketId (peut être secondaire), ou le ticket primaire
+  const displayTicket = useMemo(() => {
+    if (!effectiveTicketId) return activeTicket;
+    return activeTickets.find(t => t.id === effectiveTicketId) ?? activeTicket;
+  }, [effectiveTicketId, activeTickets, activeTicket]);
+
+  const displayPosition = displayTicket?.position ?? position;
+  const displayEta = displayTicket?.eta_minutes ?? etaMinutes;
+  const isDisplayCalled = displayTicket?.status === "called";
+
   const hasValidCoordinates =
-    activeTicket?.establishment &&
-    (activeTicket.establishment as any)?.lat !== null &&
-    (activeTicket.establishment as any)?.lat !== undefined &&
-    (activeTicket.establishment as any)?.lng !== null &&
-    (activeTicket.establishment as any)?.lng !== undefined;
+    displayTicket?.establishment &&
+    (displayTicket.establishment as any)?.lat !== null &&
+    (displayTicket.establishment as any)?.lat !== undefined &&
+    (displayTicket.establishment as any)?.lng !== null &&
+    (displayTicket.establishment as any)?.lng !== undefined;
 
   const { distanceInfo, hasPermission: hasLocationPermission } =
     useDistanceTracking({
       targetCoordinates: hasValidCoordinates
         ? {
-            latitude: (activeTicket.establishment as any).lat,
-            longitude: (activeTicket.establishment as any).lng,
+            latitude: (displayTicket!.establishment as any).lat,
+            longitude: (displayTicket!.establishment as any).lng,
           }
         : null,
-      enabled: hasValidCoordinates && hasActiveTicket,
+      enabled: hasValidCoordinates && !!displayTicket,
     });
 
   const { lastAlert, departureInfo, journeyProgress } = useSmartNotifications({
@@ -372,9 +383,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     );
   }, [effectiveTicketId, cancelTicket, showWarning, showError]);
 
-  const isTicketPresent = activeTicket?.status === "present";
-  const isTicketEnRoute = activeTicket?.status === "en_route";
-  const isTicketCalledState = activeTicket?.status === "called";
+  const isTicketPresent = displayTicket?.status === "present";
+  const isTicketEnRoute = displayTicket?.status === "en_route";
+  const isTicketCalledState = isDisplayCalled || (isCalled && displayTicket?.id === activeTicket?.id);
 
   // Rendu principal
   const renderHeader = () => (
@@ -394,17 +405,17 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
         <LiveIndicator colors={colors} />
         
         {/* Status Badge amélioré avec fond opaque */}
-        <LiveStatusBadge 
-          status={activeTicket?.status || "waiting"} 
-          isCalled={isCalled}
+        <LiveStatusBadge
+          status={displayTicket?.status || "waiting"}
+          isCalled={isTicketCalledState}
           colors={colors}
         />
       </View>
-      
+
       <View style={styles.headerMain}>
         <Text style={styles.ticketLabel}>Ticket en cours</Text>
         <Text style={styles.ticketNumberHeader}>
-          #{activeTicket?.number || "---"}
+          #{displayTicket?.number || "---"}
         </Text>
       </View>
     </LinearGradient>
@@ -413,11 +424,11 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const renderPositionCard = () => {
     // Si le ticket est appelé, présent ou en route, on affiche le statut au lieu de la position
     const isSpecialStatus = isTicketCalledState || isTicketPresent || isTicketEnRoute;
-    const displayValue = isSpecialStatus 
+    const displayValue = isSpecialStatus
       ? (isTicketCalledState ? "Appelé" : isTicketPresent ? "Présent" : "En route")
-      : `${position}e`;
+      : `${displayPosition}e`;
     const displayTitle = isSpecialStatus ? "Statut" : "Position dans la file";
-    const progress = !isSpecialStatus && position > 0 ? Math.min(100, (1 / position) * 100) : 0;
+    const progress = !isSpecialStatus && displayPosition > 0 ? Math.min(100, (1 / displayPosition) * 100) : 0;
     
     return (
       <View style={[styles.positionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -449,10 +460,10 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               <View style={styles.etaInfo}>
                 <Ionicons name="time-outline" size={16} color={colors.textTertiary} />
                 <Text style={[styles.etaText, { color: colors.textSecondary }]}>
-                  {etaMinutes} min estimées
+                  {displayEta} min estimées
                 </Text>
               </View>
-              {position <= 3 && (
+              {displayPosition > 0 && displayPosition <= 3 && (
                 <View style={[styles.soonBadge, { backgroundColor: colors.warning + "15" }]}>
                   <Ionicons name="flash" size={12} color={colors.warning} />
                   <Text style={[styles.soonText, { color: colors.warning }]}>
@@ -585,21 +596,21 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
             <CompactInfoRow
               icon="business-outline"
               label="Établissement"
-              value={activeTicket?.establishment?.name || "---"}
+              value={displayTicket?.establishment?.name || "---"}
               color={colors.primary}
               colors={colors}
             />
             <CompactInfoRow
               icon="briefcase-outline"
               label="Service"
-              value={activeTicket?.service?.name || "---"}
+              value={displayTicket?.service?.name || "---"}
               color={colors.success}
               colors={colors}
             />
             <CompactInfoRow
               icon="calendar-outline"
               label="Créé le"
-              value={activeTicket?.created_at ? new Date(activeTicket.created_at).toLocaleTimeString() : "---"}
+              value={displayTicket?.created_at ? new Date(displayTicket.created_at).toLocaleTimeString() : "---"}
               color={colors.secondary}
               colors={colors}
             />

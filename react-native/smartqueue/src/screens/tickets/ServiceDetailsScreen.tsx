@@ -323,7 +323,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
       const ticketData = (ticket as any)?.data || ticket;
       await fetchActiveTicket();
-      notifyTicketCreated(ticketData.number, ticketData.establishment?.name || establishment?.name || "Établissement");
+      notifyTicketCreated(ticketData.number, ticketData.establishment?.name || establishment?.name || "Établissement", ticketData.id);
 
       router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(ticketData.id) } });
     } catch (error: any) {

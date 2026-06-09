@@ -219,11 +219,9 @@ export const useTicketSocket = (ticketId: string | number | null) => {
 
           const counterNum = data.counter ?? data.counter_id;
           markAsCalled(counterNum?.toString());
-          updateTicketStatus("called");
+          updateTicketStatus("called", numericTicketId);
           setLastUpdate(new Date());
 
-          // En premier plan, l'overlay global prend déjà le relais pour l'état
-          // "appelé". On évite donc une notification locale supplémentaire.
           triggerHapticFeedback("success");
           scheduleResync();
         })
@@ -236,7 +234,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           setLastUpdate(new Date());
 
           if (data.status) {
-            updateTicketStatus(data.status as any);
+            updateTicketStatus(data.status as any, numericTicketId);
 
             switch (data.status) {
               case "called": {
@@ -248,6 +246,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 triggerLocalNotification(
                   "Ticket absent",
                   "Vous avez été marqué absent",
+                  numericTicketId,
                 );
                 triggerHapticFeedback("warning");
                 break;
@@ -256,6 +255,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 triggerLocalNotification(
                   "Service terminé",
                   "Votre ticket a été servi. Merci !",
+                  numericTicketId,
                 );
                 triggerHapticFeedback("success");
                 break;
@@ -263,7 +263,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           }
 
           if (data.position != null) {
-            updatePosition(data.position, data.eta_minutes ?? 0);
+            updatePosition(data.position, data.eta_minutes ?? 0, numericTicketId);
           }
 
           scheduleResync();
@@ -295,7 +295,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             setLastUpdate(new Date());
 
             if (data.status) {
-              updateTicketStatus(data.status as any);
+              updateTicketStatus(data.status as any, numericTicketId);
 
               switch (data.status) {
                 case "called": {
@@ -307,6 +307,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                   triggerLocalNotification(
                     "Ticket absent",
                     "Vous avez été marqué absent",
+                    numericTicketId,
                   );
                   triggerHapticFeedback("warning");
                   break;
@@ -317,7 +318,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             }
 
             if (data.position != null) {
-              updatePosition(data.position, data.eta_minutes ?? 0);
+              updatePosition(data.position, data.eta_minutes ?? 0, numericTicketId);
             }
 
             scheduleResync();
@@ -399,7 +400,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
  * Utilisée uniquement quand l'app est en premier plan (le backend envoie déjà
  * une notification push FCM pour l'arrière-plan).
  */
-const triggerLocalNotification = async (title: string, body: string) => {
+const triggerLocalNotification = async (title: string, body: string, ticketId?: number) => {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -407,6 +408,7 @@ const triggerLocalNotification = async (title: string, body: string) => {
         body,
         sound: "default",
         priority: Notifications.AndroidNotificationPriority?.HIGH || "high",
+        data: ticketId ? { ticket_id: ticketId } : {},
       },
       trigger:
         Platform.OS === "android" ? { channelId: "smartqueue-default" } : null,

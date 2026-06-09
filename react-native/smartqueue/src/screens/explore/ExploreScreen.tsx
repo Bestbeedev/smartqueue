@@ -34,7 +34,6 @@ import type { Ticket } from "../../api/ticketsApi";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
 import { Coordinates } from "../../utils/distance";
-import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 import useExploreCacheStore, {
   useExploreCache,
 } from "../../store/exploreCacheStore";
@@ -46,8 +45,90 @@ const { width, height } = Dimensions.get("window");
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
+// Carte compacte pour un ticket spécifique dans le carrousel — ne lit PAS le store global
+const TicketCarouselCard: React.FC<{
+  ticket: Ticket;
+  colors: any;
+  onPress: () => void;
+}> = ({ ticket, colors, onPress }) => {
+  const getStatusConfig = () => {
+    switch (ticket.status) {
+      case "called":   return { label: "Appelé !",   color: colors.danger,   icon: "notifications" };
+      case "present":  return { label: "Présent",    color: colors.success,  icon: "checkmark-circle" };
+      case "en_route": return { label: "En route",   color: colors.warning,  icon: "walk" };
+      default:         return { label: "En attente", color: colors.primary,  icon: "time" };
+    }
+  };
+  const cfg = getStatusConfig();
+  const queueInfo = ticket.status === "called" ? "Appelé"
+    : ticket.status === "present" ? "Présent"
+    : ticket.status === "en_route" ? "En route"
+    : ticket.position ? `${ticket.position}e place` : "En attente";
+
+  return (
+    <TouchableOpacity
+      style={[carouselCardStyles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={carouselCardStyles.cardHeader}>
+        <View style={carouselCardStyles.estabRow}>
+          <View style={[carouselCardStyles.estabIcon, { backgroundColor: colors.primary + "15" }]}>
+            <Ionicons name="business" size={14} color={colors.primary} />
+          </View>
+          <Text style={[carouselCardStyles.estabName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {ticket.establishment?.name || "Établissement"}
+          </Text>
+        </View>
+        <View style={[carouselCardStyles.statusBadge, { backgroundColor: cfg.color + "15" }]}>
+          <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
+          <Text style={[carouselCardStyles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+      </View>
+
+      <View style={carouselCardStyles.ticketRow}>
+        <View style={[carouselCardStyles.ticketNumBox, { backgroundColor: cfg.color }]}>
+          <Text style={carouselCardStyles.ticketNum}>{ticket.number}</Text>
+        </View>
+        <View style={carouselCardStyles.ticketInfo}>
+          <Text style={[carouselCardStyles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {ticket.service?.name || "Service"}
+          </Text>
+          <Text style={[carouselCardStyles.queueInfo, { color: colors.textTertiary }]}>{queueInfo}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[carouselCardStyles.followBtn, { backgroundColor: colors.primary }]}
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="eye-outline" size={14} color="#FFF" />
+        <Text style={carouselCardStyles.followBtnText}>Suivre ce ticket</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+};
+
+const carouselCardStyles = StyleSheet.create({
+  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  estabRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+  estabIcon: { width: 24, height: 24, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  estabName: { fontSize: 13, fontWeight: "600", flex: 1 },
+  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, gap: 4 },
+  statusText: { fontSize: 10, fontWeight: "700" },
+  ticketRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+  ticketNumBox: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  ticketNum: { fontSize: 15, fontWeight: "800", color: "#FFF" },
+  ticketInfo: { flex: 1 },
+  serviceName: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
+  queueInfo: { fontSize: 11 },
+  followBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 10 },
+  followBtnText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
+});
+
 // Composant Bottom Sheet pour les tickets actifs (carrousel)
-// Composant Bottom Sheet pour les tickets actifs (carrousel) - VERSION CORRIGÉE
 const ActiveTicketBottomSheet: React.FC<{
   visible: boolean;
   onClose: () => void;
@@ -137,8 +218,9 @@ const ActiveTicketBottomSheet: React.FC<{
                     marginRight: index === tickets.length - 1 ? 0 : 8,
                   }}
                 >
-                  <ActiveTicketCard
-                    compact={true}
+                  <TicketCarouselCard
+                    ticket={item}
+                    colors={colors}
                     onPress={() => {
                       onClose();
                       router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(item.id) } });

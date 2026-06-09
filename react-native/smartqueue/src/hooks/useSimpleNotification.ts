@@ -21,18 +21,18 @@ export const useSimpleNotification = () => {
     body,
     sound = true,
     vibrate = true,
+    data,
   }: {
     title: string;
     body: string;
     sound?: boolean;
     vibrate?: boolean;
+    data?: Record<string, any>;
   }) => {
-    // Haptic feedback
     if (vibrate) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    // Schedule local notification
     const Notifications = getNotifications();
     if (Notifications?.scheduleNotificationAsync) {
       try {
@@ -41,8 +41,9 @@ export const useSimpleNotification = () => {
             title,
             body,
             sound: sound ? 'default' : undefined,
+            data: data ?? {},
           },
-          trigger: null, // Show immediately
+          trigger: null,
         });
       } catch (error) {
         console.error('Error scheduling notification:', error);
@@ -50,10 +51,11 @@ export const useSimpleNotification = () => {
     }
   }, []);
 
-  const notifyTicketCreated = useCallback((ticketNumber: string, establishmentName: string) => {
+  const notifyTicketCreated = useCallback((ticketNumber: string, establishmentName: string, ticketId?: number) => {
     sendNotification({
       title: '🎫 Ticket pris avec succès !',
       body: `Votre ticket ${ticketNumber} pour ${establishmentName} est actif. Suivez votre position en temps réel.`,
+      data: ticketId ? { ticket_id: ticketId } : {},
     });
   }, [sendNotification]);
 

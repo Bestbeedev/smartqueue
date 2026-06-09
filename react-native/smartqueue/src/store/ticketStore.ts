@@ -102,7 +102,7 @@ export interface TicketState {
   // Actions
   setActiveTicket: (ticket: Ticket | null) => void;
   setActiveTickets: (tickets: Ticket[]) => void;
-  updatePosition: (position: number, etaMinutes: number) => void;
+  updatePosition: (position: number, etaMinutes: number, ticketId?: number) => void;
   markAsCalled: (counterNumber?: string) => void;
   clearCalled: () => void;
   markAsAlmostThere: () => void;
@@ -113,7 +113,7 @@ export interface TicketState {
   cancelTicket: (ticketId: number) => Promise<void>;
   refreshActiveTicket: () => Promise<void>;
   fetchActiveTicket: () => Promise<void>;
-  updateTicketStatus: (status: Ticket["status"]) => void;
+  updateTicketStatus: (status: Ticket["status"], ticketId?: number) => void;
   setWebSocketConnected: (connected: boolean) => void;
   setLastUpdate: (date: Date) => void;
 
@@ -173,13 +173,13 @@ export const useTicketStore = create<TicketState>()(
       },
 
       // Mettre à jour la position et l'ETA
-      // Correction : met aussi à jour activeTicket pour que tous les composants
-      // qui lisent activeTicket.position/eta_minutes voient la valeur fraîche.
-      updatePosition: (position: number, etaMinutes: number) => {
+      // ticketId optionnel : si fourni, met à jour ce ticket précis ; sinon le ticket primaire.
+      updatePosition: (position: number, etaMinutes: number, ticketId?: number) => {
         const { activeTicket, activeTickets } = get();
+        const targetId = ticketId ?? activeTicket?.id;
         const updatedTickets = sortActiveTickets(
           activeTickets.map((t) =>
-            t.id === activeTicket?.id
+            t.id === targetId
               ? { ...t, position, eta_minutes: etaMinutes }
               : t,
           ),
@@ -508,35 +508,27 @@ export const useTicketStore = create<TicketState>()(
 
       // Mettre à jour le statut du ticket (feedback instantané ; une
       // re-synchronisation complète via fetchActiveTicket suit côté socket).
-      updateTicketStatus: (status: Ticket["status"]) => {
+      // ticketId optionnel : si fourni, met à jour ce ticket précis ; sinon le ticket primaire.
+      updateTicketStatus: (status: Ticket["status"], ticketId?: number) => {
         const { activeTicket, activeTickets } = get();
+        const targetId = ticketId ?? activeTicket?.id;
+        if (!targetId) return;
 
-        if (activeTicket) {
-          // Un nouvel appel (status 'called') réinitialise en_route_at pour rouvrir
-          // l'overlay ; sinon on conserve la valeur existante.
-          const updatedTicket: Ticket = {
-            ...activeTicket,
-            status,
-            en_route_at: status === "called" ? null : activeTicket.en_route_at,
-          };
+        const updatedTickets = sortActiveTickets(
+          activeTickets.map((t) => {
+            if (t.id !== targetId) return t;
+            return {
+              ...t,
+              status,
+              en_route_at: status === "called" ? null : t.en_route_at,
+            };
+          }),
+        );
 
-          const updatedTickets = sortActiveTickets(
-            activeTickets.map((t) =>
-              t.id === activeTicket.id
-                ? {
-                    ...t,
-                    status: updatedTicket.status,
-                    en_route_at: updatedTicket.en_route_at,
-                  }
-                : t,
-            ),
-          );
-
-          set({
-            ...buildPrimaryTicketState(updatedTickets),
-            lastUpdate: new Date(),
-          });
-        }
+        set({
+          ...buildPrimaryTicketState(updatedTickets),
+          lastUpdate: new Date(),
+        });
       },
 
       setWebSocketConnected: (connected: boolean) => {
