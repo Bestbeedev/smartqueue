@@ -34,97 +34,20 @@ import type { Ticket } from "../../api/ticketsApi";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
 import { Coordinates } from "../../utils/distance";
+import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 import useExploreCacheStore, {
   useExploreCache,
 } from "../../store/exploreCacheStore";
 import { useUnreadNotifications } from "../../hooks/useUnreadNotifications";
 import { CustomActionSheet } from "../../components/ui/CustomActionSheet";
-import colors from "@/src/theme/colors";
 
 const { width, height } = Dimensions.get("window");
 
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
-// Carte compacte pour un ticket dans le carousel
-const TicketCarouselCard: React.FC<{
-  ticket: Ticket;
-  colors: any;
-  onNavigate: () => void;
-}> = ({ ticket, colors, onNavigate }) => {
-  const getStatusConfig = () => {
-    switch (ticket.status) {
-      case "called":    return { label: "Appelé !", icon: "notifications", color: colors.danger };
-      case "en_route":  return { label: "En route", icon: "walk", color: colors.warning };
-      case "present":   return { label: "Présent",  icon: "checkmark-circle", color: colors.success };
-      default:          return { label: "En attente", icon: "time", color: colors.primary };
-    }
-  };
-  const cfg = getStatusConfig();
-
-  return (
-    <View style={[carouselStyles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-      {/* En-tête : établissement + badge statut */}
-      <View style={carouselStyles.cardHeader}>
-        <View style={[carouselStyles.estIcon, { backgroundColor: cfg.color + "15" }]}>
-          <Ionicons name="business" size={14} color={cfg.color} />
-        </View>
-        <Text style={[carouselStyles.estName, { color: colors.textPrimary }]} numberOfLines={1}>
-          {(ticket as any).establishment?.name || "Établissement"}
-        </Text>
-        <View style={[carouselStyles.statusBadge, { backgroundColor: cfg.color + "15" }]}>
-          <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
-          <Text style={[carouselStyles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-        </View>
-      </View>
-
-      {/* Numéro + service */}
-      <View style={carouselStyles.cardBody}>
-        <View style={[carouselStyles.numberBox, { backgroundColor: cfg.color }]}>
-          <Text style={carouselStyles.numberText}>{ticket.number}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[carouselStyles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {(ticket as any).service?.name || "Service"}
-          </Text>
-          <Text style={[carouselStyles.positionText, { color: colors.textTertiary }]}>
-            {ticket.status === "waiting"
-              ? `Position : ${(ticket as any).position ?? "—"}`
-              : cfg.label}
-          </Text>
-        </View>
-      </View>
-
-      {/* Bouton navigation */}
-      <TouchableOpacity
-        style={[carouselStyles.navBtn, { backgroundColor: cfg.color }]}
-        onPress={onNavigate}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="eye-outline" size={15} color="#FFF" />
-        <Text style={carouselStyles.navBtnText}>Suivre ce ticket</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const carouselStyles = StyleSheet.create({
-  card: { borderRadius: 16, borderWidth: 1, padding: 14, marginHorizontal: 4 },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  estIcon: { width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  estName: { flex: 1, fontSize: 13, fontWeight: "600" },
-  statusBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
-  statusText: { fontSize: 10, fontWeight: "700" },
-  cardBody: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  numberBox: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  numberText: { fontSize: 18, fontWeight: "800", color: "#FFF" },
-  serviceName: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
-  positionText: { fontSize: 11 },
-  navBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
-  navBtnText: { fontSize: 13, fontWeight: "600", color: "#FFF" },
-});
-
-// Bottom Sheet avec carousel multi-tickets
+// Composant Bottom Sheet pour les tickets actifs (carrousel)
+// Composant Bottom Sheet pour les tickets actifs (carrousel) - VERSION CORRIGÉE
 const ActiveTicketBottomSheet: React.FC<{
   visible: boolean;
   onClose: () => void;
@@ -132,10 +55,13 @@ const ActiveTicketBottomSheet: React.FC<{
   colors: any;
 }> = ({ visible, onClose, tickets, colors }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<any>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const CARD_WIDTH = width - 64; // 16px padding chaque côté + 4+4 margin carte
+
+  // Calculer la largeur disponible pour chaque carte
+  const CARD_WIDTH = width - 40; // 40 = 20px padding de chaque côté (16 + 8)
+  const SNAP_INTERVAL = CARD_WIDTH + 8; // 8px de gap entre les cartes
 
   useEffect(() => {
     if (visible) {
@@ -165,12 +91,10 @@ const ActiveTicketBottomSheet: React.FC<{
       <Animated.View style={[styles.bottomSheetOverlay, { opacity: fadeAnim }]}>
         <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
         <Animated.View style={[styles.bottomSheetModal, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
-          {/* Handle */}
           <View style={styles.bottomSheetHandle}>
             <View style={[styles.bottomSheetHandleBar, { backgroundColor: colors.border }]} />
           </View>
 
-          {/* Header */}
           <View style={styles.bottomSheetHeader}>
             <Text style={[styles.bottomSheetTitle, { color: colors.textPrimary }]}>
               {tickets.length > 1 ? `Tickets actifs (${tickets.length})` : "Ticket actif"}
@@ -180,30 +104,42 @@ const ActiveTicketBottomSheet: React.FC<{
             </TouchableOpacity>
           </View>
 
-          {/* Carousel */}
-          <View style={{ paddingVertical: 12 }}>
+          {/* Carrousel - Chaque carte prend toute la largeur */}
+          <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
             <FlatList
               ref={flatListRef}
               data={tickets}
               keyExtractor={(t) => String(t.id)}
               horizontal
               pagingEnabled={false}
-              snapToInterval={CARD_WIDTH + 8}
-              snapToAlignment="start"
+              snapToInterval={SNAP_INTERVAL}
+              snapToAlignment="center"
               decelerationRate="fast"
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16 }}
-              getItemLayout={(_, index) => ({ length: CARD_WIDTH + 8, offset: (CARD_WIDTH + 8) * index, index })}
+              contentContainerStyle={{ paddingHorizontal: 4 }}
               onMomentumScrollEnd={(e) => {
-                const newIndex = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 8));
-                setCurrentIndex(newIndex);
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const newIndex = Math.round(offsetX / SNAP_INTERVAL);
+                if (newIndex !== currentIndex && newIndex >= 0 && newIndex < tickets.length) {
+                  setCurrentIndex(newIndex);
+                }
               }}
-              renderItem={({ item }) => (
-                <View style={{ width: CARD_WIDTH }}>
-                  <TicketCarouselCard
-                    ticket={item}
-                    colors={colors}
-                    onNavigate={() => {
+              getItemLayout={(_, index) => ({
+                length: SNAP_INTERVAL,
+                offset: SNAP_INTERVAL * index,
+                index,
+              })}
+              renderItem={({ item, index }) => (
+                <View
+                  key={item.id}
+                  style={{
+                    width: CARD_WIDTH,
+                    marginRight: index === tickets.length - 1 ? 0 : 8,
+                  }}
+                >
+                  <ActiveTicketCard
+                    compact={true}
+                    onPress={() => {
                       onClose();
                       router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(item.id) } });
                     }}
@@ -212,24 +148,24 @@ const ActiveTicketBottomSheet: React.FC<{
               )}
             />
 
-            {/* Pagination dots + flèches */}
+            {/* Pagination dots + flèches - uniquement si plus d'un ticket */}
             {tickets.length > 1 && (
-              <View style={bsCarouselStyles.pagination}>
+              <View style={carouselStyles.pagination}>
                 <TouchableOpacity
                   onPress={() => goTo(currentIndex - 1)}
                   disabled={currentIndex === 0}
-                  style={[bsCarouselStyles.arrow, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                  style={[carouselStyles.arrow, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
                 >
-                  <Ionicons name="chevron-back" size={18} color={colors.primary} />
+                  <Ionicons name="chevron-back" size={20} color={colors.primary} />
                 </TouchableOpacity>
 
-                <View style={bsCarouselStyles.dots}>
+                <View style={carouselStyles.dots}>
                   {tickets.map((_, i) => (
                     <TouchableOpacity key={i} onPress={() => goTo(i)}>
                       <View style={[
-                        bsCarouselStyles.dot,
+                        carouselStyles.dot,
                         { backgroundColor: i === currentIndex ? colors.primary : colors.border },
-                        i === currentIndex && bsCarouselStyles.dotActive,
+                        i === currentIndex && carouselStyles.dotActive,
                       ]} />
                     </TouchableOpacity>
                   ))}
@@ -238,9 +174,9 @@ const ActiveTicketBottomSheet: React.FC<{
                 <TouchableOpacity
                   onPress={() => goTo(currentIndex + 1)}
                   disabled={currentIndex === tickets.length - 1}
-                  style={[bsCarouselStyles.arrow, { opacity: currentIndex === tickets.length - 1 ? 0.3 : 1 }]}
+                  style={[carouselStyles.arrow, { opacity: currentIndex === tickets.length - 1 ? 0.3 : 1 }]}
                 >
-                  <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                  <Ionicons name="chevron-forward" size={20} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -251,13 +187,42 @@ const ActiveTicketBottomSheet: React.FC<{
   );
 };
 
-const bsCarouselStyles = StyleSheet.create({
-  pagination: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8, paddingBottom: 8 },
-  arrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  dots: { flexDirection: "row", gap: 6, alignItems: "center" },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotActive: { width: 18, height: 6, borderRadius: 3 },
+// Styles du carrousel (à garder en dehors)
+const carouselStyles = StyleSheet.create({
+  pagination: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 8,
+    paddingBottom: 8
+  },
+  arrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+  dots: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center"
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3
+  },
+  dotActive: {
+    width: 20,
+    height: 6,
+    borderRadius: 3
+  },
 });
+
+
 
 const getMarkerColor = (crowdLevel?: string, colors?: any) => {
   switch (crowdLevel) {
@@ -652,9 +617,8 @@ export const ExploreScreen: React.FC = () => {
         {isLoading && <View style={[styles.loadingOverlay, { backgroundColor: colors.surface + "CC" }]}><ActivityIndicator size="large" color={colors.primary} /></View>}
       </View>
 
-      {/* Section Établissements - prend tout l'espace restant */}
+      {/* Section Établissements */}
       <View style={styles.establishmentsSection}>
-        {/* Header de la liste - maintenant avec le même fond que la page */}
         <View style={[styles.sectionHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Établissements ({filteredEstablishments.length})</Text>
           <View style={styles.sectionActions}>
@@ -673,7 +637,7 @@ export const ExploreScreen: React.FC = () => {
           renderItem={renderEstablishment}
           keyExtractor={item => item.id.toString()}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.establishmentsList, { paddingBottom: 120}]}
+          contentContainerStyle={[styles.establishmentsList, { paddingBottom: 120 }]}
           ListFooterComponent={<View style={{ height: 80 }} />}
           style={styles.establishmentsFlatList}
           ListEmptyComponent={
@@ -705,7 +669,7 @@ export const ExploreScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      {/* Bottom Sheet pour les tickets actifs */}
+      {/* Bottom Sheet pour les tickets actifs avec ActiveTicketCard */}
       <ActiveTicketBottomSheet
         visible={showActiveTicketSheet}
         onClose={() => setShowActiveTicketSheet(false)}
@@ -772,25 +736,22 @@ const styles = StyleSheet.create({
   destMarker: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
 
   // Section Établissements
-  establishmentsSection: { flex: 1 ,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,elevation:4,},
-  sectionHeader: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
-    borderBottomWidth: 0.3,
-    // Pas de backgroundColor spécifié, il hérite de celui du parent via colors.background
+  establishmentsSection: { flex: 1 },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   sectionTitle: { fontSize: 17, fontWeight: "700" as const },
-  sectionActions: { flexDirection: "row", gap: 8, },
+  sectionActions: { flexDirection: "row", gap: 8 },
   refreshBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   sortBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, gap: 4 },
   sortBtnText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
   establishmentsFlatList: { flex: 1 },
-  establishmentsList: { paddingBottom: 100, },
+  establishmentsList: { paddingBottom: 100 },
 
   estCard: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 0.5 },
   estCardLeft: { marginRight: 12 },
