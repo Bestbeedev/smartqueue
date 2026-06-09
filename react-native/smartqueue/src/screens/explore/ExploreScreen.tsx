@@ -30,10 +30,10 @@ import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import "../../../global.css";
 import { useTicket } from "../../store/ticketStore";
+import type { Ticket } from "../../api/ticketsApi";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
 import { Coordinates } from "../../utils/distance";
-import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 import useExploreCacheStore, {
   useExploreCache,
 } from "../../store/exploreCacheStore";
@@ -46,99 +46,218 @@ const { width, height } = Dimensions.get("window");
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
-// Composant Bottom Sheet pour le ticket actif - Version corrigée
+// Carte compacte pour un ticket dans le carousel
+const TicketCarouselCard: React.FC<{
+  ticket: Ticket;
+  colors: any;
+  onNavigate: () => void;
+}> = ({ ticket, colors, onNavigate }) => {
+  const getStatusConfig = () => {
+    switch (ticket.status) {
+      case "called":    return { label: "Appelé !", icon: "notifications", color: colors.danger };
+      case "en_route":  return { label: "En route", icon: "walk", color: colors.warning };
+      case "present":   return { label: "Présent",  icon: "checkmark-circle", color: colors.success };
+      default:          return { label: "En attente", icon: "time", color: colors.primary };
+    }
+  };
+  const cfg = getStatusConfig();
+
+  return (
+    <View style={[carouselStyles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+      {/* En-tête : établissement + badge statut */}
+      <View style={carouselStyles.cardHeader}>
+        <View style={[carouselStyles.estIcon, { backgroundColor: cfg.color + "15" }]}>
+          <Ionicons name="business" size={14} color={cfg.color} />
+        </View>
+        <Text style={[carouselStyles.estName, { color: colors.textPrimary }]} numberOfLines={1}>
+          {(ticket as any).establishment?.name || "Établissement"}
+        </Text>
+        <View style={[carouselStyles.statusBadge, { backgroundColor: cfg.color + "15" }]}>
+          <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
+          <Text style={[carouselStyles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+      </View>
+
+      {/* Numéro + service */}
+      <View style={carouselStyles.cardBody}>
+        <View style={[carouselStyles.numberBox, { backgroundColor: cfg.color }]}>
+          <Text style={carouselStyles.numberText}>{ticket.number}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[carouselStyles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {(ticket as any).service?.name || "Service"}
+          </Text>
+          <Text style={[carouselStyles.positionText, { color: colors.textTertiary }]}>
+            {ticket.status === "waiting"
+              ? `Position : ${(ticket as any).position ?? "—"}`
+              : cfg.label}
+          </Text>
+        </View>
+      </View>
+
+      {/* Bouton navigation */}
+      <TouchableOpacity
+        style={[carouselStyles.navBtn, { backgroundColor: cfg.color }]}
+        onPress={onNavigate}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="eye-outline" size={15} color="#FFF" />
+        <Text style={carouselStyles.navBtnText}>Suivre ce ticket</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const carouselStyles = StyleSheet.create({
+  card: { borderRadius: 16, borderWidth: 1, padding: 14, marginHorizontal: 4 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  estIcon: { width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  estName: { flex: 1, fontSize: 13, fontWeight: "600" },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
+  statusText: { fontSize: 10, fontWeight: "700" },
+  cardBody: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  numberBox: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  numberText: { fontSize: 18, fontWeight: "800", color: "#FFF" },
+  serviceName: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  positionText: { fontSize: 11 },
+  navBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
+  navBtnText: { fontSize: 13, fontWeight: "600", color: "#FFF" },
+});
+
+// Bottom Sheet avec carousel multi-tickets
 const ActiveTicketBottomSheet: React.FC<{
   visible: boolean;
   onClose: () => void;
+  tickets: Ticket[];
   colors: any;
-}> = ({ visible, onClose, colors }) => {
+}> = ({ visible, onClose, tickets, colors }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<any>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const CARD_WIDTH = width - 64; // 16px padding chaque côté + 4+4 margin carte
 
   useEffect(() => {
     if (visible) {
+      setCurrentIndex(0);
       Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 65,
-          friction: 11,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: height,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
 
+  const goTo = (index: number) => {
+    const next = Math.max(0, Math.min(tickets.length - 1, index));
+    setCurrentIndex(next);
+    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+  };
+
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View style={[styles.bottomSheetOverlay, { opacity: fadeAnim }]}>
-        <TouchableOpacity
-          style={styles.bottomSheetBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-
-        <Animated.View
-          style={[
-            styles.bottomSheetModal,
-            {
-              backgroundColor: colors.surface,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
+        <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
+        <Animated.View style={[styles.bottomSheetModal, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
+          {/* Handle */}
           <View style={styles.bottomSheetHandle}>
             <View style={[styles.bottomSheetHandleBar, { backgroundColor: colors.border }]} />
           </View>
+
+          {/* Header */}
           <View style={styles.bottomSheetHeader}>
-            <Text style={[styles.bottomSheetTitle, { color: colors.textPrimary }]}>Ticket actif</Text>
+            <Text style={[styles.bottomSheetTitle, { color: colors.textPrimary }]}>
+              {tickets.length > 1 ? `Tickets actifs (${tickets.length})` : "Ticket actif"}
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.bottomSheetClose}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.bottomSheetScrollContent}
-            style={styles.bottomSheetScrollView}
-          >
-            <ActiveTicketCard
-              compact={true}
-              onPress={() => {
-                onClose();
-                router.push("/(tabs)/live-ticket");
+
+          {/* Carousel */}
+          <View style={{ paddingVertical: 12 }}>
+            <FlatList
+              ref={flatListRef}
+              data={tickets}
+              keyExtractor={(t) => String(t.id)}
+              horizontal
+              pagingEnabled={false}
+              snapToInterval={CARD_WIDTH + 8}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+              getItemLayout={(_, index) => ({ length: CARD_WIDTH + 8, offset: (CARD_WIDTH + 8) * index, index })}
+              onMomentumScrollEnd={(e) => {
+                const newIndex = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 8));
+                setCurrentIndex(newIndex);
               }}
+              renderItem={({ item }) => (
+                <View style={{ width: CARD_WIDTH }}>
+                  <TicketCarouselCard
+                    ticket={item}
+                    colors={colors}
+                    onNavigate={() => {
+                      onClose();
+                      router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(item.id) } });
+                    }}
+                  />
+                </View>
+              )}
             />
-          </ScrollView>
+
+            {/* Pagination dots + flèches */}
+            {tickets.length > 1 && (
+              <View style={bsCarouselStyles.pagination}>
+                <TouchableOpacity
+                  onPress={() => goTo(currentIndex - 1)}
+                  disabled={currentIndex === 0}
+                  style={[bsCarouselStyles.arrow, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                >
+                  <Ionicons name="chevron-back" size={18} color={colors.primary} />
+                </TouchableOpacity>
+
+                <View style={bsCarouselStyles.dots}>
+                  {tickets.map((_, i) => (
+                    <TouchableOpacity key={i} onPress={() => goTo(i)}>
+                      <View style={[
+                        bsCarouselStyles.dot,
+                        { backgroundColor: i === currentIndex ? colors.primary : colors.border },
+                        i === currentIndex && bsCarouselStyles.dotActive,
+                      ]} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => goTo(currentIndex + 1)}
+                  disabled={currentIndex === tickets.length - 1}
+                  style={[bsCarouselStyles.arrow, { opacity: currentIndex === tickets.length - 1 ? 0.3 : 1 }]}
+                >
+                  <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </Animated.View>
       </Animated.View>
     </Modal>
   );
 };
+
+const bsCarouselStyles = StyleSheet.create({
+  pagination: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8, paddingBottom: 8 },
+  arrow: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  dots: { flexDirection: "row", gap: 6, alignItems: "center" },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  dotActive: { width: 18, height: 6, borderRadius: 3 },
+});
 
 const getMarkerColor = (crowdLevel?: string, colors?: any) => {
   switch (crowdLevel) {
@@ -586,8 +705,13 @@ export const ExploreScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      {/* Bottom Sheet pour le ticket actif */}
-      <ActiveTicketBottomSheet visible={showActiveTicketSheet} onClose={() => setShowActiveTicketSheet(false)} colors={colors} />
+      {/* Bottom Sheet pour les tickets actifs */}
+      <ActiveTicketBottomSheet
+        visible={showActiveTicketSheet}
+        onClose={() => setShowActiveTicketSheet(false)}
+        tickets={activeTickets}
+        colors={colors}
+      />
 
       {/* CustomActionSheet pour le tri */}
       <CustomActionSheet

@@ -317,7 +317,15 @@ export const TicketsScreen: React.FC = () => {
           </View>
         </View>
         {otherActiveTickets.map((ticket) => (
-          <TicketCard key={ticket.id} ticket={ticket} colors={colors} onPress={handleViewLiveTicket} />
+          <TicketCard
+            key={ticket.id}
+            ticket={ticket}
+            colors={colors}
+            onPress={() => router.push({
+              pathname: "/(tabs)/live-ticket",
+              params: { ticketId: String(ticket.id) },
+            })}
+          />
         ))}
       </View>
     );
