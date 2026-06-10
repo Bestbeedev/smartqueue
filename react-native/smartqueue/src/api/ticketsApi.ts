@@ -374,6 +374,15 @@ export const ticketsApi = {
     return response.data;
   },
 
+  // Soumettre une évaluation pour un ticket terminé
+  submitReview: async (
+    ticketId: number,
+    rating: number,
+    comment?: string,
+  ): Promise<void> => {
+    await axiosClient.post(`/tickets/${ticketId}/review`, { rating, comment });
+  },
+
   // Obtenir le QR code du ticket
   getTicketQR: async (
     ticketId: number,

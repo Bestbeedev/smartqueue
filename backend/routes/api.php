@@ -34,6 +34,8 @@ use App\Http\Controllers\Api\Admin\NotificationLogController;
 use App\Http\Controllers\Api\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Api\Agent\DashboardController as AgentDashboardController;
 use App\Http\Controllers\Api\ServiceQrCodeController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -195,6 +197,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Push notifications (FCM)
         Route::post('push/broadcast', [PushNotificationController::class, 'broadcast']);
 
+        // Évaluations des services
+        Route::get('reviews/stats', [AdminReviewController::class, 'stats']);
+
         // Historique des notifications envoyées (logs)
         Route::get('notification-logs', [NotificationLogController::class, 'index']);
         Route::get('notification-logs/{id}', [NotificationLogController::class, 'show']);
@@ -223,6 +228,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('{ticket}/present', [TicketRecallController::class, 'present']); // "Je suis déjà là" → ferme le ticket auto
         Route::post('{ticket}/defer', [TicketRecallController::class, 'defer']); // User defers/swap position
         Route::get('{ticket}/countdown', [TicketRecallController::class, 'countdown']);
+        Route::post('{ticket}/review', [ReviewController::class, 'store']); // Évaluation post-service
     });
 });
 

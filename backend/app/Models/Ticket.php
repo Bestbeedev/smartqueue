@@ -62,6 +62,11 @@ class Ticket extends Model
         return $this->belongsTo(Counter::class);
     }
 
+    public function review()
+    {
+        return $this->hasOne(Review::class);
+    }
+
     // Scope: tickets encore actifs (non clos/cancel)
     public function scopeActive($q)
     {
