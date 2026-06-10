@@ -40,6 +40,14 @@ type TodayTicket = {
   number: string;
   status: string;
   priority: string;
+  priority_reason?: string | null;
+  source?: string | null;
+  display_name?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  is_senior?: boolean;
+  is_handicap?: boolean;
+  is_pregnant?: boolean;
   service_name: string;
   user_name: string;
   user_email: string;
@@ -106,6 +114,8 @@ export default function AgentStats() {
       case 'called': return '#FF9500';
       case 'absent': return '#FF3B30';
       case 'waiting': return '#3B82F6';
+      case 'en_route': return '#F59E0B';
+      case 'present': return '#8B5CF6';
       default: return '#6B7280';
     }
   };
@@ -116,7 +126,27 @@ export default function AgentStats() {
       case 'called': return 'Appelé';
       case 'absent': return 'Absent';
       case 'waiting': return 'Attente';
+      case 'en_route': return 'En route';
+      case 'present': return 'Présent';
       default: return status;
+    }
+  };
+
+  const getPriorityConfig = (priority: string) => {
+    switch (priority) {
+      case 'urgence': return { color: '#FF3B30', label: 'Urgence', icon: 'alert-circle' as const };
+      case 'vip':     return { color: '#8B5CF6', label: 'VIP',     icon: 'star' as const };
+      case 'high':    return { color: '#FF9500', label: 'Prioritaire', icon: 'flame' as const };
+      default:        return { color: '#8E8E93', label: 'Normal',   icon: 'list' as const };
+    }
+  };
+
+  const getSourceConfig = (source?: string | null) => {
+    switch (source) {
+      case 'qr_scan': return { icon: 'qr-code-outline' as const, label: 'QR Code' };
+      case 'agent':   return { icon: 'person-circle-outline' as const, label: 'Agent' };
+      case 'kiosk':   return { icon: 'desktop-outline' as const, label: 'Kiosk' };
+      default:        return { icon: 'phone-portrait-outline' as const, label: 'App' };
     }
   };
 
@@ -236,60 +266,108 @@ export default function AgentStats() {
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Les tickets traités apparaîtront ici</Text>
         </View>
       ) : (
-        todayTickets.map((ticket, index) => (
-          <View key={ticket.id} style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.ticketHeader}>
-              <View style={[styles.ticketNumber, { backgroundColor: getStatusColor(ticket.status) }]}>
-                <Text style={styles.ticketNumberText}>{ticket.number}</Text>
-              </View>
-              <View style={[styles.ticketStatusBadge, { backgroundColor: getStatusColor(ticket.status) + '15' }]}>
-                <Text style={[styles.ticketStatusText, { color: getStatusColor(ticket.status) }]}>{getStatusLabel(ticket.status)}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.ticketInfo}>
-              <View style={styles.ticketInfoRow}>
-                <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
-                <Text style={[styles.ticketInfoText, { color: colors.textPrimary }]}>{ticket.service_name}</Text>
-              </View>
-              {ticket.user_name && (
-                <View style={styles.ticketInfoRow}>
-                  <Ionicons name="person-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.user_name}</Text>
-                </View>
-              )}
-              {ticket.user_email && (
-                <View style={styles.ticketInfoRow}>
-                  <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>{ticket.user_email}</Text>
-                </View>
-              )}
-              {ticket.user_phone && (
-                <View style={styles.ticketInfoRow}>
-                  <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.user_phone}</Text>
-                </View>
-              )}
-              {ticket.counter_name && (
-                <View style={styles.ticketInfoRow}>
-                  <Ionicons name="desktop-outline" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.counter_name}</Text>
-                </View>
-              )}
-            </View>
+        todayTickets.map((ticket) => {
+          const prio = getPriorityConfig(ticket.priority);
+          const src = getSourceConfig(ticket.source);
+          const name = ticket.display_name || ticket.user_name || null;
+          const phone = ticket.customer_phone || ticket.user_phone || null;
+          const hasAttrs = ticket.is_senior || ticket.is_handicap || ticket.is_pregnant;
 
-            <View style={styles.ticketFooter}>
-              <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
-                Créé {formatTicketTime(ticket.created_at)}
-              </Text>
-              {ticket.called_at && (
+          return (
+            <View key={ticket.id} style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {/* Header: numéro + statut */}
+              <View style={styles.ticketHeader}>
+                <View style={[styles.ticketNumberBadge, { backgroundColor: getStatusColor(ticket.status) }]}>
+                  <Text style={styles.ticketNumberText}>{ticket.number}</Text>
+                </View>
+                <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginLeft: 8 }}>
+                  <View style={[styles.badge, { backgroundColor: getStatusColor(ticket.status) + '18' }]}>
+                    <Text style={[styles.badgeText, { color: getStatusColor(ticket.status) }]}>{getStatusLabel(ticket.status)}</Text>
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: prio.color + '18' }]}>
+                    <Ionicons name={prio.icon} size={10} color={prio.color} />
+                    <Text style={[styles.badgeText, { color: prio.color }]}>{prio.label}</Text>
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: colors.border + '60' }]}>
+                    <Ionicons name={src.icon} size={10} color={colors.textSecondary} />
+                    <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{src.label}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Infos client */}
+              <View style={styles.ticketInfo}>
+                <View style={styles.ticketInfoRow}>
+                  <Ionicons name="business-outline" size={13} color={colors.textSecondary} />
+                  <Text style={[styles.ticketInfoText, { color: colors.textPrimary, fontWeight: '600' }]}>{ticket.service_name}</Text>
+                </View>
+                {name && (
+                  <View style={styles.ticketInfoRow}>
+                    <Ionicons name="person-outline" size={13} color={colors.textSecondary} />
+                    <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{name}</Text>
+                  </View>
+                )}
+                {phone && (
+                  <View style={styles.ticketInfoRow}>
+                    <Ionicons name="call-outline" size={13} color={colors.textSecondary} />
+                    <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{phone}</Text>
+                  </View>
+                )}
+                {ticket.counter_name && (
+                  <View style={styles.ticketInfoRow}>
+                    <Ionicons name="desktop-outline" size={13} color={colors.textSecondary} />
+                    <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]}>{ticket.counter_name}</Text>
+                  </View>
+                )}
+                {ticket.priority_reason && (
+                  <View style={styles.ticketInfoRow}>
+                    <Ionicons name="information-circle-outline" size={13} color={prio.color} />
+                    <Text style={[styles.ticketInfoText, { color: prio.color }]}>{ticket.priority_reason}</Text>
+                  </View>
+                )}
+                {hasAttrs && (
+                  <View style={[styles.ticketInfoRow, { flexWrap: 'wrap', gap: 4 }]}>
+                    {ticket.is_senior && (
+                      <View style={[styles.attrBadge, { backgroundColor: '#007AFF18' }]}>
+                        <Ionicons name="accessibility-outline" size={11} color="#007AFF" />
+                        <Text style={[styles.attrText, { color: '#007AFF' }]}>Senior</Text>
+                      </View>
+                    )}
+                    {ticket.is_handicap && (
+                      <View style={[styles.attrBadge, { backgroundColor: '#8B5CF618' }]}>
+                        <Ionicons name="heart-outline" size={11} color="#8B5CF6" />
+                        <Text style={[styles.attrText, { color: '#8B5CF6' }]}>Handicap</Text>
+                      </View>
+                    )}
+                    {ticket.is_pregnant && (
+                      <View style={[styles.attrBadge, { backgroundColor: '#FF6B9D18' }]}>
+                        <Ionicons name="body-outline" size={11} color="#FF6B9D" />
+                        <Text style={[styles.attrText, { color: '#FF6B9D' }]}>Enceinte</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Horodatage */}
+              <View style={styles.ticketFooter}>
                 <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
-                  Appelé {formatTicketTime(ticket.called_at)}
+                  Créé {formatTicketTime(ticket.created_at)}
                 </Text>
-              )}
+                {ticket.called_at && (
+                  <Text style={[styles.ticketTime, { color: colors.textSecondary }]}>
+                    Appelé {formatTicketTime(ticket.called_at)}
+                  </Text>
+                )}
+                {ticket.closed_at && (
+                  <Text style={[styles.ticketTime, { color: '#22C55E' }]}>
+                    Terminé {formatTicketTime(ticket.closed_at)}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-        ))
+          );
+        })
       )}
     </View>
   );
@@ -422,14 +500,16 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 13, marginTop: 6, textAlign: 'center' },
   
   ticketCard: { padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
-  ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  ticketNumber: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10 },
-  ticketNumberText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  ticketStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  ticketStatusText: { fontSize: 10, fontWeight: '600' },
-  ticketInfo: { gap: 6, marginBottom: 10 },
-  ticketInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ticketInfoText: { fontSize: 13, fontWeight: '500', flex: 1 },
-  ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+  ticketHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  ticketNumberBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  ticketNumberText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7 },
+  badgeText: { fontSize: 10, fontWeight: '600' },
+  ticketInfo: { gap: 5, marginBottom: 10 },
+  ticketInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  ticketInfoText: { fontSize: 12, fontWeight: '500', flex: 1 },
+  attrBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  attrText: { fontSize: 10, fontWeight: '600' },
+  ticketFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
   ticketTime: { fontSize: 10 },
 });

@@ -129,21 +129,30 @@ class DashboardController extends Controller
             ->get();
 
         return response()->json($tickets->map(function ($ticket) {
+            $displayName = $ticket->customer_name ?? $ticket->user?->name ?? null;
             return [
-                'id' => $ticket->id,
-                'number' => $ticket->number,
-                'status' => $ticket->status,
-                'priority' => $ticket->priority,
-                'position' => $ticket->position,
-                'service_id' => $ticket->service_id,
-                'service_name' => $ticket->service?->name,
-                'user_name' => $ticket->user?->name,
-                'user_email'=> $ticket->user?->email,
-                'user_phone'=> $ticket->user?->phone,
-                'counter_name' => $ticket->counter?->name,
-                'called_at' => $ticket->called_at?->toDateTimeString(),
-                'closed_at' => $ticket->closed_at?->toDateTimeString(),
-                'created_at' => $ticket->created_at->toDateTimeString(),
+                'id'              => $ticket->id,
+                'number'          => $ticket->number,
+                'status'          => $ticket->status,
+                'priority'        => $ticket->priority,
+                'priority_reason' => $ticket->priority_reason,
+                'source'          => $ticket->source ?? 'app',
+                'position'        => $ticket->position,
+                'service_id'      => $ticket->service_id,
+                'service_name'    => $ticket->service?->name,
+                'display_name'    => $displayName,
+                'customer_name'   => $ticket->customer_name,
+                'customer_phone'  => $ticket->customer_phone,
+                'is_senior'       => (bool) $ticket->is_senior,
+                'is_handicap'     => (bool) $ticket->is_handicap,
+                'is_pregnant'     => (bool) $ticket->is_pregnant,
+                'user_name'       => $ticket->user?->name,
+                'user_email'      => $ticket->user?->email,
+                'user_phone'      => $ticket->user?->phone,
+                'counter_name'    => $ticket->counter?->name,
+                'called_at'       => $ticket->called_at?->toDateTimeString(),
+                'closed_at'       => $ticket->closed_at?->toDateTimeString(),
+                'created_at'      => $ticket->created_at->toDateTimeString(),
             ];
         }));
     }

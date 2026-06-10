@@ -35,6 +35,7 @@ type Ticket = {
   priority: string;
   priority_reason?: string | null;
   source?: string | null;
+  display_name?: string | null;
   customer_name?: string | null;
   is_senior?: boolean;
   is_handicap?: boolean;
@@ -266,9 +267,9 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
             </View>
           )}
         </View>
-        {item.customer_name ? (
+        {(item.display_name || item.customer_name) ? (
           <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.customer_name} · {fmtTime(item.created_at)}
+            {item.display_name || item.customer_name} · {fmtTime(item.created_at)}
           </Text>
         ) : (
           <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -307,12 +308,6 @@ const PRIO_OPTIONS: { value: CreateTicketForm["priority"]; label: string; color:
   { value: "urgence", label: "Urgence",     color: "#FF3B30", icon: "alert-circle-outline" },
 ];
 
-const REASON_OPTIONS = [
-  { value: "senior",    label: "Senior" },
-  { value: "handicap",  label: "Handicap" },
-  { value: "pregnant",  label: "Femme enceinte" },
-  { value: "other",     label: "Autre" },
-];
 
 const PrioritySelector = ({ value, onChange, colors }: { value: string; onChange: (v: CreateTicketForm["priority"]) => void; colors: ThemeColors }) => (
   <View style={cmStyles.prioRow}>
@@ -370,26 +365,19 @@ const CreateTicketModal = ({
           <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Type de ticket</Text>
           <PrioritySelector value={form.priority} onChange={(v) => setForm(f => ({ ...f, priority: v }))} colors={colors} />
 
-          {/* Motif de priorité (si non normal) */}
+          {/* Note de priorité (optionnel, si priorité > normal) */}
           {form.priority !== "normal" && (
             <>
-              <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Motif de priorité</Text>
-              <View style={cmStyles.prioRow}>
-                {REASON_OPTIONS.map((opt) => {
-                  const active = form.priority_reason === opt.value;
-                  return (
-                    <TouchableOpacity
-                      key={opt.value}
-                      style={[cmStyles.prioBtn, { borderColor: active ? "#007AFF" : colors.border, backgroundColor: active ? "#007AFF18" : colors.surface }]}
-                      onPress={() => setForm(f => ({ ...f, priority_reason: active ? "" : opt.value }))}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[cmStyles.prioBtnText, { color: active ? "#007AFF" : colors.textSecondary, fontWeight: active ? "700" : "500" }]}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Note (optionnel)</Text>
+              <View style={[cmStyles.inputWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
+                <TextInput
+                  style={[cmStyles.input, { color: colors.textPrimary }]}
+                  placeholder="Ex. patient avec mobilité réduite..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={form.priority_reason}
+                  onChangeText={(v) => setForm(f => ({ ...f, priority_reason: v }))}
+                />
               </View>
             </>
           )}

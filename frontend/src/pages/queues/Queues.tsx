@@ -49,6 +49,7 @@ type QueueTicket = {
   priority: string;
   priority_reason?: string | null;
   source?: string | null;
+  display_name?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   is_senior?: boolean;
@@ -983,8 +984,8 @@ const Queues: React.FC = () => {
                                 )}
                               </td>
                               <td className="px-6 py-4">
-                                {t.customer_name ? (
-                                  <div className="text-sm font-medium text-foreground">{t.customer_name}</div>
+                                {(t.display_name || t.customer_name) ? (
+                                  <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">—</div>
                                 )}
