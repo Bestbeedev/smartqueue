@@ -20,6 +20,7 @@ class Ticket extends Model
         'auto_deferred', 'defer_reason',
         'customer_name', 'customer_phone',
         'is_senior', 'is_handicap', 'is_pregnant',
+        'priority_reason',
     ];
 
     // Casting automatique des dates/horaires

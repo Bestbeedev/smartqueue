@@ -100,11 +100,12 @@ class TicketController extends Controller
                 'position'       => $position,
                 'source'         => 'agent',
                 'valid_date'     => $targetDate,
-                'customer_name'  => $request->validated('customer_name'),
-                'customer_phone' => $request->validated('customer_phone'),
-                'is_senior'      => $request->boolean('is_senior', false),
-                'is_handicap'    => $request->boolean('is_handicap', false),
-                'is_pregnant'    => $request->boolean('is_pregnant', false),
+                'customer_name'   => $request->validated('customer_name'),
+                'customer_phone'  => $request->validated('customer_phone'),
+                'is_senior'       => $request->boolean('is_senior', false),
+                'is_handicap'     => $request->boolean('is_handicap', false),
+                'is_pregnant'     => $request->boolean('is_pregnant', false),
+                'priority_reason' => $request->validated('priority_reason'),
             ]);
 
             // Recalcule les positions avec le tri priorité

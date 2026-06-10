@@ -17,13 +17,15 @@ import { jsPDF } from 'jspdf'
 import ServiceScheduleModal from '@/components/ServiceScheduleModal'
 import ServiceSoundModal from '@/components/ServiceSoundModal'
 
-type Service = { 
-  id:number; 
-  name:string; 
-  status:string; 
-  avg_service_time_minutes?:number; 
-  priority_support?:boolean; 
-  capacity?: number | null; 
+type Service = {
+  id:number;
+  name:string;
+  status:string;
+  avg_service_time_minutes?:number;
+  priority_support?:boolean;
+  priority_mode?: string;
+  priority_weighted_ratio?: number;
+  capacity?: number | null;
   establishment?: { id:number; name:string };
   qr_code_token?: string;
   qr_code_url?: string;
@@ -48,8 +50,8 @@ export default function Services(){
   const [qrLoading, setQrLoading] = useState(false)
 
   // Formulaires
-  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, capacity: null as number | null })
-  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, capacity: null as number | null })
+  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, capacity: null as number | null })
+  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, capacity: null as number | null })
   const [createErrors, setCreateErrors] = useState<Record<string,string>>({})
   const [editErrors, setEditErrors] = useState<Record<string,string>>({})
 
@@ -60,6 +62,8 @@ export default function Services(){
     avg_service_time_minutes: z.number().int().min(1).max(240),
     status: z.enum(['open','closed']),
     priority_support: z.boolean(),
+    priority_mode: z.enum(['immediate','weighted','disabled']),
+    priority_weighted_ratio: z.number().int().min(1).max(50),
     capacity: z.union([z.number().int().min(1).max(100000), z.null()]),
   })
 
@@ -121,6 +125,8 @@ export default function Services(){
       avg_service_time_minutes: s.avg_service_time_minutes || 5,
       status: s.status || 'open',
       priority_support: !!s.priority_support,
+      priority_mode: s.priority_mode || 'immediate',
+      priority_weighted_ratio: s.priority_weighted_ratio ?? 5,
       capacity: (s as any).capacity ?? null,
     })
     setOpenEdit(true)
@@ -139,7 +145,7 @@ export default function Services(){
       const response = await api.post('/api/admin/services', parsed.data)
       toast.success('Service créé avec succès')
       setOpenCreate(false)
-      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, capacity: null })
+      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio:5, capacity: null })
       load()
     } catch(e:any) {
       const status = e?.response?.status
@@ -457,6 +463,20 @@ export default function Services(){
             <input type="checkbox" checked={createForm.priority_support} onChange={e=>setCreateForm({...createForm, priority_support: e.target.checked})} />
             <span>Support prioritaire</span>
           </label>
+          <div className="col-span-2">
+            <label className="text-sm font-medium text-foreground">Mode de priorité</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm mt-1" value={createForm.priority_mode} onChange={e=>setCreateForm({...createForm, priority_mode: e.target.value})}>
+              <option value="immediate">Immédiat — prioritaire passe devant</option>
+              <option value="weighted">Pondéré — ratio N normal / 1 prioritaire</option>
+              <option value="disabled">Désactivé — FIFO pur</option>
+            </select>
+          </div>
+          {createForm.priority_mode === 'weighted' && (
+            <div>
+              <label className="text-sm font-medium text-foreground">Ratio (N normal → 1 prio)</label>
+              <input type="number" min={1} max={50} className="w-full rounded-md border-border bg-background px-3 py-2 text-sm" value={createForm.priority_weighted_ratio} onChange={e=>setCreateForm({...createForm, priority_weighted_ratio: Number(e.target.value)})} />
+            </div>
+          )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenCreate(false)}>Annuler</button>
@@ -506,6 +526,20 @@ export default function Services(){
             <input type="checkbox" checked={editForm.priority_support} onChange={e=>setEditForm({...editForm, priority_support: e.target.checked})} />
             <span>Support prioritaire</span>
           </label>
+          <div className="col-span-2">
+            <label className="text-sm font-medium text-foreground">Mode de priorité</label>
+            <select className="w-full rounded-md border-border bg-background px-3 py-2 text-sm mt-1" value={editForm.priority_mode} onChange={e=>setEditForm({...editForm, priority_mode: e.target.value})}>
+              <option value="immediate">Immédiat — prioritaire passe devant</option>
+              <option value="weighted">Pondéré — ratio N normal / 1 prioritaire</option>
+              <option value="disabled">Désactivé — FIFO pur</option>
+            </select>
+          </div>
+          {editForm.priority_mode === 'weighted' && (
+            <div>
+              <label className="text-sm font-medium text-foreground">Ratio (N normal → 1 prio)</label>
+              <input type="number" min={1} max={50} className="w-full rounded-md border-border bg-background px-3 py-2 text-sm" value={editForm.priority_weighted_ratio} onChange={e=>setEditForm({...editForm, priority_weighted_ratio: Number(e.target.value)})} />
+            </div>
+          )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>

@@ -4,7 +4,7 @@
  * - Actions: appeler suivant, marquer absent, rappeler
  * - Écoute temps réel des évènements via Laravel Echo
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, type JSX } from "react";
 import {
   Ticket,
   User,
@@ -17,6 +17,13 @@ import {
   CheckCircle,
   Volume2,
   X,
+  Smartphone,
+  QrCode,
+  UserCog,
+  Monitor,
+  Accessibility,
+  Baby,
+  HeartHandshake,
 } from "lucide-react";
 import { getEcho } from "@/api/echo";
 import { cn } from "@/lib/utils";
@@ -40,6 +47,13 @@ type QueueTicket = {
   number: string;
   status: string;
   priority: string;
+  priority_reason?: string | null;
+  source?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  is_senior?: boolean;
+  is_handicap?: boolean;
+  is_pregnant?: boolean;
   en_route_at?: string | null;
   estimated_travel_minutes?: number | null;
   position?: number | null;
@@ -551,8 +565,10 @@ const Queues: React.FC = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high":
+      case "urgence":
         return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/30";
+      case "high":
+        return "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800/30";
       case "vip":
         return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800/30";
       default:
@@ -562,13 +578,19 @@ const Queues: React.FC = () => {
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
-      case "high":
-        return "🔥";
-      case "vip":
-        return "⭐";
-      default:
-        return "📋";
+      case "urgence": return "🚨";
+      case "high": return "🔥";
+      case "vip": return "⭐";
+      default: return "📋";
     }
+  };
+
+  const SOURCE_CONFIG: Record<string, { label: string; Icon: React.FC<any> }> = {
+    app:       { label: "App",    Icon: Smartphone },
+    qr_scan:   { label: "QR",     Icon: QrCode },
+    agent:     { label: "Agent",  Icon: UserCog },
+    kiosk:     { label: "Kiosk",  Icon: Monitor },
+    sms:       { label: "SMS",    Icon: Phone },
   };
 
   const parseDate = (date?: string | null) => {
@@ -930,6 +952,9 @@ const Queues: React.FC = () => {
                               Ticket
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Client
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                               Statut
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -952,6 +977,27 @@ const Queues: React.FC = () => {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="font-semibold text-foreground">
                                   {t.number}
+                                </div>
+                                {t.position && (
+                                  <div className="text-xs text-muted-foreground">#{t.position}</div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                {t.customer_name ? (
+                                  <div className="text-sm font-medium text-foreground">{t.customer_name}</div>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">—</div>
+                                )}
+                                {t.source && SOURCE_CONFIG[t.source] && (
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
+                                    <span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span>
+                                  </div>
+                                )}
+                                <div className="flex gap-1 mt-0.5 flex-wrap">
+                                  {t.is_senior && <span title="Senior"><Accessibility className="h-3.5 w-3.5 text-blue-500" /></span>}
+                                  {t.is_handicap && <span title="Handicap"><HeartHandshake className="h-3.5 w-3.5 text-purple-500" /></span>}
+                                  {t.is_pregnant && <span title="Femme enceinte"><Baby className="h-3.5 w-3.5 text-pink-500" /></span>}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -986,21 +1032,29 @@ const Queues: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
-                                    t.priority === "vip" &&
-                                      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
-                                    t.priority === "high" &&
-                                      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-                                    t.priority === "normal" &&
-                                      "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                                <div className="flex flex-col gap-1">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium w-fit",
+                                      t.priority === "urgence" &&
+                                        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                      t.priority === "vip" &&
+                                        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
+                                      t.priority === "high" &&
+                                        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                      t.priority === "normal" &&
+                                        "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                                    )}
+                                  >
+                                    {t.priority === "urgence" && "🚨 Urgence"}
+                                    {t.priority === "vip" && "⭐ VIP"}
+                                    {t.priority === "high" && "🔥 Haute"}
+                                    {t.priority === "normal" && "📋 Normal"}
+                                  </span>
+                                  {t.priority_reason && (
+                                    <span className="text-xs text-muted-foreground">{t.priority_reason}</span>
                                   )}
-                                >
-                                  {t.priority === "vip" && "⭐ VIP"}
-                                  {t.priority === "high" && "🔥 Haute"}
-                                  {t.priority === "normal" && "📋 Normal"}
-                                </span>
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {(t.status === "called" ||
@@ -1224,11 +1278,13 @@ const Queues: React.FC = () => {
                             <span
                               className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}
                             >
-                              {ticket.priority === "high"
-                                ? "Haute priorité"
-                                : ticket.priority === "vip"
-                                  ? "VIP"
-                                  : "Standard"}
+                              {ticket.priority === "urgence"
+                                ? "🚨 Urgence"
+                                : ticket.priority === "high"
+                                  ? "Haute priorité"
+                                  : ticket.priority === "vip"
+                                    ? "VIP"
+                                    : "Standard"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">

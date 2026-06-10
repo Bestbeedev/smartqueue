@@ -56,16 +56,40 @@ class TicketService
 
     public function recomputePositions(Service $service): void
     {
-        // Only re-rank today's active queue. Deferred tickets (valid_date in the future)
-        // keep their pre-set position and become active when the day flips.
-        $waiting = Ticket::query()
+        $mode = $service->priority_mode ?? 'immediate';
+        $ratio = max(1, (int) ($service->priority_weighted_ratio ?? 5));
+
+        $baseQuery = Ticket::query()
             ->where('service_id', $service->id)
             ->where('status', 'waiting')
-            ->whereDate('valid_date', Carbon::today())
-            ->orderByRaw("CASE priority WHEN 'vip' THEN 0 WHEN 'high' THEN 1 ELSE 2 END")
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get(['id', 'user_id', 'position', 'eta_minutes']);
+            ->whereDate('valid_date', Carbon::today());
+
+        if ($mode === 'disabled') {
+            // Pure FIFO — urgence still first, everything else by arrival
+            $waiting = (clone $baseQuery)
+                ->orderByRaw("CASE priority WHEN 'urgence' THEN 0 ELSE 1 END")
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->get(['id', 'user_id', 'position', 'eta_minutes', 'priority']);
+        } elseif ($mode === 'weighted') {
+            // Fetch by arrival, then interleave in PHP
+            $all = (clone $baseQuery)
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->get(['id', 'user_id', 'position', 'eta_minutes', 'priority']);
+
+            $urgence   = $all->filter(fn($t) => $t->priority === 'urgence')->values();
+            $prios     = $all->filter(fn($t) => in_array($t->priority, ['vip', 'high']))->values();
+            $normal    = $all->filter(fn($t) => !in_array($t->priority, ['urgence', 'vip', 'high']))->values();
+            $waiting   = $urgence->concat($this->weightedInterleave($normal, $prios, $ratio));
+        } else {
+            // IMMEDIATE (default) — strict priority order: urgence > vip > high > normal
+            $waiting = (clone $baseQuery)
+                ->orderByRaw("CASE priority WHEN 'urgence' THEN 0 WHEN 'vip' THEN 1 WHEN 'high' THEN 2 ELSE 3 END")
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->get(['id', 'user_id', 'position', 'eta_minutes', 'priority']);
+        }
 
         $pos = 1;
         foreach ($waiting as $t) {
@@ -104,6 +128,33 @@ class TicketService
 
         $waitingCount = $pos - 1;
         $this->broadcastSafely(fn() => event(new ServiceStatsUpdated($service->id, ['waiting_count' => $waitingCount])));
+    }
+
+    /**
+     * Interleave normal and priority tickets: every $ratio normal → 1 priority.
+     */
+    private function weightedInterleave($normal, $priorities, int $ratio)
+    {
+        $result     = collect();
+        $pi         = 0;
+        $ni         = 0;
+        $normalCount = 0;
+        $pCount     = $priorities->count();
+        $nCount     = $normal->count();
+
+        while ($ni < $nCount || $pi < $pCount) {
+            if ($pi < $pCount && $normalCount >= $ratio) {
+                $result->push($priorities[$pi++]);
+                $normalCount = 0;
+            } elseif ($ni < $nCount) {
+                $result->push($normal[$ni++]);
+                $normalCount++;
+            } else {
+                $result->push($priorities[$pi++]);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -417,7 +468,7 @@ class TicketService
                 ->whereIn('status', ['present', 'called', 'waiting'])
                 ->whereDate('valid_date', Carbon::today())
                 ->orderByRaw("CASE status WHEN 'present' THEN 1 WHEN 'called' THEN 2 ELSE 3 END")
-                ->orderByRaw("CASE priority WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
+                ->orderByRaw("CASE priority WHEN 'urgence' THEN 4 WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
                 ->orderBy('position')
                 ->orderBy('created_at')
                 ->lockForUpdate()

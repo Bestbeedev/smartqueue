@@ -33,6 +33,12 @@ type Ticket = {
   status: string;
   position?: number | null;
   priority: string;
+  priority_reason?: string | null;
+  source?: string | null;
+  customer_name?: string | null;
+  is_senior?: boolean;
+  is_handicap?: boolean;
+  is_pregnant?: boolean;
   created_at: string;
   called_at?: string;
   en_route_at?: string | null;
@@ -65,7 +71,8 @@ type SmartQueueData = {
 type ThemeColors = ReturnType<typeof useThemeColors>;
 
 type CreateTicketForm = {
-  priority: "normal" | "high" | "vip";
+  priority: "normal" | "high" | "vip" | "urgence";
+  priority_reason: string;
   customer_name: string;
   customer_phone: string;
   is_senior: boolean;
@@ -112,9 +119,18 @@ function fmtCutoff(iso?: string | null): string {
 }
 
 const PRIORITY_CFG: Record<string, { color: string; label: string }> = {
-  vip: { color: "#8B5CF6", label: "VIP" },
-  high: { color: "#FF9500", label: "PRIO" },
-  normal: { color: "#8E8E93", label: "STD" },
+  urgence: { color: "#FF3B30", label: "URG" },
+  vip:     { color: "#8B5CF6", label: "VIP" },
+  high:    { color: "#FF9500", label: "PRIO" },
+  normal:  { color: "#8E8E93", label: "STD" },
+};
+
+const SOURCE_ICON: Record<string, string> = {
+  app:     "phone-portrait-outline",
+  qr_scan: "qr-code-outline",
+  agent:   "person-circle-outline",
+  kiosk:   "desktop-outline",
+  sms:     "chatbubble-outline",
 };
 
 const STATUS_CFG: Record<string, { color: string; label: string }> = {
@@ -220,6 +236,8 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
   const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
   const statusCfg = STATUS_CFG[item.status] ?? { color: "#8E8E93", label: item.status };
   const etaLabel = typeof item.eta_minutes === "number" && item.eta_minutes > 0 ? `≈ ${item.eta_minutes}min` : null;
+  const sourceIcon = item.source ? (SOURCE_ICON[item.source] ?? "help-circle-outline") : null;
+  const hasAttrs = item.is_senior || item.is_handicap || item.is_pregnant;
 
   return (
     <View style={[styles.ticketRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -237,10 +255,26 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
               <Text style={styles.ticketEtaText}>{etaLabel}</Text>
             </View>
           )}
+          {sourceIcon && (
+            <Ionicons name={sourceIcon as any} size={11} color={colors.textSecondary} />
+          )}
+          {hasAttrs && (
+            <View style={{ flexDirection: "row", gap: 2 }}>
+              {item.is_senior && <Ionicons name="accessibility-outline" size={11} color="#007AFF" />}
+              {item.is_handicap && <Ionicons name="heart-outline" size={11} color="#8B5CF6" />}
+              {item.is_pregnant && <Ionicons name="body-outline" size={11} color="#FF6B9D" />}
+            </View>
+          )}
         </View>
-        <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-          Pris à {fmtTime(item.created_at)} · {timeAgo(item.created_at)}
-        </Text>
+        {item.customer_name ? (
+          <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.customer_name} · {fmtTime(item.created_at)}
+          </Text>
+        ) : (
+          <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+            Pris à {fmtTime(item.created_at)} · {timeAgo(item.created_at)}
+          </Text>
+        )}
       </View>
       <View style={[styles.ticketStatusBadge, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "35" }]}>
         <Text style={[styles.ticketStatusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
@@ -267,9 +301,17 @@ const CheckRow = ({ label, icon, checked, onToggle, colors }: { label: string; i
 
 // ─── Priority selector ────────────────────────────────────────────────────────
 const PRIO_OPTIONS: { value: CreateTicketForm["priority"]; label: string; color: string; icon: string }[] = [
-  { value: "normal", label: "Normal",      color: "#8E8E93", icon: "list-outline" },
-  { value: "high",   label: "Prioritaire", color: "#FF9500", icon: "flame-outline" },
-  { value: "vip",    label: "VIP",         color: "#8B5CF6", icon: "star-outline" },
+  { value: "normal",  label: "Normal",      color: "#8E8E93", icon: "list-outline" },
+  { value: "high",    label: "Prioritaire", color: "#FF9500", icon: "flame-outline" },
+  { value: "vip",     label: "VIP",         color: "#8B5CF6", icon: "star-outline" },
+  { value: "urgence", label: "Urgence",     color: "#FF3B30", icon: "alert-circle-outline" },
+];
+
+const REASON_OPTIONS = [
+  { value: "senior",    label: "Senior" },
+  { value: "handicap",  label: "Handicap" },
+  { value: "pregnant",  label: "Femme enceinte" },
+  { value: "other",     label: "Autre" },
 ];
 
 const PrioritySelector = ({ value, onChange, colors }: { value: string; onChange: (v: CreateTicketForm["priority"]) => void; colors: ThemeColors }) => (
@@ -327,6 +369,30 @@ const CreateTicketModal = ({
           {/* Type de ticket */}
           <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Type de ticket</Text>
           <PrioritySelector value={form.priority} onChange={(v) => setForm(f => ({ ...f, priority: v }))} colors={colors} />
+
+          {/* Motif de priorité (si non normal) */}
+          {form.priority !== "normal" && (
+            <>
+              <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Motif de priorité</Text>
+              <View style={cmStyles.prioRow}>
+                {REASON_OPTIONS.map((opt) => {
+                  const active = form.priority_reason === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[cmStyles.prioBtn, { borderColor: active ? "#007AFF" : colors.border, backgroundColor: active ? "#007AFF18" : colors.surface }]}
+                      onPress={() => setForm(f => ({ ...f, priority_reason: active ? "" : opt.value }))}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[cmStyles.prioBtnText, { color: active ? "#007AFF" : colors.textSecondary, fontWeight: active ? "700" : "500" }]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
           {/* Nom du client */}
           <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Nom du client</Text>
@@ -434,6 +500,7 @@ export default function AgentQueue() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState<CreateTicketForm>({
     priority: "normal",
+    priority_reason: "",
     customer_name: "",
     customer_phone: "",
     is_senior: false,
@@ -623,6 +690,7 @@ export default function AgentQueue() {
       await axiosClient.post("/agent/tickets", {
         service_id: parseInt(serviceId),
         priority: createForm.priority,
+        priority_reason: createForm.priority_reason.trim() || undefined,
         customer_name: createForm.customer_name.trim() || undefined,
         customer_phone: createForm.customer_phone.trim() || undefined,
         is_senior: createForm.is_senior,
@@ -630,7 +698,7 @@ export default function AgentQueue() {
         is_pregnant: createForm.is_pregnant,
       });
       setShowCreateModal(false);
-      setCreateForm({ priority: "normal", customer_name: "", customer_phone: "", is_senior: false, is_handicap: false, is_pregnant: false });
+      setCreateForm({ priority: "normal", priority_reason: "", customer_name: "", customer_phone: "", is_senior: false, is_handicap: false, is_pregnant: false });
       await fetchData();
       showSuccess("Ticket créé", "Le ticket a été ajouté à la file");
     } catch (error: any) {

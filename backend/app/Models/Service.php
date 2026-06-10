@@ -16,6 +16,8 @@ class Service extends Model
         'avg_service_time_minutes',
         'status',
         'priority_support',
+        'priority_mode',
+        'priority_weighted_ratio',
         'capacity',
         'qr_code_token',
         'qr_code_url',

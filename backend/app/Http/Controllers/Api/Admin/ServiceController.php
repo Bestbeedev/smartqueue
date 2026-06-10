@@ -32,6 +32,8 @@ class ServiceController extends Controller
             'avg_service_time_minutes' => ['nullable','integer','min:1','max:240'],
             'status' => ['nullable','in:open,closed'],
             'priority_support' => ['nullable','boolean'],
+            'priority_mode' => ['nullable','in:immediate,weighted,disabled'],
+            'priority_weighted_ratio' => ['nullable','integer','min:1','max:50'],
             'capacity' => ['nullable','integer','min:1','max:5000'],
         ]);
 
@@ -68,6 +70,8 @@ class ServiceController extends Controller
             'avg_service_time_minutes' => ['sometimes','integer','min:1','max:240'],
             'status' => ['sometimes','in:open,closed'],
             'priority_support' => ['sometimes','boolean'],
+            'priority_mode' => ['sometimes','in:immediate,weighted,disabled'],
+            'priority_weighted_ratio' => ['sometimes','integer','min:1','max:50'],
             'capacity' => ['sometimes','nullable','integer','min:1','max:5000'],
         ]);
 

@@ -33,10 +33,10 @@ export default function PriorityTickets() {
           per_page: 50,
         },
       });
-      // Filter for high/vip priority
+      // Filter for urgence/vip/high priority
       const allTickets = response.data?.data || [];
-      const priorityFiltered = allTickets.filter((t: Ticket) => 
-        t.priority === 'high' || t.priority === 'vip'
+      const priorityFiltered = allTickets.filter((t: Ticket) =>
+        t.priority === 'urgence' || t.priority === 'high' || t.priority === 'vip'
       );
       setTickets(priorityFiltered);
     } catch (error) {
@@ -63,12 +63,14 @@ export default function PriorityTickets() {
   };
 
   const getPriorityColor = (priority: string) => {
+    if (priority === 'urgence') return '#FF3B30';
     if (priority === 'vip') return '#FFD60A';
     if (priority === 'high') return '#FF9500';
     return colors.textSecondary;
   };
 
   const getPriorityIcon = (priority: string) => {
+    if (priority === 'urgence') return 'alert-circle';
     if (priority === 'vip') return 'star';
     if (priority === 'high') return 'star-half';
     return 'star-outline';
@@ -121,6 +123,10 @@ export default function PriorityTickets() {
 
       {/* Legend */}
       <View style={[styles.legendRow, { backgroundColor: colors.surface }]}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+          <Text style={[styles.legendText, { color: colors.textPrimary }]}>Urgence</Text>
+        </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#FFD60A' }]} />
           <Text style={[styles.legendText, { color: colors.textPrimary }]}>VIP</Text>
