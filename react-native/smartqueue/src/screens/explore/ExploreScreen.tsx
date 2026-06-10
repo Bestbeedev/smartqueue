@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.3,
   },
   sectionTitle: { fontSize: 17, fontWeight: "700" as const },
   sectionActions: { flexDirection: "row", gap: 8 },
