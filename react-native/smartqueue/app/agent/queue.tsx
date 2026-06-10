@@ -11,6 +11,9 @@ import {
   StatusBar,
   useWindowDimensions,
   StyleSheet,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -60,6 +63,15 @@ type SmartQueueData = {
 };
 
 type ThemeColors = ReturnType<typeof useThemeColors>;
+
+type CreateTicketForm = {
+  priority: "normal" | "high" | "vip";
+  customer_name: string;
+  customer_phone: string;
+  is_senior: boolean;
+  is_handicap: boolean;
+  is_pregnant: boolean;
+};
 
 function timeAgo(dateStr: string): string {
   try {
@@ -240,6 +252,167 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
   );
 };
 
+// ─── Checkbox row ─────────────────────────────────────────────────────────────
+const CheckRow = ({ label, icon, checked, onToggle, colors }: { label: string; icon: string; checked: boolean; onToggle: () => void; colors: ThemeColors }) => (
+  <TouchableOpacity style={[cmStyles.checkRow, { borderColor: checked ? "#007AFF40" : colors.border, backgroundColor: checked ? "#007AFF08" : colors.surface }]} onPress={onToggle} activeOpacity={0.7}>
+    <View style={[cmStyles.checkIcon, { backgroundColor: checked ? "#007AFF18" : colors.border + "40" }]}>
+      <Ionicons name={icon as any} size={16} color={checked ? "#007AFF" : colors.textSecondary} />
+    </View>
+    <Text style={[cmStyles.checkLabel, { color: colors.textPrimary }]}>{label}</Text>
+    <View style={[cmStyles.checkbox, { borderColor: checked ? "#007AFF" : colors.border, backgroundColor: checked ? "#007AFF" : "transparent" }]}>
+      {checked && <Ionicons name="checkmark" size={12} color="#FFF" />}
+    </View>
+  </TouchableOpacity>
+);
+
+// ─── Priority selector ────────────────────────────────────────────────────────
+const PRIO_OPTIONS: { value: CreateTicketForm["priority"]; label: string; color: string; icon: string }[] = [
+  { value: "normal", label: "Normal",      color: "#8E8E93", icon: "list-outline" },
+  { value: "high",   label: "Prioritaire", color: "#FF9500", icon: "flame-outline" },
+  { value: "vip",    label: "VIP",         color: "#8B5CF6", icon: "star-outline" },
+];
+
+const PrioritySelector = ({ value, onChange, colors }: { value: string; onChange: (v: CreateTicketForm["priority"]) => void; colors: ThemeColors }) => (
+  <View style={cmStyles.prioRow}>
+    {PRIO_OPTIONS.map((opt) => {
+      const active = value === opt.value;
+      return (
+        <TouchableOpacity
+          key={opt.value}
+          style={[cmStyles.prioBtn, { borderColor: active ? opt.color : colors.border, backgroundColor: active ? opt.color + "18" : colors.surface }]}
+          onPress={() => onChange(opt.value)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={opt.icon as any} size={16} color={active ? opt.color : colors.textSecondary} />
+          <Text style={[cmStyles.prioBtnText, { color: active ? opt.color : colors.textSecondary, fontWeight: active ? "700" : "500" }]}>
+            {opt.label}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+);
+
+// ─── Modal de création ────────────────────────────────────────────────────────
+const CreateTicketModal = ({
+  visible, onClose, form, setForm, onSubmit, isCreating, colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  form: CreateTicketForm;
+  setForm: React.Dispatch<React.SetStateAction<CreateTicketForm>>;
+  onSubmit: () => void;
+  isCreating: boolean;
+  colors: ThemeColors;
+}) => (
+  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <TouchableOpacity style={cmStyles.backdrop} activeOpacity={1} onPress={onClose} />
+      <View style={[cmStyles.sheet, { backgroundColor: colors.background }]}>
+        {/* Drag handle */}
+        <View style={[cmStyles.handle, { backgroundColor: colors.border }]} />
+
+        {/* Header */}
+        <View style={[cmStyles.sheetHeader, { borderBottomColor: colors.border }]}>
+          <View>
+            <Text style={[cmStyles.sheetTitle, { color: colors.textPrimary }]}>Créer un ticket</Text>
+            <Text style={[cmStyles.sheetSub, { color: colors.textSecondary }]}>Création manuelle par l'agent</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={cmStyles.closeBtn}>
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={cmStyles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Type de ticket */}
+          <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Type de ticket</Text>
+          <PrioritySelector value={form.priority} onChange={(v) => setForm(f => ({ ...f, priority: v }))} colors={colors} />
+
+          {/* Nom du client */}
+          <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Nom du client</Text>
+          <View style={[cmStyles.inputWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
+            <TextInput
+              style={[cmStyles.input, { color: colors.textPrimary }]}
+              placeholder="Nom complet"
+              placeholderTextColor={colors.textSecondary}
+              value={form.customer_name}
+              onChangeText={(v) => setForm(f => ({ ...f, customer_name: v }))}
+            />
+          </View>
+
+          {/* Téléphone */}
+          <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Téléphone</Text>
+          <View style={[cmStyles.inputWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+            <TextInput
+              style={[cmStyles.input, { color: colors.textPrimary }]}
+              placeholder="+33 6 00 00 00 00"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="phone-pad"
+              value={form.customer_phone}
+              onChangeText={(v) => setForm(f => ({ ...f, customer_phone: v }))}
+            />
+          </View>
+
+          {/* Attributs spéciaux */}
+          <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary }]}>Attributs spéciaux</Text>
+          <CheckRow label="Senior" icon="accessibility-outline" checked={form.is_senior} onToggle={() => setForm(f => ({ ...f, is_senior: !f.is_senior }))} colors={colors} />
+          <CheckRow label="Handicap" icon="body-outline" checked={form.is_handicap} onToggle={() => setForm(f => ({ ...f, is_handicap: !f.is_handicap }))} colors={colors} />
+          <CheckRow label="Femme enceinte" icon="heart-outline" checked={form.is_pregnant} onToggle={() => setForm(f => ({ ...f, is_pregnant: !f.is_pregnant }))} colors={colors} />
+        </ScrollView>
+
+        {/* Actions */}
+        <View style={[cmStyles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <TouchableOpacity style={[cmStyles.cancelBtn, { borderColor: colors.border }]} onPress={onClose} disabled={isCreating}>
+            <Text style={[cmStyles.cancelText, { color: colors.textSecondary }]}>Annuler</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[cmStyles.submitBtn, { backgroundColor: isCreating ? "#007AFF80" : "#007AFF" }]}
+            onPress={onSubmit}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <Text style={cmStyles.submitText}>Création...</Text>
+            ) : (
+              <>
+                <Ionicons name="add-circle" size={18} color="#FFF" />
+                <Text style={cmStyles.submitText}>Créer le ticket</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
+);
+
+const cmStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === "ios" ? 34 : 20, maxHeight: "90%" },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 4 },
+  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1 },
+  sheetTitle: { fontSize: 17, fontWeight: "700" },
+  sheetSub: { fontSize: 12, marginTop: 2 },
+  closeBtn: { width: 32, height: 32, borderRadius: 16, justifyContent: "center", alignItems: "center" },
+  body: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 8 },
+  sectionLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8, marginTop: 16 },
+  prioRow: { flexDirection: "row", gap: 8 },
+  prioBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1.5, borderRadius: 10, paddingVertical: 10 },
+  prioBtnText: { fontSize: 12 },
+  inputWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, gap: 8 },
+  input: { flex: 1, fontSize: 14, padding: 0 },
+  checkRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, marginBottom: 8, gap: 10 },
+  checkIcon: { width: 30, height: 30, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  checkLabel: { flex: 1, fontSize: 14, fontWeight: "500" },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, justifyContent: "center", alignItems: "center" },
+  footer: { flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1 },
+  cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 13, alignItems: "center", justifyContent: "center" },
+  cancelText: { fontSize: 14, fontWeight: "600" },
+  submitBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 12, paddingVertical: 13 },
+  submitText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+});
+
 export default function AgentQueue() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -258,6 +431,16 @@ export default function AgentQueue() {
   const [refreshing, setRefreshing] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<string>("open");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateTicketForm>({
+    priority: "normal",
+    customer_name: "",
+    customer_phone: "",
+    is_senior: false,
+    is_handicap: false,
+    is_pregnant: false,
+  });
+  const [isCreating, setIsCreating] = useState(false);
   const echoRef = useRef<any>(null);
   const hPad = width >= 768 ? 16 : 12;
 
@@ -433,6 +616,30 @@ export default function AgentQueue() {
     finally { setIsActing(false); }
   };
 
+  const handleCreateTicket = async () => {
+    if (!serviceId) return;
+    setIsCreating(true);
+    try {
+      await axiosClient.post("/agent/tickets", {
+        service_id: parseInt(serviceId),
+        priority: createForm.priority,
+        customer_name: createForm.customer_name.trim() || undefined,
+        customer_phone: createForm.customer_phone.trim() || undefined,
+        is_senior: createForm.is_senior,
+        is_handicap: createForm.is_handicap,
+        is_pregnant: createForm.is_pregnant,
+      });
+      setShowCreateModal(false);
+      setCreateForm({ priority: "normal", customer_name: "", customer_phone: "", is_senior: false, is_handicap: false, is_pregnant: false });
+      await fetchData();
+      showSuccess("Ticket créé", "Le ticket a été ajouté à la file");
+    } catch (error: any) {
+      showError("Erreur", error?.response?.data?.message || "Impossible de créer le ticket");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -556,21 +763,40 @@ export default function AgentQueue() {
 
       {serviceStatus === "open" && (
         <View style={[styles.stickyButton, { backgroundColor: colors.background, borderTopColor: colors.border, paddingHorizontal: hPad }]}>
-          <TouchableOpacity
-            style={[styles.callButton, { backgroundColor: tickets.length === 0 || isActing ? colors.textSecondary : "#007AFF", opacity: tickets.length === 0 || isActing ? 0.6 : 1 }]}
-            onPress={handleCallNext}
-            disabled={tickets.length === 0 || isActing}
-          >
-            <Ionicons name="megaphone" size={18} color="#FFF" />
-            <Text style={styles.callButtonText}>Appeler suivant</Text>
-            {tickets.length > 0 && (
-              <View style={styles.callButtonBadge}>
-                <Text style={styles.callButtonBadgeText}>{tickets.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.stickyRow}>
+            <TouchableOpacity
+              style={[styles.callButton, { flex: 1, backgroundColor: tickets.length === 0 || isActing ? colors.textSecondary : "#007AFF", opacity: tickets.length === 0 || isActing ? 0.6 : 1 }]}
+              onPress={handleCallNext}
+              disabled={tickets.length === 0 || isActing}
+            >
+              <Ionicons name="megaphone" size={18} color="#FFF" />
+              <Text style={styles.callButtonText}>Appeler suivant</Text>
+              {tickets.length > 0 && (
+                <View style={styles.callButtonBadge}>
+                  <Text style={styles.callButtonBadgeText}>{tickets.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.createBtn, { backgroundColor: "#34C759" }]}
+              onPress={() => setShowCreateModal(true)}
+              disabled={isActing}
+            >
+              <Ionicons name="add" size={22} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       )}
+
+      <CreateTicketModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        form={createForm}
+        setForm={setCreateForm}
+        onSubmit={handleCreateTicket}
+        isCreating={isCreating}
+        colors={colors}
+      />
 
       {AlertComponent}
     </SafeAreaView>
@@ -638,8 +864,10 @@ const styles = StyleSheet.create({
   emptyTitle: { fontWeight: "700", fontSize: 15, marginTop: 12 },
   emptySub: { fontSize: 13, marginTop: 4 },
   stickyButton: { position: "absolute", bottom: 80, left: 0, right: 0, paddingTop: 12, paddingBottom: Platform.OS === "ios" ? 28 : 16, borderTopWidth: 1 },
+  stickyRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   callButton: { borderRadius: 14, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   callButtonText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   callButtonBadge: { backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
   callButtonBadgeText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
+  createBtn: { width: 50, height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
 });
