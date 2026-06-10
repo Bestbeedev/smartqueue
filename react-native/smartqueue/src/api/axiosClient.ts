@@ -150,4 +150,12 @@ export const getUser = async (): Promise<any | null> => {
   }
 };
 
+/** Retourne true si l'erreur est due à une absence de connectivité (pas de réponse serveur). */
+export const isNetworkError = (error: any): boolean =>
+  !error?.response &&
+  (error?.code === 'ERR_NETWORK' ||
+    error?.code === 'ECONNABORTED' ||
+    error?.message === 'Network Error' ||
+    String(error?.message).includes('network'));
+
 export default axiosClient;

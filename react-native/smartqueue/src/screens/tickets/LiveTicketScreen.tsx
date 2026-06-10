@@ -29,6 +29,7 @@ import { useCustomAlert } from "../../hooks/useCustomAlert";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import axiosClient from "../../api/axiosClient";
 import { getApiErrorMessage } from "../../utils/errors";
+import { useOfflineStore } from "../../store/offlineStore";
 
 const { width } = Dimensions.get("window");
 
@@ -208,6 +209,13 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   ticketId,
 }) => {
   const colors = useThemeColors();
+  const isOnline = useOfflineStore((s) => s.isOnline);
+  const lastSyncAt = useOfflineStore((s) => s.lastSyncAt);
+
+  const lastSyncLabel = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
   const {
     activeTicket,
     activeTickets,
@@ -424,48 +432,61 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   );
 
   const renderPositionCard = () => {
-    // Si le ticket est appelé, présent ou en route, on affiche le statut au lieu de la position
     const isSpecialStatus = isTicketCalledState || isTicketPresent || isTicketEnRoute;
     const displayValue = isSpecialStatus
       ? (isTicketCalledState ? "Appelé" : isTicketPresent ? "Présent" : "En route")
       : `${displayPosition}e`;
-    const displayTitle = isSpecialStatus ? "Statut" : "Position dans la file";
+    const displayTitle = isSpecialStatus
+      ? "Statut"
+      : isOnline
+        ? "Position dans la file"
+        : "Position estimée (hors ligne)";
     const progress = !isSpecialStatus && displayPosition > 0 ? Math.min(100, (1 / displayPosition) * 100) : 0;
-    
+
     return (
-      <View style={[styles.positionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.positionCard, { backgroundColor: colors.surface, borderColor: isOnline ? colors.border : '#F97316' }]}>
+        {/* Badge hors ligne */}
+        {!isOnline && (
+          <View style={[styles.offlineBadge, { backgroundColor: '#FFF7ED' }]}>
+            <Ionicons name="cloud-offline-outline" size={12} color="#EA580C" />
+            <Text style={styles.offlineBadgeText}>
+              Hors ligne{lastSyncLabel ? ` — Synchro : ${lastSyncLabel}` : ''}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.positionCardHeader}>
-          <Text style={[styles.positionCardTitle, { color: colors.textSecondary }]}>
+          <Text style={[styles.positionCardTitle, { color: isOnline ? colors.textSecondary : '#EA580C' }]}>
             {displayTitle}
           </Text>
-          <View style={[styles.positionNumberBadge, { backgroundColor: isSpecialStatus ? colors.primary + "15" : colors.primary + "15" }]}>
-            <Text style={[styles.positionNumberText, { color: isSpecialStatus ? colors.primary : colors.primary }]}>
+          <View style={[styles.positionNumberBadge, { backgroundColor: colors.primary + "15" }]}>
+            <Text style={[styles.positionNumberText, { color: colors.primary }]}>
               {displayValue}
             </Text>
           </View>
         </View>
-        
+
         {!isSpecialStatus && (
           <>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
-                <View 
+                <View
                   style={[
-                    styles.progressBarFill, 
-                    { width: `${progress}%`, backgroundColor: colors.primary }
-                  ]} 
+                    styles.progressBarFill,
+                    { width: `${progress}%`, backgroundColor: isOnline ? colors.primary : '#F97316' }
+                  ]}
                 />
               </View>
             </View>
-            
+
             <View style={styles.positionFooter}>
               <View style={styles.etaInfo}>
                 <Ionicons name="time-outline" size={16} color={colors.textTertiary} />
                 <Text style={[styles.etaText, { color: colors.textSecondary }]}>
-                  {displayEta} min estimées
+                  {displayEta} min {isOnline ? 'estimées' : '(données hors ligne)'}
                 </Text>
               </View>
-              {displayPosition > 0 && displayPosition <= 3 && (
+              {isOnline && displayPosition > 0 && displayPosition <= 3 && (
                 <View style={[styles.soonBadge, { backgroundColor: colors.warning + "15" }]}>
                   <Ionicons name="flash" size={12} color={colors.warning} />
                   <Text style={[styles.soonText, { color: colors.warning }]}>
@@ -476,7 +497,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
             </View>
           </>
         )}
-        
+
         {isSpecialStatus && (
           <View style={[styles.specialStatusMessage, { backgroundColor: (isTicketCalledState ? colors.danger : isTicketPresent ? colors.success : colors.warning) + "10" }]}>
             <Text style={[styles.specialStatusMessageText, { color: isTicketCalledState ? colors.danger : isTicketPresent ? colors.success : colors.warning }]}>
@@ -500,30 +521,55 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
         <Ionicons name="navigate-circle" size={24} color="#FFF" />
         <Text style={styles.navButtonText}>Ouvrir navigation</Text>
       </TouchableOpacity>
-      
+
+      {/* Avertissement hors ligne */}
+      {!isOnline && (
+        <View style={[styles.offlineActionsNote, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
+          <Ionicons name="cloud-offline-outline" size={14} color="#EA580C" />
+          <Text style={[styles.offlineActionsNoteText, { color: '#C2410C' }]}>
+            Actions indisponibles hors ligne
+          </Text>
+        </View>
+      )}
+
       <View style={styles.iconButtonsRow}>
         <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleRecall}
+          style={[
+            styles.iconButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            !isOnline && styles.iconButtonDisabled,
+          ]}
+          onPress={isOnline ? handleRecall : undefined}
+          activeOpacity={isOnline ? 0.7 : 1}
         >
-          <Ionicons name="repeat" size={22} color={colors.warning} />
-          <Text style={[styles.iconButtonLabel, { color: colors.textSecondary }]}>Rappel</Text>
+          <Ionicons name="repeat" size={22} color={isOnline ? colors.warning : colors.textTertiary} />
+          <Text style={[styles.iconButtonLabel, { color: isOnline ? colors.textSecondary : colors.textTertiary }]}>Rappel</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleDefer}
+          style={[
+            styles.iconButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            !isOnline && styles.iconButtonDisabled,
+          ]}
+          onPress={isOnline ? handleDefer : undefined}
+          activeOpacity={isOnline ? 0.7 : 1}
         >
-          <Ionicons name="swap-horizontal" size={22} color={colors.secondary} />
-          <Text style={[styles.iconButtonLabel, { color: colors.textSecondary }]}>Échanger</Text>
+          <Ionicons name="swap-horizontal" size={22} color={isOnline ? colors.secondary : colors.textTertiary} />
+          <Text style={[styles.iconButtonLabel, { color: isOnline ? colors.textSecondary : colors.textTertiary }]}>Échanger</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleCancelTicket}
+          style={[
+            styles.iconButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            !isOnline && styles.iconButtonDisabled,
+          ]}
+          onPress={isOnline ? handleCancelTicket : undefined}
+          activeOpacity={isOnline ? 0.7 : 1}
         >
-          <Ionicons name="close-circle" size={22} color={colors.danger} />
-          <Text style={[styles.iconButtonLabel, { color: colors.danger }]}>Annuler</Text>
+          <Ionicons name="close-circle" size={22} color={isOnline ? colors.danger : colors.textTertiary} />
+          <Text style={[styles.iconButtonLabel, { color: isOnline ? colors.danger : colors.textTertiary }]}>Annuler</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -925,6 +971,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 6,
+  },
+  iconButtonDisabled: {
+    opacity: 0.45,
+  },
+  // Offline styles
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  offlineBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#EA580C',
+  },
+  offlineActionsNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  offlineActionsNoteText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   // Compact Info Grid
   compactInfoGrid: {

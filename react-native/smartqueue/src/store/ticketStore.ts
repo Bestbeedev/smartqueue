@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ticketsApi, Ticket, CreateTicketData } from "../api/ticketsApi";
 
 import { useUserStatsStore } from "./userStatsStore";
+import { useOfflineStore } from "./offlineStore";
 
 // L'overlay "ticket appelé" ne doit s'afficher que tant que l'utilisateur n'a pas
 // répondu. Le backend garde status='called' après "en route" (il pose seulement
@@ -466,6 +467,7 @@ export const useTicketStore = create<TicketState>()(
               error: null,
               lastUpdate: new Date(),
             });
+            useOfflineStore.getState().setLastSyncAt(new Date().toISOString());
           } else {
             console.log("[ticketStore] No active tickets");
             set({
@@ -480,11 +482,20 @@ export const useTicketStore = create<TicketState>()(
               error: null,
               lastUpdate: new Date(),
             });
+            useOfflineStore.getState().setLastSyncAt(new Date().toISOString());
           }
         } catch (error: any) {
           console.log("[ticketStore] fetchActiveTicket error:", error);
-          // 404 = pas de ticket actif, ce n'est pas une erreur
-          if (error.response?.status === 404) {
+
+          // Erreur réseau (pas de réponse serveur) — mode hors ligne.
+          // On garde les données en cache, on ne vide pas le store.
+          if (!error.response) {
+            set({ isLoading: false, isInitialized: true, error: null });
+            return; // silencieux : l'UI affiche le badge "hors ligne"
+          }
+
+          // 404 = aucun ticket actif, comportement normal
+          if (error.response.status === 404) {
             set({
               activeTickets: [],
               activeTicket: null,
@@ -497,16 +508,14 @@ export const useTicketStore = create<TicketState>()(
               error: null,
               lastUpdate: new Date(),
             });
+            useOfflineStore.getState().setLastSyncAt(new Date().toISOString());
             return;
           }
+
           const errorMessage =
             error.response?.data?.message ||
             "Erreur lors de la récupération du ticket";
-          set({
-            isLoading: false,
-            isInitialized: true,
-            error: errorMessage,
-          });
+          set({ isLoading: false, isInitialized: true, error: errorMessage });
           throw error;
         }
       },
@@ -596,9 +605,13 @@ export const useTicketStore = create<TicketState>()(
       storage: createJSONStorage(() => AsyncStorage),
       // Don't persist ticket data - always fetch fresh from backend
       // This prevents showing stale data from previous user sessions
+      // Persiste les données du ticket pour le mode hors ligne.
+      // fetchActiveTicket() écrase ces valeurs dès la reconnexion.
       partialize: (state) => ({
-        // Only persist non-user-specific data if needed
-        // activeTicket, position, etc. are NOT persisted
+        activeTickets: state.activeTickets,
+        activeTicket: state.activeTicket,
+        position: state.position,
+        etaMinutes: state.etaMinutes,
       }),
     },
   ),

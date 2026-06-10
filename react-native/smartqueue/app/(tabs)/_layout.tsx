@@ -1,7 +1,7 @@
 import { Tabs, Redirect } from "expo-router";
-import { View, Platform, Modal, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, StyleSheet } from "react-native";
+import { View, Platform, Modal, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "../../global.css";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useAuth } from "../../src/store/authStore";
@@ -12,6 +12,8 @@ import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 import { useTicketSocket } from "../../src/hooks/useTicketSocket";
 import { ticketsApi } from "../../src/api/ticketsApi";
 import * as Haptics from "expo-haptics";
+import { useOfflineStore } from "../../src/store/offlineStore";
+import { useNetworkMonitor } from "../../src/hooks/useNetworkMonitor";
 
 export default function TabLayout() {
   const colors = useThemeColors();
@@ -26,7 +28,43 @@ export default function TabLayout() {
     setPendingReviewTicket,
   } = useTicket();
 
-  // État local de la modal d'évaluation
+  // ── Surveillance réseau ───────────────────────────────────────────────────
+  useNetworkMonitor()
+  const isOnline = useOfflineStore((s) => s.isOnline)
+  const lastSyncAt = useOfflineStore((s) => s.lastSyncAt)
+
+  // Animation de la bannière offline (slide-down)
+  const offlineBannerAnim = useRef(new Animated.Value(0)).current
+  const prevOnlineRef = useRef(true)
+
+  useEffect(() => {
+    if (!isOnline && prevOnlineRef.current) {
+      // Transition online → offline : slide in
+      Animated.spring(offlineBannerAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 60,
+        friction: 8,
+      }).start()
+    } else if (isOnline && !prevOnlineRef.current) {
+      // Transition offline → online : slide out après 2s
+      setTimeout(() => {
+        Animated.timing(offlineBannerAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start()
+      }, 2000)
+    }
+    prevOnlineRef.current = isOnline
+  }, [isOnline, offlineBannerAnim])
+
+  // Heure de dernière synchro formatée
+  const lastSyncLabel = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : null
+
+  // ── État local de la modal d'évaluation ──────────────────────────────────
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -87,6 +125,37 @@ export default function TabLayout() {
           showWarning={showWarning}
         />
         {AlertComponent}
+
+        {/* ── Bannière hors ligne ───────────────────────────────────────────── */}
+        <Animated.View
+          style={[
+            offlineBannerStyles.banner,
+            {
+              transform: [{
+                translateY: offlineBannerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-60, 0],
+                }),
+              }],
+              opacity: offlineBannerAnim,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          {isOnline ? (
+            <View style={[offlineBannerStyles.inner, { backgroundColor: '#16A34A' }]}>
+              <Ionicons name="wifi" size={14} color="#FFF" />
+              <Text style={offlineBannerStyles.text}>Connexion rétablie</Text>
+            </View>
+          ) : (
+            <View style={[offlineBannerStyles.inner, { backgroundColor: '#DC2626' }]}>
+              <Ionicons name="cloud-offline-outline" size={14} color="#FFF" />
+              <Text style={offlineBannerStyles.text}>
+                Hors ligne{lastSyncLabel ? ` — Synchro : ${lastSyncLabel}` : ''}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
 
         {/* Modal d'évaluation post-service — apparaît quelle que soit la tab active */}
         <Modal
@@ -332,6 +401,35 @@ export default function TabLayout() {
     </>
   );
 }
+
+const offlineBannerStyles = StyleSheet.create({
+  banner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 52 : 28,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    alignItems: 'center',
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  text: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+})
 
 const reviewStyles = StyleSheet.create({
   overlay: {
