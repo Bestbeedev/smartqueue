@@ -19,7 +19,13 @@ export interface Ticket {
     | "absent"
     | "expired"
     | "dismissed";
-  priority: number;
+  priority: "normal" | "high" | "vip";
+  source?: "app" | "qr_scan" | "agent" | "sms" | "kiosk";
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  is_senior?: boolean;
+  is_handicap?: boolean;
+  is_pregnant?: boolean;
   position: number | null;
   eta_minutes: number | null;
   queue_length?: number;

@@ -3,13 +3,125 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreTicketRequest;
 use App\Models\Ticket;
 use App\Models\Service;
+use App\Services\TicketService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Events\ServiceTicketEnqueued;
+use App\Events\UserTicketUpdated;
+use App\Events\TicketUpdated;
+use Illuminate\Support\Carbon;
 
 class TicketController extends Controller
 {
+    /**
+     * Création manuelle d'un ticket par un agent/admin.
+     * Aucun compte utilisateur requis (user_id = null).
+     */
+    public function store(StoreTicketRequest $request, TicketService $ticketService)
+    {
+        $agent = $request->user();
+        $serviceId = (int) $request->validated('service_id');
+
+        // Vérifier l'accès au service
+        if ($agent->role === 'agent') {
+            $assignedServiceIds = $agent->services()->pluck('services.id');
+            if (!$assignedServiceIds->contains($serviceId)) {
+                abort(403, 'Accès non autorisé à ce service');
+            }
+        }
+
+        $priority = $request->validated('priority') ?? 'normal';
+
+        $ticket = DB::transaction(function () use ($serviceId, $priority, $request, $ticketService) {
+            $service = Service::lockForUpdate()->findOrFail($serviceId);
+            $targetDate = Carbon::today()->toDateString();
+            $targetDateKey = str_replace('-', '', $targetDate);
+
+            // Générer un numéro de ticket
+            $prefix = strtoupper(substr($service->name, 0, 1));
+            $last = Ticket::query()
+                ->where('service_id', $serviceId)
+                ->whereDate('valid_date', $targetDate)
+                ->orderByDesc('id')
+                ->value('number');
+            $seq = 1;
+            if ($last && preg_match('/^[A-Z]-(\d+)-' . $targetDateKey . '$/', $last, $m)) {
+                $seq = ((int) $m[1]) + 1;
+            }
+            $number = sprintf('%s-%03d-%s', $prefix, $seq, $targetDateKey);
+
+            // Position dans la file (VIP/high s'insèrent devant les tickets normal)
+            // La vraie position sera recalculée par recomputePositions ci-dessous
+            $position = Ticket::query()
+                ->where('service_id', $serviceId)
+                ->where('status', 'waiting')
+                ->whereDate('valid_date', $targetDate)
+                ->count() + 1;
+
+            $ticket = Ticket::create([
+                'user_id'        => null,
+                'service_id'     => $serviceId,
+                'number'         => $number,
+                'status'         => 'waiting',
+                'priority'       => $priority,
+                'position'       => $position,
+                'source'         => 'agent',
+                'valid_date'     => $targetDate,
+                'customer_name'  => $request->validated('customer_name'),
+                'customer_phone' => $request->validated('customer_phone'),
+                'is_senior'      => $request->boolean('is_senior', false),
+                'is_handicap'    => $request->boolean('is_handicap', false),
+                'is_pregnant'    => $request->boolean('is_pregnant', false),
+            ]);
+
+            // Recalcule les positions avec le tri priorité
+            $ticketService->recomputePositions($service);
+
+            // Recharger après recompute
+            $ticket->refresh();
+
+            try {
+                event(new ServiceTicketEnqueued($serviceId, [
+                    'service_id'    => $serviceId,
+                    'ticket_id'     => $ticket->id,
+                    'ticket_number' => $ticket->number,
+                    'priority'      => $ticket->priority,
+                    'ticket' => [
+                        'id'       => $ticket->id,
+                        'number'   => $ticket->number,
+                        'priority' => $ticket->priority,
+                    ],
+                ]));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Broadcast ServiceTicketEnqueued failed: ' . $e->getMessage());
+            }
+
+            return $ticket;
+        });
+
+        return response()->json([
+            'id'             => $ticket->id,
+            'number'         => $ticket->number,
+            'status'         => $ticket->status,
+            'priority'       => $ticket->priority,
+            'position'       => $ticket->position,
+            'source'         => $ticket->source,
+            'customer_name'  => $ticket->customer_name,
+            'customer_phone' => $ticket->customer_phone,
+            'is_senior'      => (bool) $ticket->is_senior,
+            'is_handicap'    => (bool) $ticket->is_handicap,
+            'is_pregnant'    => (bool) $ticket->is_pregnant,
+            'service' => [
+                'id'   => $ticket->service_id,
+                'name' => Service::find($ticket->service_id)?->name,
+            ],
+            'created_at' => $ticket->created_at->toDateTimeString(),
+        ], 201);
+    }
+
     /**
      * Liste des tickets avec filtres pour admin/agent.
      *
@@ -114,6 +226,7 @@ class TicketController extends Controller
             'tickets.number',
             'tickets.status',
             'tickets.priority',
+            'tickets.source',
             'tickets.position',
             'tickets.service_id',
             'tickets.counter_id',
@@ -122,6 +235,14 @@ class TicketController extends Controller
             'tickets.absent_at',
             'tickets.created_at',
             'tickets.updated_at',
+            'tickets.customer_name',
+            'tickets.customer_phone',
+            'tickets.is_senior',
+            'tickets.is_handicap',
+            'tickets.is_pregnant',
+            'tickets.auto_deferred',
+            'tickets.defer_reason',
+            'tickets.valid_date',
             'services.name as service_name',
             'services.status as service_status',
         ]);
@@ -134,20 +255,29 @@ class TicketController extends Controller
         // Transformer les résultats
         $tickets = collect($paginator->items())->map(function ($ticket) use ($withDetails) {
             $data = [
-                'id' => $ticket->id,
-                'number' => $ticket->number,
-                'status' => $ticket->status,
-                'priority' => $ticket->priority,
-                'position' => $ticket->position,
+                'id'             => $ticket->id,
+                'number'         => $ticket->number,
+                'status'         => $ticket->status,
+                'priority'       => $ticket->priority,
+                'source'         => $ticket->source,
+                'position'       => $ticket->position,
+                'customer_name'  => $ticket->customer_name,
+                'customer_phone' => $ticket->customer_phone,
+                'is_senior'      => (bool) $ticket->is_senior,
+                'is_handicap'    => (bool) $ticket->is_handicap,
+                'is_pregnant'    => (bool) $ticket->is_pregnant,
+                'auto_deferred'  => (bool) $ticket->auto_deferred,
+                'defer_reason'   => $ticket->defer_reason,
+                'valid_date'     => $ticket->valid_date,
                 'service' => [
-                    'id' => $ticket->service_id,
-                    'name' => $ticket->service_name,
+                    'id'     => $ticket->service_id,
+                    'name'   => $ticket->service_name,
                     'status' => $ticket->service_status,
                 ],
                 'counter_id' => $ticket->counter_id,
-                'called_at' => $ticket->called_at?->toDateTimeString(),
-                'closed_at' => $ticket->closed_at?->toDateTimeString(),
-                'absent_at' => $ticket->absent_at?->toDateTimeString(),
+                'called_at'  => $ticket->called_at?->toDateTimeString(),
+                'closed_at'  => $ticket->closed_at?->toDateTimeString(),
+                'absent_at'  => $ticket->absent_at?->toDateTimeString(),
                 'created_at' => $ticket->created_at->toDateTimeString(),
                 'updated_at' => $ticket->updated_at->toDateTimeString(),
             ];
@@ -385,34 +515,40 @@ class TicketController extends Controller
         }
 
         return response()->json([
-            'id' => $ticket->id,
-            'number' => $ticket->number,
-            'status' => $ticket->status,
-            'priority' => $ticket->priority,
-            'position' => $ticket->position,
+            'id'             => $ticket->id,
+            'number'         => $ticket->number,
+            'status'         => $ticket->status,
+            'priority'       => $ticket->priority,
+            'source'         => $ticket->source,
+            'position'       => $ticket->position,
+            'customer_name'  => $ticket->customer_name,
+            'customer_phone' => $ticket->customer_phone,
+            'is_senior'      => (bool) $ticket->is_senior,
+            'is_handicap'    => (bool) $ticket->is_handicap,
+            'is_pregnant'    => (bool) $ticket->is_pregnant,
             'user' => $ticket->user ? [
-                'id' => $ticket->user->id,
-                'name' => $ticket->user->name,
+                'id'    => $ticket->user->id,
+                'name'  => $ticket->user->name,
                 'phone' => $ticket->user->phone,
                 'email' => $ticket->user->email,
             ] : null,
             'service' => $ticket->service ? [
-                'id' => $ticket->service->id,
-                'name' => $ticket->service->name,
-                'status' => $ticket->service->status,
+                'id'                       => $ticket->service->id,
+                'name'                     => $ticket->service->name,
+                'status'                   => $ticket->service->status,
                 'avg_service_time_minutes' => $ticket->service->avg_service_time_minutes,
             ] : null,
             'establishment' => $ticket->service?->establishment ? [
-                'id' => $ticket->service->establishment->id,
+                'id'   => $ticket->service->establishment->id,
                 'name' => $ticket->service->establishment->name,
             ] : null,
             'counter' => $ticket->counter ? [
-                'id' => $ticket->counter->id,
+                'id'   => $ticket->counter->id,
                 'name' => $ticket->counter->name,
             ] : null,
-            'called_at' => $ticket->called_at?->toDateTimeString(),
-            'closed_at' => $ticket->closed_at?->toDateTimeString(),
-            'absent_at' => $ticket->absent_at?->toDateTimeString(),
+            'called_at'  => $ticket->called_at?->toDateTimeString(),
+            'closed_at'  => $ticket->closed_at?->toDateTimeString(),
+            'absent_at'  => $ticket->absent_at?->toDateTimeString(),
             'created_at' => $ticket->created_at->toDateTimeString(),
             'updated_at' => $ticket->updated_at->toDateTimeString(),
         ]);

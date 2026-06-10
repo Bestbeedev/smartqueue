@@ -608,6 +608,21 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               colors={colors}
             />
             <CompactInfoRow
+              icon="ribbon-outline"
+              label="Priorité"
+              value={
+                displayTicket?.priority === 'vip' ? '⭐ VIP' :
+                displayTicket?.priority === 'high' ? '🔥 Prioritaire' :
+                '📋 Normal'
+              }
+              color={
+                displayTicket?.priority === 'vip' ? colors.danger :
+                displayTicket?.priority === 'high' ? colors.warning :
+                colors.textSecondary
+              }
+              colors={colors}
+            />
+            <CompactInfoRow
               icon="calendar-outline"
               label="Créé le"
               value={displayTicket?.created_at ? new Date(displayTicket.created_at).toLocaleTimeString() : "---"}

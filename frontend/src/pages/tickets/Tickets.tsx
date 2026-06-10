@@ -6,12 +6,12 @@
  * - Liste des tickets avec détails
  */
 import React, { useEffect, useState, useMemo } from 'react'
-import { 
-  Ticket, 
-  Clock, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Ticket,
+  Clock,
+  Users,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
   Filter,
   RefreshCw,
@@ -25,7 +25,15 @@ import {
   X,
   Star,
   Flame,
-  ListOrdered
+  ListOrdered,
+  Plus,
+  Smartphone,
+  QrCode,
+  UserCog,
+  Monitor,
+  Baby,
+  Accessibility,
+  HeartHandshake,
 } from 'lucide-react'
 import { api } from '@/api/axios'
 import { useAppSelector } from '@/store'
@@ -35,12 +43,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
 import { DonutChart, VerticalBarChart, LineChartComponent } from '@/components/ui/charts'
 import { ChartContainer } from '@/components/ui/chart-container'
@@ -51,7 +60,13 @@ type TicketData = {
   number: string
   status: string
   priority: string
+  source?: string
   position: number | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  is_senior?: boolean
+  is_handicap?: boolean
+  is_pregnant?: boolean
   service: {
     id: number
     name: string
@@ -73,7 +88,6 @@ type TicketData = {
   absent_at: string | null
   created_at: string
   updated_at: string
-  // Smart queue: ticket auto-reporté vers un jour ouvrable ultérieur
   auto_deferred?: boolean
   defer_reason?: string | null
   valid_date?: string | null
@@ -114,10 +128,18 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   expired: { label: 'Expiré', color: 'text-gray-700', bgColor: 'bg-gray-100 dark:bg-gray-900/30' },
 }
 
-const PRIORITY_CONFIG: Record<string, { label: string; icon: any }> = {
-  normal: { label: 'Normal', icon: ListOrdered },
-  high: { label: 'Haute', icon: Flame },
-  vip: { label: 'VIP', icon: Star },
+const PRIORITY_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  normal: { label: 'Normal',     icon: ListOrdered, color: 'text-gray-600 dark:text-gray-400',   bg: 'bg-gray-100 dark:bg-gray-800' },
+  high:   { label: 'Prioritaire', icon: Flame,       color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  vip:    { label: 'VIP',         icon: Star,        color: 'text-red-700 dark:text-red-400',       bg: 'bg-red-100 dark:bg-red-900/30' },
+}
+
+const SOURCE_CONFIG: Record<string, { label: string; icon: any }> = {
+  app:     { label: 'Application', icon: Smartphone },
+  qr_scan: { label: 'QR Code',     icon: QrCode },
+  agent:   { label: 'Agent',       icon: UserCog },
+  kiosk:   { label: 'Borne',       icon: Monitor },
+  sms:     { label: 'SMS',         icon: Smartphone },
 }
 
 export default function TicketsPage() {
@@ -137,6 +159,17 @@ export default function TicketsPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    service_id: '',
+    priority: 'normal',
+    customer_name: '',
+    customer_phone: '',
+    is_senior: false,
+    is_handicap: false,
+    is_pregnant: false,
+  })
+  const [creating, setCreating] = useState(false)
 
   // Determine API endpoint based on role
   const apiEndpoint = role === 'agent' ? '/api/agent/tickets' : '/api/admin/tickets'
@@ -185,6 +218,35 @@ export default function TicketsPage() {
       toast.error(`Erreur tickets (${status}): ${detail}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const createTicket = async () => {
+    if (!createForm.service_id) {
+      toast.error('Veuillez sélectionner un service')
+      return
+    }
+    setCreating(true)
+    try {
+      await api.post(`${apiEndpoint}`, {
+        service_id: parseInt(createForm.service_id),
+        priority: createForm.priority,
+        customer_name: createForm.customer_name || undefined,
+        customer_phone: createForm.customer_phone || undefined,
+        is_senior: createForm.is_senior,
+        is_handicap: createForm.is_handicap,
+        is_pregnant: createForm.is_pregnant,
+      })
+      toast.success('Ticket créé avec succès')
+      setShowCreateModal(false)
+      setCreateForm({ service_id: '', priority: 'normal', customer_name: '', customer_phone: '', is_senior: false, is_handicap: false, is_pregnant: false })
+      loadTickets(1)
+      loadStats()
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Erreur inconnue'
+      toast.error(`Erreur: ${msg}`)
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -275,11 +337,35 @@ export default function TicketsPage() {
     const config = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.normal
     const Icon = config.icon
     return (
-      <span className="text-sm flex items-center gap-1">
+      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', config.bg, config.color)}>
         <Icon className="h-3 w-3" />
         {config.label}
       </span>
     )
+  }
+
+  const getSourceBadge = (source?: string) => {
+    const config = SOURCE_CONFIG[source ?? 'app'] || SOURCE_CONFIG.app
+    const Icon = config.icon
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={config.label}>
+        <Icon className="h-3 w-3" />
+        {config.label}
+      </span>
+    )
+  }
+
+  const getAttributeBadges = (ticket: TicketData) => {
+    const attrs = []
+    if (ticket.is_senior)   attrs.push({ key: 'senior',   label: 'Senior',   icon: Baby,          color: 'text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/30' })
+    if (ticket.is_handicap) attrs.push({ key: 'handicap', label: 'Handicap', icon: Accessibility,  color: 'text-purple-700 bg-purple-100 dark:text-purple-300 dark:bg-purple-900/30' })
+    if (ticket.is_pregnant) attrs.push({ key: 'pregnant', label: 'Enceinte', icon: HeartHandshake, color: 'text-pink-700 bg-pink-100 dark:text-pink-300 dark:bg-pink-900/30' })
+    return attrs.map(a => (
+      <span key={a.key} className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', a.color)}>
+        <a.icon className="h-3 w-3" />
+        {a.label}
+      </span>
+    ))
   }
 
   return (
@@ -310,8 +396,16 @@ export default function TicketsPage() {
               </SelectContent>
             </Select>
 
-            <Button 
-              variant="outline" 
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Nouveau ticket
+            </Button>
+
+            <Button
+              variant="outline"
               onClick={() => { loadStats(); loadTickets(1); }}
               disabled={loading || statsLoading}
             >
@@ -549,6 +643,9 @@ export default function TicketsPage() {
                                   Priorité
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                                  Source
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                   Client
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
@@ -581,10 +678,16 @@ export default function TicketsPage() {
                                     {getStatusBadge(ticket.status)}
                                   </td>
                                   <td className="px-4 py-3">
-                                    {getPriorityBadge(ticket.priority)}
+                                    <div className="flex flex-wrap gap-1">
+                                      {getPriorityBadge(ticket.priority)}
+                                      {getAttributeBadges(ticket)}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {getSourceBadge(ticket.source)}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
-                                    {ticket.user?.name || '—'}
+                                    {ticket.customer_name || ticket.user?.name || '—'}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-muted-foreground">
                                     {new Date(ticket.created_at).toLocaleString('fr-FR', {
@@ -641,6 +744,130 @@ export default function TicketsPage() {
           </div>
         )}
 
+        {/* Create Ticket Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 h-screen top-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <Card className="w-full max-w-md max-h-[90vh] overflow-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Créer un ticket</CardTitle>
+                  <CardDescription>Création manuelle par l'agent</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowCreateModal(false)}>
+                  <X className="h-5 w-5" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Service */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Service <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    value={createForm.service_id}
+                    onValueChange={(v) => setCreateForm(f => ({ ...f, service_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceStats.map(s => (
+                        <SelectItem key={s.service_id} value={String(s.service_id)}>
+                          {s.service_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Priority */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Type de ticket
+                  </label>
+                  <Select
+                    value={createForm.priority}
+                    onValueChange={(v) => setCreateForm(f => ({ ...f, priority: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">Prioritaire</SelectItem>
+                      <SelectItem value="vip">VIP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Customer info */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Nom du client
+                  </label>
+                  <Input
+                    placeholder="Nom complet"
+                    value={createForm.customer_name}
+                    onChange={(e) => setCreateForm(f => ({ ...f, customer_name: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Téléphone
+                  </label>
+                  <Input
+                    placeholder="+33 6 00 00 00 00"
+                    value={createForm.customer_phone}
+                    onChange={(e) => setCreateForm(f => ({ ...f, customer_phone: e.target.value }))}
+                  />
+                </div>
+
+                {/* Special attributes */}
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Attributs spéciaux</p>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'is_senior',   label: 'Senior',   icon: Baby },
+                      { key: 'is_handicap', label: 'Handicap', icon: Accessibility },
+                      { key: 'is_pregnant', label: 'Femme enceinte', icon: HeartHandshake },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={createForm[key as keyof typeof createForm] as boolean}
+                          onChange={(e) => setCreateForm(f => ({ ...f, [key]: e.target.checked }))}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowCreateModal(false)}
+                    disabled={creating}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={createTicket}
+                    disabled={creating || !createForm.service_id}
+                  >
+                    {creating ? 'Création...' : 'Créer le ticket'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Ticket Detail Modal */}
         {selectedTicket && (
           <div className="fixed inset-0 h-screen top-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -666,22 +893,39 @@ export default function TicketsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-sm text-muted-foreground">Service</p>
-                  <p className="font-medium">{selectedTicket.service.name}</p>
+                {(selectedTicket.is_senior || selectedTicket.is_handicap || selectedTicket.is_pregnant) && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Attributs spéciaux</p>
+                    <div className="flex flex-wrap gap-1">
+                      {getAttributeBadges(selectedTicket)}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Service</p>
+                    <p className="font-medium">{selectedTicket.service.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Source</p>
+                    {getSourceBadge(selectedTicket.source)}
+                  </div>
                 </div>
 
-                {selectedTicket.user && (
+                {(selectedTicket.customer_name || selectedTicket.customer_phone || selectedTicket.user) && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Client</p>
                     <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-                      <p className="font-medium">{selectedTicket.user.name}</p>
-                      {selectedTicket.user.phone && (
+                      <p className="font-medium">
+                        {selectedTicket.customer_name || selectedTicket.user?.name || '—'}
+                      </p>
+                      {(selectedTicket.customer_phone || selectedTicket.user?.phone) && (
                         <p className="text-sm text-muted-foreground">
-                          📞 {selectedTicket.user.phone}
+                          📞 {selectedTicket.customer_phone || selectedTicket.user?.phone}
                         </p>
                       )}
-                      {selectedTicket.user.email && (
+                      {selectedTicket.user?.email && (
                         <p className="text-sm text-muted-foreground">
                           ✉️ {selectedTicket.user.email}
                         </p>

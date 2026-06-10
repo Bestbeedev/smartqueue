@@ -18,6 +18,8 @@ class Ticket extends Model
         'source', 'valid_date',
         'eta_minutes', 'last_lat', 'last_lng',
         'auto_deferred', 'defer_reason',
+        'customer_name', 'customer_phone',
+        'is_senior', 'is_handicap', 'is_pregnant',
     ];
 
     // Casting automatique des dates/horaires
@@ -37,6 +39,9 @@ class Ticket extends Model
         'grace_period_expires_at' => 'datetime',
         'valid_date' => 'date',
         'auto_deferred' => 'boolean',
+        'is_senior' => 'boolean',
+        'is_handicap' => 'boolean',
+        'is_pregnant' => 'boolean',
     ];
 
     // Relation vers l'utilisateur détenteur du ticket

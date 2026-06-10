@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Tickets management for agents
         Route::get('agent/tickets', [AdminTicketController::class, 'index']);
+        Route::post('agent/tickets', [AdminTicketController::class, 'store']);
         Route::get('agent/tickets/stats', [AdminTicketController::class, 'stats']);
         Route::get('agent/tickets/{ticketId}', [AdminTicketController::class, 'show']);
 
@@ -181,6 +182,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('stats/series', [AdminStatsController::class, 'series']);
 
         // Tickets management
+        Route::post('tickets', [AdminTicketController::class, 'store']);
         Route::get('tickets', [AdminTicketController::class, 'index']);
         Route::get('tickets/stats', [AdminTicketController::class, 'stats']);
         Route::get('tickets/{ticketId}', [AdminTicketController::class, 'show']);

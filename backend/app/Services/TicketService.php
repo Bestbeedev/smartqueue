@@ -62,6 +62,7 @@ class TicketService
             ->where('service_id', $service->id)
             ->where('status', 'waiting')
             ->whereDate('valid_date', Carbon::today())
+            ->orderByRaw("CASE priority WHEN 'vip' THEN 0 WHEN 'high' THEN 1 ELSE 2 END")
             ->orderBy('created_at')
             ->orderBy('id')
             ->get(['id', 'user_id', 'position', 'eta_minutes']);
