@@ -166,39 +166,123 @@ export const RegisterScreen: React.FC = () => {
     if (!formData.password) newErrors.password = 'Mot de passe requis';
     else if (formData.password.length < 6) newErrors.password = '6 caractères minimum';
 
-    if (!agreedToTerms) newErrors.general = 'Acceptez les conditions';
+    if (!agreedToTerms) newErrors.general = 'Acceptez les conditions et termes generales de Smartqueue';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Fonction de gestion d'erreur centralisée
+  const handleApiError = (error: any, customMessage?: string) => {
+    console.error('API Error:', error);
+    
+    // Erreur réseau
+    if (error?.message === 'Network Error' || error?.code === 'ERR_NETWORK') {
+      showError(
+        '📡 Erreur réseau',
+        'Impossible de contacter le serveur.\n\nVérifiez :\n• Votre connexion internet\n• Que le serveur est démarré\n• Votre adresse IP/config réseau'
+      );
+      return;
+    }
+    
+    // Pas de réponse du serveur
+    if (error?.request && !error?.response) {
+      showError(
+        '⏱️ Délai dépassé',
+        'Le serveur ne répond pas. Veuillez réessayer dans quelques instants.'
+      );
+      return;
+    }
+    
+    // Erreur avec code HTTP
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || error?.response?.data?.error;
+    
+    switch (status) {
+      case 400:
+        if (message?.includes('email')) {
+          showError('Email invalide', 'Cet email est déjà utilisé ou invalide');
+        } else if (message?.includes('password')) {
+          showError('Mot de passe faible', 'Le mot de passe doit contenir au moins 6 caractères');
+        } else {
+          showError('Données invalides', message || 'Vérifiez les informations saisies');
+        }
+        break;
+      case 409:
+        showError('Compte existant', 'Un compte avec cet email existe déjà. Connectez-vous plutôt.');
+        break;
+      case 422:
+        const validationErrors = error?.response?.data?.errors;
+        if (validationErrors) {
+          const firstError = Object.values(validationErrors)[0] as string[];
+          showError('Erreur de validation', firstError?.[0] || 'Données invalides');
+        } else {
+          showError('Erreur de validation', message || 'Vérifiez vos informations');
+        }
+        break;
+      case 500:
+        showError('Erreur serveur', 'Problème technique. Réessayez plus tard.');
+        break;
+      default:
+        showError('Erreur', message || customMessage || 'Une erreur est survenue lors de l\'inscription');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
+    
     try {
-      await register({
+      const result = await register({
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
         password: formData.password,
         password_confirmation: formData.password,
       });
-      router.replace('/(tabs)');
-    } catch (error) { console.error('Register error:', error); }
+      
+      // Succès de l'inscription
+      showSuccess('🎉 Inscription réussie', 'Votre compte a été créé avec succès !');
+      
+      // Redirection après un court délai pour que l'utilisateur voie le message
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 1500);
+      
+    } catch (error: any) {
+      handleApiError(error, 'Échec de l\'inscription');
+    }
   };
 
   const handleInputChange = (field: keyof RegisterFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+    if (error) clearError();
   };
 
   const handleGoToLogin = () => router.push('/login');
 
   const handleGoogleRegisterPress = async () => {
-    const result = await handleGoogleRegister(formData.phone || undefined);
-    if (result.success) {
-      showSuccess('Succès', 'Inscription Google réussie !');
-      router.replace('/(tabs)');
-    } else if (result.error) showError('Erreur', result.error);
+    try {
+      const result = await handleGoogleRegister(formData.phone || undefined);
+      
+      if (result.success) {
+        showSuccess('🎉 Succès', 'Inscription Google réussie !');
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 1500);
+      } else if (result.error) {
+        // Gestion spécifique des erreurs Google
+        if (result.error.includes('Network') || result.error.includes('network')) {
+          showError('📡 Erreur réseau', 'Problème de connexion internet. Vérifiez votre réseau.');
+        } else if (result.error.includes('already exists') || result.error.includes('déjà utilisé')) {
+          showError('Compte existant', 'Un compte avec cet email existe déjà. Connectez-vous plutôt.');
+        } else {
+          showError('Erreur Google', result.error);
+        }
+      }
+    } catch (error: any) {
+      handleApiError(error, 'Échec de l\'inscription Google');
+    }
   };
 
   return (
@@ -277,7 +361,7 @@ export const RegisterScreen: React.FC = () => {
             <Checkbox
               checked={agreedToTerms}
               onPress={() => setAgreedToTerms(!agreedToTerms)}
-              label="J'accepte les conditions d'utilisation"
+              label="J'accepte les conditions d'utilisation et termes generales de Smartqueue"
               colors={colors}
             />
 
@@ -285,13 +369,6 @@ export const RegisterScreen: React.FC = () => {
               <View style={[styles.errorContainer, { backgroundColor: colors.danger + '10' }]}>
                 <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
                 <Text style={[styles.errorContainerText, { color: colors.danger }]}>{errors.general}</Text>
-              </View>
-            )}
-
-            {error && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.danger + '10' }]}>
-                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
-                <Text style={[styles.errorContainerText, { color: colors.danger }]}>{error}</Text>
               </View>
             )}
 
@@ -407,7 +484,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 16,
-    height: 54,
+    height: 45,
   },
   inputIcon: { marginRight: 12 },
   input: {
@@ -450,7 +527,7 @@ const styles = StyleSheet.create({
   
   registerButton: {
     borderRadius: 14,
-    height: 54,
+    height: 45,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -478,7 +555,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 14,
-    height: 54,
+    height: 45,
     gap: 12,
     marginBottom: 24,
   },

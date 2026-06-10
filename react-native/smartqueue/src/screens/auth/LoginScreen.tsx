@@ -133,23 +133,119 @@ export const LoginScreen: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Fonction centralisée de gestion d'erreurs
+  const handleApiError = (error: any, customMessage?: string) => {
+    console.error('API Error:', error);
+    
+    // Erreur réseau
+    if (error?.message === 'Network Error' || error?.code === 'ERR_NETWORK') {
+      showError(
+        '📡 Erreur réseau',
+        'Impossible de contacter le serveur.\n\nVérifiez :\n• Votre connexion internet\n• Que le serveur est démarré\n• Votre adresse IP/config réseau'
+      );
+      return;
+    }
+    
+    // Pas de réponse du serveur (timeout)
+    if (error?.request && !error?.response) {
+      showError(
+        '⏱️ Délai dépassé',
+        'Le serveur ne répond pas. Veuillez réessayer dans quelques instants.'
+      );
+      return;
+    }
+    
+    // Erreur avec code HTTP
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || error?.response?.data?.error;
+    
+    switch (status) {
+      case 400:
+        if (message?.includes('email')) {
+          showError('Email invalide', 'Veuillez vérifier votre adresse email');
+        } else {
+          showError('Données invalides', message || 'Vérifiez vos informations');
+        }
+        break;
+      case 401:
+        showError('🔐 Échec de connexion', 'Email ou mot de passe incorrect');
+        break;
+      case 403:
+        showError('Accès refusé', 'Votre compte n\'a pas accès à cette application');
+        break;
+      case 404:
+        showError('Service indisponible', 'Le service de connexion est temporairement indisponible');
+        break;
+      case 429:
+        showError('Trop de tentatives', 'Trop de tentatives de connexion. Veuillez réessayer dans 5 minutes.');
+        break;
+      case 500:
+      case 502:
+      case 503:
+        showError('🔧 Erreur serveur', 'Problème technique. Réessayez plus tard.');
+        break;
+      default:
+        showError('Erreur', message || customMessage || 'Une erreur est survenue lors de la connexion');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
+    
     try {
-      const user = await login({ email: formData.email.trim(), password: formData.password });
-      if ((user as any)?.role === 'agent' || (user as any)?.role === 'admin') router.replace('/agent');
-      else router.replace('/(tabs)');
-    } catch (error) { console.error('Login error:', error); }
+      const user = await login({ 
+        email: formData.email.trim(), 
+        password: formData.password 
+      });
+      
+      // Succès de la connexion
+      showSuccess('✅ Connexion réussie', 'Bienvenue sur SmartQueue !');
+      
+      // Redirection après un court délai
+      setTimeout(() => {
+        if ((user as any)?.role === 'agent' || (user as any)?.role === 'admin') {
+          router.replace('/agent');
+        } else {
+          router.replace('/(tabs)');
+        }
+      }, 1000);
+      
+    } catch (error: any) {
+      handleApiError(error, 'Échec de la connexion');
+    }
   };
 
   const handleGoogleLoginPress = async () => {
-    const result = await handleGoogleLogin();
-    if (result.success) {
-      showSuccess('Succès', 'Connexion Google réussie !');
-      const { user } = useAuth();
-      if ((user as any)?.role === 'agent' || (user as any)?.role === 'admin') router.replace('/agent');
-      else router.replace('/(tabs)');
-    } else if (result.error) showError('Erreur', result.error);
+    try {
+      const result = await handleGoogleLogin();
+      
+      if (result.success) {
+        showSuccess('✅ Connexion réussie', 'Connexion Google réussie !');
+        
+        setTimeout(() => {
+          const { user } = useAuth.getState();
+          if (user?.role === 'agent' || user?.role === 'admin') {
+            router.replace('/agent');
+          } else {
+            router.replace('/(tabs)');
+          }
+        }, 1000);
+        
+      } else if (result.error) {
+        // Gestion spécifique des erreurs Google
+        if (result.error.includes('Network') || result.error.includes('network')) {
+          showError('📡 Erreur réseau', 'Problème de connexion internet. Vérifiez votre réseau.');
+        } else if (result.error.includes('canceled') || result.error.includes('annulée')) {
+          showError('Connexion annulée', 'Vous avez annulé la connexion Google');
+        } else if (result.error.includes('account')) {
+          showError('Compte invalide', 'Problème avec votre compte Google');
+        } else {
+          showError('Erreur Google', result.error);
+        }
+      }
+    } catch (error: any) {
+      handleApiError(error, 'Échec de la connexion Google');
+    }
   };
 
   const handleForgotPassword = () => {
@@ -157,6 +253,12 @@ export const LoginScreen: React.FC = () => {
   };
 
   const handleGoToRegister = () => router.push('/register');
+
+  const handleInputChange = (field: keyof LoginFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+    if (error) clearError();
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -186,7 +288,7 @@ export const LoginScreen: React.FC = () => {
               icon="mail-outline"
               placeholder="Adresse email"
               value={formData.email}
-              onChangeText={(text) => { setFormData(prev => ({ ...prev, email: text })); if (errors.email) setErrors(prev => ({ ...prev, email: undefined })); }}
+              onChangeText={(text) => handleInputChange('email', text)}
               keyboardType="email-address"
               autoCapitalize="none"
               error={errors.email}
@@ -197,7 +299,7 @@ export const LoginScreen: React.FC = () => {
               icon="lock-closed-outline"
               placeholder="Mot de passe"
               value={formData.password}
-              onChangeText={(text) => { setFormData(prev => ({ ...prev, password: text })); if (errors.password) setErrors(prev => ({ ...prev, password: undefined })); }}
+              onChangeText={(text) => handleInputChange('password', text)}
               secureTextEntry={!showPassword}
               error={errors.password}
               colors={colors}
@@ -208,13 +310,6 @@ export const LoginScreen: React.FC = () => {
             <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
               <Text style={[styles.forgotText, { color: colors.primary }]}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
-
-            {error && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.danger + '10' }]}>
-                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
-                <Text style={[styles.errorContainerText, { color: colors.danger }]}>{error}</Text>
-              </View>
-            )}
 
             <TouchableOpacity
               style={[styles.loginButton, { backgroundColor: colors.primary }, (isLoading || googleLoading) && styles.disabledButton]}
@@ -317,7 +412,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 16,
-    height: 54,
+    height: 45,
   },
   inputIcon: { marginRight: 12 },
   input: {
@@ -343,7 +438,7 @@ const styles = StyleSheet.create({
   
   loginButton: {
     borderRadius: 14,
-    height: 54,
+    height: 45,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -371,7 +466,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 14,
-    height: 54,
+    height: 45,
     gap: 12,
     marginBottom: 24,
   },
