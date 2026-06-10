@@ -662,25 +662,25 @@ export default function AgentDashboard() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link to="/dashboard/queues">
-                <Button className="w-full h-20 flex flex-col" variant="default">
+                <Button className="w-full h-15 flex gap-2 items-center" variant="default">
                   <Play className="h-6 w-6 mb-1" />
                   <span className="text-sm">Gérer la file</span>
                 </Button>
               </Link>
               <Link to="/dashboard/tickets">
-                <Button className="w-full h-20 flex flex-col" variant="outline">
+                <Button className="w-full  h-15 flex gap-2 items-center" variant="secondary">
                   <Eye className="h-6 w-6 mb-1" />
                   <span className="text-sm">Voir tickets</span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/called">
-                <Button className="w-full h-20 flex flex-col" variant="outline">
+                <Button className="w-full h-15 flex gap-2 items-center" variant="outline">
                   <Activity className="h-6 w-6 mb-1" />
                   <span className="text-sm">Tickets appelés</span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/priority">
-                <Button className="w-full h-20 flex flex-col" variant="outline">
+                <Button className="w-full h-15 flex gap-2 items-center" variant="destructive">
                   <AlertTriangle className="h-6 w-6 mb-1" />
                   <span className="text-sm">Prioritaires</span>
                 </Button>
