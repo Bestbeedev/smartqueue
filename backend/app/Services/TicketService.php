@@ -90,11 +90,14 @@ class TicketService
                 'position' => $pos,
                 'eta_minutes' => $eta,
             ])));
-            $this->broadcastSafely(fn() => event(new UserTicketUpdated($t->user_id, [
-                'ticket_id' => $t->id,
-                'position' => $pos,
-                'eta_minutes' => $eta,
-            ])));
+            // Tickets créés par un agent n'ont pas de user_id — pas de canal user.*
+            if ($t->user_id !== null) {
+                $this->broadcastSafely(fn() => event(new UserTicketUpdated($t->user_id, [
+                    'ticket_id' => $t->id,
+                    'position' => $pos,
+                    'eta_minutes' => $eta,
+                ])));
+            }
 
             $pos++;
         }
