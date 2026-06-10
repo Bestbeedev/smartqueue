@@ -81,10 +81,25 @@ type CreateTicketForm = {
   is_pregnant: boolean;
 };
 
+// Fonction pour formater la date avec gestion du fuseau horaire
+function parseServerDate(dateStr: string): Date {
+  // Si la date a un fuseau horaire UTC explicite
+  if (dateStr.includes('Z') || dateStr.includes('+')) {
+    return new Date(dateStr);
+  }
+  // Si la date est au format UTC sans Z (ex: "2024-01-15 10:30:00")
+  // On ajoute 'Z' pour indiquer UTC
+  if (dateStr.includes(' ') && !dateStr.includes('T')) {
+    return new Date(dateStr.replace(' ', 'T') + 'Z');
+  }
+  return new Date(dateStr);
+}
+
 function timeAgo(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
-    const mins = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    const date = parseServerDate(dateStr);
+    const now = new Date();
+    const mins = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 60000));
     if (mins < 1) return "À l'instant";
     if (mins < 60) return `il y a ${mins}min`;
     const h = Math.floor(mins / 60);
@@ -98,7 +113,24 @@ function timeAgo(dateStr: string): string {
 function fmtTime(dateStr?: string | null): string {
   if (!dateStr) return "--";
   try {
-    return new Date(dateStr).toLocaleTimeString("fr-FR", {
+    const date = parseServerDate(dateStr);
+    return date.toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return "--";
+  }
+}
+
+function fmtDate(dateStr?: string | null): string {
+  if (!dateStr) return "--";
+  try {
+    const date = parseServerDate(dateStr);
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -110,9 +142,11 @@ function fmtTime(dateStr?: string | null): string {
 function fmtCutoff(iso?: string | null): string {
   if (!iso) return "--";
   try {
-    return new Date(iso).toLocaleTimeString("fr-FR", {
+    const date = parseServerDate(iso);
+    return date.toLocaleTimeString("fr-FR", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   } catch {
     return "--";
@@ -233,56 +267,90 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
   );
 };
 
+// TicketRow complètement refait pour meilleur alignement
 const TicketRow = ({ item, index, colors, onAbsent }: any) => {
   const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
   const statusCfg = STATUS_CFG[item.status] ?? { color: "#8E8E93", label: item.status };
   const etaLabel = typeof item.eta_minutes === "number" && item.eta_minutes > 0 ? `≈ ${item.eta_minutes}min` : null;
   const sourceIcon = item.source ? (SOURCE_ICON[item.source] ?? "help-circle-outline") : null;
-  const hasAttrs = item.is_senior || item.is_handicap || item.is_pregnant;
+  
+  // Attributs spéciaux
+  const specialAttrs = [];
+  if (item.is_senior) specialAttrs.push({ icon: "accessibility-outline", color: "#007AFF" });
+  if (item.is_handicap) specialAttrs.push({ icon: "heart-outline", color: "#8B5CF6" });
+  if (item.is_pregnant) specialAttrs.push({ icon: "body-outline", color: "#FF6B9D" });
 
   return (
     <View style={[styles.ticketRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {/* Position avec badge priorité */}
       <View style={[styles.ticketPosition, { backgroundColor: prio.color + "18", borderColor: prio.color + "40" }]}>
         <Text style={[styles.ticketPositionText, { color: prio.color }]}>{item.position ?? index + 1}</Text>
       </View>
-      <View style={{ flex: 1 }}>
+      
+      {/* Contenu principal */}
+      <View style={styles.ticketContent}>
+        {/* Ligne 1 : Numéro + Badges */}
         <View style={styles.ticketHeaderRow}>
-          <Text style={[styles.ticketNumber, { color: colors.textPrimary }]} numberOfLines={1}>{item.number}</Text>
+          <Text style={[styles.ticketNumber, { color: colors.textPrimary }]} numberOfLines={1}>
+            {item.number}
+          </Text>
           <View style={[styles.ticketPriorityBadge, { backgroundColor: prio.color + "20" }]}>
             <Text style={[styles.ticketPriorityText, { color: prio.color }]}>{prio.label}</Text>
           </View>
           {etaLabel && (
             <View style={styles.ticketEtaBadge}>
+              <Ionicons name="time-outline" size={10} color="#007AFF" />
               <Text style={styles.ticketEtaText}>{etaLabel}</Text>
             </View>
           )}
+        </View>
+        
+        {/* Ligne 2 : Infos supplémentaires */}
+        <View style={styles.ticketMetaRow}>
+          {/* Icône source */}
           {sourceIcon && (
-            <Ionicons name={sourceIcon as any} size={11} color={colors.textSecondary} />
-          )}
-          {hasAttrs && (
-            <View style={{ flexDirection: "row", gap: 2 }}>
-              {item.is_senior && <Ionicons name="accessibility-outline" size={11} color="#007AFF" />}
-              {item.is_handicap && <Ionicons name="heart-outline" size={11} color="#8B5CF6" />}
-              {item.is_pregnant && <Ionicons name="body-outline" size={11} color="#FF6B9D" />}
+            <View style={styles.ticketSourceIcon}>
+              <Ionicons name={sourceIcon as any} size={12} color={colors.textSecondary} />
             </View>
           )}
-        </View>
-        {(item.display_name || item.customer_name) ? (
+          
+          {/* Attributs spéciaux */}
+          {specialAttrs.length > 0 && (
+            <View style={styles.ticketAttrs}>
+              {specialAttrs.map((attr, idx) => (
+                <View key={idx} style={styles.ticketAttrIcon}>
+                  <Ionicons name={attr.icon as any} size={12} color={attr.color} />
+                </View>
+              ))}
+            </View>
+          )}
+          
+          {/* Date de création */}
           <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.display_name || item.customer_name} · {fmtTime(item.created_at)}
+            {fmtTime(item.created_at)} · {timeAgo(item.created_at)}
           </Text>
-        ) : (
-          <Text style={[styles.ticketMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-            Pris à {fmtTime(item.created_at)} · {timeAgo(item.created_at)}
+        </View>
+        
+        {/* Ligne 3 : Nom du client (si disponible) */}
+        {(item.display_name || item.customer_name) && (
+          <Text style={[styles.ticketCustomer, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.display_name || item.customer_name}
           </Text>
         )}
       </View>
-      <View style={[styles.ticketStatusBadge, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "35" }]}>
-        <Text style={[styles.ticketStatusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+      
+      {/* Statut et action */}
+      <View style={styles.ticketActions}>
+        <View style={[styles.ticketStatusBadge, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "35" }]}>
+          <Text style={[styles.ticketStatusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+        </View>
+        <TouchableOpacity 
+          style={[styles.ticketAbsentBtn, { borderColor: "#FF3B3028" }]} 
+          onPress={() => onAbsent(item.id, item.number)}
+        >
+          <Ionicons name="person-remove-outline" size={16} color="#FF3B30" />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.ticketAbsentBtn} onPress={() => onAbsent(item.id, item.number)}>
-        <Ionicons name="person-remove-outline" size={14} color="#FF3B30" />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -307,7 +375,6 @@ const PRIO_OPTIONS: { value: CreateTicketForm["priority"]; label: string; color:
   { value: "vip",     label: "VIP",         color: "#8B5CF6", icon: "star-outline" },
   { value: "urgence", label: "Urgence",     color: "#FF3B30", icon: "alert-circle-outline" },
 ];
-
 
 const PrioritySelector = ({ value, onChange, colors }: { value: string; onChange: (v: CreateTicketForm["priority"]) => void; colors: ThemeColors }) => (
   <View style={cmStyles.prioRow}>
@@ -715,7 +782,7 @@ export default function AgentQueue() {
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>File d'attente</Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
             Service #{serviceId}{counterId ? ` · Guichet ${counterId}` : ""}
-            {smartQueue?.closing_time ? ` · Ferme à ${smartQueue.closing_time.substring(0, 5)}` : ""}
+            {smartQueue?.closing_time ? ` · Ferme à ${fmtTime(smartQueue.closing_time)}` : ""}
           </Text>
         </View>
         <TouchableOpacity
@@ -728,9 +795,9 @@ export default function AgentQueue() {
         </TouchableOpacity>
       </View>
 
-      {/* KPI en grille 2x2 */}
+      {/* KPI en grille */}
       {stats && (
-        <View style={[styles.kpiGrid, { paddingHorizontal: hPad , marginTop:15,}]}>
+        <View style={[styles.kpiGrid, { paddingHorizontal: hPad, marginTop: 15 }]}>
           <View style={styles.kpiRow}>
             <KpiPill icon="people-outline" label="Attente" value={String(stats.waiting)} accent="#007AFF" colors={colors} />
             <KpiPill icon="checkmark-done-outline" label="Traités" value={String(stats.processed)} accent="#34C759" colors={colors} />
@@ -793,8 +860,14 @@ export default function AgentQueue() {
         data={filteredTickets}
         renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} />}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 6, paddingBottom: serviceStatus === "open" ? 108 : 24 }}
+        contentContainerStyle={{ 
+          paddingHorizontal: hPad, 
+          paddingTop: 6, 
+          paddingBottom: serviceStatus === "open" ? 200 : 24,
+          flexGrow: 1 
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
+        showsVerticalScrollIndicator={true}
         ListHeaderComponent={filteredTickets.length > 0 ? (
           <View style={styles.listHeader}>
             <Text style={[styles.listHeaderTitle, { color: colors.textSecondary }]}>File d'attente</Text>
@@ -869,7 +942,6 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 11, marginTop: 1 },
   serviceToggle: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, gap: 4 },
   serviceToggleText: { color: "#FFF", fontSize: 11, fontWeight: "700" },
-  // KPI Grid 2x2
   kpiGrid: { marginBottom: 8 },
   kpiRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
   kpiPill: { flex: 1, flexDirection: "row", alignItems: "center", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8, gap: 7, borderWidth: 1 },
@@ -899,27 +971,50 @@ const styles = StyleSheet.create({
   currentActionText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
   searchBar: { flexDirection: "row", alignItems: "center", borderRadius: 10, marginBottom: 4, marginTop: 2, paddingHorizontal: 10, paddingVertical: 10, borderWidth: 1, gap: 8 },
   searchInput: { flex: 1, fontSize: 14, padding: 0 },
-  listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8, marginTop: 4 },
   listHeaderTitle: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6 },
   listHeaderBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   listHeaderBadgeText: { fontSize: 12, fontWeight: "700" },
-  ticketRow: { flexDirection: "row", alignItems: "center", borderRadius: 10, marginBottom: 5, borderWidth: 1, paddingVertical: 9, paddingHorizontal: 10, gap: 10 },
-  ticketPosition: { width: 34, height: 34, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1 },
-  ticketPositionText: { fontWeight: "800", fontSize: 14 },
-  ticketHeaderRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5, marginBottom: 2 },
-  ticketNumber: { fontWeight: "700", fontSize: 14 },
-  ticketPriorityBadge: { paddingHorizontal: 4, paddingVertical: 1, borderRadius: 5 },
-  ticketPriorityText: { fontSize: 8, fontWeight: "800", letterSpacing: 0.3 },
-  ticketEtaBadge: { backgroundColor: "#007AFF12", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: "#007AFF28" },
+  // Nouveaux styles pour TicketRow amélioré
+  ticketRow: { 
+    flexDirection: "row", 
+    alignItems: "flex-start", 
+    borderRadius: 12, 
+    marginBottom: 8, 
+    borderWidth: 1, 
+    padding: 12, 
+    gap: 12 
+  },
+  ticketPosition: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 10, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    borderWidth: 1 
+  },
+  ticketPositionText: { fontWeight: "800", fontSize: 16 },
+  ticketContent: { flex: 1, gap: 6 },
+  ticketHeaderRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 },
+  ticketNumber: { fontWeight: "700", fontSize: 15 },
+  ticketPriorityBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  ticketPriorityText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.3 },
+  ticketEtaBadge: { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "#007AFF12", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: "#007AFF28" },
   ticketEtaText: { color: "#007AFF", fontSize: 9, fontWeight: "700" },
-  ticketMeta: { fontSize: 10, lineHeight: 13 },
-  ticketStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
-  ticketStatusText: { fontSize: 9, fontWeight: "700" },
-  ticketAbsentBtn: { width: 30, height: 30, borderRadius: 7, borderWidth: 1, borderColor: "#FF3B3028", justifyContent: "center", alignItems: "center" },
+  ticketMetaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 2 },
+  ticketSourceIcon: { width: 18, height: 18, justifyContent: "center", alignItems: "center" },
+  ticketAttrs: { flexDirection: "row", gap: 4,  },
+  ticketAttrIcon: { width: 18, height: 18, justifyContent: "center", alignItems: "center" },
+  ticketMeta: { fontSize: 10, lineHeight: 14 },
+  ticketCustomer: { fontSize: 11, fontWeight: "500" },
+  ticketActions: { alignItems: "flex-end", gap: 8 },
+  ticketStatusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  ticketStatusText: { fontSize: 10, fontWeight: "700" },
+  ticketAbsentBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, justifyContent: "center", alignItems: "center" },
   emptyContainer: { alignItems: "center", paddingVertical: 48 },
   emptyTitle: { fontWeight: "700", fontSize: 15, marginTop: 12 },
   emptySub: { fontSize: 13, marginTop: 4 },
-  stickyButton: { position: "absolute", bottom: 80, left: 0, right: 0, paddingTop: 12, paddingBottom: Platform.OS === "ios" ? 28 : 16, borderTopWidth: 1 },
+  stickyButton: { position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 12, paddingBottom: Platform.OS === "ios" ? 110 : 100, borderTopWidth: 1 },
   stickyRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   callButton: { borderRadius: 14, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   callButtonText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
