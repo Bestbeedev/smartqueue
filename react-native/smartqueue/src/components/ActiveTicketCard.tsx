@@ -1,5 +1,5 @@
 // ActiveTicketCard.tsx - Version modifiée
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -108,6 +108,17 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const statusConfig = getStatusConfig();
   const isSpecialStatus = isTicketCalledState || isTicketEnRoute || isTicketPresent;
   const isSoon = position <= 3 && !isSpecialStatus;
+
+  // Live countdown pour le statut "called"
+  const [calledCountdown, setCalledCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    const expiresAt = (activeTicket as any)?.called_expires_at;
+    if (!isTicketCalledState || !expiresAt) { setCalledCountdown(null); return; }
+    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    setCalledCountdown(calc());
+    const id = setInterval(() => setCalledCountdown(calc()), 1000);
+    return () => clearInterval(id);
+  }, [isTicketCalledState, (activeTicket as any)?.called_expires_at]);
 
   const handleCancel = useCallback(() => {
     showWarning("Annuler le ticket", "Êtes-vous sûr de vouloir annuler votre ticket ?", "Oui, annuler", async () => {
@@ -292,6 +303,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           <View style={[styles.leaveAlert, { backgroundColor: whenToLeave.urgent ? colors.danger + "20" : colors.warning + "20" }]}>
             <Ionicons name={whenToLeave.urgent ? "warning" : "time"} size={14} color={whenToLeave.urgent ? colors.danger : colors.warning} />
             <Text style={[styles.leaveText, { color: whenToLeave.urgent ? colors.danger : colors.warning }]}>{whenToLeave.message}</Text>
+          </View>
+        )}
+
+        {/* Countdown appelé */}
+        {isTicketCalledState && calledCountdown !== null && (
+          <View style={[
+            styles.calledCountdownBadge,
+            { backgroundColor: calledCountdown <= 30 ? colors.danger + "15" : colors.warning + "12", borderColor: calledCountdown <= 30 ? colors.danger + "40" : colors.warning + "30" },
+          ]}>
+            <Ionicons name="timer-outline" size={14} color={calledCountdown <= 30 ? colors.danger : colors.warning} />
+            <Text style={[styles.calledCountdownText, { color: calledCountdown <= 30 ? colors.danger : colors.warning }]}>
+              {calledCountdown <= 0
+                ? "Délai expiré"
+                : `Délai : ${Math.floor(calledCountdown / 60)}:${String(calledCountdown % 60).padStart(2, "0")} avant absence`}
+            </Text>
           </View>
         )}
 
@@ -577,6 +603,21 @@ const styles = StyleSheet.create({
   stateMsgSubtext: {
     fontSize: 11,
     marginTop: 4,
+  },
+  calledCountdownBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  calledCountdownText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"] as any,
   },
   enRouteContainer: {
     marginTop: 8,

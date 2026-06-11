@@ -28,6 +28,7 @@ interface CalledTicketOverlayProps {
   ticketServiceName?: string;
   distanceInfo: DistanceInfo | null;
   countdownSeconds: number;
+  callTimeoutMinutes?: number | null;
   hasRecalled: boolean;
   isSwapped?: boolean;
   gracePeriodExpiresAt?: string | null;
@@ -45,6 +46,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   ticketNumber,
   ticketServiceName,
   countdownSeconds,
+  callTimeoutMinutes,
   hasRecalled,
   isSwapped = false,
   gracePeriodExpiresAt,
@@ -212,14 +214,23 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               {isExpired ? (
                 <View style={styles.expiredBox}>
                   <Text style={styles.expiredTitle}>Délai expiré</Text>
-                  <Text style={styles.expiredSub}>Ticket marqué absent</Text>
+                  <Text style={styles.expiredSub}>Ticket marqué absent automatiquement</Text>
                 </View>
               ) : (
                 <>
-                  <Text style={styles.countdownLabel}>Temps restant</Text>
-                  <Text style={[styles.countdownValue, { opacity: countdownSeconds <= 60 ? flashAnim : 1 }]}>
+                  <Text style={styles.countdownLabel}>Temps restant pour vous présenter</Text>
+                  <Animated.Text style={[styles.countdownValue, { opacity: countdownSeconds <= 60 ? flashAnim : 1 }]}>
                     {formatCountdown(countdownSeconds)}
-                  </Text>
+                  </Animated.Text>
+                  {callTimeoutMinutes != null && (
+                    <Text style={styles.timeoutInfo}>Délai configuré : {callTimeoutMinutes} min</Text>
+                  )}
+                  {countdownSeconds <= 60 && countdownSeconds > 0 && (
+                    <View style={styles.urgentBanner}>
+                      <Ionicons name="warning" size={13} color="#FFF" />
+                      <Text style={styles.urgentText}>Répondez maintenant ou votre ticket sera marqué absent</Text>
+                    </View>
+                  )}
                 </>
               )}
             </View>
@@ -395,6 +406,28 @@ const styles = StyleSheet.create({
     fontSize: 80,
     fontWeight: "800",
     color: "#FFF",
+  },
+  timeoutInfo: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 10,
+    marginTop: 4,
+  },
+  urgentBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  urgentText: {
+    color: "#FFF",
+    fontSize: 11,
+    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
   },
   expiredBox: {
     backgroundColor: "rgba(0,0,0,0.3)",

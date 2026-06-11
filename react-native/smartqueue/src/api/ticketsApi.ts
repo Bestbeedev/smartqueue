@@ -31,6 +31,7 @@ export interface Ticket {
   eta_minutes: number | null;
   queue_length?: number;
   called_at?: string;
+  called_expires_at?: string | null;
   closed_at?: string;
   absent_at?: string;
   en_route_at?: string | null;

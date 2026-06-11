@@ -40,6 +40,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
   const [countdownSeconds, setCountdownSeconds] = useState(600);
   const [localCountdown, setLocalCountdown] = useState(600);
   const [isExpired, setIsExpired] = useState(false);
+  const [callTimeoutMinutes, setCallTimeoutMinutes] = useState<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // États pour les confirmations
@@ -112,6 +113,9 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
           const serverSeconds = Math.max(0, Math.floor(Number(data.countdown_seconds)));
           setCountdownSeconds((prev) => Math.min(prev, serverSeconds));
         }
+        if (data?.call_timeout_minutes != null) {
+          setCallTimeoutMinutes(Number(data.call_timeout_minutes));
+        }
         if (data && !data.is_called) {
           await fetchActiveTicket();
           clearCalled();
@@ -133,6 +137,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
       setLocalCountdown(600);
       setIsExpired(false);
       setCountdownSeconds(600);
+      setCallTimeoutMinutes(null);
     }
   }, [isCalled]);
 
@@ -311,6 +316,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
         counterNumber={counterNumber || undefined}
         distanceInfo={distanceInfo}
         countdownSeconds={localCountdown}
+        callTimeoutMinutes={callTimeoutMinutes}
         hasRecalled={hasRecalled}
         isSwapped={hasDeferred}
         onEnRoute={handleEnRouteWithConfirm}
