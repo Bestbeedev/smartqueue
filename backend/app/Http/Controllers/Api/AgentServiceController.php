@@ -25,6 +25,27 @@ class AgentServiceController extends Controller
     }
 
     /**
+     * Met à jour le délai de priorité (call_timeout_minutes) d'un service.
+     */
+    public function updateCallTimeout(Request $request, Service $service)
+    {
+        $this->authorize('manage', $service);
+
+        $data = $request->validate([
+            'call_timeout_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
+        ]);
+
+        $service->call_timeout_minutes = $data['call_timeout_minutes'] ?? null;
+        $service->save();
+
+        return response()->json([
+            'message' => 'Délai de priorité mis à jour',
+            'service_id' => $service->id,
+            'call_timeout_minutes' => $service->call_timeout_minutes,
+        ]);
+    }
+
+    /**
      * Ferme un service (empêche la création de nouveaux tickets).
      */
     public function close(Service $service)

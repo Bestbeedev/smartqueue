@@ -126,6 +126,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Ouvrir un service à la volée
         Route::post('services/{service}/open', [AgentServiceController::class, 'open']);
 
+        // Configurer le délai de priorité du service (call_timeout_minutes)
+        Route::patch('services/{service}/call-timeout', [AgentServiceController::class, 'updateCallTimeout']);
+
         // Vue complète de la file (initialisation dashboard temps réel)
         Route::get('services/{service}/queue', [AgentQueueController::class, 'index']);
 

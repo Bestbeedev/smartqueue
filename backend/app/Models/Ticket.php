@@ -11,7 +11,7 @@ class Ticket extends Model
     // Colonnes autorisées en écriture
     protected $fillable = [
         'user_id', 'service_id', 'counter_id', 'number', 'status', 'priority', 'position',
-        'called_at', 'closed_at', 'absent_at', 'last_distance_m', 'last_seen_at',
+        'called_at', 'called_expires_at', 'closed_at', 'absent_at', 'last_distance_m', 'last_seen_at',
         'has_recalled', 'en_route_at', 'present_at', 'en_route_expires_at', 'response_received_at', 'estimated_travel_minutes', 'called_counter_id',
         'deferred_at', 'deferral_count', 'is_swapped', 'swapped_with_ticket_id',
         'original_called_at', 'grace_period_expires_at',
@@ -26,6 +26,7 @@ class Ticket extends Model
     // Casting automatique des dates/horaires
     protected $casts = [
         'called_at' => 'datetime',
+        'called_expires_at' => 'datetime',
         'closed_at' => 'datetime',
         'absent_at' => 'datetime',
         'last_seen_at' => 'datetime',

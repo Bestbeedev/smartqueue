@@ -25,6 +25,7 @@ type Service = {
   priority_support?:boolean;
   priority_mode?: string;
   priority_weighted_ratio?: number;
+  call_timeout_minutes?: number | null;
   capacity?: number | null;
   establishment?: { id:number; name:string };
   qr_code_token?: string;
@@ -50,8 +51,8 @@ export default function Services(){
   const [qrLoading, setQrLoading] = useState(false)
 
   // Formulaires
-  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, capacity: null as number | null })
-  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, capacity: null as number | null })
+  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, capacity: null as number | null })
+  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, capacity: null as number | null })
   const [createErrors, setCreateErrors] = useState<Record<string,string>>({})
   const [editErrors, setEditErrors] = useState<Record<string,string>>({})
 
@@ -127,6 +128,7 @@ export default function Services(){
       priority_support: !!s.priority_support,
       priority_mode: s.priority_mode || 'immediate',
       priority_weighted_ratio: s.priority_weighted_ratio ?? 5,
+      call_timeout_minutes: s.call_timeout_minutes ?? null,
       capacity: (s as any).capacity ?? null,
     })
     setOpenEdit(true)
@@ -145,7 +147,7 @@ export default function Services(){
       const response = await api.post('/api/admin/services', parsed.data)
       toast.success('Service créé avec succès')
       setOpenCreate(false)
-      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio:5, capacity: null })
+      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio:5, call_timeout_minutes: null, capacity: null })
       load()
     } catch(e:any) {
       const status = e?.response?.status
@@ -477,6 +479,16 @@ export default function Services(){
               <input type="number" min={1} max={50} className="w-full rounded-md border-border bg-background px-3 py-2 text-sm" value={createForm.priority_weighted_ratio} onChange={e=>setCreateForm({...createForm, priority_weighted_ratio: Number(e.target.value)})} />
             </div>
           )}
+          <div>
+            <label className="text-sm font-medium text-foreground">Délai de priorité (min)</label>
+            <input
+              type="number" min={1} max={60} placeholder="Par défaut (10 min)"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={createForm.call_timeout_minutes ?? ''}
+              onChange={e => setCreateForm({...createForm, call_timeout_minutes: e.target.value === '' ? null : Number(e.target.value)})}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Délai accordé après l'appel d'un ticket avant marquage absent automatique.</p>
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenCreate(false)}>Annuler</button>
@@ -540,6 +552,16 @@ export default function Services(){
               <input type="number" min={1} max={50} className="w-full rounded-md border-border bg-background px-3 py-2 text-sm" value={editForm.priority_weighted_ratio} onChange={e=>setEditForm({...editForm, priority_weighted_ratio: Number(e.target.value)})} />
             </div>
           )}
+          <div>
+            <label className="text-sm font-medium text-foreground">Délai de priorité (min)</label>
+            <input
+              type="number" min={1} max={60} placeholder="Par défaut (10 min)"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={editForm.call_timeout_minutes ?? ''}
+              onChange={e => setEditForm({...editForm, call_timeout_minutes: e.target.value === '' ? null : Number(e.target.value)})}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Délai accordé après l'appel d'un ticket avant marquage absent automatique.</p>
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>

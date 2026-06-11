@@ -18,6 +18,7 @@ class Service extends Model
         'priority_support',
         'priority_mode',
         'priority_weighted_ratio',
+        'call_timeout_minutes',
         'capacity',
         'qr_code_token',
         'qr_code_url',

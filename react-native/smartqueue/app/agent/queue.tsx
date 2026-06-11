@@ -14,6 +14,7 @@ import {
   Modal,
   ScrollView,
   KeyboardAvoidingView,
+  Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -42,6 +43,7 @@ type Ticket = {
   is_pregnant?: boolean;
   created_at: string;
   called_at?: string;
+  called_expires_at?: string | null;
   en_route_at?: string | null;
   present_at?: string | null;
   response_received_at?: string | null;
@@ -194,12 +196,40 @@ const SmartQueueBanner = ({ data, colors }: { data: SmartQueueData; colors: Them
   );
 };
 
+function useCountdown(expiresAt?: string | null): number | null {
+  const [seconds, setSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!expiresAt) { setSeconds(null); return; }
+    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    setSeconds(calc());
+    const id = setInterval(() => setSeconds(calc()), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  return seconds;
+}
+
+function fmtCountdown(s: number): string {
+  if (s <= 0) return "Expiré";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}:${sec.toString().padStart(2, "0")}` : `0:${sec.toString().padStart(2, "0")}`;
+}
+
 const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colors }: any) => {
   const statusCfg = STATUS_CFG[ticket.status] ?? { color: "#007AFF", label: ticket.status };
+
+  const calledCountdown = useCountdown(ticket.status === "called" ? ticket.called_expires_at : null);
+  const enRouteCountdown = useCountdown(ticket.status === "en_route" ? ticket.en_route_expires_at : null);
+
   let statusLine = "";
   if (ticket.status === "present") statusLine = "Usager présent";
-  else if (ticket.en_route_at) statusLine = ticket.estimated_travel_minutes ? `En route · ≈ ${ticket.estimated_travel_minutes} min` : "Réponse reçue";
+  else if (ticket.en_route_at) statusLine = ticket.estimated_travel_minutes ? `En route · ≈ ${ticket.estimated_travel_minutes} min` : "En route — réponse reçue";
   else if (ticket.called_at) statusLine = `Appelé à ${fmtTime(ticket.called_at)}`;
+
+  const isCalledExpiring = calledCountdown !== null && calledCountdown <= 30;
+  const isEnRouteExpiring = enRouteCountdown !== null && enRouteCountdown <= 60;
 
   return (
     <View style={[styles.currentCard, { backgroundColor: "#1558CC" }]}>
@@ -213,6 +243,19 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
             <Text style={styles.currentStatusText}>{statusCfg.label.toUpperCase()}</Text>
           </View>
         </View>
+        {/* Countdown badge */}
+        {ticket.status === "called" && calledCountdown !== null && (
+          <View style={[styles.countdownBadge, { backgroundColor: isCalledExpiring ? "rgba(255,59,48,0.9)" : "rgba(255,255,255,0.2)" }]}>
+            <Ionicons name="timer-outline" size={11} color="#FFF" />
+            <Text style={styles.countdownText}>{fmtCountdown(calledCountdown)}</Text>
+          </View>
+        )}
+        {ticket.status === "en_route" && enRouteCountdown !== null && (
+          <View style={[styles.countdownBadge, { backgroundColor: isEnRouteExpiring ? "rgba(255,59,48,0.9)" : "rgba(255,149,0,0.7)" }]}>
+            <Ionicons name="walk-outline" size={11} color="#FFF" />
+            <Text style={styles.countdownText}>{fmtCountdown(enRouteCountdown)}</Text>
+          </View>
+        )}
       </View>
       {statusLine !== "" && <Text style={styles.currentStatusLine}>{statusLine}</Text>}
       <View style={styles.currentActions}>
@@ -496,6 +539,10 @@ export default function AgentQueue() {
     is_pregnant: false,
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [callTimeoutMinutes, setCallTimeoutMinutes] = useState<number | null>(null);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [timeoutInput, setTimeoutInput] = useState("");
+  const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
   const echoRef = useRef<any>(null);
   const hPad = width >= 768 ? 16 : 12;
 
@@ -520,6 +567,7 @@ export default function AgentQueue() {
         avg_wait_time: statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
       setServiceStatus(serviceRes.data?.status || "open");
+      setCallTimeoutMinutes(serviceRes.data?.call_timeout_minutes ?? null);
 
       if (availRes?.data) {
         const cap = availRes.data.capacity ?? {};
@@ -671,6 +719,28 @@ export default function AgentQueue() {
     finally { setIsActing(false); }
   };
 
+  const handleUpdateTimeout = async () => {
+    if (!serviceId) return;
+    const parsed = timeoutInput.trim() === "" ? null : parseInt(timeoutInput, 10);
+    if (parsed !== null && (isNaN(parsed) || parsed < 1 || parsed > 60)) {
+      showError("Valeur invalide", "Le délai doit être compris entre 1 et 60 minutes.");
+      return;
+    }
+    setIsUpdatingTimeout(true);
+    try {
+      await axiosClient.patch(`/services/${parseInt(serviceId)}/call-timeout`, {
+        call_timeout_minutes: parsed,
+      });
+      setCallTimeoutMinutes(parsed);
+      setShowTimeoutModal(false);
+      showSuccess("Délai mis à jour", parsed ? `Délai de priorité : ${parsed} min` : "Délai par défaut rétabli");
+    } catch (error: any) {
+      showError("Erreur", error?.response?.data?.message || "Impossible de mettre à jour");
+    } finally {
+      setIsUpdatingTimeout(false);
+    }
+  };
+
   const handleCreateTicket = async () => {
     if (!serviceId) return;
     setIsCreating(true);
@@ -718,6 +788,15 @@ export default function AgentQueue() {
             {smartQueue?.closing_time ? ` · Ferme à ${smartQueue.closing_time.substring(0, 5)}` : ""}
           </Text>
         </View>
+        <TouchableOpacity
+          style={[styles.timeoutBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutModal(true); }}
+        >
+          <Ionicons name="timer-outline" size={14} color={colors.textSecondary} />
+          <Text style={[styles.timeoutBtnText, { color: colors.textSecondary }]}>
+            {callTimeoutMinutes ? `${callTimeoutMinutes}min` : "Délai"}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.serviceToggle, { backgroundColor: serviceStatus === "open" ? "#34C759" : "#FF3B30", opacity: isActing ? 0.6 : 1 }]}
           onPress={() => serviceStatus === "open" ? handleCloseService() : handleOpenService()}
@@ -854,6 +933,47 @@ export default function AgentQueue() {
         colors={colors}
       />
 
+      {/* Modal de configuration du délai de priorité */}
+      <Modal visible={showTimeoutModal} transparent animationType="fade" onRequestClose={() => setShowTimeoutModal(false)}>
+        <TouchableOpacity style={tmStyles.backdrop} activeOpacity={1} onPress={() => setShowTimeoutModal(false)} />
+        <View style={tmStyles.centeredView}>
+          <View style={[tmStyles.card, { backgroundColor: colors.surface }]}>
+            <View style={tmStyles.cardHeader}>
+              <Ionicons name="timer-outline" size={20} color="#007AFF" />
+              <Text style={[tmStyles.cardTitle, { color: colors.textPrimary }]}>Délai de priorité</Text>
+            </View>
+            <Text style={[tmStyles.cardSub, { color: colors.textSecondary }]}>
+              Durée accordée à l'usager pour se présenter après l'appel de son ticket. Passé ce délai, il sera automatiquement marqué absent.
+            </Text>
+            <View style={[tmStyles.inputRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <TextInput
+                style={[tmStyles.timeoutInput, { color: colors.textPrimary }]}
+                keyboardType="number-pad"
+                placeholder={`Par défaut (${Math.ceil((600) / 60)} min)`}
+                placeholderTextColor={colors.textTertiary}
+                value={timeoutInput}
+                onChangeText={setTimeoutInput}
+                maxLength={2}
+              />
+              <Text style={[tmStyles.unit, { color: colors.textSecondary }]}>min</Text>
+            </View>
+            <Text style={[tmStyles.hint, { color: colors.textTertiary }]}>Laissez vide pour utiliser la valeur par défaut · Valeur entre 1 et 60 min</Text>
+            <View style={tmStyles.actions}>
+              <TouchableOpacity style={[tmStyles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowTimeoutModal(false)}>
+                <Text style={[tmStyles.cancelText, { color: colors.textSecondary }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[tmStyles.saveBtn, { backgroundColor: isUpdatingTimeout ? "#007AFF80" : "#007AFF" }]}
+                onPress={handleUpdateTimeout}
+                disabled={isUpdatingTimeout}
+              >
+                <Text style={tmStyles.saveText}>{isUpdatingTimeout ? "Enregistrement..." : "Enregistrer"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {AlertComponent}
     </SafeAreaView>
   );
@@ -926,4 +1046,26 @@ const styles = StyleSheet.create({
   callButtonBadge: { backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
   callButtonBadgeText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
   createBtn: { width: 50, height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  timeoutBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  timeoutBtnText: { fontSize: 11, fontWeight: "600" },
+  countdownBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  countdownText: { color: "#FFF", fontSize: 12, fontWeight: "800", fontVariant: ["tabular-nums"] as any },
+});
+
+const tmStyles = StyleSheet.create({
+  backdrop: { position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)" } as any,
+  centeredView: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  card: { width: "100%", borderRadius: 18, padding: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  cardTitle: { fontSize: 17, fontWeight: "700" },
+  cardSub: { fontSize: 13, lineHeight: 18, marginBottom: 16 },
+  inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
+  timeoutInput: { flex: 1, fontSize: 22, fontWeight: "700", padding: 0 },
+  unit: { fontSize: 14, fontWeight: "600" },
+  hint: { fontSize: 11, lineHeight: 16, marginBottom: 20 },
+  actions: { flexDirection: "row", gap: 10 },
+  cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  cancelText: { fontSize: 14, fontWeight: "600" },
+  saveBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  saveText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
 });

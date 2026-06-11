@@ -34,6 +34,7 @@ class ServiceController extends Controller
             'priority_support' => ['nullable','boolean'],
             'priority_mode' => ['nullable','in:immediate,weighted,disabled'],
             'priority_weighted_ratio' => ['nullable','integer','min:1','max:50'],
+            'call_timeout_minutes' => ['nullable','integer','min:1','max:60'],
             'capacity' => ['nullable','integer','min:1','max:5000'],
         ]);
 
@@ -72,6 +73,7 @@ class ServiceController extends Controller
             'priority_support' => ['sometimes','boolean'],
             'priority_mode' => ['sometimes','in:immediate,weighted,disabled'],
             'priority_weighted_ratio' => ['sometimes','integer','min:1','max:50'],
+            'call_timeout_minutes' => ['sometimes','nullable','integer','min:1','max:60'],
             'capacity' => ['sometimes','nullable','integer','min:1','max:5000'],
         ]);
 

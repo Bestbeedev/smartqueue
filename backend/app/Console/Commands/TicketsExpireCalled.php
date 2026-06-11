@@ -23,16 +23,25 @@ class TicketsExpireCalled extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
         $now = Carbon::now();
-        $timeoutSeconds = (int) config('queue.call_timeout_seconds', 600);
 
-        // Threshold time before which called tickets should be marked absent
-        $threshold = $now->copy()->subSeconds($timeoutSeconds);
+        // Prefer per-ticket called_expires_at; fall back to global config for legacy tickets
+        $fallbackThreshold = $now->copy()->subSeconds((int) config('queue.call_timeout_seconds', 600));
 
         $query = Ticket::query()
             ->with('user')
             ->where('status', 'called')
-            ->whereNotNull('called_at')
-            ->where('called_at', '<=', $threshold);
+            ->where(function ($q) use ($now, $fallbackThreshold) {
+                $q->where(function ($sub) use ($now) {
+                    // Ticket has a specific expiry set by callNext()
+                    $sub->whereNotNull('called_expires_at')
+                        ->where('called_expires_at', '<=', $now);
+                })->orWhere(function ($sub) use ($fallbackThreshold) {
+                    // Legacy ticket without called_expires_at — use global config
+                    $sub->whereNull('called_expires_at')
+                        ->whereNotNull('called_at')
+                        ->where('called_at', '<=', $fallbackThreshold);
+                });
+            });
 
         $tickets = $query->get();
         $this->info(($dryRun ? '[dry-run] ' : '') . 'Expiring called tickets: ' . $tickets->count());

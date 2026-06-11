@@ -4,7 +4,7 @@
  * - Actions: appeler suivant, marquer absent, rappeler
  * - Écoute temps réel des évènements via Laravel Echo
  */
-import React, { useEffect, useMemo, useState, type JSX } from "react";
+import React, { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import {
   Ticket,
   User,
@@ -24,6 +24,8 @@ import {
   Accessibility,
   Baby,
   HeartHandshake,
+  Timer,
+  Settings2,
 } from "lucide-react";
 import { getEcho } from "@/api/echo";
 import { cn } from "@/lib/utils";
@@ -62,6 +64,7 @@ type QueueTicket = {
   present_at?: string | null;
   response_received_at?: string | null;
   en_route_expires_at?: string | null;
+  called_expires_at?: string | null;
   is_swapped?: boolean;
   deferred_at?: string | null;
   swapped_with_ticket_id?: number | null;
@@ -82,6 +85,7 @@ type AssignedService = {
   avg_service_time_minutes?: number;
   priority_support?: boolean;
   capacity?: number | null;
+  call_timeout_minutes?: number | null;
 };
 
 type Counter = {
@@ -89,6 +93,52 @@ type Counter = {
   name: string;
   status: string;
   current_agent_id?: number | null;
+};
+
+/** Countdown hook — re-renders every second until expiresAt is reached */
+function useCountdown(expiresAt?: string | null): number | null {
+  const [seconds, setSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    if (!expiresAt) { setSeconds(null); return; }
+    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    setSeconds(calc());
+    const id = setInterval(() => setSeconds(calc()), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return seconds;
+}
+
+function fmtCountdown(s: number): string {
+  if (s <= 0) return "Expiré";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+/** Row countdown cell — isolated so only the row re-renders per tick */
+const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
+  const calledSeconds = useCountdown(ticket.status === "called" ? (ticket.called_expires_at ?? null) : null);
+  const enRouteSeconds = useCountdown(ticket.status === "en_route" ? (ticket.en_route_expires_at ?? null) : null);
+
+  if (ticket.status === "called" && calledSeconds !== null) {
+    const expiring = calledSeconds <= 30;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"}`}>
+        <Timer className="h-3 w-3" />
+        {fmtCountdown(calledSeconds)}
+      </span>
+    );
+  }
+  if (ticket.status === "en_route" && enRouteSeconds !== null) {
+    const expiring = enRouteSeconds <= 60;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200"}`}>
+        <Timer className="h-3 w-3" />
+        {fmtCountdown(enRouteSeconds)}
+      </span>
+    );
+  }
+  return null;
 };
 
 const Queues: React.FC = () => {
@@ -108,6 +158,10 @@ const Queues: React.FC = () => {
   const [isActing, setIsActing] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [callTimeoutMinutes, setCallTimeoutMinutes] = useState<number | null>(null);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timeoutInput, setTimeoutInput] = useState("");
+  const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
   const echo = getEcho();
 
   // Default service selection from assigned services
@@ -134,7 +188,34 @@ const Queues: React.FC = () => {
       throw new Error("Identifiant de service invalide");
     }
     const { data } = await api.get(`/api/services/${numericId}`);
+    if (data?.call_timeout_minutes !== undefined) {
+      setCallTimeoutMinutes(data.call_timeout_minutes ?? null);
+    }
     return data;
+  };
+
+  const updateCallTimeout = async () => {
+    if (!serviceId) return;
+    const parsed = timeoutInput.trim() === "" ? null : parseInt(timeoutInput, 10);
+    if (parsed !== null && (isNaN(parsed) || parsed < 1 || parsed > 60)) {
+      toast.error("Valeur invalide", { description: "Le délai doit être compris entre 1 et 60 minutes." });
+      return;
+    }
+    setIsUpdatingTimeout(true);
+    try {
+      await api.patch(`/api/services/${Number(serviceId)}/call-timeout`, {
+        call_timeout_minutes: parsed,
+      });
+      setCallTimeoutMinutes(parsed);
+      setShowTimeoutDialog(false);
+      toast.success("Délai mis à jour", {
+        description: parsed ? `Délai de priorité : ${parsed} min` : "Délai par défaut rétabli",
+      });
+    } catch (e: any) {
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
+    } finally {
+      setIsUpdatingTimeout(false);
+    }
   };
 
   const fetchQueue = async (id: string) => {
@@ -872,6 +953,21 @@ const Queues: React.FC = () => {
                     >
                       Rafraîchir la file
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutDialog(true); }}
+                      disabled={!serviceId}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                        !serviceId
+                          ? "bg-muted text-muted-foreground border-border"
+                          : "bg-card text-foreground border-border hover:bg-muted",
+                      )}
+                      title="Configurer le délai de priorité"
+                    >
+                      <Timer className="h-4 w-4" />
+                      {callTimeoutMinutes ? `${callTimeoutMinutes} min` : "Délai"}
+                    </button>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {isActing ? "Action en cours…" : ""}
@@ -1083,17 +1179,24 @@ const Queues: React.FC = () => {
                                     )}
                                     {t.en_route_expires_at &&
                                       t.status === "en_route" && (
-                                        <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                                          Priorité valable jusqu&apos;à{" "}
-                                          {formatTime(t.en_route_expires_at)}
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                            Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}
+                                          </div>
+                                          <CountdownCell ticket={t} />
                                         </div>
                                       )}
                                   </div>
                                 ) : t.status === "called" ? (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                                    <Phone className="h-3.5 w-3.5" />
-                                    En attente de réponse
-                                  </span>
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                      <Phone className="h-3.5 w-3.5" />
+                                      En attente de réponse
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <CountdownCell ticket={t} />
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">
                                     —
@@ -1313,6 +1416,56 @@ const Queues: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Dialog de configuration du délai de priorité */}
+      {showTimeoutDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTimeoutDialog(false)}>
+          <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600">
+                <Timer className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Délai de priorité</h3>
+                <p className="text-xs text-muted-foreground">Durée avant marquage absent automatique</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Après l'appel d'un ticket, l'usager dispose de ce délai pour se présenter. Passé ce délai, il est automatiquement marqué absent.
+            </p>
+            <div className="relative mb-2">
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={timeoutInput}
+                onChange={(e) => setTimeoutInput(e.target.value)}
+                placeholder="Par défaut (10 min)"
+                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-6">Laissez vide pour la valeur par défaut · Entre 1 et 60 minutes</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTimeoutDialog(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={updateCallTimeout}
+                disabled={isUpdatingTimeout}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {isUpdatingTimeout ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

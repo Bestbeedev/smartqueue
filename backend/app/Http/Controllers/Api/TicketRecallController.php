@@ -47,10 +47,14 @@ class TicketRecallController extends Controller
             ], 400);
         }
 
-        // Mark as recalled and reset called_at for new countdown
+        $timeoutMinutes = $ticket->service->call_timeout_minutes
+            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+
+        // Mark as recalled and reset countdown
         $ticket->update([
             'has_recalled' => true,
-            'called_at' => now(), // Reset countdown
+            'called_at' => now(),
+            'called_expires_at' => now()->addMinutes($timeoutMinutes),
         ]);
 
         // Send push + SMS notification
@@ -59,7 +63,7 @@ class TicketRecallController extends Controller
         return response()->json([
             'data' => $ticket->fresh(),
             'message' => 'Rappel envoyé',
-            'countdown_seconds' => config('queue.call_timeout_seconds', 180),
+            'countdown_seconds' => $timeoutMinutes * 60,
         ]);
     }
 
@@ -411,19 +415,30 @@ class TicketRecallController extends Controller
             ]);
         }
 
-        $timeoutSeconds = config('queue.call_timeout_seconds', 180);
-        $calledAt = $ticket->called_at ?? now();
-        $elapsed = now()->diffInSeconds($calledAt);
-        $remaining = max(0, $timeoutSeconds - $elapsed);
+        // Use called_expires_at if available, fall back to global config
+        if ($ticket->called_expires_at) {
+            $remaining = max(0, now()->diffInSeconds($ticket->called_expires_at, false));
+        } else {
+            $timeoutSeconds = (int) config('queue.call_timeout_seconds', 600);
+            $calledAt = $ticket->called_at ?? now();
+            $elapsed = now()->diffInSeconds($calledAt);
+            $remaining = max(0, $timeoutSeconds - $elapsed);
+        }
+
+        $service = $ticket->service;
+        $timeoutMinutes = $service->call_timeout_minutes
+            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
 
         return response()->json([
             'is_called' => $ticket->status === 'called',
             'is_en_route' => $ticket->status === 'en_route',
             'is_present' => $ticket->status === 'present',
-            'countdown_seconds' => $remaining,
+            'countdown_seconds' => (int) $remaining,
             'has_recalled' => $ticket->has_recalled,
             'counter_number' => $ticket->counter?->number,
             'en_route_expires_at' => $ticket->en_route_expires_at,
+            'called_expires_at' => $ticket->called_expires_at,
+            'call_timeout_minutes' => $timeoutMinutes,
         ]);
     }
 }
