@@ -41,7 +41,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
   const [localCountdown, setLocalCountdown] = useState(600);
   const [isExpired, setIsExpired] = useState(false);
   const [callTimeoutMinutes, setCallTimeoutMinutes] = useState<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // États pour les confirmations
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -172,16 +172,27 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
             const s = useTicketStore.getState();
             if (s.activeTicket?.id === effectiveTicketId) {
               useTicketStore.setState({
-                activeTicket: { ...s.activeTicket, status: "en_route", en_route_at: updatedTicket.en_route_at },
+                activeTicket: {
+                  ...s.activeTicket,
+                  status: "en_route",
+                  en_route_at: updatedTicket.en_route_at,
+                  en_route_expires_at: updatedTicket.en_route_expires_at ?? null,
+                },
                 activeTickets: s.activeTickets.map((t: any) =>
-                  t.id === effectiveTicketId ? { ...t, status: "en_route", en_route_at: updatedTicket.en_route_at } : t
+                  t.id === effectiveTicketId
+                    ? { ...t, status: "en_route", en_route_at: updatedTicket.en_route_at, en_route_expires_at: updatedTicket.en_route_expires_at ?? null }
+                    : t
                 ),
               });
             }
           }
           stopSound();
           markEnRoute();
-          showSuccess("Confirmation", "L'agent a été notifié que vous êtes en route");
+          const graceMinutes = response.data?.grace_minutes ?? 10;
+          showSuccess(
+            "En route confirmé !",
+            `Vous avez ${graceMinutes} minute${graceMinutes > 1 ? "s" : ""} pour vous présenter à l'établissement.`
+          );
           await fetchActiveTicket();
         } catch (error: any) {
           showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer"));

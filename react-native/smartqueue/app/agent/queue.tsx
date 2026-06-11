@@ -49,6 +49,7 @@ type Ticket = {
   response_received_at?: string | null;
   en_route_expires_at?: string | null;
   estimated_travel_minutes?: number | null;
+  last_distance_m?: number | null;
   eta_minutes?: number | null;
   auto_deferred?: boolean;
   defer_reason?: string | null;
@@ -259,7 +260,12 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
 
   let statusLine = "";
   if (ticket.status === "present") statusLine = "Usager présent";
-  else if (ticket.en_route_at) statusLine = ticket.estimated_travel_minutes ? `En route · ≈ ${ticket.estimated_travel_minutes} min` : "En route — réponse reçue";
+  else if (ticket.en_route_at) {
+    const travelPart = ticket.estimated_travel_minutes ? `≈ ${ticket.estimated_travel_minutes} min` : null;
+    const distPart = ticket.last_distance_m != null ? `${(ticket.last_distance_m / 1000).toFixed(1)} km` : null;
+    const details = [travelPart, distPart].filter(Boolean).join(" · ");
+    statusLine = details ? `En route · ${details}` : "En route — réponse reçue";
+  }
   else if (ticket.called_at) statusLine = `Appelé à ${fmtTime(ticket.called_at)}`;
 
   const isCalledExpiring = calledCountdown !== null && calledCountdown <= 30;

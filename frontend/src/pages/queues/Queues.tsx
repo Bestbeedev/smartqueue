@@ -59,6 +59,7 @@ type QueueTicket = {
   is_pregnant?: boolean;
   en_route_at?: string | null;
   estimated_travel_minutes?: number | null;
+  last_distance_m?: number | null;
   position?: number | null;
   called_at?: string | null;
   present_at?: string | null;
@@ -530,6 +531,7 @@ const Queues: React.FC = () => {
                         ...t,
                         en_route_at: new Date().toISOString(),
                         estimated_travel_minutes: e.estimated_minutes ?? null,
+                        last_distance_m: e.last_distance_m ?? null,
                       }
                     : t,
                 ),
@@ -1164,7 +1166,7 @@ const Queues: React.FC = () => {
                                       {t.status === "present"
                                         ? "Présent sur place"
                                         : t.estimated_travel_minutes != null
-                                          ? `En route · ≈ ${t.estimated_travel_minutes} min`
+                                          ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}`
                                           : "Présence confirmée"}
                                     </span>
                                     <div className="text-xs text-muted-foreground">

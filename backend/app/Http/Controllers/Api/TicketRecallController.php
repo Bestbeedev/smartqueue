@@ -150,7 +150,8 @@ class TicketRecallController extends Controller
                 $ticket->service_id,
                 $travelMinutes,
                 $ticket->number,
-                $travelMinutes === null
+                $travelMinutes === null,
+                $ticket->last_distance_m
             ));
             \Log::info('[TicketRecallController] UserEnRoute event dispatched successfully');
         } catch (\Exception $e) {

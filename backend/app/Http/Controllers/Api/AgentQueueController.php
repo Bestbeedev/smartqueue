@@ -61,6 +61,7 @@ class AgentQueueController extends Controller
                     'response_received_at'    => optional($t->response_received_at)->toDateTimeString(),
                     'en_route_expires_at'     => optional($t->en_route_expires_at)->toDateTimeString(),
                     'estimated_travel_minutes'=> $t->estimated_travel_minutes,
+                    'last_distance_m'         => $t->last_distance_m,
                     'user' => $t->user ? [
                         'id'    => $t->user->id,
                         'name'  => $t->user->name,

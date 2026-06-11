@@ -138,14 +138,24 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       if (typeof rawTravel === "number" && Number.isFinite(rawTravel)) {
         payload.estimated_travel_minutes = Math.min(60, Math.max(1, Math.round(rawTravel)));
       }
-      await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
+      const response = await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const s = useTicketStore.getState();
       if (s.activeTicket?.id === activeTicket?.id) {
+        const updatedTicket = response.data?.data || response.data;
+        if (updatedTicket?.en_route_expires_at) {
+          useTicketStore.setState({
+            activeTicket: { ...(s.activeTicket as any), status: "en_route", en_route_at: updatedTicket.en_route_at, en_route_expires_at: updatedTicket.en_route_expires_at },
+            activeTickets: s.activeTickets.map((t: any) =>
+              t.id === activeTicket?.id ? { ...t, status: "en_route", en_route_at: updatedTicket.en_route_at, en_route_expires_at: updatedTicket.en_route_expires_at } : t
+            ),
+          });
+        }
         s.markEnRoute();
         try { await s.fetchActiveTicket(); } catch (err) { console.warn(err); }
       }
-      showSuccess("Confirmation", "L'agent a été notifié que vous êtes en route");
+      const graceMinutes = response.data?.grace_minutes ?? 10;
+      showSuccess("En route confirmé !", `Vous avez ${graceMinutes} minute${graceMinutes > 1 ? "s" : ""} pour vous présenter à l'établissement.`);
       onConfirmPresence?.();
     } catch (error: any) {
       showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer"));
@@ -174,15 +184,27 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     ? "Vous avez été marqué absent par l'agent. Ce ticket n'est plus actif."
     : "Votre délai de présentation est dépassé. Ce ticket n'est plus actif.";
 
-  const getGraceRemainingText = useCallback(() => {
-    if (!activeTicket?.en_route_expires_at) return null;
-    const remainingMs = new Date(activeTicket.en_route_expires_at).getTime() - Date.now();
-    if (remainingMs <= 0) return "Délai expiré";
-    const totalMinutes = Math.ceil(remainingMs / 60000);
-    return `${totalMinutes} min restantes`;
-  }, [activeTicket?.en_route_expires_at]);
+  // Live countdown pour le statut "en_route"
+  const [enRouteCountdown, setEnRouteCountdown] = useState<number | null>(null);
+  const enRouteExpiryAlerted = useRef(false);
+  useEffect(() => {
+    const expiresAt = activeTicket?.en_route_expires_at;
+    if (!isTicketEnRoute || !expiresAt) { setEnRouteCountdown(null); enRouteExpiryAlerted.current = false; return; }
+    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    setEnRouteCountdown(calc());
+    const id = setInterval(() => setEnRouteCountdown(calc()), 1000);
+    return () => clearInterval(id);
+  }, [isTicketEnRoute, activeTicket?.en_route_expires_at]);
 
-  const graceRemainingText = getGraceRemainingText();
+  const isEnRouteExpired = isTicketEnRoute && enRouteCountdown !== null && enRouteCountdown <= 0;
+
+  // Alerte une seule fois quand le délai en_route expire
+  useEffect(() => {
+    if (isEnRouteExpired && !enRouteExpiryAlerted.current) {
+      enRouteExpiryAlerted.current = true;
+      showWarning("Délai expiré", "Votre délai de présentation est écoulé. Votre ticket va être marqué absent.");
+    }
+  }, [isEnRouteExpired]);
 
   // Calcul du temps pour la moto (environ 30% plus rapide que la voiture)
   const getMotorcycleTime = () => {
@@ -342,20 +364,36 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {/* Timer et bouton présent pour l'état "en route" */}
         {isTicketEnRoute && (
           <View style={styles.enRouteContainer}>
-            <View style={[styles.enRouteTimerBadge, { backgroundColor: colors.warning + "15" }]}>
-              <Ionicons name="time" size={14} color={colors.warning} />
-              <Text style={[styles.enRouteTimerText, { color: colors.warning }]}>
-                Délai de priorité : {graceRemainingText || "Expiré"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
-              onPress={handleMarkPresent}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
-              <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
-            </TouchableOpacity>
+            {isEnRouteExpired ? (
+              <View style={[styles.enRouteTimerBadge, { backgroundColor: colors.danger + "15", borderColor: colors.danger + "30", borderWidth: 1 }]}>
+                <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
+                <Text style={[styles.enRouteTimerText, { color: colors.danger }]}>
+                  Délai de présence expiré — ticket marqué absent
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={[
+                  styles.enRouteTimerBadge,
+                  { backgroundColor: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15" },
+                ]}>
+                  <Ionicons name="timer-outline" size={14} color={enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning} />
+                  <Text style={[styles.enRouteTimerText, { color: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning, fontVariant: ["tabular-nums"] as any }]}>
+                    {enRouteCountdown !== null
+                      ? `Présenter-vous dans ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")}`
+                      : "Délai de présence en cours…"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
+                  onPress={handleMarkPresent}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
+                  <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
 
