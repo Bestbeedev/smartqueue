@@ -1167,14 +1167,28 @@ const Queues: React.FC = () => {
                                 )}
                                 {t.source && SOURCE_CONFIG[t.source] && (
                                   <div className="flex items-center gap-1 mt-0.5">
-                                    {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
+                                    <span title={SOURCE_CONFIG[t.source].label}>
+                                      {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
+                                    </span>
                                     <span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span>
                                   </div>
                                 )}
                                 <div className="flex gap-1 mt-0.5 flex-wrap">
-                                  {t.is_senior && <span title="Senior"><Accessibility className="h-3.5 w-3.5 text-blue-500" /></span>}
-                                  {t.is_handicap && <span title="Handicap"><HeartHandshake className="h-3.5 w-3.5 text-purple-500" /></span>}
-                                  {t.is_pregnant && <span title="Femme enceinte"><Baby className="h-3.5 w-3.5 text-pink-500" /></span>}
+                                  {t.is_senior && (
+                                    <span title="Senior">
+                                      <Accessibility className="h-3.5 w-3.5 text-blue-500" />
+                                    </span>
+                                  )}
+                                  {t.is_handicap && (
+                                    <span title="Handicap">
+                                      <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
+                                    </span>
+                                  )}
+                                  {t.is_pregnant && (
+                                    <span title="Femme enceinte">
+                                      <Baby className="h-3.5 w-3.5 text-pink-500" />
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -1401,9 +1415,21 @@ const Queues: React.FC = () => {
                                     <td className="px-4 py-3">
                                       <div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div>
                                       <div className="flex gap-1 mt-0.5">
-                                        {t.is_senior && <Accessibility className="h-3 w-3 text-blue-500" title="Senior" />}
-                                        {t.is_handicap && <HeartHandshake className="h-3 w-3 text-purple-500" title="Handicap" />}
-                                        {t.is_pregnant && <Baby className="h-3 w-3 text-pink-500" title="Femme enceinte" />}
+                                        {t.is_senior && (
+                                          <span title="Senior">
+                                            <Accessibility className="h-3 w-3 text-blue-500" />
+                                          </span>
+                                        )}
+                                        {t.is_handicap && (
+                                          <span title="Handicap">
+                                            <HeartHandshake className="h-3 w-3 text-purple-500" />
+                                          </span>
+                                        )}
+                                        {t.is_pregnant && (
+                                          <span title="Femme enceinte">
+                                            <Baby className="h-3 w-3 text-pink-500" />
+                                          </span>
+                                        )}
                                       </div>
                                     </td>
                                     <td className="px-4 py-3">
@@ -1419,7 +1445,9 @@ const Queues: React.FC = () => {
                                     <td className="px-4 py-3">
                                       {t.source && SOURCE_CONFIG[t.source] ? (
                                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                          {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
+                                          <span title={SOURCE_CONFIG[t.source].label}>
+                                            {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
+                                          </span>
                                           {SOURCE_CONFIG[t.source].label}
                                         </div>
                                       ) : <span className="text-xs text-muted-foreground">—</span>}
