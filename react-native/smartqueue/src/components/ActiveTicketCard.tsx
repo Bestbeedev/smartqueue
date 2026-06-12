@@ -1,4 +1,3 @@
-// ActiveTicketCard.tsx - Version modifiée
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import {
   View,
@@ -23,42 +22,45 @@ import type { Ticket } from "../api/ticketsApi";
 const { width } = Dimensions.get("window");
 
 interface ActiveTicketCardProps {
-  ticket?: Ticket;  // <-- NOUVEAU: ticket optionnel passé en prop
+  ticket?: Ticket;
   onPress?: () => void;
   onCancel?: () => void;
   onConfirmPresence?: () => void;
   compact?: boolean;
+  onTicketExpired?: () => void;
+  suppressAutoAlerts?: boolean;
 }
 
 export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
-  ticket: propTicket,  // <-- Renommer pour éviter confusion
+  ticket: propTicket,
   onPress,
   onCancel,
   onConfirmPresence,
   compact = false,
+  onTicketExpired,
+  suppressAutoAlerts = false,
 }) => {
   const colors = useThemeColors();
 
-  // Récupérer le ticket du store comme fallback
   const { 
     activeTicket: storeTicket, 
     position: storePosition, 
     etaMinutes: storeEtaMinutes, 
-    isCalled, 
-    cancelTicket 
+    cancelTicket,
+    removeExpiredTicket,
   } = useTicket();
   
-  // Utiliser le ticket passé en prop, sinon celui du store
   const activeTicket = propTicket || storeTicket;
-  
-  // Pour la position/ETA, on utilise celles du ticket si dispo, sinon celles du store
   const position = activeTicket?.position ?? storePosition;
   const etaMinutes = activeTicket?.eta_minutes ?? storeEtaMinutes;
 
   const { marginMinutes, preferredTransportMode } = useAlertPreferencesStore();
-  const { AlertComponent, showWarning, showError, showSuccess } = useCustomAlert();
+  const { AlertComponent, showWarning, showError, showSuccess, showInfo } = useCustomAlert();
 
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const alertShownRef = useRef(false);
+  const wsChannelRef = useRef<any>(null);
+  const expiryCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const hasValidCoordinates =
     activeTicket?.establishment &&
@@ -79,6 +81,153 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const processedCount = Math.max(0, queueLength - (position || 0));
   const progress = queueLength > 0 ? processedCount / queueLength : 0;
 
+  const [localStatus, setLocalStatus] = useState(activeTicket?.status);
+  const [calledExpiresAt, setCalledExpiresAt] = useState((activeTicket as any)?.called_expires_at);
+  const [enRouteExpiresAt, setEnRouteExpiresAt] = useState(activeTicket?.en_route_expires_at);
+
+  useEffect(() => {
+    setLocalStatus(activeTicket?.status);
+    setCalledExpiresAt((activeTicket as any)?.called_expires_at);
+    setEnRouteExpiresAt(activeTicket?.en_route_expires_at);
+    alertShownRef.current = false;
+  }, [activeTicket?.id, activeTicket?.status]);
+
+  const isCalledExpired = localStatus === "called" && calledExpiresAt 
+    ? new Date(calledExpiresAt).getTime() <= Date.now()
+    : false;
+
+  const isEnRouteExpired = localStatus === "en_route" && enRouteExpiresAt
+    ? new Date(enRouteExpiresAt).getTime() <= Date.now()
+    : false;
+
+  const handleTicketExpired = useCallback(() => {
+    if (alertShownRef.current) return;
+    alertShownRef.current = true;
+    
+    const ticketNumber = activeTicket?.number || "N/A";
+    const serviceName = activeTicket?.service?.name || "Service";
+    
+    if (!suppressAutoAlerts) {
+      showWarning(
+        "Ticket expiré",
+        `Le ticket ${ticketNumber} (${serviceName}) n'est plus actif car le délai de réponse est dépassé.`,
+        "OK",
+        () => {
+          if (expiryCheckIntervalRef.current) {
+            clearInterval(expiryCheckIntervalRef.current);
+          }
+          if (activeTicket?.id) {
+            removeExpiredTicket(activeTicket.id);
+          }
+          onTicketExpired?.();
+        }
+      );
+    } else {
+      if (expiryCheckIntervalRef.current) {
+        clearInterval(expiryCheckIntervalRef.current);
+      }
+      if (activeTicket?.id) {
+        removeExpiredTicket(activeTicket.id);
+      }
+      onTicketExpired?.();
+    }
+  }, [activeTicket?.id, activeTicket?.number, activeTicket?.service?.name, showWarning, onTicketExpired, removeExpiredTicket, suppressAutoAlerts]);
+
+  useEffect(() => {
+    if (expiryCheckIntervalRef.current) {
+      clearInterval(expiryCheckIntervalRef.current);
+    }
+
+    if (!localStatus || (localStatus !== "called" && localStatus !== "en_route")) {
+      return;
+    }
+
+    expiryCheckIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      let expired = false;
+
+      if (localStatus === "called" && calledExpiresAt) {
+        expired = new Date(calledExpiresAt).getTime() <= now;
+      } else if (localStatus === "en_route" && enRouteExpiresAt) {
+        expired = new Date(enRouteExpiresAt).getTime() <= now;
+      }
+
+      if (expired && !alertShownRef.current) {
+        handleTicketExpired();
+        if (expiryCheckIntervalRef.current) {
+          clearInterval(expiryCheckIntervalRef.current);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (expiryCheckIntervalRef.current) {
+        clearInterval(expiryCheckIntervalRef.current);
+      }
+    };
+  }, [localStatus, calledExpiresAt, enRouteExpiresAt, handleTicketExpired]);
+
+  useEffect(() => {
+    if (wsChannelRef.current) {
+      try {
+        wsChannelRef.current.stopListening('.ticket.updated');
+        wsChannelRef.current.stopListening('.ticket.marked.absent');
+        wsChannelRef.current.leave();
+      } catch (e) {}
+      wsChannelRef.current = null;
+    }
+
+    if (!activeTicket?.id) return;
+
+    const setupWebSocket = async () => {
+      try {
+        const echo = axiosClient.defaults?.echo;
+        if (!echo) return;
+
+        const channel = echo.private(`ticket.${activeTicket.id}`);
+        wsChannelRef.current = channel;
+
+        const handleTicketUpdated = (data: any) => {
+          if (data.status) {
+            if (data.status === 'absent') {
+              handleTicketExpired();
+            } else {
+              setLocalStatus(data.status);
+              if (data.called_expires_at) setCalledExpiresAt(data.called_expires_at);
+              if (data.en_route_expires_at) setEnRouteExpiresAt(data.en_route_expires_at);
+            }
+          }
+          const store = useTicketStore.getState();
+          store.fetchActiveTicket().catch(console.warn);
+        };
+
+        const handleMarkedAbsent = () => {
+          if (!alertShownRef.current) {
+            handleTicketExpired();
+          }
+        };
+
+        channel.listen('.ticket.updated', handleTicketUpdated);
+        channel.listen('.ticket.marked.absent', handleMarkedAbsent);
+      } catch (error) {
+        console.warn("Erreur setup WebSocket:", error);
+      }
+    };
+
+    setupWebSocket();
+
+    return () => {
+      if (wsChannelRef.current) {
+        try {
+          wsChannelRef.current.stopListening('.ticket.updated');
+          wsChannelRef.current.stopListening('.ticket.marked.absent');
+          wsChannelRef.current.leave();
+        } catch (e) {}
+        wsChannelRef.current = null;
+      }
+    };
+  }, [activeTicket?.id, handleTicketExpired]);
+
   useEffect(() => {
     Animated.spring(progressAnim, {
       toValue: progress,
@@ -88,20 +237,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     }).start();
   }, [progress]);
 
-  const isTicketCalledState = activeTicket?.status === "called";
-  const isTicketEnRoute = activeTicket?.status === "en_route";
-  const isTicketPresent = activeTicket?.status === "present";
-  const isTicketAbsent = activeTicket?.status === "absent";
-  const hasConfirmedPresence = isTicketEnRoute || isTicketPresent;
-  const canCancelTicket = activeTicket?.status === "waiting";
-  const canConfirmEnRoute = activeTicket?.status === "called";
-  const canMarkPresent = activeTicket?.status === "en_route" || activeTicket?.status === "called";
+  if (localStatus === "absent") {
+    return null;
+  }
+
+  const isTicketCalledState = localStatus === "called";
+  const isTicketEnRoute = localStatus === "en_route";
+  const isTicketPresent = localStatus === "present";
+  const canCancelTicket = localStatus === "waiting";
+  const canConfirmEnRoute = localStatus === "called";
+  const canMarkPresent = localStatus === "en_route" || localStatus === "called";
 
   const getStatusConfig = () => {
     if (isTicketPresent) return { label: "Présent", icon: "checkmark-circle", color: colors.success, bg: colors.success + "15" };
     if (isTicketEnRoute) return { label: "En route", icon: "walk", color: colors.warning, bg: colors.warning + "15" };
     if (isTicketCalledState) return { label: "Appelé !", icon: "notifications", color: colors.danger, bg: colors.danger + "15" };
-    if (isTicketAbsent) return { label: "Expiré", icon: "close-circle", color: colors.textTertiary, bg: colors.textTertiary + "15" };
     return { label: "En attente", icon: "time", color: colors.primary, bg: colors.primary + "15" };
   };
 
@@ -109,16 +259,17 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const isSpecialStatus = isTicketCalledState || isTicketEnRoute || isTicketPresent;
   const isSoon = position <= 3 && !isSpecialStatus;
 
-  // Live countdown pour le statut "called"
   const [calledCountdown, setCalledCountdown] = useState<number | null>(null);
   useEffect(() => {
-    const expiresAt = (activeTicket as any)?.called_expires_at;
-    if (!isTicketCalledState || !expiresAt) { setCalledCountdown(null); return; }
-    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    if (!isTicketCalledState || !calledExpiresAt) { 
+      setCalledCountdown(null); 
+      return; 
+    }
+    const calc = () => Math.max(0, Math.floor((new Date(calledExpiresAt).getTime() - Date.now()) / 1000));
     setCalledCountdown(calc());
     const id = setInterval(() => setCalledCountdown(calc()), 1000);
     return () => clearInterval(id);
-  }, [isTicketCalledState, (activeTicket as any)?.called_expires_at]);
+  }, [isTicketCalledState, calledExpiresAt]);
 
   const handleCancel = useCallback(() => {
     showWarning("Annuler le ticket", "Êtes-vous sûr de vouloir annuler votre ticket ?", "Oui, annuler", async () => {
@@ -140,6 +291,10 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       }
       const response = await axiosClient.post(`/tickets/${activeTicket?.id}/en-route`, payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setLocalStatus("en_route");
+      setEnRouteExpiresAt(response.data?.en_route_expires_at || null);
+      
       const s = useTicketStore.getState();
       if (s.activeTicket?.id === activeTicket?.id) {
         const updatedTicket = response.data?.data || response.data;
@@ -155,7 +310,11 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         try { await s.fetchActiveTicket(); } catch (err) { console.warn(err); }
       }
       const graceMinutes = response.data?.grace_minutes ?? 10;
-      showSuccess("En route confirmé !", `Vous avez ${graceMinutes} minute${graceMinutes > 1 ? "s" : ""} pour vous présenter à l'établissement.`);
+      
+      showSuccess(
+        "Confirmation envoyée !", 
+        `L'agent a été notifié. Vous avez ${graceMinutes} minute${graceMinutes > 1 ? "s" : ""} pour vous présenter à l'établissement.`
+      );
       onConfirmPresence?.();
     } catch (error: any) {
       showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer"));
@@ -166,12 +325,19 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     try {
       await axiosClient.post(`/tickets/${activeTicket?.id}/present`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setLocalStatus("present");
+      
       const s = useTicketStore.getState();
       if (s.activeTicket?.id === activeTicket?.id) {
         s.markPresent();
         try { await s.fetchActiveTicket(); } catch (err) { console.warn(err); }
       }
-      showSuccess("Présence confirmée", "Votre priorité est conservée. L'agent sait que vous êtes arrivé.");
+      
+      showSuccess(
+        "Présence confirmée !", 
+        "Votre priorité est conservée. L'agent sait maintenant que vous êtes arrivé."
+      );
       onConfirmPresence?.();
     } catch (error: any) {
       showError("Erreur", getApiErrorMessage(error, "Impossible de confirmer votre présence"));
@@ -180,33 +346,58 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
   if (!activeTicket) return null;
 
-  const absentMessage = activeTicket.absent_at
-    ? "Vous avez été marqué absent par l'agent. Ce ticket n'est plus actif."
-    : "Votre délai de présentation est dépassé. Ce ticket n'est plus actif.";
+  const ticketNumber = activeTicket.number || position;
+  const serviceName = activeTicket.service?.name || "Service";
 
-  // Live countdown pour le statut "en_route"
   const [enRouteCountdown, setEnRouteCountdown] = useState<number | null>(null);
   const enRouteExpiryAlerted = useRef(false);
+  
   useEffect(() => {
-    const expiresAt = activeTicket?.en_route_expires_at;
-    if (!isTicketEnRoute || !expiresAt) { setEnRouteCountdown(null); enRouteExpiryAlerted.current = false; return; }
-    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    if (!isTicketEnRoute || !enRouteExpiresAt) { 
+      setEnRouteCountdown(null); 
+      enRouteExpiryAlerted.current = false; 
+      return; 
+    }
+    const calc = () => Math.max(0, Math.floor((new Date(enRouteExpiresAt).getTime() - Date.now()) / 1000));
     setEnRouteCountdown(calc());
     const id = setInterval(() => setEnRouteCountdown(calc()), 1000);
     return () => clearInterval(id);
-  }, [isTicketEnRoute, activeTicket?.en_route_expires_at]);
+  }, [isTicketEnRoute, enRouteExpiresAt]);
 
-  const isEnRouteExpired = isTicketEnRoute && enRouteCountdown !== null && enRouteCountdown <= 0;
+  const isEnRouteExpiredNow = isTicketEnRoute && enRouteCountdown !== null && enRouteCountdown <= 0;
 
-  // Alerte une seule fois quand le délai en_route expire
   useEffect(() => {
-    if (isEnRouteExpired && !enRouteExpiryAlerted.current) {
+    if (isEnRouteExpiredNow && !enRouteExpiryAlerted.current && localStatus === "en_route" && !suppressAutoAlerts) {
       enRouteExpiryAlerted.current = true;
-      showWarning("Délai expiré", "Votre délai de présentation est écoulé. Votre ticket va être marqué absent.");
+      handleTicketExpired();
     }
-  }, [isEnRouteExpired]);
+  }, [isEnRouteExpiredNow, localStatus, suppressAutoAlerts, handleTicketExpired]);
 
-  // Calcul du temps pour la moto (environ 30% plus rapide que la voiture)
+  const warningShownRef = useRef(false);
+  useEffect(() => {
+    if (suppressAutoAlerts) return;
+    
+    if (isTicketCalledState && calledCountdown !== null && calledCountdown === 30 && !warningShownRef.current) {
+      warningShownRef.current = true;
+      showWarning(
+        "Délai bientôt expiré",
+        `Vous avez 30 secondes pour confirmer votre présence, sinon votre ticket ${ticketNumber} sera annulé.`,
+        "OK",
+        undefined
+      );
+    }
+    
+    if (isTicketEnRoute && enRouteCountdown !== null && enRouteCountdown === 60 && !warningShownRef.current) {
+      warningShownRef.current = true;
+      showWarning(
+        "Présentation imminente",
+        `Vous avez 1 minute pour vous présenter, sinon votre ticket ${ticketNumber} sera marqué absent.`,
+        "OK",
+        undefined
+      );
+    }
+  }, [isTicketCalledState, calledCountdown, isTicketEnRoute, enRouteCountdown, ticketNumber, showWarning, suppressAutoAlerts]);
+
   const getMotorcycleTime = () => {
     if (!distanceInfo?.travelTimes?.car) return null;
     const carMinutes = distanceInfo.travelTimes.car;
@@ -214,7 +405,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     return formatTravelTime(motorcycleMinutes);
   };
 
-  // 4 moyens de transport avec icônes et couleurs
   const transportModes = [
     { key: "distance", icon: "location-outline", label: "Distance", value: distanceInfo ? formatDistance(distanceInfo.kilometers) : null, color: colors.primary },
     { key: "walking", icon: "walk-outline", label: "À pied", value: distanceInfo ? formatTravelTime(distanceInfo.travelTimes.walking) : null, color: colors.success },
@@ -222,7 +412,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     { key: "motorcycle", icon: "bicycle-outline", label: "Moto", value: getMotorcycleTime(), color: colors.secondary || "#8B5CF6" },
   ];
 
-  // Déterminer l'affichage de la position ou du statut
   const getQueueDisplay = () => {
     if (isTicketPresent) return { label: "Statut", value: "Présent", color: colors.success };
     if (isTicketEnRoute) return { label: "Statut", value: "En route", color: colors.warning };
@@ -233,15 +422,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const queueDisplay = getQueueDisplay();
   const etaDisplay = isSpecialStatus ? "—" : `${etaMinutes} min`;
 
-  // When to leave calculation
   const getWhenToLeave = useCallback(() => {
-    if (!distanceInfo || isSpecialStatus || isTicketAbsent) return null;
+    if (!distanceInfo || isSpecialStatus) return null;
     const travelTime = distanceInfo.travelTimes[preferredTransportMode];
     const leaveIn = etaMinutes - travelTime - marginMinutes;
     if (leaveIn <= 0) return { urgent: true, message: "Partez maintenant !" };
     if (leaveIn <= 5) return { urgent: true, message: `Partez dans ~${leaveIn} min` };
     return { urgent: false, message: `Partez dans ~${leaveIn} min` };
-  }, [distanceInfo, etaMinutes, marginMinutes, preferredTransportMode, isSpecialStatus, isTicketAbsent]);
+  }, [distanceInfo, etaMinutes, marginMinutes, preferredTransportMode, isSpecialStatus]);
 
   const whenToLeave = getWhenToLeave();
 
@@ -257,7 +445,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         activeOpacity={0.95}
         disabled={!onPress}
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.estabInfo}>
             <View style={[styles.estabIcon, { backgroundColor: colors.primary + "15" }]}>
@@ -273,7 +460,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         </View>
 
-        {/* Ticket Info */}
         <View style={styles.ticketRow}>
           <View style={[styles.ticketNumberBox, { backgroundColor: colors.danger }]}>
             <Text style={styles.ticketNumber}>{activeTicket.number || position}</Text>
@@ -291,7 +477,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         </View>
 
-        {/* Position & ETA */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{queueDisplay.label}</Text>
@@ -304,8 +489,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         </View>
 
-        {/* Progress Bar - only if waiting */}
-        {!isSpecialStatus && !isTicketAbsent && (
+        {!isSpecialStatus && (
           <View style={styles.progressSection}>
             <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
               <Animated.View
@@ -320,6 +504,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
+<<<<<<< HEAD
         {/* Bannière ticket reporté */}
         {(activeTicket as any)?.auto_deferred && (activeTicket as any)?.valid_date && (
           <View style={[styles.deferredBanner, { backgroundColor: colors.warning + "18", borderColor: colors.warning + "40" }]}>
@@ -342,6 +527,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         )}
 
         {/* When to Leave Alert */}
+=======
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
         {whenToLeave && (
           <View style={[styles.leaveAlert, { backgroundColor: whenToLeave.urgent ? colors.danger + "20" : colors.warning + "20" }]}>
             <Ionicons name={whenToLeave.urgent ? "warning" : "time"} size={14} color={whenToLeave.urgent ? colors.danger : colors.warning} />
@@ -349,7 +536,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
-        {/* Countdown appelé */}
         {isTicketCalledState && calledCountdown !== null && (
           <View style={[
             styles.calledCountdownBadge,
@@ -359,13 +545,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Text style={[styles.calledCountdownText, { color: calledCountdown <= 30 ? colors.danger : colors.warning }]}>
               {calledCountdown <= 0
                 ? "Délai expiré"
-                : `Délai : ${Math.floor(calledCountdown / 60)}:${String(calledCountdown % 60).padStart(2, "0")} avant absence`}
+                : `Délai : ${Math.floor(calledCountdown / 60)}:${String(calledCountdown % 60).padStart(2, "0")}`}
             </Text>
           </View>
         )}
 
-        {/* Actions - sans le bouton "Je suis présent" ici */}
-        {!isTicketAbsent && !isTicketPresent && !isTicketEnRoute && (
+        {!isTicketPresent && !isTicketEnRoute && (
           <View style={styles.actionsRow}>
             {canConfirmEnRoute && (
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.success + "12" }]} onPress={handleConfirmPresence}>
@@ -382,44 +567,31 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
-        {/* Timer et bouton présent pour l'état "en route" */}
         {isTicketEnRoute && (
           <View style={styles.enRouteContainer}>
-            {isEnRouteExpired ? (
-              <View style={[styles.enRouteTimerBadge, { backgroundColor: colors.danger + "15", borderColor: colors.danger + "30", borderWidth: 1 }]}>
-                <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-                <Text style={[styles.enRouteTimerText, { color: colors.danger }]}>
-                  Délai de présence expiré — ticket marqué absent
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View style={[
-                  styles.enRouteTimerBadge,
-                  { backgroundColor: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15" },
-                ]}>
-                  <Ionicons name="timer-outline" size={14} color={enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning} />
-                  <Text style={[styles.enRouteTimerText, { color: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning, fontVariant: ["tabular-nums"] as any }]}>
-                    {enRouteCountdown !== null
-                      ? `Présenter-vous dans ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")}`
-                      : "Délai de présence en cours…"}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
-                  onPress={handleMarkPresent}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
-                  <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
-                </TouchableOpacity>
-              </>
-            )}
+            <View style={[
+              styles.enRouteTimerBadge,
+              { backgroundColor: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15" },
+            ]}>
+              <Ionicons name="timer-outline" size={14} color={enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning} />
+              <Text style={[styles.enRouteTimerText, { color: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning, fontVariant: ["tabular-nums"] as any }]}>
+                {enRouteCountdown !== null
+                  ? `Présentation : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")}`
+                  : "Délai de présence en cours…"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
+              onPress={handleMarkPresent}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
+              <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* 4 moyens de transport - compact mode only */}
-        {compact && !isSpecialStatus && hasValidCoordinates && distanceInfo && !isTicketAbsent && (
+        {compact && !isSpecialStatus && hasValidCoordinates && distanceInfo && (
           <View style={styles.distanceContainer}>
             {transportModes.map((mode) => (
               <View key={mode.key} style={styles.distanceItem}>
@@ -433,18 +605,6 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
-        {/* Absent State */}
-        {isTicketAbsent && (
-          <View style={[styles.stateMsg, { backgroundColor: colors.danger + "10", borderColor: colors.danger + "20" }]}>
-            <Ionicons name="alert-circle" size={16} color={colors.danger} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.stateMsgText, { color: colors.danger }]}>Ticket expiré ou absent</Text>
-              <Text style={[styles.stateMsgSubtext, { color: colors.textSecondary }]}>{absentMessage}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Present State */}
         {isTicketPresent && (
           <View style={[styles.stateMsg, { backgroundColor: colors.success + "10", borderColor: colors.success + "20" }]}>
             <Ionicons name="checkmark-circle" size={16} color={colors.success} />
@@ -659,6 +819,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+<<<<<<< HEAD
   stateMsgSubtext: {
     fontSize: 11,
     marginTop: 4,
@@ -682,6 +843,8 @@ const styles = StyleSheet.create({
   deferredBannerSub: {
     fontSize: 11,
   },
+=======
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
   calledCountdownBadge: {
     flexDirection: "row",
     alignItems: "center",

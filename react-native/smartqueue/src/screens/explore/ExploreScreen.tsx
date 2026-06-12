@@ -29,7 +29,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import "../../../global.css";
-import { useTicket } from "../../store/ticketStore";
+import { useTicket, useTicketStore } from "../../store/ticketStore";
 import type { Ticket } from "../../api/ticketsApi";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
 import { useSimpleNotification } from "../../hooks/useSimpleNotification";
@@ -39,239 +39,14 @@ import useExploreCacheStore, {
 } from "../../store/exploreCacheStore";
 import { useUnreadNotifications } from "../../hooks/useUnreadNotifications";
 import { CustomActionSheet } from "../../components/ui/CustomActionSheet";
-import {ActiveTicketCard} from "../../components/ActiveTicketCard";
+import { ActiveTicketCard } from "../../components/ActiveTicketCard";
 
 const { width, height } = Dimensions.get("window");
 
 type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
-// Carte compacte pour un ticket spécifique dans le carrousel — ne lit PAS le store global
-const TicketCarouselCard: React.FC<{
-  ticket: Ticket;
-  colors: any;
-  onPress: () => void;
-}> = ({ ticket, colors, onPress }) => {
-  const getStatusConfig = () => {
-    switch (ticket.status) {
-      case "called": return { label: "Appelé !", color: colors.danger, icon: "notifications" };
-      case "present": return { label: "Présent", color: colors.success, icon: "checkmark-circle" };
-      case "en_route": return { label: "En route", color: colors.warning, icon: "walk" };
-      default: return { label: "En attente", color: colors.primary, icon: "time" };
-    }
-  };
-  const cfg = getStatusConfig();
-  const queueInfo = ticket.status === "called" ? "Appelé"
-    : ticket.status === "present" ? "Présent"
-      : ticket.status === "en_route" ? "En route"
-        : ticket.position ? `${ticket.position}e place` : "En attente";
-
-  return (
-    <TouchableOpacity
-      style={[carouselCardStyles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={carouselCardStyles.cardHeader}>
-        <View style={carouselCardStyles.estabRow}>
-          <View style={[carouselCardStyles.estabIcon, { backgroundColor: colors.primary + "15" }]}>
-            <Ionicons name="business" size={14} color={colors.primary} />
-          </View>
-          <Text style={[carouselCardStyles.estabName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {ticket.establishment?.name || "Établissement"}
-          </Text>
-        </View>
-        <View style={[carouselCardStyles.statusBadge, { backgroundColor: cfg.color + "15" }]}>
-          <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
-          <Text style={[carouselCardStyles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-        </View>
-      </View>
-
-      <View style={carouselCardStyles.ticketRow}>
-        <View style={[carouselCardStyles.ticketNumBox, { backgroundColor: cfg.color }]}>
-          <Text style={carouselCardStyles.ticketNum}>{ticket.number}</Text>
-        </View>
-        <View style={carouselCardStyles.ticketInfo}>
-          <Text style={[carouselCardStyles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>
-            {ticket.service?.name || "Service"}
-          </Text>
-          <Text style={[carouselCardStyles.queueInfo, { color: colors.textTertiary }]}>{queueInfo}</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[carouselCardStyles.followBtn, { backgroundColor: colors.primary }]}
-        onPress={onPress}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="eye-outline" size={14} color="#FFF" />
-        <Text style={carouselCardStyles.followBtnText}>Suivre ce ticket</Text>
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-};
-
-const carouselCardStyles = StyleSheet.create({
-  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  estabRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
-  estabIcon: { width: 24, height: 24, borderRadius: 6, alignItems: "center", justifyContent: "center" },
-  estabName: { fontSize: 13, fontWeight: "600", flex: 1 },
-  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, gap: 4 },
-  statusText: { fontSize: 10, fontWeight: "700" },
-  ticketRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
-  ticketNumBox: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  ticketNum: { fontSize: 15, fontWeight: "800", color: "#FFF" },
-  ticketInfo: { flex: 1 },
-  serviceName: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
-  queueInfo: { fontSize: 11 },
-  followBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 10 },
-  followBtnText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
-});
-
-// Composant Bottom Sheet pour les tickets actifs (carrousel)
-const ActiveTicketBottomSheet: React.FC<{
-  visible: boolean;
-  onClose: () => void;
-  tickets: Ticket[];
-  colors: any;
-}> = ({ visible, onClose, tickets, colors }) => {
-  const slideAnim = useRef(new Animated.Value(height)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const flatListRef = useRef<any>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Calculer la largeur disponible pour chaque carte
-  const CARD_WIDTH = width - 40; // 40 = 20px padding de chaque côté (16 + 8)
-  const SNAP_INTERVAL = CARD_WIDTH + 8; // 8px de gap entre les cartes
-
-  useEffect(() => {
-    if (visible) {
-      setCurrentIndex(0);
-      Animated.parallel([
-        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible]);
-
-  const goTo = (index: number) => {
-    const next = Math.max(0, Math.min(tickets.length - 1, index));
-    setCurrentIndex(next);
-    flatListRef.current?.scrollToIndex({ index: next, animated: true });
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={[styles.bottomSheetOverlay, { opacity: fadeAnim }]}>
-        <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
-        <Animated.View style={[styles.bottomSheetModal, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.bottomSheetHandle}>
-            <View style={[styles.bottomSheetHandleBar, { backgroundColor: colors.border }]} />
-          </View>
-
-          <View style={styles.bottomSheetHeader}>
-            <Text style={[styles.bottomSheetTitle, { color: colors.textPrimary }]}>
-              {tickets.length > 1 ? `Tickets actifs (${tickets.length})` : "Ticket actif"}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.bottomSheetClose}>
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Carrousel - Chaque carte prend toute la largeur */}
-          <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
-            <FlatList
-              ref={flatListRef}
-              data={tickets}
-              keyExtractor={(t) => String(t.id)}
-              horizontal
-              pagingEnabled={false}
-              snapToInterval={SNAP_INTERVAL}
-              snapToAlignment="center"
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 4 }}
-              onMomentumScrollEnd={(e) => {
-                const offsetX = e.nativeEvent.contentOffset.x;
-                const newIndex = Math.round(offsetX / SNAP_INTERVAL);
-                if (newIndex !== currentIndex && newIndex >= 0 && newIndex < tickets.length) {
-                  setCurrentIndex(newIndex);
-                }
-              }}
-              getItemLayout={(_, index) => ({
-                length: SNAP_INTERVAL,
-                offset: SNAP_INTERVAL * index,
-                index,
-              })}
-              // Dans ActiveTicketBottomSheet, le renderItem devient :
-              renderItem={({ item, index }) => (
-                <View
-                  key={item.id}
-                  style={{
-                    width: CARD_WIDTH,
-                    marginRight: index === tickets.length - 1 ? 0 : 8,
-                  }}
-                >
-                  <ActiveTicketCard
-                    ticket={item}  // <-- PASSER LE TICKET EN PROP
-                    compact={true}
-                    onPress={() => {
-                      onClose();
-                      router.push({ pathname: "/(tabs)/live-ticket", params: { ticketId: String(item.id) } });
-                    }}
-                  />
-                </View>
-              )}
-            />
-
-            {/* Pagination dots + flèches - uniquement si plus d'un ticket */}
-            {tickets.length > 1 && (
-              <View style={carouselStyles.pagination}>
-                <TouchableOpacity
-                  onPress={() => goTo(currentIndex - 1)}
-                  disabled={currentIndex === 0}
-                  style={[carouselStyles.arrow, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
-                >
-                  <Ionicons name="chevron-back" size={20} color={colors.primary} />
-                </TouchableOpacity>
-
-                <View style={carouselStyles.dots}>
-                  {tickets.map((_, i) => (
-                    <TouchableOpacity key={i} onPress={() => goTo(i)}>
-                      <View style={[
-                        carouselStyles.dot,
-                        { backgroundColor: i === currentIndex ? colors.primary : colors.border },
-                        i === currentIndex && carouselStyles.dotActive,
-                      ]} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => goTo(currentIndex + 1)}
-                  disabled={currentIndex === tickets.length - 1}
-                  style={[carouselStyles.arrow, { opacity: currentIndex === tickets.length - 1 ? 0.3 : 1 }]}
-                >
-                  <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      </Animated.View>
-    </Modal>
-  );
-};
-
-// Styles du carrousel (à garder en dehors)
+// Styles du carrousel
 const carouselStyles = StyleSheet.create({
   pagination: {
     flexDirection: "row",
@@ -306,7 +81,185 @@ const carouselStyles = StyleSheet.create({
   },
 });
 
+// Composant Bottom Sheet pour les tickets actifs (carrousel)
+const ActiveTicketBottomSheet: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  tickets: Ticket[];
+  colors: any;
+}> = ({ visible, onClose, tickets, colors }) => {
+  const slideAnim = useRef(new Animated.Value(height)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<any>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [localTickets, setLocalTickets] = useState<Ticket[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
+  // S'abonner aux changements du store pour mettre à jour localTickets
+  useEffect(() => {
+    const unsubscribe = useTicketStore.subscribe((state) => {
+      const activeOnly = tickets.filter(t => t.status !== 'absent' && t.status !== 'closed');
+      setLocalTickets(activeOnly);
+      setRefreshKey(prev => prev + 1);
+    });
+    return () => unsubscribe();
+  }, [tickets]);
+
+  // Mettre à jour les tickets locaux quand les props changent
+  useEffect(() => {
+    const activeOnly = tickets.filter(t => t.status !== 'absent' && t.status !== 'closed');
+    setLocalTickets(activeOnly);
+    
+    if (currentIndex >= activeOnly.length && activeOnly.length > 0) {
+      setCurrentIndex(activeOnly.length - 1);
+    } else if (activeOnly.length === 0 && visible) {
+      onClose();
+    }
+  }, [tickets]);
+
+  const CARD_WIDTH = width - 40;
+  const SNAP_INTERVAL = CARD_WIDTH + 8;
+
+  useEffect(() => {
+    if (visible && localTickets.length > 0) {
+      Animated.parallel([
+        Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else if (!visible) {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible, localTickets.length]);
+
+  const goTo = (index: number) => {
+    const next = Math.max(0, Math.min(localTickets.length - 1, index));
+    setCurrentIndex(next);
+    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+  };
+
+  // Fonction pour rafraîchir après confirmation
+  const handleTicketAction = useCallback(() => {
+    setTimeout(() => {
+      const store = useTicketStore.getState();
+      store.fetchActiveTicket().catch(console.warn);
+      const activeOnly = tickets.filter(t => t.status !== 'absent' && t.status !== 'closed');
+      setLocalTickets(activeOnly);
+      setRefreshKey(prev => prev + 1);
+    }, 500);
+  }, [tickets]);
+
+  if (!visible || localTickets.length === 0) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <Animated.View style={[styles.bottomSheetOverlay, { opacity: fadeAnim }]}>
+        <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
+        <Animated.View style={[styles.bottomSheetModal, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.bottomSheetHandle}>
+            <View style={[styles.bottomSheetHandleBar, { backgroundColor: colors.border }]} />
+          </View>
+
+          <View style={styles.bottomSheetHeader}>
+            <Text style={[styles.bottomSheetTitle, { color: colors.textPrimary }]}>
+              {localTickets.length > 1 ? `Tickets actifs (${localTickets.length})` : "Ticket actif"}
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.bottomSheetClose}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+            <FlatList
+              key={`carousel-${refreshKey}`}
+              ref={flatListRef}
+              data={localTickets}
+              keyExtractor={(t) => String(t.id)}
+              horizontal
+              pagingEnabled={false}
+              snapToInterval={SNAP_INTERVAL}
+              snapToAlignment="center"
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 4 }}
+              onMomentumScrollEnd={(e) => {
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const newIndex = Math.round(offsetX / SNAP_INTERVAL);
+                if (newIndex !== currentIndex && newIndex >= 0 && newIndex < localTickets.length) {
+                  setCurrentIndex(newIndex);
+                }
+              }}
+              getItemLayout={(_, index) => ({
+                length: SNAP_INTERVAL,
+                offset: SNAP_INTERVAL * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <View style={{ width: CARD_WIDTH, marginRight: 8 }}>
+                  <ActiveTicketCard
+                    ticket={item}
+                    compact={true}
+                    suppressAutoAlerts={true}
+                    onTicketExpired={() => {
+                      const store = useTicketStore.getState();
+                      store.removeExpiredTicket(item.id);
+                      store.fetchActiveTicket().catch(console.warn);
+                      handleTicketAction();
+                    }}
+                    onConfirmPresence={() => {
+                      handleTicketAction();
+                    }}
+                    onPress={() => {
+                      onClose();
+                      router.push({ 
+                        pathname: "/(tabs)/live-ticket", 
+                        params: { ticketId: String(item.id) } 
+                      });
+                    }}
+                  />
+                </View>
+              )}
+            />
+
+            {localTickets.length > 1 && (
+              <View style={carouselStyles.pagination}>
+                <TouchableOpacity
+                  onPress={() => goTo(currentIndex - 1)}
+                  disabled={currentIndex === 0}
+                  style={[carouselStyles.arrow, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.primary} />
+                </TouchableOpacity>
+
+                <View style={carouselStyles.dots}>
+                  {localTickets.map((_, i) => (
+                    <TouchableOpacity key={i} onPress={() => goTo(i)}>
+                      <View style={[
+                        carouselStyles.dot,
+                        { backgroundColor: i === currentIndex ? colors.primary : colors.border },
+                        i === currentIndex && carouselStyles.dotActive,
+                      ]} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => goTo(currentIndex + 1)}
+                  disabled={currentIndex === localTickets.length - 1}
+                  style={[carouselStyles.arrow, { opacity: currentIndex === localTickets.length - 1 ? 0.3 : 1 }]}
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+};
 
 const getMarkerColor = (crowdLevel?: string, colors?: any) => {
   switch (crowdLevel) {
@@ -334,6 +287,30 @@ export const ExploreScreen: React.FC = () => {
   const [showActiveTicketSheet, setShowActiveTicketSheet] = useState(false);
   const [showSortSheet, setShowSortSheet] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [ticketStoreVersion, setTicketStoreVersion] = useState(0);
+  const [fabRefresh, setFabRefresh] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = useTicketStore.subscribe((state) => {
+      setTicketStoreVersion(prev => prev + 1);
+      setFabRefresh(prev => prev + 1);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const getActiveTicketsOnly = useCallback(() => {
+    return activeTickets.filter(ticket => ticket.status !== 'absent');
+  }, [activeTickets, ticketStoreVersion, fabRefresh]);
+
+  const activeTicketsCount = getActiveTicketsOnly().length;
+  const hasAnyActiveTicket = activeTicketsCount > 0;
+  const hasCalledTicket = getActiveTicketsOnly().some(t => t.status === "called");
+
+  useEffect(() => {
+    if (hasAnyActiveTicket === false && showActiveTicketSheet) {
+      setShowActiveTicketSheet(false);
+    }
+  }, [hasAnyActiveTicket, showActiveTicketSheet]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
@@ -343,6 +320,8 @@ export const ExploreScreen: React.FC = () => {
     useCallback(() => {
       fetchActiveTicket().catch(console.error);
       refreshUnread();
+      setTicketStoreVersion(prev => prev + 1);
+      setFabRefresh(prev => prev + 1);
     }, [fetchActiveTicket, refreshUnread]),
   );
 
@@ -615,7 +594,6 @@ export const ExploreScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      {/* Header fixe en haut */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
@@ -672,7 +650,6 @@ export const ExploreScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* Map Section */}
       <View style={styles.mapContainer}>
         {mapRegion && (
           <MapView ref={mapRef} style={styles.map} region={mapRegion} showsUserLocation followsUserLocation>
@@ -701,7 +678,6 @@ export const ExploreScreen: React.FC = () => {
         {isLoading && <View style={[styles.loadingOverlay, { backgroundColor: colors.surface + "CC" }]}><ActivityIndicator size="large" color={colors.primary} /></View>}
       </View>
 
-      {/* Section Établissements */}
       <View style={styles.establishmentsSection}>
         <View style={[styles.sectionHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Établissements ({filteredEstablishments.length})</Text>
@@ -734,34 +710,32 @@ export const ExploreScreen: React.FC = () => {
         />
       </View>
 
-      {/* FAB pour ouvrir le bottom sheet du ticket actif */}
-      {isInitialized && hasActiveTicket && activeTickets.length > 0 && (
+      {isInitialized && hasAnyActiveTicket && (
         <TouchableOpacity
+          key={`fab-${activeTicketsCount}-${fabRefresh}`}
           activeOpacity={0.8}
           style={[
             styles.activeTicketFab,
-            { backgroundColor: activeTickets.some(t => t.status === "called") ? colors.danger : colors.primary }
+            { backgroundColor: hasCalledTicket ? colors.danger : colors.primary }
           ]}
           onPress={() => setShowActiveTicketSheet(true)}
         >
           <Ionicons name="ticket" size={24} color="#FFF" />
           <View style={[styles.fabBadge, { backgroundColor: "#FFF" }]}>
-            <Text style={[styles.fabBadgeText, { color: activeTickets.some(t => t.status === "called") ? colors.danger : colors.primary }]}>
-              {activeTickets.length}
+            <Text style={[styles.fabBadgeText, { color: hasCalledTicket ? colors.danger : colors.primary }]}>
+              {activeTicketsCount}
             </Text>
           </View>
         </TouchableOpacity>
       )}
 
-      {/* Bottom Sheet pour les tickets actifs avec ActiveTicketCard */}
       <ActiveTicketBottomSheet
         visible={showActiveTicketSheet}
         onClose={() => setShowActiveTicketSheet(false)}
-        tickets={activeTickets}
+        tickets={getActiveTicketsOnly()}
         colors={colors}
       />
 
-      {/* CustomActionSheet pour le tri */}
       <CustomActionSheet
         visible={showSortSheet}
         title="Trier par"
@@ -819,7 +793,6 @@ const styles = StyleSheet.create({
   markerTrend: { position: "absolute", bottom: -2, right: -2, width: 12, height: 12, borderRadius: 6, alignItems: "center", justifyContent: "center", borderWidth: 1.5 },
   destMarker: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
 
-  // Section Établissements
   establishmentsSection: { flex: 1 },
   sectionHeader: {
     flexDirection: "row",
@@ -891,7 +864,6 @@ const styles = StyleSheet.create({
     fontWeight: "800" as const,
   },
 
-  // Bottom Sheet styles
   bottomSheetOverlay: {
     position: 'absolute',
     top: 0,
@@ -945,13 +917,6 @@ const styles = StyleSheet.create({
   },
   bottomSheetClose: {
     padding: 4,
-  },
-  bottomSheetScrollView: {
-    maxHeight: '85%',
-  },
-  bottomSheetScrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 30,
   },
 });
 

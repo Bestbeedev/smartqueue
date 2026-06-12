@@ -126,16 +126,38 @@ type Counter = {
   current_agent_id?: number | null;
 };
 
-/** Countdown hook — re-renders every second until expiresAt is reached */
+/** Countdown hook — CORRIGÉ : meilleure gestion des dates et expiration */
 function useCountdown(expiresAt?: string | null): number | null {
   const [seconds, setSeconds] = useState<number | null>(null);
+  
   useEffect(() => {
-    if (!expiresAt) { setSeconds(null); return; }
-    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    if (!expiresAt) {
+      setSeconds(null);
+      return;
+    }
+    
+    const calc = () => {
+      const expiryDate = new Date(expiresAt);
+      const now = new Date();
+      const diff = expiryDate.getTime() - now.getTime();
+      return Math.max(0, Math.floor(diff / 1000));
+    };
+    
     setSeconds(calc());
-    const id = setInterval(() => setSeconds(calc()), 1000);
+    
+    const id = setInterval(() => {
+      const newSeconds = calc();
+      setSeconds(newSeconds);
+      // Si expiré, on pourrait forcer un rafraîchissement ici
+      if (newSeconds === 0) {
+        // Optionnel: déclencher un événement personnalisé
+        window.dispatchEvent(new CustomEvent('ticket-expired'));
+      }
+    }, 1000);
+    
     return () => clearInterval(id);
   }, [expiresAt]);
+  
   return seconds;
 }
 
@@ -153,6 +175,17 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
 
   if (ticket.status === "called" && calledSeconds !== null) {
     const expiring = calledSeconds <= 30;
+    const isExpired = calledSeconds === 0;
+    
+    if (isExpired) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white dark:bg-red-700">
+          <Timer className="h-3 w-3" />
+          EXPIRÉ
+        </span>
+      );
+    }
+    
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"}`}>
         <Timer className="h-3 w-3" />
@@ -160,8 +193,20 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
       </span>
     );
   }
+  
   if (ticket.status === "en_route" && enRouteSeconds !== null) {
     const expiring = enRouteSeconds <= 60;
+    const isExpired = enRouteSeconds === 0;
+    
+    if (isExpired) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white dark:bg-red-700">
+          <Timer className="h-3 w-3" />
+          EXPIRÉ
+        </span>
+      );
+    }
+    
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200"}`}>
         <Timer className="h-3 w-3" />
@@ -197,6 +242,7 @@ const Queues: React.FC = () => {
   const [deferredDays, setDeferredDays] = useState<DeferredDay[]>([]);
   const [deferredTotal, setDeferredTotal] = useState(0);
   const echo = getEcho();
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Default service selection from assigned services
   useEffect(() => {
@@ -206,7 +252,7 @@ const Queues: React.FC = () => {
   }, [serviceId, assignedServices]);
 
   //MemoEnroute
-    const enRouteCount = useMemo(
+  const enRouteCount = useMemo(
     () =>
       queue.filter(
         (ticket) =>
@@ -261,6 +307,7 @@ const Queues: React.FC = () => {
     return data;
   };
 
+<<<<<<< HEAD
   const fetchDeferredQueue = async (id: string) => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId) || numericId <= 0) return;
@@ -274,13 +321,31 @@ const Queues: React.FC = () => {
   };
 
   const refreshQueueAndStats = async () => {
+=======
+  const fetchStats = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new Error("Identifiant de service invalide");
+    }
+    const { data } = await api.get(`/api/services/${numericId}/affluence`);
+    return data;
+  };
+
+  // CORRECTION 1: refreshQueueAndStats met maintenant à jour les tickets récents
+  const refreshQueueAndStats = async (showToast = false) => {
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
     if (!serviceId) return;
+    if (showToast) toast.info("Rafraîchissement en cours...");
+    
     try {
       const [q, s] = await Promise.all([
         fetchQueue(serviceId),
         fetchStats(serviceId),
       ]);
-      setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+      
+      const queueData = Array.isArray(q?.tickets) ? q.tickets : [];
+      setQueue(queueData);
+      
       const mapped: ServiceStats = {
         service_id: Number(serviceId),
         service_name: String(
@@ -291,10 +356,33 @@ const Queues: React.FC = () => {
         average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? "—"),
       };
       setStats(mapped);
+      
+      // CORRECTION: Extraire les tickets appelés récemment depuis la queue
+      const recentCalledTickets = queueData
+        .filter((t: QueueTicket) => t.status === "called" || t.status === "present")
+        .slice(0, 10)
+        .map((t: QueueTicket) => ({
+          id: t.id,
+          ticket_number: t.number,
+          status: t.status,
+          created_at: t.called_at || new Date().toISOString(),
+          service_id: Number(serviceId),
+          service_name: mapped.service_name,
+          priority: t.priority || 'normal',
+          client_name: t.customer_name || t.display_name || undefined,
+        }));
+      
+      setTickets(recentCalledTickets);
       setLastUpdated(new Date().toLocaleTimeString());
+<<<<<<< HEAD
       fetchDeferredQueue(serviceId);
+=======
+      
+      if (showToast) toast.success("Données mises à jour");
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
     } catch (e: any) {
       setError(e?.message || "Erreur");
+      if (showToast) toast.error("Erreur lors du rafraîchissement");
     }
   };
 
@@ -310,6 +398,7 @@ const Queues: React.FC = () => {
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -322,8 +411,10 @@ const Queues: React.FC = () => {
     try {
       await api.post(`/api/services/${Number(serviceId)}/open`);
       await refreshQueueAndStats();
+      toast.success("Service ouvert");
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -336,8 +427,10 @@ const Queues: React.FC = () => {
     try {
       await api.post(`/api/services/${Number(serviceId)}/close`);
       await refreshQueueAndStats();
+      toast.success("Service fermé");
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -349,8 +442,10 @@ const Queues: React.FC = () => {
     setError("");
     try {
       await api.post(`/api/counters/${Number(counterId)}/open`);
+      toast.success("Guichet ouvert");
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -362,8 +457,10 @@ const Queues: React.FC = () => {
     setError("");
     try {
       await api.post(`/api/counters/${Number(counterId)}/close`);
+      toast.success("Guichet fermé");
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -422,23 +519,37 @@ const Queues: React.FC = () => {
     }
   };
 
-  const fetchStats = async (id: string) => {
-    const numericId = Number(id);
-    if (!Number.isFinite(numericId) || numericId <= 0) {
-      throw new Error("Identifiant de service invalide");
-    }
-    const { data } = await api.get(`/api/services/${numericId}/affluence`);
-    return data;
-  };
+  // Rafraîchissement automatique (polling de secours)
+  useEffect(() => {
+    if (!serviceId) return;
 
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
+
+    refreshIntervalRef.current = setInterval(() => {
+      if (serviceId && !isActing && !isLoading) {
+        refreshQueueAndStats(false);
+      }
+    }, 10000);
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    };
+  }, [serviceId, isActing, isLoading]);
+
+  // CORRECTION 2: WebSocket avec meilleure gestion d'erreur
   useEffect(() => {
     if (!serviceId) return;
 
     let cancelled = false;
     let channel: any = null;
 
-    // Réinitialiser l'état lors du changement de service
-    setTickets([]);
+    setQueue([]);
     setStats(null);
     setIsLoading(true);
     setIsConnected(false);
@@ -449,6 +560,7 @@ const Queues: React.FC = () => {
         await fetchService(serviceId);
         if (cancelled) return;
 
+<<<<<<< HEAD
         // Initial load (queue + stats)
         try {
           const q = await fetchQueue(serviceId);
@@ -484,146 +596,80 @@ const Queues: React.FC = () => {
         }
 
         // Arrêter le loading - les données sont chargées
+=======
+        // Chargement initial
+        await refreshQueueAndStats(false);
+        
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
         if (!cancelled) {
           setIsLoading(false);
         }
 
-        // S'abonner au canal de présence pour le service (optionnel)
+        // WebSocket connection - Utilisation de channel au lieu de join pour éviter les erreurs d'authentification
         try {
-          console.log(
-            `[Queues] Tentative de connexion au canal service.${serviceId}`,
-          );
-          channel = echo.join(`service.${serviceId}`);
-
-          channel
-            .subscribed(() => {
-              console.log(
-                `[Queues] ✓ Abonné au canal presence-service.${serviceId}`,
-              );
-              setIsConnected(true);
-              setLastUpdated(new Date().toLocaleTimeString());
-              toast.success(`Connecté au service ${serviceId}`);
-            })
-            .here((users: any[]) => {
-              console.log(
-                `[Queues] Utilisateurs présents sur le canal:`,
-                users,
-              );
-            })
-            .joining((user: any) => {
-              console.log(`[Queues] Utilisateur rejoint:`, user);
-            })
-            .leaving((user: any) => {
-              console.log(`[Queues] Utilisateur part:`, user);
-            })
-            .listen(".service.ticket.called", (e: any) => {
-              console.log("[Queues] Ticket appelé reçu:", e);
-              setTickets((prevTickets) =>
-                [
-                  {
-                    id: e.ticket.id,
-                    ticket_number: e.ticket.ticket_number,
-                    status: e.ticket.status,
-                    created_at: e.ticket.created_at,
-                    service_id: e.ticket.service_id,
-                    service_name: e.ticket.service_name,
-                    priority: e.ticket.priority,
-                    client_name: e.ticket.client_name,
-                  },
-                  ...prevTickets,
-                ].slice(0, 10),
-              );
-              setLastUpdated(new Date().toLocaleTimeString());
-              refreshQueueAndStats();
-            })
-            .listen(".service.ticket.enqueued", () => {
-              if (cancelled) return;
-              refreshQueueAndStats();
-            })
-            .listen(".service.ticket.absent", () => {
-              if (cancelled) return;
-              refreshQueueAndStats();
-            })
-            .listen(".service.stats.updated", (e: any) => {
-              console.log("Statistiques mises à jour:", e);
-              setStats(e.stats);
-              setLastUpdated(new Date().toLocaleTimeString());
-            })
-            .listen(".user.en_route", (e: any) => {
-              console.log("[Queues] ✓✓✓ UserEnRoute reçu:", e);
-              console.log(
-                "[Queues] ticket_id:",
-                e.ticket_id,
-                "ticket_number:",
-                e.ticket_number,
-              );
-              console.log(
-                "[Queues] Appel toast.success avec message:",
-                e.message,
-              );
-              try {
-                toast.success("Usager en route", {
-                  description:
-                    e.message ||
-                    `Ticket ${e.ticket_number}: l'usager a confirmé sa présence`,
-                  duration: 5000,
+          console.log(`[Queues] Connexion au canal service.${serviceId}`);
+          
+          if (echo) {
+            channel = echo.channel(`service.${serviceId}`);
+            
+            if (channel) {
+              channel
+                .listen('.service.ticket.called', () => {
+                  if (!cancelled) refreshQueueAndStats(false);
+                })
+                .listen('.service.ticket.enqueued', () => {
+                  if (!cancelled) refreshQueueAndStats(false);
+                })
+                .listen('.service.ticket.absent', () => {
+                  if (!cancelled) refreshQueueAndStats(false);
+                })
+                .listen('.service.stats.updated', (e: any) => {
+                  if (!cancelled && e.stats) setStats(e.stats);
+                })
+                .listen('.user.en_route', (e: any) => {
+                  if (!cancelled) {
+                    toast.success("Usager en route", {
+                      description: e.message || `Ticket ${e.ticket_number}: confirmé`,
+                      duration: 5000,
+                    });
+                    refreshQueueAndStats(false);
+                  }
                 });
-                console.log("[Queues] Toast appelé avec succès");
-              } catch (err) {
-                console.error("[Queues] Erreur toast:", err);
-              }
-              // Update the queue to show en_route status
-              setQueue((prevQueue) =>
-                prevQueue.map((t) =>
-                  t.id === e.ticket_id
-                    ? {
-                        ...t,
-                        en_route_at: new Date().toISOString(),
-                        estimated_travel_minutes: e.estimated_minutes ?? null,
-                        last_distance_m: e.last_distance_m ?? null,
-                      }
-                    : t,
-                ),
-              );
-              setLastUpdated(new Date().toLocaleTimeString());
-            })
-            .error((err: any) => {
-              console.warn("Erreur WebSocket:", err);
-              setIsConnected(false);
-            });
+              
+              setIsConnected(true);
+              console.log(`[Queues] ✓ Connecté au canal service.${serviceId}`);
+              toast.success(`Connecté au service ${serviceId} en temps réel`);
+            } else {
+              throw new Error("Impossible de créer le canal");
+            }
+          } else {
+            throw new Error("Echo non initialisé");
+          }
         } catch (wsError) {
-          console.warn(
-            "WebSocket non disponible, fonctionnement en mode polling:",
-            wsError,
-          );
+          console.warn("[Queues] WebSocket non disponible, mode polling actif:", wsError);
           setIsConnected(false);
+          // Pas de toast d'erreur pour ne pas spammer l'utilisateur
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("Erreur lors de la connexion au service:", error);
-          toast.error("Erreur de configuration du service");
+          console.error("[Queues] Erreur:", error);
           setIsConnected(false);
           setIsLoading(false);
         }
       }
     })();
 
-    // Cleanup function
     return () => {
       cancelled = true;
       try {
-        if (channel) {
-          channel.stopListening(".service.ticket.called");
-          channel.stopListening(".service.ticket.enqueued");
-          channel.stopListening(".service.ticket.absent");
-          channel.stopListening(".service.stats.updated");
-          channel.stopListening(".user.en_route");
+        if (channel && typeof channel.leave === 'function') {
+          channel.leave();
         }
       } catch (error) {
-        console.error("Erreur lors du nettoyage du canal:", error);
+        console.error("[Queues] Erreur nettoyage canal:", error);
       }
     };
-  }, [echo, serviceId]);
+  }, [serviceId]);
 
   const handleServiceIdSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -631,43 +677,16 @@ const Queues: React.FC = () => {
       toast.error("Veuillez entrer un identifiant de service");
       return;
     }
-    setIsLoading(true);
-    setTickets([]);
-    setStats(null);
-    setError("");
-
-    fetchStats(serviceId)
-      .then((data) => {
-        const mapped: ServiceStats = {
-          service_id: Number(serviceId),
-          service_name: String(
-            data?.service?.name || data?.service_name || `Service ${serviceId}`,
-          ),
-          waiting: Number(data?.people ?? data?.waiting ?? 0),
-          processed: Number(data?.processed ?? 0),
-          average_wait_time: String(
-            data?.eta_avg ?? data?.average_wait_time ?? "—",
-          ),
-        };
-        setStats(mapped);
-        setLastUpdated(new Date().toLocaleTimeString());
-      })
-      .catch((err: any) => {
-        setError(err?.message || "Erreur");
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    refreshQueueAndStats(true);
   };
 
+  // CORRECTION 3: refreshData simplifié - pas de bouton séparé
   const refreshData = () => {
     if (!serviceId) {
       toast.error("Aucun service sélectionné");
       return;
     }
-    setIsLoading(true);
-    toast.info("Reconnexion en cours...");
-    // La reconnexion se fera automatiquement via l'effet
+    refreshQueueAndStats(true);
   };
 
   if (isLoading && serviceId) {
@@ -676,8 +695,8 @@ const Queues: React.FC = () => {
         <div className="text-center bg-card p-8 rounded-xl shadow-lg max-w-md w-full border border-border">
           <div className="flex justify-center mb-4">
             <div className="relative h-8 w-8">
-              <div className="absolute inset-0 rounded-full border-4 " />
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
+              <div className="absolute inset-0 rounded-full border-4 border-muted" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-primary animate-spin" />
             </div>
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -693,8 +712,6 @@ const Queues: React.FC = () => {
       </div>
     );
   }
-
-
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -727,22 +744,49 @@ const Queues: React.FC = () => {
   };
 
   const parseDate = (date?: string | null) => {
-  if (!date) return null;
-  return new Date(date.replace(" ", "T") + "Z");
+    if (!date) return null;
+    return new Date(date.replace(" ", "T") + "Z");
   };
 
   const formatTime = (date?: string | null) =>
-  date
-    ? new Intl.DateTimeFormat("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(parseDate(date)!)
-    : "—";
+    date
+      ? new Intl.DateTimeFormat("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).format(parseDate(date)!)
+      : "—";
+
+  const ActionButton = ({ onClick, disabled, icon: Icon, children, variant = "primary" }: any) => {
+    const variants = {
+      primary: "bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 hover:from-blue-700 hover:to-blue-800 shadow-sm",
+      secondary: "bg-gray-100 dark:bg-gray-800 text-gray-700 py-3 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700",
+      danger: "bg-red-600 text-white hover:bg-red-700 py-3 shadow-sm",
+      success: "bg-green-600 text-white hover:bg-green-700 py-3 shadow-sm",
+      warning: "bg-amber-600 text-white hover:bg-amber-700 py-3 shadow-sm",
+    };
+    
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+          disabled
+            ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed border border-gray-200 dark:border-gray-700"
+            : variants[variant]
+        )}
+      >
+        {Icon && <Icon className="h-4 w-4" />}
+        {children}
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
-      <div className=" mx-auto">
+      <div className="mx-auto">
         <div className="bg-card rounded-2xl shadow-xl overflow-hidden mb-8 border border-border">
           {/* En-tête */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">
@@ -757,7 +801,7 @@ const Queues: React.FC = () => {
               </div>
               {lastUpdated && (
                 <div className="mt-4 md:mt-0 text-sm bg-blue-700 bg-opacity-50 px-3 py-1.5 rounded-full inline-flex items-center">
-                  <span className="w-2 h-2 rounded-full bg-green-400 mr-2"></span>
+                  <span className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></span>
                   <span>Mis à jour à {lastUpdated}</span>
                 </div>
               )}
@@ -814,13 +858,14 @@ const Queues: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-end">
-                  <button
-                    type="submit"
-                    className="w-full md:w-auto px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 flex items-center justify-center"
+                  <ActionButton
+                    onClick={() => refreshData()}
+                    disabled={false}
+                    icon={TrendingUp}
+                    variant="primary"
                   >
-                    <TrendingUp className="mr-2" />
                     Afficher les statistiques
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             </form>
@@ -832,24 +877,18 @@ const Queues: React.FC = () => {
             )}
 
             {serviceId && (
-              <div className="mt-4 flex items-center">
-                <div
-                  className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
-                ></div>
-                <span className="text-sm font-medium text-foreground">
-                  {isConnected
-                    ? `Connecté au service ${serviceId}`
-                    : "Déconnecté"}
-                </span>
-                {isConnected && (
-                  <button
-                    onClick={refreshData}
-                    className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-1 rounded transition-colors"
-                  >
-                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                    Actualiser
-                  </button>
-                )}
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex items-center">
+                  <div
+                    className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`}
+                  ></div>
+                  <span className="text-sm font-medium text-foreground">
+                    {isConnected
+                      ? `✅ Connecté au service ${serviceId} (temps réel)`
+                      : `⚠️ Mode hors ligne - mise à jour toutes les 10s`}
+                  </span>
+                </div>
+                {/* Bouton Actualiser maintenant retiré comme demandé */}
               </div>
             )}
           </div>
@@ -928,7 +967,7 @@ const Queues: React.FC = () => {
             </div>
           )}
 
-          {/* Derniers tickets appelés */}
+          {/* File d'attente */}
           <div className="p-6">
             {serviceId && (
               <>
@@ -950,75 +989,49 @@ const Queues: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                
                 <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
+                  <div className="flex flex-wrap gap-2">
+                    <ActionButton
                       onClick={callNext}
-                      disabled={!isConnected || isActing}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                        !isConnected || isActing
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-primary text-primary-foreground border-primary hover:bg-primary/90",
-                      )}
+                      disabled={!serviceId || isActing}
+                      icon={Phone}
+                      variant="success"
                     >
                       Appeler suivant
-                    </button>
-                    <button
-                      type="button"
+                    </ActionButton>
+                    <ActionButton
                       onClick={openService}
                       disabled={!serviceId || isActing}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                        !serviceId || isActing
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-card text-foreground border-border hover:bg-muted",
-                      )}
+                      icon={CheckCircle}
+                      variant="primary"
                     >
                       Ouvrir service
-                    </button>
-                    <button
-                      type="button"
+                    </ActionButton>
+                    <ActionButton
                       onClick={closeService}
                       disabled={!serviceId || isActing}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                        !serviceId || isActing
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-card text-foreground border-border hover:bg-muted",
-                      )}
+                      icon={X}
+                      variant="secondary"
                     >
                       Fermer service
-                    </button>
-                    <button
-                      type="button"
-                      onClick={refreshQueueAndStats}
+                    </ActionButton>
+                    <ActionButton
+                      onClick={refreshData}
                       disabled={!serviceId || isActing}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                        !serviceId || isActing
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-card text-foreground border-border hover:bg-muted",
-                      )}
+                      icon={RefreshCw}
+                      variant="secondary"
                     >
-                      Rafraîchir la file
-                    </button>
-                    <button
-                      type="button"
+                      Rafraîchir
+                    </ActionButton>
+                    <ActionButton
                       onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutDialog(true); }}
                       disabled={!serviceId}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                        !serviceId
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-card text-foreground border-border hover:bg-muted",
-                      )}
-                      title="Configurer le délai de priorité"
+                      icon={Timer}
+                      variant="secondary"
                     >
-                      <Timer className="h-4 w-4" />
                       {callTimeoutMinutes ? `${callTimeoutMinutes} min` : "Délai"}
-                    </button>
+                    </ActionButton>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {isActing ? "Action en cours…" : ""}
@@ -1051,38 +1064,29 @@ const Queues: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex gap-2 items-end">
-                  <button
-                    type="button"
+                  <ActionButton
                     onClick={openCounter}
                     disabled={!counterId || isActing}
-                    className={cn(
-                      "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                      !counterId || isActing
-                        ? "bg-muted text-muted-foreground border-border"
-                        : "bg-card text-foreground border-border hover:bg-muted",
-                    )}
+                    icon={CheckCircle}
+                    variant="primary"
                   >
                     Ouvrir guichet
-                  </button>
-                  <button
-                    type="button"
+                  </ActionButton>
+                  <ActionButton
                     onClick={closeCounter}
                     disabled={!counterId || isActing}
-                    className={cn(
-                      "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                      !counterId || isActing
-                        ? "bg-muted text-muted-foreground border-border"
-                        : "bg-card text-foreground border-border hover:bg-muted",
-                    )}
+                    icon={X}
+                    variant="secondary"
                   >
                     Fermer guichet
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             )}
 
             {serviceId && (
               <div className="mb-8">
+<<<<<<< HEAD
                 {/* Onglets File du jour / Reportés */}
                 <div className="flex items-center gap-2 mb-4">
                   <button
@@ -1125,6 +1129,14 @@ const Queues: React.FC = () => {
                 {queueView === "today" && (queue.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">
                     Aucun ticket en attente aujourd'hui
+=======
+                <h2 className="text-lg font-semibold text-foreground mb-3">
+                  File actuelle ({queue.filter(t => t.status === "waiting").length} en attente)
+                </h2>
+                {queue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Aucun ticket en attente
+>>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
@@ -1156,7 +1168,7 @@ const Queues: React.FC = () => {
                           {queue.map((t) => (
                             <tr
                               key={t.id}
-                              className="hover-card transition-colors"
+                              className="hover:bg-muted/50 transition-colors"
                             >
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="font-semibold text-foreground">
@@ -1297,18 +1309,15 @@ const Queues: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex gap-2">
-                                  {/* Call button - only for waiting tickets */}
                                   <button
                                     type="button"
                                     onClick={() => callNext()}
-                                    disabled={
-                                      isActing || t.status !== "waiting"
-                                    }
+                                    disabled={isActing || t.status !== "waiting"}
                                     className={cn(
                                       "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                                       isActing || t.status !== "waiting"
-                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
-                                        : "bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow",
+                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                        : "bg-green-600 text-white hover:bg-green-700 shadow-sm"
                                     )}
                                     title="Appeler ce ticket"
                                   >
@@ -1316,22 +1325,15 @@ const Queues: React.FC = () => {
                                     Appeler
                                   </button>
 
-                                  {/* Recall button - for called/absent tickets */}
                                   <button
                                     type="button"
                                     onClick={() => recall(Number(t.id))}
-                                    disabled={
-                                      isActing ||
-                                      t.status === "waiting" ||
-                                      t.status === "closed"
-                                    }
+                                    disabled={isActing || t.status === "waiting" || t.status === "closed"}
                                     className={cn(
                                       "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                      isActing ||
-                                        t.status === "waiting" ||
-                                        t.status === "closed"
-                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
-                                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow",
+                                      isActing || t.status === "waiting" || t.status === "closed"
+                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                     )}
                                     title="Rappeler ce ticket"
                                   >
@@ -1339,7 +1341,6 @@ const Queues: React.FC = () => {
                                     Rappel
                                   </button>
 
-                                  {/* Absent button - for called tickets */}
                                   <button
                                     type="button"
                                     onClick={() => markAbsent(Number(t.id))}
@@ -1347,8 +1348,8 @@ const Queues: React.FC = () => {
                                     className={cn(
                                       "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                                       isActing || t.status !== "called"
-                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
-                                        : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm hover:shadow",
+                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                        : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
                                     )}
                                     title="Marquer comme absent"
                                   >
@@ -1356,7 +1357,6 @@ const Queues: React.FC = () => {
                                     Absent
                                   </button>
 
-                                  {/* Close button - for called tickets */}
                                   <button
                                     type="button"
                                     onClick={() => closeTicket(Number(t.id))}
@@ -1364,8 +1364,8 @@ const Queues: React.FC = () => {
                                     className={cn(
                                       "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                                       isActing || t.status !== "called"
-                                        ? "bg-muted text-muted-foreground cursor-not-allowed"
-                                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow",
+                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
                                     )}
                                     title="Clôturer le ticket"
                                   >
@@ -1495,8 +1495,7 @@ const Queues: React.FC = () => {
                   Aucun ticket récent
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-                  Aucun ticket n'a été appelé récemment pour ce service. Les
-                  tickets apparaîtront ici en temps réel.
+                  Aucun ticket n'a été appelé récemment pour ce service.
                 </p>
               </div>
             ) : (
@@ -1505,28 +1504,16 @@ const Queues: React.FC = () => {
                   <table className="min-w-full divide-y divide-border">
                     <thead className="bg-muted">
                       <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Détails
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
-                          Statut
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Service
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
-                          Heure
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Priorité
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Heure
                         </th>
                       </tr>
@@ -1535,7 +1522,7 @@ const Queues: React.FC = () => {
                       {tickets.map((ticket, index) => (
                         <tr
                           key={`${ticket.id}-${index}`}
-                          className="hover-card transition-colors"
+                          className="hover:bg-muted/50 transition-colors"
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -1624,7 +1611,7 @@ const Queues: React.FC = () => {
                 max={60}
                 value={timeoutInput}
                 onChange={(e) => setTimeoutInput(e.target.value)}
-                placeholder="Par défaut (10 min)"
+                placeholder="10 min par défaut"
                 className="w-full rounded-lg border border-border bg-background px-4 py-3 text-xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
