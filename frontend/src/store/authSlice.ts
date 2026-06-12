@@ -128,6 +128,14 @@ export const refreshMe = createAsyncThunk("auth/refreshMe", async () => {
   return data as User;
 });
 
+export const updateProfile = createAsyncThunk(
+  "auth/updateProfile",
+  async (payload: { name?: string; phone?: string | null; avatar?: string | null }) => {
+    const { data } = await api.patch("/api/me", payload);
+    return data.user as User;
+  },
+);
+
 const slice = createSlice({
   name: "auth",
   initialState,
@@ -241,6 +249,11 @@ const slice = createSlice({
 
     b.addCase(refreshMe.fulfilled, (s, a: PayloadAction<User>) => {
       s.loading = false;
+      s.user = a.payload;
+      localStorage.setItem("user", JSON.stringify(a.payload));
+    });
+
+    b.addCase(updateProfile.fulfilled, (s, a: PayloadAction<User>) => {
       s.user = a.payload;
       localStorage.setItem("user", JSON.stringify(a.payload));
     });

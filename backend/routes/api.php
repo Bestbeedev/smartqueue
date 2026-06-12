@@ -36,6 +36,8 @@ use App\Http\Controllers\Api\Agent\DashboardController as AgentDashboardControll
 use App\Http\Controllers\Api\ServiceQrCodeController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ForgotPasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +64,9 @@ Route::prefix('auth')->group(function () {
     // Google OAuth
     Route::post('google', [AuthController::class, 'googleLogin']);
     Route::post('google/register', [AuthController::class, 'googleRegister']);
+    // Mot de passe oublié / réinitialisation (public)
+    Route::post('forgot', [ForgotPasswordController::class, 'sendResetLink']);
+    Route::post('reset', [ForgotPasswordController::class, 'reset']);
 });
 
 // Onboarding SaaS (établissement -> abonnement)
@@ -87,6 +92,9 @@ Route::get('services/{id}/availability', [ServiceController::class, 'availabilit
 Route::middleware('auth:sanctum')->group(function () {
     // Profil utilisateur courant (utile front)
     Route::get('me', [OnboardingController::class, 'me']);
+    // Mise à jour du profil + changement de mot de passe
+    Route::match(['put', 'patch'], 'me', [ProfileController::class, 'update']);
+    Route::post('me/change-password', [ProfileController::class, 'changePassword']);
 
     // CRUD tickets utilisateur
     Route::post('tickets', [TicketController::class, 'store']);

@@ -54,8 +54,8 @@ export const usersApi = {
 
   // Mettre à jour le profil utilisateur
   updateProfile: async (data: UpdateUserData): Promise<User> => {
-    const response = await axiosClient.put('/me', data);
-    return response.data;
+    const response = await axiosClient.patch('/me', data);
+    return response.data.user ?? response.data;
   },
 
   // Mettre à jour l'avatar
@@ -100,10 +100,11 @@ export const usersApi = {
   },
 
   // Changer le mot de passe
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await axiosClient.put('/me/password', {
+  changePassword: async (currentPassword: string, newPassword: string, confirmPassword: string): Promise<void> => {
+    await axiosClient.post('/me/change-password', {
       current_password: currentPassword,
-      new_password: newPassword,
+      password: newPassword,
+      password_confirmation: confirmPassword,
     });
   },
 

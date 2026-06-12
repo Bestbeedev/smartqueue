@@ -40,6 +40,12 @@ class AppServiceProvider extends ServiceProvider
             return null;
         });
 
+        // URL de réinitialisation du mot de passe → pointe vers le frontend React
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(function ($user, string $token) {
+            $frontendUrl = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+            return "{$frontendUrl}/reset-password?token={$token}&email=" . urlencode($user->email);
+        });
+
         // Ticket lifecycle event → notification listener mapping
         Event::listen(TicketCreated::class,     [NotifyTicketLifecycle::class, 'handleCreated']);
         Event::listen(TicketDeferred::class,    [NotifyTicketLifecycle::class, 'handleDeferred']);

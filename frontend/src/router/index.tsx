@@ -60,6 +60,8 @@ const Billing = lazy(() => import("@/pages/dashboard/Billing"));
 const Analytics = lazy(() => import("@/pages/dashboard/Analytics"));
 const PushBroadcast = lazy(() => import("@/pages/dashboard/PushBroadcast"));
 const Profile = lazy(() => import("@/pages/auth/user/Profile"));
+const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 
 // Composant de chargement
@@ -201,6 +203,22 @@ function AppRoutes() {
       element: (
         <Suspense fallback={<PageLoaderSample />}>
           <SubscriptionPlan />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/forgot-password",
+      element: (
+        <Suspense fallback={<PageLoaderSample />}>
+          <ForgotPassword />
+        </Suspense>
+      ),
+    },
+    {
+      path: "/reset-password",
+      element: (
+        <Suspense fallback={<PageLoaderSample />}>
+          <ResetPassword />
         </Suspense>
       ),
     },

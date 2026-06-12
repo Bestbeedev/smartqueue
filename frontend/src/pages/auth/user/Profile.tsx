@@ -3,35 +3,33 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAppDispatch } from '@/store';
-import { logout, refreshMe } from '@/store/authSlice';
+import { logout, updateProfile } from '@/store/authSlice';
 import { api } from '@/api/axios';
+import { toast } from 'sonner';
 
 export default function Profile() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
-    email: '',
     phone: '',
     avatar: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  });
+  const [pwData, setPwData] = useState({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
   });
 
-  // Charger les données du profil
   useEffect(() => {
     if (isAuthenticated && user) {
       setProfileData({
         name: user.name || '',
-        email: user.email || '',
         phone: user.phone || '',
         avatar: user.avatar || '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
       });
     }
   }, [isAuthenticated, user]);
@@ -39,60 +37,50 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const updateData: any = {
+      await dispatch(updateProfile({
         name: profileData.name,
-        email: profileData.email,
         phone: profileData.phone || null,
-        avatar: profileData.avatar || null
-      };
-
-      // Ajouter le mot de passe seulement si fourni
-      if (profileData.newPassword) {
-        if (profileData.newPassword !== profileData.confirmPassword) {
-          alert('Les mots de passe ne correspondent pas');
-          return;
-        }
-        updateData.password = profileData.newPassword;
-        updateData.current_password = profileData.currentPassword;
-      }
-
-      // Backend currently exposes GET /api/me. If profile update endpoint isn't implemented yet,
-      // this request may fail (405). We still try PATCH to stay RESTful.
-      await api.patch('/api/me', updateData);
+        avatar: profileData.avatar || null,
+      })).unwrap();
       setIsEditing(false);
-      await dispatch(refreshMe());
-    } catch (error) {
-      console.error('Erreur sauvegarde profil:', error);
-      const anyErr: any = error as any;
-      const status = anyErr?.response?.status;
-      const message =
-        anyErr?.response?.data?.message ||
-        anyErr?.message ||
-        'Erreur lors de la sauvegarde du profil';
-
-      if (status === 405) {
-        alert("La modification du profil n'est pas encore disponible côté serveur (endpoint manquant).");
-        return;
-      }
-
-      alert(message);
+      toast.success('Profil mis à jour avec succès.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Erreur lors de la sauvegarde du profil.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleChangePassword = async () => {
+    if (pwData.password !== pwData.password_confirmation) {
+      toast.error('Les mots de passe ne correspondent pas.');
+      return;
+    }
+    if (pwData.password.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await api.post('/api/me/change-password', pwData);
+      setPwData({ current_password: '', password: '', password_confirmation: '' });
+      toast.success('Mot de passe modifié avec succès.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Erreur lors du changement de mot de passe.';
+      toast.error(msg);
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // Réinitialiser avec les données originales
     if (user) {
       setProfileData({
         name: user.name || '',
-        email: user.email || '',
         phone: user.phone || '',
         avatar: user.avatar || '',
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
       });
     }
   };
@@ -121,7 +109,7 @@ export default function Profile() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Colonne principale */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Informations personnelles */}
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
             <div className="flex items-center justify-between mb-6">
@@ -170,12 +158,10 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Informations de base */}
+              {/* Champs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Nom complet
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Nom complet</label>
                   <Input
                     value={profileData.name}
                     onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
@@ -183,20 +169,16 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Email</label>
                   <Input
                     type="email"
-                    value={profileData.email}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    disabled={!isEditing}
+                    value={user?.email || ''}
+                    disabled={true}
+                    className="bg-muted"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Téléphone
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Téléphone</label>
                   <Input
                     type="tel"
                     value={profileData.phone}
@@ -206,65 +188,55 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Rôle
-                  </label>
-                  <Input
-                    value={user?.role || ''}
-                    disabled={true}
-                    className="bg-muted"
-                  />
+                  <label className="block text-sm font-medium text-foreground mb-2">Rôle</label>
+                  <Input value={user?.role || ''} disabled={true} className="bg-muted" />
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Changement de mot de passe */}
-              {isEditing && (
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium text-foreground mb-4">Changement de mot de passe</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Mot de passe actuel
-                      </label>
-                      <Input
-                        type="password"
-                        value={profileData.currentPassword}
-                        onChange={(e) => setProfileData({ ...profileData, currentPassword: e.target.value })}
-                        placeholder="Laisser vide si inchangé"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Nouveau mot de passe
-                      </label>
-                      <Input
-                        type="password"
-                        value={profileData.newPassword}
-                        onChange={(e) => setProfileData({ ...profileData, newPassword: e.target.value })}
-                        placeholder="Laisser vide si inchangé"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Confirmer le mot de passe
-                      </label>
-                      <Input
-                        type="password"
-                        value={profileData.confirmPassword}
-                        onChange={(e) => setProfileData({ ...profileData, confirmPassword: e.target.value })}
-                        placeholder="Laisser vide si inchangé"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+          {/* Changement de mot de passe */}
+          <div className="bg-card rounded-xl shadow-lg border border-border p-6">
+            <h2 className="text-xl font-semibold text-foreground mb-6">Changement de mot de passe</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Mot de passe actuel</label>
+                <Input
+                  type="password"
+                  value={pwData.current_password}
+                  onChange={(e) => setPwData({ ...pwData, current_password: e.target.value })}
+                  placeholder="Mot de passe actuel"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Nouveau mot de passe</label>
+                <Input
+                  type="password"
+                  value={pwData.password}
+                  onChange={(e) => setPwData({ ...pwData, password: e.target.value })}
+                  placeholder="8 caractères minimum"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Confirmer</label>
+                <Input
+                  type="password"
+                  value={pwData.password_confirmation}
+                  onChange={(e) => setPwData({ ...pwData, password_confirmation: e.target.value })}
+                  placeholder="Répétez le mot de passe"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <Button onClick={handleChangePassword} disabled={pwLoading || !pwData.current_password || !pwData.password}>
+                {pwLoading ? 'Modification...' : 'Modifier le mot de passe'}
+              </Button>
             </div>
           </div>
 
           {/* Préférences de notification */}
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
             <h2 className="text-xl font-semibold text-foreground mb-6">Préférences de notification</h2>
-            
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -280,57 +252,14 @@ export default function Profile() {
                 </div>
                 <input type="checkbox" className="toggle" defaultChecked />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Notifications SMS</p>
-                  <p className="text-sm text-muted-foreground">Recevoir les alertes par SMS</p>
-                </div>
-                <input type="checkbox" className="toggle" />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Newsletter</p>
-                  <p className="text-sm text-muted-foreground">Recevoir les actualités et mises à jour</p>
-                </div>
-                <input type="checkbox" className="toggle" />
-              </div>
-            </div>
-          </div>
-
-          {/* Sécurité */}
-          <div className="bg-card rounded-xl shadow-lg border border-border p-6">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Sécurité</h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="font-medium">Authentification à deux facteurs</p>
-                  <p className="text-sm text-muted-foreground">Ajoutez une couche de sécurité supplémentaire</p>
-                </div>
-                <Button variant="outline">Configurer</Button>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="font-medium">Sessions actives</p>
-                  <p className="text-sm text-muted-foreground">Gérez vos sessions de connexion</p>
-                </div>
-                <Button variant="outline">Voir</Button>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="font-medium">Journal d'activité</p>
-                  <p className="text-sm text-muted-foreground">Consultez l'historique de vos activités</p>
-                </div>
-                <Button variant="outline">Voir</Button>
-              </div>
             </div>
           </div>
         </div>
 
         {/* Colonne latérale */}
         <div className="space-y-6">
-          
-          {/* Statistiques du compte */}
+
+          {/* Mon activité */}
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">Mon activité</h2>
             <div className="space-y-4">
@@ -343,61 +272,10 @@ export default function Profile() {
                   }) : 'N/A'}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tickets traités</p>
-                <p className="text-2xl font-bold text-foreground">0</p>
-                <p className="text-xs text-muted-foreground">Cette semaine</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Temps de réponse moyen</p>
-                <p className="text-2xl font-bold text-foreground">N/A</p>
-                <p className="text-xs text-muted-foreground">Cette semaine</p>
-              </div>
-            </div>
-            <Button variant="outline" className="w-full mt-4">
-              Voir l'historique complet
-            </Button>
-          </div>
-
-          {/* Actions rapides */}
-          <div className="bg-card rounded-xl shadow-lg border border-border p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Actions rapides</h2>
-            <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                📥 Exporter mes données
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                🔑 Réinitialiser le mot de passe
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                📱 Configurer le mobile
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                🎨 Personnaliser l'interface
-              </Button>
             </div>
           </div>
 
-          {/* Support */}
-          <div className="bg-card rounded-xl shadow-lg border border-border p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Aide et support</h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Centre d'aide</span>
-                <Button variant="outline" size="sm">Voir</Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Contacter le support</span>
-                <Button variant="outline" size="sm">Contacter</Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Signaler un problème</span>
-                <Button variant="outline" size="sm">Signaler</Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions système */}
+          {/* Système */}
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">Système</h2>
             <div className="space-y-3">
@@ -405,8 +283,7 @@ export default function Profile() {
                 Se déconnecter
               </Button>
               <div className="text-xs text-muted-foreground text-center">
-                Version 1.0.0-MVP<br />
-                Dernière mise à jour: 4 Mars 2026
+                Version 1.0.0-MVP
               </div>
             </div>
           </div>

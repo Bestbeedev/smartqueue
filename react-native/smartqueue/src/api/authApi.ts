@@ -153,11 +153,13 @@ export const authApi = {
   // Réinitialiser le mot de passe
   resetPassword: async (
     token: string,
+    email: string,
     password: string,
     password_confirmation: string,
   ): Promise<void> => {
     await axiosClient.post("/auth/reset", {
       token,
+      email,
       password,
       password_confirmation,
     });
