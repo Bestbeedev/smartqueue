@@ -307,7 +307,6 @@ const Queues: React.FC = () => {
     return data;
   };
 
-<<<<<<< HEAD
   const fetchDeferredQueue = async (id: string) => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId) || numericId <= 0) return;
@@ -320,8 +319,6 @@ const Queues: React.FC = () => {
     }
   };
 
-  const refreshQueueAndStats = async () => {
-=======
   const fetchStats = async (id: string) => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId) || numericId <= 0) {
@@ -331,9 +328,7 @@ const Queues: React.FC = () => {
     return data;
   };
 
-  // CORRECTION 1: refreshQueueAndStats met maintenant à jour les tickets récents
   const refreshQueueAndStats = async (showToast = false) => {
->>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
     if (!serviceId) return;
     if (showToast) toast.info("Rafraîchissement en cours...");
     
@@ -374,12 +369,8 @@ const Queues: React.FC = () => {
       
       setTickets(recentCalledTickets);
       setLastUpdated(new Date().toLocaleTimeString());
-<<<<<<< HEAD
       fetchDeferredQueue(serviceId);
-=======
-      
       if (showToast) toast.success("Données mises à jour");
->>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
     } catch (e: any) {
       setError(e?.message || "Erreur");
       if (showToast) toast.error("Erreur lors du rafraîchissement");
@@ -560,7 +551,6 @@ const Queues: React.FC = () => {
         await fetchService(serviceId);
         if (cancelled) return;
 
-<<<<<<< HEAD
         // Initial load (queue + stats)
         try {
           const q = await fetchQueue(serviceId);
@@ -596,11 +586,6 @@ const Queues: React.FC = () => {
         }
 
         // Arrêter le loading - les données sont chargées
-=======
-        // Chargement initial
-        await refreshQueueAndStats(false);
-        
->>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
         if (!cancelled) {
           setIsLoading(false);
         }
@@ -1086,7 +1071,6 @@ const Queues: React.FC = () => {
 
             {serviceId && (
               <div className="mb-8">
-<<<<<<< HEAD
                 {/* Onglets File du jour / Reportés */}
                 <div className="flex items-center gap-2 mb-4">
                   <button
@@ -1129,14 +1113,6 @@ const Queues: React.FC = () => {
                 {queueView === "today" && (queue.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">
                     Aucun ticket en attente aujourd'hui
-=======
-                <h2 className="text-lg font-semibold text-foreground mb-3">
-                  File actuelle ({queue.filter(t => t.status === "waiting").length} en attente)
-                </h2>
-                {queue.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    Aucun ticket en attente
->>>>>>> b1e6145818a6678197ab9eb5a6dca336854b2373
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
