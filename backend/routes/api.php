@@ -132,6 +132,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Vue complète de la file (initialisation dashboard temps réel)
         Route::get('services/{service}/queue', [AgentQueueController::class, 'index']);
 
+        // Tickets reportés aux jours suivants (vue agent)
+        Route::get('services/{service}/deferred-queue', [AgentQueueController::class, 'deferredQueue']);
+
         // Actions ticket côté agent
         Route::post('tickets/{ticket}/close', [AgentTicketActionController::class, 'close']);
         Route::post('tickets/{ticket}/cancel', [AgentTicketActionController::class, 'cancel']);

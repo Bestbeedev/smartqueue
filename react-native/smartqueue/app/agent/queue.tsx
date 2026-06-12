@@ -72,6 +72,12 @@ type SmartQueueData = {
   reason_if_closed: string | null;
 };
 
+type DeferredDay = {
+  date: string;
+  count: number;
+  tickets: Ticket[];
+};
+
 type ThemeColors = ReturnType<typeof useThemeColors>;
 
 type CreateTicketForm = {
@@ -616,17 +622,21 @@ export default function AgentQueue() {
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [timeoutInput, setTimeoutInput] = useState("");
   const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
+  const [queueTab, setQueueTab] = useState<"today" | "deferred">("today");
+  const [deferredDays, setDeferredDays] = useState<DeferredDay[]>([]);
+  const [deferredTotal, setDeferredTotal] = useState(0);
   const echoRef = useRef<any>(null);
   const hPad = width >= 768 ? 16 : 12;
 
   const fetchData = useCallback(async () => {
     if (!serviceId) return;
     try {
-      const [queueRes, statsRes, serviceRes, availRes] = await Promise.all([
+      const [queueRes, statsRes, serviceRes, availRes, deferredRes] = await Promise.all([
         axiosClient.get(`/services/${serviceId}/queue`),
         axiosClient.get(`/services/${serviceId}/affluence`),
         axiosClient.get(`/services/${serviceId}`),
         axiosClient.get(`/services/${serviceId}/availability`).catch(() => null),
+        axiosClient.get(`/services/${serviceId}/deferred-queue`).catch(() => null),
       ]);
 
       const waitingTickets = (queueRes.data?.tickets || []).filter((t: Ticket) => t.status === "waiting");
@@ -660,6 +670,11 @@ export default function AgentQueue() {
         (t: Ticket) => t.status === "present" || t.status === "called" || t.status === "en_route"
       );
       setCurrentTicket(calledTicket || null);
+
+      if (deferredRes?.data) {
+        setDeferredDays(deferredRes.data.days ?? []);
+        setDeferredTotal(deferredRes.data.total ?? 0);
+      }
     } catch (error) {
       console.error("Error fetching queue:", error);
     } finally {
@@ -925,55 +940,150 @@ export default function AgentQueue() {
         </View>
       )}
 
-      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, marginHorizontal: hPad }]}>
-        <Ionicons name="search" size={15} color={colors.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary }]}
-          placeholder="Rechercher..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
+      {/* Onglets File du jour / Reportés */}
+      <View style={[styles.tabRow, { paddingHorizontal: hPad }]}>
+        <TouchableOpacity
+          style={[styles.tabBtn, queueTab === "today" && styles.tabBtnActive, { borderColor: queueTab === "today" ? "#007AFF" : colors.border }]}
+          onPress={() => setQueueTab("today")}
+        >
+          <Ionicons name="today-outline" size={14} color={queueTab === "today" ? "#007AFF" : colors.textSecondary} />
+          <Text style={[styles.tabBtnText, { color: queueTab === "today" ? "#007AFF" : colors.textSecondary }]}>File du jour</Text>
+          {tickets.length > 0 && (
+            <View style={[styles.tabBadge, { backgroundColor: queueTab === "today" ? "#007AFF" : colors.border }]}>
+              <Text style={[styles.tabBadgeText, { color: queueTab === "today" ? "#FFF" : colors.textSecondary }]}>{tickets.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, queueTab === "deferred" && styles.tabBtnDeferred, { borderColor: queueTab === "deferred" ? "#FF9500" : colors.border }]}
+          onPress={() => setQueueTab("deferred")}
+        >
+          <Ionicons name="calendar-outline" size={14} color={queueTab === "deferred" ? "#FF9500" : colors.textSecondary} />
+          <Text style={[styles.tabBtnText, { color: queueTab === "deferred" ? "#FF9500" : colors.textSecondary }]}>Reportés</Text>
+          {deferredTotal > 0 && (
+            <View style={[styles.tabBadge, { backgroundColor: queueTab === "deferred" ? "#FF9500" : "#FF950020" }]}>
+              <Text style={[styles.tabBadgeText, { color: queueTab === "deferred" ? "#FFF" : "#FF9500" }]}>{deferredTotal}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={filteredTickets}
-        renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} />}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ 
-          paddingHorizontal: hPad, 
-          paddingTop: 6, 
-          paddingBottom: serviceStatus === "open" ? 200 : 24,
-          flexGrow: 1 
-        }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
-        showsVerticalScrollIndicator={true}
-        ListHeaderComponent={filteredTickets.length > 0 ? (
-          <View style={styles.listHeader}>
-            <Text style={[styles.listHeaderTitle, { color: colors.textSecondary }]}>File d'attente</Text>
-            <View style={[styles.listHeaderBadge, { backgroundColor: smartQueue?.critical_zone ? "#FF3B3018" : "#007AFF18" }]}>
-              <Text style={[styles.listHeaderBadgeText, { color: smartQueue?.critical_zone ? "#FF3B30" : "#007AFF" }]}>
-                {filteredTickets.length} ticket{filteredTickets.length > 1 ? "s" : ""}
-                {smartQueue?.critical_zone ? " ⚠" : ""}
+      {queueTab === "today" ? (
+        <>
+          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, marginHorizontal: hPad }]}>
+            <Ionicons name="search" size={15} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.textPrimary }]}
+              placeholder="Rechercher..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <FlatList
+            data={filteredTickets}
+            renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} />}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 6, paddingBottom: serviceStatus === "open" ? 200 : 24, flexGrow: 1 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
+            showsVerticalScrollIndicator={true}
+            ListHeaderComponent={filteredTickets.length > 0 ? (
+              <View style={styles.listHeader}>
+                <Text style={[styles.listHeaderTitle, { color: colors.textSecondary }]}>File du jour</Text>
+                <View style={[styles.listHeaderBadge, { backgroundColor: smartQueue?.critical_zone ? "#FF3B3018" : "#007AFF18" }]}>
+                  <Text style={[styles.listHeaderBadgeText, { color: smartQueue?.critical_zone ? "#FF3B30" : "#007AFF" }]}>
+                    {filteredTickets.length} ticket{filteredTickets.length > 1 ? "s" : ""}{smartQueue?.critical_zone ? " ⚠" : ""}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="ticket-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>File vide</Text>
+                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                  {smartQueue?.critical_zone ? "Zone critique — les nouveaux tickets sont reportés" : "Aucun ticket en attente"}
+                </Text>
+              </View>
+            )}
+          />
+        </>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 8, paddingBottom: 120 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
+          showsVerticalScrollIndicator={true}
+        >
+          {deferredDays.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="calendar-outline" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket reporté</Text>
+              <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                Les tickets créés hors horaires apparaîtront ici.
               </Text>
             </View>
-          </View>
-        ) : null}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="ticket-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>File vide</Text>
-            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              {smartQueue?.critical_zone ? "Zone critique — les nouveaux tickets sont reportés" : "Aucun ticket en attente"}
-            </Text>
-          </View>
-        )}
-      />
+          ) : (
+            deferredDays.map((day) => (
+              <View key={day.date} style={[styles.deferredDaySection, { borderColor: "#FF950030" }]}>
+                <View style={[styles.deferredDayHeader, { backgroundColor: "#FF950015" }]}>
+                  <Ionicons name="calendar" size={14} color="#FF9500" />
+                  <Text style={[styles.deferredDayDate, { color: "#CC7700" }]}>
+                    {new Date(day.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+                  </Text>
+                  <View style={styles.deferredDayBadge}>
+                    <Text style={styles.deferredDayBadgeText}>{day.count}</Text>
+                  </View>
+                </View>
+                {day.tickets.map((t, idx) => (
+                  <View
+                    key={t.id}
+                    style={[
+                      styles.deferredTicketRow,
+                      { borderBottomColor: colors.border, backgroundColor: idx % 2 === 0 ? colors.surface : colors.background },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.deferredTicketNumber, { color: colors.textPrimary }]}>{t.number}</Text>
+                      <Text style={[styles.deferredTicketSub, { color: colors.textSecondary }]}>
+                        {t.display_name ?? t.customer_name ?? "Usager anonyme"}
+                      </Text>
+                      <Text style={[styles.deferredTicketSub, { color: colors.textTertiary, fontSize: 10 }]}>
+                        Créé le {new Date(t.created_at.replace(" ", "T") + "Z").toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                      <View style={[styles.deferredPriorityBadge, {
+                        backgroundColor: t.priority === "urgence" ? "#FF3B3015" : t.priority === "vip" ? "#AF52DE15" : t.priority === "high" ? "#FF950015" : "#8E8E9315",
+                      }]}>
+                        <Text style={[styles.deferredPriorityText, {
+                          color: t.priority === "urgence" ? "#FF3B30" : t.priority === "vip" ? "#AF52DE" : t.priority === "high" ? "#FF9500" : colors.textSecondary,
+                        }]}>
+                          {t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}
+                        </Text>
+                      </View>
+                      <View style={[styles.deferredReasonBadge]}>
+                        <Text style={styles.deferredReasonText}>
+                          {t.defer_reason === "past_cutoff" ? "Hors délai" :
+                           t.defer_reason === "non_working_day" ? "Jour non ouvrable" :
+                           t.defer_reason === "holiday" ? "Jour férié" :
+                           t.defer_reason === "critical_zone" ? "Zone critique" :
+                           t.defer_reason === "exceptional_closure" ? "Fermeture except." :
+                           "Reporté auto."}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      )}
 
       {serviceStatus === "open" && (
         <View style={[styles.stickyButton, { backgroundColor: colors.background, borderTopColor: colors.border, paddingHorizontal: hPad }]}>
@@ -1151,6 +1261,25 @@ const styles = StyleSheet.create({
   timeoutBtnText: { fontSize: 11, fontWeight: "600" },
   countdownBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   countdownText: { color: "#FFF", fontSize: 12, fontWeight: "800", fontVariant: ["tabular-nums"] as any },
+  tabRow: { flexDirection: "row", gap: 8, paddingVertical: 8 },
+  tabBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, borderRadius: 10, borderWidth: 1, backgroundColor: "transparent" },
+  tabBtnActive: { backgroundColor: "#007AFF18" },
+  tabBtnDeferred: { backgroundColor: "#FF950018" },
+  tabBtnText: { fontSize: 12, fontWeight: "600" },
+  tabBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, minWidth: 18, alignItems: "center" },
+  tabBadgeText: { fontSize: 10, fontWeight: "700" },
+  deferredDaySection: { marginBottom: 12, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  deferredDayHeader: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, paddingVertical: 9 },
+  deferredDayDate: { flex: 1, fontSize: 13, fontWeight: "700", textTransform: "capitalize" },
+  deferredDayBadge: { backgroundColor: "#FF9500", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  deferredDayBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "700" },
+  deferredTicketRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5 },
+  deferredTicketNumber: { fontSize: 14, fontWeight: "800", marginBottom: 2 },
+  deferredTicketSub: { fontSize: 12 },
+  deferredPriorityBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  deferredPriorityText: { fontSize: 11, fontWeight: "600" },
+  deferredReasonBadge: { backgroundColor: "#FF950018", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  deferredReasonText: { color: "#CC7700", fontSize: 10, fontWeight: "600" },
 });
 
 const tmStyles = StyleSheet.create({

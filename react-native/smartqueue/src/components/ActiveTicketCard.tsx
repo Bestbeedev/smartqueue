@@ -320,6 +320,27 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
+        {/* Bannière ticket reporté */}
+        {(activeTicket as any)?.auto_deferred && (activeTicket as any)?.valid_date && (
+          <View style={[styles.deferredBanner, { backgroundColor: colors.warning + "18", borderColor: colors.warning + "40" }]}>
+            <Ionicons name="calendar-outline" size={14} color={colors.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.deferredBannerTitle, { color: colors.warning }]}>
+                Ticket reporté au{" "}
+                {new Date((activeTicket as any).valid_date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+              </Text>
+              <Text style={[styles.deferredBannerSub, { color: colors.textSecondary }]}>
+                {(activeTicket as any).defer_reason === "past_cutoff" ? "Créé après la fermeture du service" :
+                 (activeTicket as any).defer_reason === "non_working_day" ? "Service fermé ce jour" :
+                 (activeTicket as any).defer_reason === "holiday" ? "Jour férié" :
+                 (activeTicket as any).defer_reason === "critical_zone" ? "File saturée — reporté automatiquement" :
+                 (activeTicket as any).defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
+                 "Votre ticket sera traité à l'ouverture"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* When to Leave Alert */}
         {whenToLeave && (
           <View style={[styles.leaveAlert, { backgroundColor: whenToLeave.urgent ? colors.danger + "20" : colors.warning + "20" }]}>
@@ -641,6 +662,25 @@ const styles = StyleSheet.create({
   stateMsgSubtext: {
     fontSize: 11,
     marginTop: 4,
+  },
+  deferredBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  deferredBannerTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "capitalize",
+    marginBottom: 1,
+  },
+  deferredBannerSub: {
+    fontSize: 11,
   },
   calledCountdownBadge: {
     flexDirection: "row",

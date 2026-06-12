@@ -14,7 +14,7 @@ class AgentQueueController extends Controller
     use AuthorizesRequests;
 
     /**
-     * Vue complète temps réel de la file d'un service (waiting/called/absent).
+     * Vue complète temps réel de la file du jour (waiting/called/en_route/present/absent).
      */
     public function index(Service $service, Request $request)
     {
@@ -62,6 +62,9 @@ class AgentQueueController extends Controller
                     'en_route_expires_at'     => optional($t->en_route_expires_at)->toDateTimeString(),
                     'estimated_travel_minutes'=> $t->estimated_travel_minutes,
                     'last_distance_m'         => $t->last_distance_m,
+                    'auto_deferred'           => (bool) $t->auto_deferred,
+                    'defer_reason'            => $t->defer_reason,
+                    'valid_date'              => $t->valid_date?->toDateString(),
                     'user' => $t->user ? [
                         'id'    => $t->user->id,
                         'name'  => $t->user->name,
@@ -73,6 +76,59 @@ class AgentQueueController extends Controller
                     ] : null,
                 ];
             }),
+        ]);
+    }
+
+    /**
+     * Tickets reportés aux jours suivants pour ce service (vue agent).
+     * Retourne les tickets groupés par date de planification.
+     */
+    public function deferredQueue(Service $service): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('manage', $service);
+
+        $tickets = Ticket::query()
+            ->where('service_id', $service->id)
+            ->where('auto_deferred', true)
+            ->where('status', 'waiting')
+            ->whereDate('valid_date', '>', Carbon::today())
+            ->orderBy('valid_date')
+            ->orderBy('position')
+            ->orderBy('created_at')
+            ->with(['user'])
+            ->get();
+
+        $byDate = $tickets->groupBy(fn ($t) => $t->valid_date?->toDateString())
+            ->map(fn ($group, $date) => [
+                'date'    => $date,
+                'count'   => $group->count(),
+                'tickets' => $group->map(fn (Ticket $t) => [
+                    'id'             => $t->id,
+                    'number'         => $t->number,
+                    'status'         => $t->status,
+                    'priority'       => $t->priority,
+                    'priority_reason'=> $t->priority_reason,
+                    'source'         => $t->source ?? 'app',
+                    'display_name'   => $t->customer_name ?? $t->user?->name ?? null,
+                    'customer_name'  => $t->customer_name,
+                    'customer_phone' => $t->customer_phone,
+                    'is_senior'      => (bool) $t->is_senior,
+                    'is_handicap'    => (bool) $t->is_handicap,
+                    'is_pregnant'    => (bool) $t->is_pregnant,
+                    'position'       => $t->position,
+                    'auto_deferred'  => true,
+                    'defer_reason'   => $t->defer_reason,
+                    'valid_date'     => $t->valid_date?->toDateString(),
+                    'created_at'     => $t->created_at->toDateTimeString(),
+                    'user' => $t->user ? ['id' => $t->user->id, 'name' => $t->user->name] : null,
+                ])->values(),
+            ])
+            ->values();
+
+        return response()->json([
+            'service_id' => $service->id,
+            'total'      => $tickets->count(),
+            'days'       => $byDate,
         ]);
     }
 }

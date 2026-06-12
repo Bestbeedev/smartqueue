@@ -117,7 +117,7 @@ type GlobalStats = {
 }
 
 type Period = 'today' | 'week' | 'month'
-type StatusFilter = 'all' | 'active' | 'waiting' | 'called' | 'closed' | 'absent' | 'cancelled' | 'expired'
+type StatusFilter = 'all' | 'active' | 'waiting' | 'called' | 'closed' | 'absent' | 'cancelled' | 'expired' | 'deferred'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   waiting: { label: 'En attente', color: 'text-yellow-700', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -202,8 +202,9 @@ export default function TicketsPage() {
     try {
       const response = await api.get(apiEndpoint, {
         params: {
-          period,
-          status: statusFilter === 'all' ? undefined : statusFilter,
+          period: statusFilter === 'deferred' ? 'all' : period,
+          status: statusFilter === 'all' || statusFilter === 'deferred' ? undefined : statusFilter,
+          auto_deferred: statusFilter === 'deferred' ? true : undefined,
           service_id: selectedService === 'all' ? undefined : selectedService,
           page: pageNum,
           per_page: 20,
@@ -529,6 +530,7 @@ export default function TicketsPage() {
                     <SelectItem value="absent">Absents</SelectItem>
                     <SelectItem value="cancelled">Annulés</SelectItem>
                     <SelectItem value="expired">Expirés</SelectItem>
+                    <SelectItem value="deferred">🟡 Reportés (jour suivant)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -684,10 +686,17 @@ export default function TicketsPage() {
                                       </span>
                                       {ticket.auto_deferred && ticket.valid_date && (
                                         <span
-                                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
-                                          title={ticket.defer_reason ?? undefined}
+                                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                                          title={
+                                            ticket.defer_reason === 'past_cutoff' ? 'Créé hors délai' :
+                                            ticket.defer_reason === 'non_working_day' ? 'Jour non ouvrable' :
+                                            ticket.defer_reason === 'holiday' ? 'Jour férié' :
+                                            ticket.defer_reason === 'critical_zone' ? 'Zone critique' :
+                                            ticket.defer_reason === 'exceptional_closure' ? 'Fermeture exceptionnelle' :
+                                            ticket.defer_reason ?? 'Reporté automatiquement'
+                                          }
                                         >
-                                          Reporté au {new Date(ticket.valid_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                                          🟡 Reporté au {new Date(ticket.valid_date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                                         </span>
                                       )}
                                     </div>

@@ -41,6 +41,9 @@ export interface Ticket {
   estimated_travel_minutes?: number | null;
   last_distance_m?: number;
   last_seen_at?: string;
+  auto_deferred?: boolean;
+  defer_reason?: string | null;
+  valid_date?: string | null;
   created_at: string;
   updated_at: string;
   service?: Service;

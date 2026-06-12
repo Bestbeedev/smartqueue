@@ -26,6 +26,8 @@ import {
   HeartHandshake,
   Timer,
   Settings2,
+  CalendarClock,
+  CalendarCheck2,
 } from "lucide-react";
 import { getEcho } from "@/api/echo";
 import { cn } from "@/lib/utils";
@@ -69,6 +71,34 @@ type QueueTicket = {
   is_swapped?: boolean;
   deferred_at?: string | null;
   swapped_with_ticket_id?: number | null;
+  auto_deferred?: boolean;
+  defer_reason?: string | null;
+  valid_date?: string | null;
+  created_at?: string | null;
+};
+
+type DeferredTicket = {
+  id: number;
+  number: string;
+  priority: string;
+  priority_reason?: string | null;
+  source?: string | null;
+  display_name?: string | null;
+  customer_name?: string | null;
+  is_senior?: boolean;
+  is_handicap?: boolean;
+  is_pregnant?: boolean;
+  position?: number | null;
+  auto_deferred: boolean;
+  defer_reason?: string | null;
+  valid_date: string;
+  created_at: string;
+};
+
+type DeferredDay = {
+  date: string;
+  count: number;
+  tickets: DeferredTicket[];
 };
 
 type ServiceStats = {
@@ -163,6 +193,9 @@ const Queues: React.FC = () => {
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
   const [timeoutInput, setTimeoutInput] = useState("");
   const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
+  const [queueView, setQueueView] = useState<"today" | "deferred">("today");
+  const [deferredDays, setDeferredDays] = useState<DeferredDay[]>([]);
+  const [deferredTotal, setDeferredTotal] = useState(0);
   const echo = getEcho();
 
   // Default service selection from assigned services
@@ -228,6 +261,18 @@ const Queues: React.FC = () => {
     return data;
   };
 
+  const fetchDeferredQueue = async (id: string) => {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId) || numericId <= 0) return;
+    try {
+      const { data } = await api.get(`/api/services/${numericId}/deferred-queue`);
+      setDeferredDays(data?.days ?? []);
+      setDeferredTotal(data?.total ?? 0);
+    } catch {
+      // Non bloquant
+    }
+  };
+
   const refreshQueueAndStats = async () => {
     if (!serviceId) return;
     try {
@@ -247,6 +292,7 @@ const Queues: React.FC = () => {
       };
       setStats(mapped);
       setLastUpdated(new Date().toLocaleTimeString());
+      fetchDeferredQueue(serviceId);
     } catch (e: any) {
       setError(e?.message || "Erreur");
     }
@@ -412,6 +458,9 @@ const Queues: React.FC = () => {
         } catch (e: any) {
           if (!cancelled) setError(e?.message || "Erreur");
         }
+
+        // Charger les tickets reportés
+        if (!cancelled) fetchDeferredQueue(serviceId);
 
         // Charger les stats initiales
         try {
@@ -1034,12 +1083,48 @@ const Queues: React.FC = () => {
 
             {serviceId && (
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-foreground mb-3">
-                  File actuelle
-                </h2>
-                {queue.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    Aucun ticket en waiting/called/absent
+                {/* Onglets File du jour / Reportés */}
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setQueueView("today")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                      queueView === "today"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-card text-foreground border-border hover:bg-muted",
+                    )}
+                  >
+                    <CalendarCheck2 className="h-4 w-4" />
+                    File du jour
+                    {queue.length > 0 && (
+                      <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "today" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground")}>
+                        {queue.length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setQueueView("deferred")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                      queueView === "deferred"
+                        ? "bg-amber-600 text-white border-amber-600"
+                        : "bg-card text-foreground border-border hover:bg-muted",
+                    )}
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    Reportés
+                    {deferredTotal > 0 && (
+                      <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "deferred" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300")}>
+                        {deferredTotal}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* VUE FILE DU JOUR */}
+                {queueView === "today" && (queue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">
+                    Aucun ticket en attente aujourd'hui
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
@@ -1079,6 +1164,11 @@ const Queues: React.FC = () => {
                                 </div>
                                 {t.position && (
                                   <div className="text-xs text-muted-foreground">#{t.position}</div>
+                                )}
+                                {t.created_at && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {new Date(t.created_at.replace(" ", "T") + "Z").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                  </div>
                                 )}
                               </td>
                               <td className="px-6 py-4">
@@ -1290,6 +1380,98 @@ const Queues: React.FC = () => {
                       </table>
                     </div>
                   </div>
+                ))}
+
+                {/* VUE TICKETS REPORTÉS */}
+                {queueView === "deferred" && (
+                  deferredDays.length === 0 ? (
+                    <div className="py-10 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">
+                      <CalendarClock className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium text-foreground">Aucun ticket reporté</p>
+                      <p className="text-xs text-muted-foreground mt-1">Les tickets créés hors horaires apparaîtront ici.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {deferredDays.map((day) => (
+                        <div key={day.date} className="rounded-xl border border-amber-200 dark:border-amber-900/40 overflow-hidden">
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-900/40">
+                            <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                              {new Date(day.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+                            </span>
+                            <span className="ml-auto text-xs font-bold bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                              {day.count} ticket{day.count > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-border">
+                              <thead className="bg-muted/60">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticket</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Priorité</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Source</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Créé le</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Raison</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-card divide-y divide-border">
+                                {day.tickets.map((t) => (
+                                  <tr key={t.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors">
+                                    <td className="px-4 py-3">
+                                      <div className="font-bold text-foreground">{t.number}</div>
+                                      {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div>
+                                      <div className="flex gap-1 mt-0.5">
+                                        {t.is_senior && <Accessibility className="h-3 w-3 text-blue-500" title="Senior" />}
+                                        {t.is_handicap && <HeartHandshake className="h-3 w-3 text-purple-500" title="Handicap" />}
+                                        {t.is_pregnant && <Baby className="h-3 w-3 text-pink-500" title="Femme enceinte" />}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                                        t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                        t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
+                                        t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                        t.priority === "normal" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+                                      )}>
+                                        {t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {t.source && SOURCE_CONFIG[t.source] ? (
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                          {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
+                                          {SOURCE_CONFIG[t.source].label}
+                                        </div>
+                                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                                      {t.created_at ? new Date(t.created_at.replace(" ", "T") + "Z").toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                        <CalendarClock className="h-3 w-3" />
+                                        {t.defer_reason === "past_cutoff" ? "Hors délai" :
+                                         t.defer_reason === "non_working_day" ? "Jour non ouvrable" :
+                                         t.defer_reason === "holiday" ? "Jour férié" :
+                                         t.defer_reason === "critical_zone" ? "Zone critique" :
+                                         t.defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
+                                         t.defer_reason === "outside_hours" ? "Hors horaires" :
+                                         "Reporté automatiquement"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             )}

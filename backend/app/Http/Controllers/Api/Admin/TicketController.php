@@ -202,6 +202,12 @@ class TicketController extends Controller
         $from = now()->parse($from)->startOfDay();
         $to = now()->parse($to)->endOfDay();
 
+        // Pour les tickets reportés, utiliser created_at élargi ou valid_date future
+        if ($request->boolean('auto_deferred')) {
+            $from = now()->parse(now()->subDays(60)->toDateString())->startOfDay();
+            $to = now()->parse(now()->addDays(30)->toDateString())->endOfDay();
+        }
+
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
         $withDetails = $request->boolean('with_details', false);
 
@@ -249,6 +255,13 @@ class TicketController extends Controller
             } else {
                 $query->where('tickets.status', $status);
             }
+        }
+
+        // Filtre tickets reportés
+        if ($request->boolean('auto_deferred')) {
+            $query->where('tickets.auto_deferred', true)
+                  ->where('tickets.status', 'waiting')
+                  ->whereDate('tickets.valid_date', '>', now()->toDateString());
         }
 
         // Sélection et tri
