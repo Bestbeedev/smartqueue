@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 export default function Login() {
   const dispatch = useAppDispatch();
-  const { token, loading, error } = useAppSelector((s) => s.auth);
+  const { token, loading } = useAppSelector((s) => s.auth);
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("password");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +44,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         {/* Logo et titre */}
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shadow-lg mb-4">
