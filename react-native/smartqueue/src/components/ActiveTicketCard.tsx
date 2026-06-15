@@ -192,7 +192,31 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         const handleTicketUpdated = (data: any) => {
           if (data.status) {
             if (data.status === 'absent') {
+              // Permanent absence (2nd strike or forced): same flow as timer expiry
               handleTicketExpired();
+            } else if (data.status === 'waiting' && (data.is_swapped || data.deferred)) {
+              // First-strike deferral: ticket put back in queue (still active as "waiting")
+              if (alertShownRef.current) return;
+              alertShownRef.current = true;
+              const ticketNum = activeTicket?.number || "N/A";
+              const svcName = activeTicket?.service?.name || "Service";
+              const position = data.position ? ` à la position ${data.position}` : '';
+              // Stop the expiry interval; ticket is no longer called/en_route
+              if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
+              setLocalStatus('waiting');
+              setCalledExpiresAt(null);
+              setEnRouteExpiresAt(null);
+              // Alert the user — refreshes store on OK so FAB / sheet update immediately
+              showWarning(
+                "Ticket différé",
+                `Le ticket #${ticketNum} (${svcName}) n'a pas pu être traité. Vous êtes replacé en file${position}. Votre ticket reste valide 24h.`,
+                "OK",
+                () => {
+                  alertShownRef.current = false; // allow future alerts (recall etc.)
+                  useTicketStore.getState().fetchActiveTicket().catch(console.warn);
+                  onTicketExpired?.(); // close bottom-sheet card so FAB refreshes
+                }
+              );
             } else {
               setLocalStatus(data.status);
               if (data.called_expires_at) setCalledExpiresAt(data.called_expires_at);

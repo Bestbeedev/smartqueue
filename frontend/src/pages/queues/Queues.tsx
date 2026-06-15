@@ -69,6 +69,7 @@ type QueueTicket = {
   en_route_expires_at?: string | null;
   called_expires_at?: string | null;
   is_swapped?: boolean;
+  deferral_count?: number;
   deferred_at?: string | null;
   swapped_with_ticket_id?: number | null;
   auto_deferred?: boolean;
@@ -525,14 +526,27 @@ const Queues: React.FC = () => {
     }
   };
 
-  const markAbsent = async (ticketId: number) => {
+  const markAbsent = async (ticket: QueueTicket) => {
     setIsActing(true);
     setError("");
     try {
-      await api.post(`/api/tickets/${ticketId}/mark-absent`);
-      toast.success("Ticket marqué absent", {
-        description: "L'usager a été notifié",
+      // Second absence (deferral_count >= 1): force permanent absent (no further deferral)
+      const forceAbsent = (ticket.deferral_count ?? 0) >= 1;
+      const { data } = await api.post(`/api/tickets/${ticket.id}/mark-absent`, {
+        force_absent: forceAbsent,
       });
+
+      if (data?.deferred) {
+        toast.info("Ticket différé", {
+          description: "L'usager reprend sa place plus loin dans la file. Il a 24h pour se présenter.",
+          duration: 6000,
+        });
+      } else {
+        toast.warning("Ticket absent définitivement", {
+          description: "L'usager a été notifié. Le ticket est retiré de la file.",
+          duration: 5000,
+        });
+      }
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
@@ -1387,20 +1401,28 @@ const Queues: React.FC = () => {
                                       Rappel
                                     </button>
 
+                                    {/* Absent button — two visual states:
+                                        · deferral_count=0 : orange, will defer (1st chance)
+                                        · deferral_count≥1 : red, will mark permanently absent (2nd chance) */}
                                     <button
                                       type="button"
-                                      onClick={() => markAbsent(Number(t.id))}
+                                      onClick={() => markAbsent(t)}
                                       disabled={isActing || t.status !== "called"}
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                                         isActing || t.status !== "called"
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                          : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
+                                          : (t.deferral_count ?? 0) >= 1
+                                            ? "bg-red-600 text-white hover:bg-red-700 shadow-sm"
+                                            : "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
                                       )}
-                                      title="Marquer comme absent"
+                                      title={(t.deferral_count ?? 0) >= 1
+                                        ? "Marquer définitivement absent (2e manquement)"
+                                        : "Reporter le ticket (1re chance — sera différé dans la file)"
+                                      }
                                     >
                                       <UserX className="h-3.5 w-3.5" />
-                                      Absent
+                                      {(t.deferral_count ?? 0) >= 1 ? "Absent (def.)" : "Absent"}
                                     </button>
 
                                     <button
