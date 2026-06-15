@@ -1035,10 +1035,9 @@ const Queues: React.FC = () => {
                                   </div>
                                 </td>
                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                   {(() => {
-                                     const maxAtt = t.max_call_attempts ?? 2;
-                                      const used = t.absent_level ?? (t.status === "absent" ? 1 : 0);
+                                    {(() => {
                                       const maxAtt = t.max_call_attempts ?? 2;
+                                       const used = t.absent_level ?? (t.status === "absent" ? 1 : 0);
                                       const remaining = Math.max(0, maxAtt - used);
                                       const isDefinitive = t.status === "absent" && used >= maxAtt;
                                       const isLastChance = !isDefinitive && remaining <= 1;

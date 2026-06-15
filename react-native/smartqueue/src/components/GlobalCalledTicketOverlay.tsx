@@ -393,12 +393,18 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
           text: "OK",
           onPress: () => {
             setExpiredAlertVisible(false);
-            handleDismiss();
+            stopSound();
+            clearCalled();
+            resetRecall();
+            resetDeferred();
           },
         }}
         onClose={() => {
           setExpiredAlertVisible(false);
-          handleDismiss();
+          stopSound();
+          clearCalled();
+          resetRecall();
+          resetDeferred();
         }}
       />
     </>
