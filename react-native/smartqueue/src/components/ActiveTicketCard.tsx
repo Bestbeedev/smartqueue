@@ -21,6 +21,11 @@ import type { Ticket } from "../api/ticketsApi";
 
 const { width } = Dimensions.get("window");
 
+const parseExpiry = (s: string): number => {
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s) ? s.replace(' ', 'T') + 'Z' : s;
+  return new Date(normalized).getTime();
+};
+
 interface ActiveTicketCardProps {
   ticket?: Ticket;
   onPress?: () => void;
@@ -100,14 +105,14 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       (newStatus === "called" && newCalledExp && new Date(newCalledExp).getTime() <= now) ||
       (newStatus === "en_route" && newEnRouteExp && new Date(newEnRouteExp).getTime() <= now);
     alertShownRef.current = !!alreadyExpired;
-  }, [activeTicket?.id, activeTicket?.status, activeTicket?.deferral_count]);
+  }, [activeTicket?.id, activeTicket?.status, activeTicket?.deferral_count, (activeTicket as any)?.called_expires_at, activeTicket?.en_route_expires_at]);
 
-  const isCalledExpired = localStatus === "called" && calledExpiresAt 
-    ? new Date(calledExpiresAt).getTime() <= Date.now()
+  const isCalledExpired = localStatus === "called" && calledExpiresAt
+    ? parseExpiry(calledExpiresAt) <= Date.now()
     : false;
 
   const isEnRouteExpired = localStatus === "en_route" && enRouteExpiresAt
-    ? new Date(enRouteExpiresAt).getTime() <= Date.now()
+    ? parseExpiry(enRouteExpiresAt) <= Date.now()
     : false;
 
   const handleTicketExpired = useCallback(() => {
@@ -145,9 +150,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       let expired = false;
 
       if (localStatus === "called" && calledExpiresAt) {
-        expired = new Date(calledExpiresAt).getTime() <= now;
+        expired = parseExpiry(calledExpiresAt) <= now;
       } else if (localStatus === "en_route" && enRouteExpiresAt) {
-        expired = new Date(enRouteExpiresAt).getTime() <= now;
+        expired = parseExpiry(enRouteExpiresAt) <= now;
       }
 
       if (expired && !alertShownRef.current) {
@@ -339,11 +344,11 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
   const [calledCountdown, setCalledCountdown] = useState<number | null>(null);
   useEffect(() => {
-    if (!isTicketCalledState || !calledExpiresAt) { 
-      setCalledCountdown(null); 
-      return; 
+    if (!isTicketCalledState || !calledExpiresAt) {
+      setCalledCountdown(null);
+      return;
     }
-    const calc = () => Math.max(0, Math.floor((new Date(calledExpiresAt).getTime() - Date.now()) / 1000));
+    const calc = () => Math.max(0, Math.floor((parseExpiry(calledExpiresAt) - Date.now()) / 1000));
     setCalledCountdown(calc());
     const id = setInterval(() => setCalledCountdown(calc()), 1000);
     return () => clearInterval(id);
@@ -436,7 +441,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       enRouteExpiryAlerted.current = false; 
       return; 
     }
-    const calc = () => Math.max(0, Math.floor((new Date(enRouteExpiresAt).getTime() - Date.now()) / 1000));
+    const calc = () => Math.max(0, Math.floor((parseExpiry(enRouteExpiresAt) - Date.now()) / 1000));
     setEnRouteCountdown(calc());
     const id = setInterval(() => setEnRouteCountdown(calc()), 1000);
     return () => clearInterval(id);
