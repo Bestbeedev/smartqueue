@@ -587,7 +587,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               <Ionicons name="timer-outline" size={14} color={enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning} />
               <Text style={[styles.enRouteTimerText, { color: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning, fontVariant: ["tabular-nums"] as any }]}>
                 {enRouteCountdown !== null
-                  ? `Présentation : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")}`
+                  ? `Votre delai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
                   : "Délai de présence en cours…"}
               </Text>
             </View>
