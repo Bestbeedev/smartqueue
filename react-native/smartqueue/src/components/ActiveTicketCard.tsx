@@ -93,6 +93,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const [calledExpiresAt, setCalledExpiresAt] = useState((activeTicket as any)?.called_expires_at);
   const [enRouteExpiresAt, setEnRouteExpiresAt] = useState(activeTicket?.en_route_expires_at);
   const [absentExpiresAt, setAbsentExpiresAt] = useState(activeTicket?.absent_expires_at);
+  const [callExpired, setCallExpired] = useState(false);
+  const [enRouteExpired, setEnRouteExpired] = useState(false);
 
   const maxAttemptsRef = useRef(localMaxAttempts);
   maxAttemptsRef.current = localMaxAttempts;
@@ -102,6 +104,10 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     const newEnRouteExp = activeTicket?.en_route_expires_at;
     const newAbsentExp = activeTicket?.absent_expires_at;
     const newStatus = activeTicket?.status;
+    if (newStatus !== localStatus) {
+      if (newStatus !== "called") setCallExpired(false);
+      if (newStatus !== "en_route") setEnRouteExpired(false);
+    }
     setLocalStatus(newStatus);
     setLocalDeferralCount(activeTicket?.deferral_count ?? 0);
     setLocalAbsentLevel(activeTicket?.absent_level ?? 0);
@@ -132,7 +138,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     const ticketNumber = activeTicket?.number || "N/A";
     const serviceName = activeTicket?.service?.name || "Service";
 
-    // Show info about delay — the real absent/expiry alert comes from the WebSocket event
+    if (localStatus === "called") setCallExpired(true);
+    if (localStatus === "en_route") setEnRouteExpired(true);
+
     showWarning(
       "Délai écoulé",
       `Le délai de présentation pour le ticket ${ticketNumber} (${serviceName}) est écoulé. L'agent va statuer sur votre présence.`,
@@ -141,10 +149,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         if (expiryCheckIntervalRef.current) {
           clearInterval(expiryCheckIntervalRef.current);
         }
-        // Don't remove ticket yet — the WebSocket event will handle the final state
       }
     );
-  }, [activeTicket?.id, activeTicket?.number, activeTicket?.service?.name, showWarning, onTicketExpired, removeExpiredTicket]);
+  }, [activeTicket?.id, activeTicket?.number, activeTicket?.service?.name, localStatus, showWarning, onTicketExpired, removeExpiredTicket]);
 
   useEffect(() => {
     if (expiryCheckIntervalRef.current) {
@@ -265,7 +272,9 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               if (data.en_route_expires_at) setEnRouteExpiresAt(data.en_route_expires_at);
               if (data.absent_expires_at) setAbsentExpiresAt(data.absent_expires_at);
               if (data.status === 'called') {
-                alertShownRef.current = false; // new call — reset alert gate
+                setCallExpired(false);
+                setEnRouteExpired(false);
+                alertShownRef.current = false;
               }
             }
           }
@@ -336,7 +345,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const isTicketEnRoute = localStatus === "en_route";
   const isTicketPresent = localStatus === "present";
   const canCancelTicket = localStatus === "waiting";
-  const canConfirmEnRoute = localStatus === "called";
+  const canConfirmEnRoute = localStatus === "called" && !callExpired;
   const canMarkPresent = localStatus === "en_route" || localStatus === "called";
 
   const getStatusConfig = () => {
@@ -683,20 +692,22 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         {isTicketCalledState && calledCountdown !== null && (
           <View style={[
             styles.calledCountdownBadge,
-            { backgroundColor: calledCountdown <= 30 ? colors.danger + "15" : colors.warning + "12", borderColor: calledCountdown <= 30 ? colors.danger + "40" : colors.warning + "30" },
+            { backgroundColor: callExpired ? colors.danger + "15" : (calledCountdown <= 30 ? colors.danger + "15" : colors.warning + "12"), borderColor: callExpired ? colors.danger + "40" : (calledCountdown <= 30 ? colors.danger + "40" : colors.warning + "30") },
           ]}>
-            <Ionicons name="timer-outline" size={14} color={calledCountdown <= 30 ? colors.danger : colors.warning} />
-            <Text style={[styles.calledCountdownText, { color: calledCountdown <= 30 ? colors.danger : colors.warning }]}>
-              {calledCountdown <= 0
+            <Ionicons name="timer-outline" size={14} color={callExpired ? colors.danger : (calledCountdown <= 30 ? colors.danger : colors.warning)} />
+            <Text style={[styles.calledCountdownText, { color: callExpired ? colors.danger : (calledCountdown <= 30 ? colors.danger : colors.warning) }]}>
+              {callExpired
                 ? "Délai expiré"
-                : `Délai : ${Math.floor(calledCountdown / 60)}:${String(calledCountdown % 60).padStart(2, "0")}`}
+                : calledCountdown <= 0
+                  ? "Délai expiré"
+                  : `Délai : ${Math.floor(calledCountdown / 60)}:${String(calledCountdown % 60).padStart(2, "0")}`}
             </Text>
           </View>
         )}
 
         {!isTicketPresent && !isTicketEnRoute && !isTicketAbsentDefinitive && (
           <View style={styles.actionsRow}>
-            {canConfirmEnRoute && (
+            {canConfirmEnRoute && !callExpired && (
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.success + "12" }]} onPress={handleConfirmPresence}>
                 <Ionicons name="walk" size={16} color={colors.success} />
                 <Text style={[styles.actionBtnText, { color: colors.success }]}>En route</Text>
@@ -711,27 +722,44 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
+        {isTicketCalledState && callExpired && (
+          <View style={[styles.stateMsg, { backgroundColor: colors.danger + "10", borderColor: colors.danger + "20" }]}>
+            <Ionicons name="warning" size={16} color={colors.danger} />
+            <Text style={[styles.stateMsgText, { color: colors.danger }]}>Délai expiré — L'agent va statuer sur votre présence</Text>
+          </View>
+        )}
+
         {isTicketEnRoute && (
           <View style={styles.enRouteContainer}>
             <View style={[
               styles.enRouteTimerBadge,
-              { backgroundColor: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15" },
+              { backgroundColor: enRouteExpired ? colors.danger + "15" : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15") },
             ]}>
-              <Ionicons name="timer-outline" size={14} color={enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning} />
-              <Text style={[styles.enRouteTimerText, { color: enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning, fontVariant: ["tabular-nums"] as any }]}>
-                {enRouteCountdown !== null
-                  ? `Votre delai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
-                  : "Délai de présence en cours…"}
+              <Ionicons name="timer-outline" size={14} color={enRouteExpired ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning)} />
+              <Text style={[styles.enRouteTimerText, { color: enRouteExpired ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning), fontVariant: ["tabular-nums"] as any }]}>
+                {enRouteExpired
+                  ? "Délai expiré — L'agent va statuer"
+                  : enRouteCountdown !== null
+                    ? `Votre delai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
+                    : "Délai de présence en cours…"}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
-              onPress={handleMarkPresent}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
-              <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
-            </TouchableOpacity>
+            {!enRouteExpired && (
+              <TouchableOpacity
+                style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
+                onPress={handleMarkPresent}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
+                <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
+              </TouchableOpacity>
+            )}
+            {enRouteExpired && (
+              <View style={[styles.stateMsg, { backgroundColor: colors.danger + "10", borderColor: colors.danger + "20", marginTop: 10 }]}>
+                <Ionicons name="warning" size={16} color={colors.danger} />
+                <Text style={[styles.stateMsgText, { color: colors.danger }]}>Délai expiré — L'agent va statuer sur votre présence</Text>
+              </View>
+            )}
           </View>
         )}
 
