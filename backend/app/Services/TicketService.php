@@ -578,6 +578,11 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
+        // Éviter le double-traitement (race avec le scheduler)
+        if ($ticket->status === 'absent') {
+            return $ticket;
+        }
+
         $service = $ticket->service;
         $maxAttempts = (int) ($service?->max_call_attempts ?? 2);
 
@@ -666,6 +671,11 @@ class TicketService
      */
     public function permanentlyExpireAbsent(Ticket $ticket): Ticket
     {
+        // Éviter le double-traitement
+        if ($ticket->status === 'closed') {
+            return $ticket;
+        }
+
         $ticket->status             = 'closed';
         $ticket->closed_at          = Carbon::now();
         $ticket->position           = null;
