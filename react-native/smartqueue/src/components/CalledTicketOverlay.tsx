@@ -190,7 +190,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                   <Ionicons name="notifications" size={36} color="#FFF" />
                 </View>
               </Animated.View>
-              <Text style={styles.title}>{absentLevel > 0 ? "Dernier appel !" : "C'est votre tour !"}</Text>
+              <Text style={styles.title}>{absentLevel > 0 ? "Dernier appel. Si vous ne vous présentez pas avant la fin du délai, votre ticket sera définitivement clôturé." : "C'est votre tour. Veuillez vous présenter avant la fin du délai."}</Text>
               <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
                 <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
                   <Text style={styles.counterText}>Appel {absentLevel + 1}/{maxCallAttempts}</Text>
@@ -230,7 +230,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               ) : isExpired ? (
                 <View style={styles.expiredBox}>
                   <Text style={styles.expiredTitle}>Délai expiré</Text>
-                  <Text style={styles.expiredSub}>Ticket marqué absent automatiquement</Text>
+                  <Text style={styles.expiredSub}>{(absentLevel + 1) >= maxCallAttempts ? "Votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket." : "Vous ne vous êtes pas présenté à temps. Votre ticket a été marqué absent mais peut encore être rappelé."}</Text>
                 </View>
               ) : (
                 <>
@@ -244,7 +244,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                   {countdownSeconds <= 60 && countdownSeconds > 0 && (
                     <View style={styles.urgentBanner}>
                       <Ionicons name="warning" size={13} color="#FFF" />
-                      <Text style={styles.urgentText}>Répondez maintenant ou votre ticket sera marqué absent</Text>
+                      <Text style={styles.urgentText}>{(absentLevel + 1) >= maxCallAttempts ? "Dernier appel — présentez-vous immédiatement ou votre ticket sera définitivement clôturé." : "Répondez maintenant ou votre ticket sera marqué absent."}</Text>
                     </View>
                   )}
                 </>
@@ -353,6 +353,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FFF",
     marginBottom: 6,
+    textAlign: "center",
   },
   counterBadge: {
     paddingHorizontal: 14,

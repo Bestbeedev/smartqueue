@@ -51,8 +51,8 @@ export default function Services(){
   const [qrLoading, setQrLoading] = useState(false)
 
   // Formulaires
-  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, max_call_attempts: 2, capacity: null as number | null })
-  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, max_call_attempts: 2, capacity: null as number | null })
+  const [createForm, setCreateForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, en_route_grace_minutes: 10, max_call_attempts: 2, capacity: null as number | null })
+  const [editForm, setEditForm] = useState({ establishment_id: 0, name:'', avg_service_time_minutes: 5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio: 5, call_timeout_minutes: null as number | null, en_route_grace_minutes: 10, max_call_attempts: 2, capacity: null as number | null })
   const [createErrors, setCreateErrors] = useState<Record<string,string>>({})
   const [editErrors, setEditErrors] = useState<Record<string,string>>({})
 
@@ -66,6 +66,7 @@ export default function Services(){
     priority_mode: z.enum(['immediate','weighted','disabled']),
     priority_weighted_ratio: z.number().int().min(1).max(50),
     call_timeout_minutes: z.union([z.number().int().min(1).max(60), z.null()]),
+    en_route_grace_minutes: z.number().int().min(1).max(60),
     max_call_attempts: z.number().int().min(1).max(10),
     capacity: z.union([z.number().int().min(1).max(100000), z.null()]),
   })
@@ -132,6 +133,7 @@ export default function Services(){
       priority_weighted_ratio: s.priority_weighted_ratio ?? 5,
       call_timeout_minutes: s.call_timeout_minutes ?? null,
       max_call_attempts: (s as any).max_call_attempts ?? 2,
+      en_route_grace_minutes: (s as any).en_route_grace_minutes ?? 10,
       capacity: (s as any).capacity ?? null,
     })
     setOpenEdit(true)
@@ -150,7 +152,7 @@ export default function Services(){
       const response = await api.post('/api/admin/services', parsed.data)
       toast.success('Service créé avec succès')
       setOpenCreate(false)
-      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio:5, call_timeout_minutes: null, max_call_attempts: 2, capacity: null })
+      setCreateForm({ establishment_id: 0, name:'', avg_service_time_minutes:5, status:'open', priority_support:false, priority_mode:'immediate', priority_weighted_ratio:5, call_timeout_minutes: null, en_route_grace_minutes: 10, max_call_attempts: 2, capacity: null })
       load()
     } catch(e:any) {
       const status = e?.response?.status
@@ -502,6 +504,16 @@ export default function Services(){
             />
             <p className="text-xs text-muted-foreground mt-1">Nombre d'absences avant expiration définitive du ticket.</p>
           </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Délai de présentation (min)</label>
+            <input
+              type="number" min={1} max={60} placeholder="10"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={createForm.en_route_grace_minutes}
+              onChange={e => setCreateForm({...createForm, en_route_grace_minutes: Number(e.target.value)})}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Délai accordé à l'usager pour se présenter après confirmation "En route".</p>
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenCreate(false)}>Annuler</button>
@@ -585,9 +597,19 @@ export default function Services(){
             />
             <p className="text-xs text-muted-foreground mt-1">Nombre d'absences avant expiration définitive du ticket.</p>
           </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Délai de présentation (min)</label>
+            <input
+              type="number" min={1} max={60} placeholder="10"
+              className="w-full rounded-md border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              value={editForm.en_route_grace_minutes}
+              onChange={e => setEditForm({...editForm, en_route_grace_minutes: Number(e.target.value)})}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Délai accordé à l'usager pour se présenter après confirmation "En route".</p>
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors" onClick={()=>setOpenEdit(false)}>Annuler</button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-collors" onClick={()=>setOpenEdit(false)}>Annuler</button>
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors" onClick={updateService}>Enregistrer</button>
         </div>
       </Modal>

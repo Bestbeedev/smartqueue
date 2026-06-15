@@ -237,6 +237,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Ticket recall (seconde chance) - for users
     Route::prefix('tickets')->group(function () {
         Route::post('{ticket}/request-recall', [TicketRecallController::class, 'recall']);
+        Route::post('{ticket}/expire-en-route', [TicketRecallController::class, 'expireEnRoute']);
         Route::post('{ticket}/en-route', [TicketRecallController::class, 'enRoute']);
         Route::post('{ticket}/present', [TicketRecallController::class, 'present']); // "Je suis déjà là" → ferme le ticket auto
         Route::post('{ticket}/defer', [TicketRecallController::class, 'defer']); // User defers/swap position

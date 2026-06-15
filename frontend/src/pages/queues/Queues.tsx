@@ -1035,15 +1035,16 @@ const Queues: React.FC = () => {
                                   </div>
                                 </td>
                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                   {(() => {
-                                     const maxAtt = t.max_call_attempts ?? 2;
-                                     const used = t.absent_level ?? (t.status === "absent" ? 1 : 0);
-                                     const remaining = Math.max(0, maxAtt - used);
-                                     const isDefinitive = t.status === "absent" && used >= maxAtt;
-                                     return (
-                                       <span className={cn("font-medium", isDefinitive ? "text-red-600 dark:text-red-400" : remaining <= 1 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
-                                         {isDefinitive ? "Épuisées" : `${remaining}/${maxAtt}`}
-                                       </span>
+                                    {(() => {
+                                      const maxAtt = t.max_call_attempts ?? 2;
+                                       const used = t.absent_level ?? (t.status === "absent" ? 1 : 0);
+                                      const remaining = Math.max(0, maxAtt - used);
+                                      const isDefinitive = t.status === "absent" && used >= maxAtt;
+                                      const isLastChance = !isDefinitive && remaining <= 1;
+                                      return (
+                                        <span className={cn("font-medium", isDefinitive ? "text-red-600 dark:text-red-400" : isLastChance ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                                          {isDefinitive ? "Absence définitive" : isLastChance ? "Dernière tentative" : "Rappel disponible"}
+                                        </span>
                                      );
                                    })()}
                                  </td>

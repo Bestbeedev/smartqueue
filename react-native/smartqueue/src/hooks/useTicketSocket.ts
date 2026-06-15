@@ -259,11 +259,10 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               case "absent": {
                 const absLevel = data.absent_level ?? 1;
                 const maxAttempts = useTicketStore.getState().activeTicket?.max_call_attempts ?? 2;
-                const title = absLevel < maxAttempts ? "Ticket absent" : "Absence définitive";
-                const remaining = maxAttempts - absLevel;
+                const title = absLevel < maxAttempts ? "Absence temporaire" : "Absence définitive";
                 const body = absLevel < maxAttempts
-                  ? `Vous avez été marqué absent — l'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`
-                  : "Absence définitive — le ticket sera supprimé à l'expiration du délai";
+                  ? "Vous ne vous êtes pas présenté à temps. Votre ticket a été marqué absent mais peut encore être rappelé."
+                  : "Absence définitive — votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.";
                 triggerLocalNotification(title, body, numericTicketId);
                 triggerHapticFeedback("warning");
                 break;
@@ -272,8 +271,8 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 if (data.reason === 'expired_absent') {
                   removeExpiredTicket(numericTicketId);
                   triggerLocalNotification(
-                    "Ticket supprimé",
-                    "Le ticket a été définitivement supprimé suite à une absence répétée.",
+                    "Ticket clôturé",
+                    "Votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.",
                     numericTicketId,
                   );
                   triggerHapticFeedback("warning");
@@ -346,11 +345,10 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 case "absent": {
                   const absLevel = data.absent_level ?? 1;
                   const maxAttempts = useTicketStore.getState().activeTicket?.max_call_attempts ?? 2;
-                  const absTitle = absLevel < maxAttempts ? "Ticket absent" : "Absence définitive";
-                  const remaining = maxAttempts - absLevel;
+                  const absTitle = absLevel < maxAttempts ? "Absence temporaire" : "Absence définitive";
                   const absBody = absLevel < maxAttempts
-                    ? `Vous avez été marqué absent — l'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`
-                    : "Absence définitive — le ticket sera supprimé à l'expiration du délai";
+                    ? "Vous ne vous êtes pas présenté à temps. Votre ticket a été marqué absent mais peut encore être rappelé."
+                    : "Absence définitive — votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.";
                   triggerLocalNotification(absTitle, absBody, numericTicketId);
                   triggerHapticFeedback("warning");
                   break;

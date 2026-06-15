@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\Service;
-use App\Services\AlertService;
+use App\Services\TicketService;
+use App\Events\TicketUpdated;
+use App\Events\UserTicketUpdated;
 use App\Events\UserEnRoute;
 use App\Notifications\InAppNotification;
 use App\Jobs\SendPushNotification;
@@ -75,6 +77,33 @@ class TicketRecallController extends Controller
     }
 
     /**
+     * Expire immédiatement un ticket en_route dont le délai est dépassé.
+     * Appelé par le client mobile quand le palier de grâce local se termine.
+     */
+    public function expireEnRoute(Request $request, Ticket $ticket, TicketService $ticketService): JsonResponse
+    {
+        if ($ticket->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if ($ticket->status !== 'en_route') {
+            return response()->json(['error' => 'Ticket not in en_route status'], 422);
+        }
+
+        $expiresAt = $ticket->en_route_expires_at;
+        if (!$expiresAt || $expiresAt->isFuture()) {
+            return response()->json(['error' => 'En route grace period has not expired yet'], 422);
+        }
+
+        $ticketService->markAbsent($ticket);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Ticket marqué absent suite au dépassement du délai de présentation.',
+        ]);
+    }
+
+    /**
      * User confirms they are on their way.
      * Notifies agent with estimated travel time.
      */
@@ -117,7 +146,7 @@ class TicketRecallController extends Controller
             ]);
         }
 
-        $graceMinutes = (int) config('queue.en_route_grace_minutes', 10);
+        $graceMinutes = (int) ($ticket->service?->en_route_grace_minutes ?? config('queue.en_route_grace_minutes', 10));
 
         // Mark as en route
         $ticket->update([

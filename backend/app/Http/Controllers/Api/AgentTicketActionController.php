@@ -62,8 +62,8 @@ class AgentTicketActionController extends Controller
             'recall_possible'=> $recallPossible,
             'max_call_attempts' => $maxAttempts,
             'message'        => $recallPossible
-                ? 'Ticket marqué absent — rappel possible.'
-                : 'Ticket absent définitivement — expiration automatique programmée.',
+                ? 'Absence temporaire — rappel possible.'
+                : 'Absence définitive — ticket clôturé, rappel impossible.',
         ]);
     }
 

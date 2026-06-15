@@ -46,8 +46,8 @@ class TicketsExpireEnRoute extends Command
             if ($ticket->user) {
                 dispatch(new SendPushNotification(
                     $ticket->user->id,
-                    'Ticket marqué absent',
-                    'Votre ticket a été marqué absent suite au dépassement du délai autorisé.',
+                    'Absence temporaire',
+                    "Vous ne vous êtes pas présenté à temps. Votre ticket {$ticket->number} a été marqué absent mais peut encore être rappelé.",
                     [
                         'ticket_id' => $ticket->id,
                         'service_id' => $ticket->service_id,
