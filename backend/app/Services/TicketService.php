@@ -197,11 +197,14 @@ class TicketService
                 }
             }
 
-            // Empêcher plusieurs tickets actifs pour le même service et utilisateur
             $already = Ticket::query()
                 ->where('user_id', $user->id)
                 ->where('service_id', $serviceId)
                 ->whereIn('status', ['waiting','called','en_route','present','absent'])
+                ->where(function ($q) {
+                    $q->whereNull('absent_expires_at')
+                      ->orWhere('status', '!=', 'absent');
+                })
                 ->exists();
             if ($already) {
                 abort(422, 'You already have an active ticket for this service');

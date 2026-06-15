@@ -33,6 +33,7 @@ export interface Ticket {
   deferral_count?: number;
   absent_level?: number;
   absent_expires_at?: string | null;
+  max_call_attempts?: number;
   recall_possible?: boolean;
   called_at?: string;
   called_expires_at?: string | null;

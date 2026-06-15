@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 class TicketsExpireCalled extends Command
 {
     protected $signature = 'tickets:expire-called {--dry-run}';
-    protected $description = 'Auto-absent on first call expiry; permanent expiry on second call expiry (deferral_count >= 1)';
+    protected $description = 'Mark called/absent tickets on expired timer; permanent expiry when deferral_count >= max_call_attempts';
 
     public function __construct(
         private TicketService $ticketService,
@@ -65,7 +65,7 @@ class TicketsExpireCalled extends Command
 
             $maxAttempts = (int) ($ticket->service?->max_call_attempts ?? 2);
 
-            if (($ticket->deferral_count ?? 0) >= $maxAttempts - 1) {
+            if (($ticket->deferral_count ?? 0) >= $maxAttempts) {
                 // At or beyond max attempts — permanent expiry
                 $this->ticketService->permanentlyExpireAbsent($ticket);
             } else {

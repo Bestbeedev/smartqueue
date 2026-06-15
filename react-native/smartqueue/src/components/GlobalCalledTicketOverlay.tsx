@@ -268,7 +268,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
       case 'en_route':
         return {
           title: "Confirmation",
-          message: "Vous confirmez être en route vers l'établissement ?",
+          message: `Vous confirmez être en route vers l'établissement ?\n\nIl vous reste ${(activeTicket?.max_call_attempts ?? 2) - (activeTicket?.absent_level ?? 0)} appel${(activeTicket?.max_call_attempts ?? 2) - (activeTicket?.absent_level ?? 0) > 1 ? 's' : ''} avant l'absence définitive.`,
           confirmText: "Oui, en route",
         };
       case 'present':
@@ -336,6 +336,8 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
         onRecall={handleRecall}
         onDefer={handleDeferWithConfirm}
         onDismiss={handleDismiss}
+        absentLevel={activeTicket?.absent_level ?? 0}
+        maxCallAttempts={activeTicket?.max_call_attempts ?? 2}
       />
       
       {/* Custom Alert de confirmation */}

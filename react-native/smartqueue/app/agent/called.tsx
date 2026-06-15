@@ -198,8 +198,9 @@ export default function CalledTickets() {
   );
 
   const markAbsent = async (ticket: Ticket) => {
+    const maxAttempts = ticket.max_call_attempts ?? 2;
     const nextLevel = (ticket.absent_level ?? 0) + 1;
-    const isDefinitive = nextLevel >= 2;
+    const isDefinitive = nextLevel >= maxAttempts;
     try {
       await axiosClient.post(`/tickets/${ticket.id}/mark-absent`);
       fetchData();
