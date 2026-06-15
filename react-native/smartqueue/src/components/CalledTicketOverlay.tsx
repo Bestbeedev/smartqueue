@@ -28,6 +28,7 @@ interface CalledTicketOverlayProps {
   ticketServiceName?: string;
   distanceInfo: DistanceInfo | null;
   countdownSeconds: number;
+  countdownReady?: boolean;
   callTimeoutMinutes?: number | null;
   hasRecalled: boolean;
   isSwapped?: boolean;
@@ -48,6 +49,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   ticketNumber,
   ticketServiceName,
   countdownSeconds,
+  countdownReady = true,
   callTimeoutMinutes,
   hasRecalled,
   isSwapped = false,
@@ -220,7 +222,12 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
             {/* Timer */}
             <View style={styles.timerArea}>
-              {isExpired ? (
+              {!countdownReady ? (
+                <View style={[styles.expiredBox, { backgroundColor: "rgba(255,255,255,0.1)" }]}>
+                  <Text style={styles.expiredTitle}>Chargement...</Text>
+                  <Text style={styles.expiredSub}>Synchronisation du délai en cours</Text>
+                </View>
+              ) : isExpired ? (
                 <View style={styles.expiredBox}>
                   <Text style={styles.expiredTitle}>Délai expiré</Text>
                   <Text style={styles.expiredSub}>Ticket marqué absent automatiquement</Text>
