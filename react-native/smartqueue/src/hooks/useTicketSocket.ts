@@ -81,6 +81,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
     updatePosition,
     markAsCalled,
     updateTicketStatus,
+    removeExpiredTicket,
     setWebSocketConnected,
     setLastUpdate,
   } = useTicketStore.getState();
@@ -267,6 +268,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               }
               case "closed":
                 if (data.reason === 'expired_absent') {
+                  removeExpiredTicket(numericTicketId);
                   triggerLocalNotification(
                     "Ticket supprimé",
                     "Le ticket a été définitivement supprimé suite à une absence répétée.",
