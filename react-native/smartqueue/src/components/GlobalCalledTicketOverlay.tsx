@@ -128,7 +128,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isCalled, isExpired]);
+  }, [isCalled, isExpired, countdownReady]);
 
   useEffect(() => {
     if (!isCalled || isExpired) return;
