@@ -571,6 +571,15 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Estimation</Text>
             <Text style={[styles.statValue, { color: colors.primary }]}>{etaDisplay}</Text>
           </View>
+          {localDeferralCount > 0 && (
+            <>
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Rappels</Text>
+                <Text style={[styles.statValue, { color: colors.warning }]}>{localDeferralCount}/2</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {!isSpecialStatus && (

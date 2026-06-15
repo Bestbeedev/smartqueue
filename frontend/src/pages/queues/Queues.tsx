@@ -974,6 +974,11 @@ const Queues: React.FC = () => {
                                   <div className="font-semibold text-foreground">{t.number}</div>
                                   {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
                                   {t.created_at && <div className="text-xs text-muted-foreground">{createdDate ? createdDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}</div>}
+                                  {t.deferral_count != null && t.deferral_count > 0 && (
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1">
+                                      Rappel {t.deferral_count}/2
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-6 py-4">
                                   {(t.display_name || t.customer_name) ? <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div> : <div className="text-xs text-muted-foreground">—</div>}
