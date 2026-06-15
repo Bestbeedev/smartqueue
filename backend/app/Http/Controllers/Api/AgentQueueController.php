@@ -51,6 +51,8 @@ class AgentQueueController extends Controller
                     'position'                => $t->position,
                     'eta_minutes'             => $t->eta_minutes,
                     'is_swapped'              => (bool) $t->is_swapped,
+                    'absent_level'            => (int) ($t->absent_level ?? 0),
+                    'absent_expires_at'       => optional($t->absent_expires_at)->toIso8601String(),
                     'deferral_count'          => (int) ($t->deferral_count ?? 0),
                     'deferred_at'             => optional($t->deferred_at)->toDateTimeString(),
                     'swapped_with_ticket_id'  => $t->swapped_with_ticket_id,

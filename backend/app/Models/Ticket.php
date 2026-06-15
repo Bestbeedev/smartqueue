@@ -21,6 +21,7 @@ class Ticket extends Model
         'customer_name', 'customer_phone',
         'is_senior', 'is_handicap', 'is_pregnant',
         'priority_reason',
+        'absent_level', 'absent_expires_at',
     ];
 
     // Casting automatique des dates/horaires
@@ -41,6 +42,8 @@ class Ticket extends Model
         'grace_period_expires_at' => 'datetime',
         'valid_date' => 'date',
         'auto_deferred' => 'boolean',
+        'absent_level' => 'integer',
+        'absent_expires_at' => 'datetime',
         'is_senior' => 'boolean',
         'is_handicap' => 'boolean',
         'is_pregnant' => 'boolean',
