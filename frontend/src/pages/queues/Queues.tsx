@@ -981,16 +981,14 @@ const Queues: React.FC = () => {
                                     t.status === "called" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
                                     t.status === "en_route" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
                                     t.status === "present" && "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200",
-                                    t.status === "absent" && (t.deferral_count ?? 0) < 2 && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                    t.status === "absent" && (t.deferral_count ?? 0) >= 2 && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                    t.status === "absent" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
                                     t.status === "closed" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200")}>
                                     {t.is_swapped && t.status === "waiting" && "Laisser passer"}
                                     {t.status === "waiting" && !t.is_swapped && "En attente"}
                                     {t.status === "called" && "Appelé"}
                                     {t.status === "en_route" && "En route"}
                                     {t.status === "present" && "Présent"}
-                                    {t.status === "absent" && (t.deferral_count ?? 0) < 2 && "Absent (rappel)"}
-                                    {t.status === "absent" && (t.deferral_count ?? 0) >= 2 && "Absent définitif"}
+                                    {t.status === "absent" && "Absent (rappel)"}
                                     {t.status === "closed" && "Clôturé"}
                                   </span>
                                 </td>
@@ -1041,18 +1039,24 @@ const Queues: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => recall(Number(t.id))}
-                                      disabled={isActing || t.status === "waiting" || t.status === "closed" || (t.status === "absent" && (t.deferral_count ?? 0) >= 2)}
+                                      disabled={
+                                        isActing ||
+                                        t.status === "waiting" ||
+                                        t.status === "closed" ||
+                                        !(t.status === "called" || t.status === "en_route" || t.status === "present" || t.status === "absent")
+                                      }
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                        isActing || t.status === "waiting" || t.status === "closed" || (t.status === "absent" && (t.deferral_count ?? 0) >= 2)
+                                        isActing ||
+                                        t.status === "waiting" ||
+                                        t.status === "closed" ||
+                                        !(t.status === "called" || t.status === "en_route" || t.status === "present" || t.status === "absent")
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
                                           : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                       )}
                                       title={
-                                        t.status === "absent" && (t.deferral_count ?? 0) < 2
-                                          ? "Rappeler ce ticket (2e et dernière chance)"
-                                          : t.status === "absent"
-                                          ? "Rappel impossible — absence définitive"
+                                        t.status === "absent"
+                                          ? "Rappeler (dernière chance — expiration auto ensuite)"
                                           : "Rappeler ce ticket"
                                       }
                                     >
@@ -1066,25 +1070,21 @@ const Queues: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => markAbsent(t)}
-                                      disabled={isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 2}
+                                      disabled={isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1}
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                        isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 2
+                                        isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                          : (t.deferral_count ?? 0) === 1
-                                          ? "bg-red-600 text-white hover:bg-red-700 shadow-sm"
                                           : "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
                                       )}
                                       title={
-                                        (t.deferral_count ?? 0) >= 2
-                                          ? "Absent définitif — expiration automatique en cours"
-                                          : (t.deferral_count ?? 0) === 1
-                                          ? "Marquer absent définitivement (2e et dernier niveau)"
-                                          : "Marquer absent (1re chance — rappel possible)"
+                                        (t.deferral_count ?? 0) >= 1
+                                          ? "Absent déjà signalé — rappel possible via Rappel"
+                                          : "Marquer absent (rappel possible une fois)"
                                       }
                                     >
                                       <UserX className="h-3.5 w-3.5" />
-                                      {(t.deferral_count ?? 0) === 1 ? "Absent (déf.)" : "Absent"}
+                                      Absent
                                     </button>
 
                                     <button
