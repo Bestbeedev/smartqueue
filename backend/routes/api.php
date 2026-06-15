@@ -124,8 +124,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:agent,admin')->group(function () {
         // Appeler le prochain ticket (algorithme serveur)
         Route::post('services/{service}/call-next', [AgentTicketController::class, 'callNext']);
-        // Marquer un ticket absent
-        Route::post('tickets/{ticket}/mark-absent', [AgentTicketController::class, 'markAbsent']);
         // Rappeler un ticket
         Route::post('tickets/{ticket}/recall', [AgentTicketController::class, 'recall']);
         // Clôturer un service (fin de journée, incidents, etc.)

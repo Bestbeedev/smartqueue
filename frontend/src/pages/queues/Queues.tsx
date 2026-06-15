@@ -528,10 +528,18 @@ const Queues: React.FC = () => {
     setIsActing(true);
     setError("");
     try {
-      await api.post(`/api/tickets/${ticket.id}/mark-absent`);
-      toast.success("Ticket marqué absent", {
-        description: "L'usager a été notifié",
-      });
+      const { data } = await api.post(`/api/tickets/${ticket.id}/mark-absent`);
+      if (data?.deferred) {
+        toast.info("Ticket différé", {
+          description: `Le ticket #${ticket.number} a été replacé en file. Une 2e chance lui est accordée — expiration automatique si absent.`,
+          duration: 6000,
+        });
+      } else {
+        toast.warning("Ticket absent", {
+          description: "L'usager a été notifié.",
+          duration: 5000,
+        });
+      }
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
@@ -1040,14 +1048,18 @@ const Queues: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => markAbsent(t)}
-                                      disabled={isActing || t.status !== "called"}
+                                      disabled={isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1}
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                        isActing || t.status !== "called"
+                                        isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
                                           : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
                                       )}
-                                      title="Marquer comme absent"
+                                      title={
+                                        (t.deferral_count ?? 0) >= 1 && t.status === "called"
+                                          ? "2e chance accordée — expiration automatique attendue"
+                                          : "Différer le ticket (1re chance)"
+                                      }
                                     >
                                       <UserX className="h-3.5 w-3.5" />
                                       Absent
