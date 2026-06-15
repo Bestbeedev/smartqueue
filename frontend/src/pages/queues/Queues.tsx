@@ -528,10 +528,9 @@ const Queues: React.FC = () => {
     setIsActing(true);
     setError("");
     try {
-      // Second absence (deferral_count >= 1): force permanent absent (no further deferral)
-      const forceAbsent = (ticket.deferral_count ?? 0) >= 1;
-      const { data } = await api.post(`/api/tickets/${ticket.id}/mark-absent`, {
-        force_absent: forceAbsent,
+      await api.post(`/api/tickets/${ticket.id}/mark-absent`);
+      toast.success("Ticket marqué absent", {
+        description: "L'usager a été notifié",
       });
 
       if (data?.deferred) {
