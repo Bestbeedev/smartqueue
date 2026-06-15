@@ -40,6 +40,13 @@ class TicketRecallController extends Controller
             ], 400);
         }
 
+        // Cannot recall a definitively absent ticket
+        if (($ticket->absent_level ?? 0) >= 2) {
+            return response()->json([
+                'error' => 'Le ticket est en absence définitive et ne peut plus être rappelé',
+            ], 400);
+        }
+
         // Can only recall once
         if ($ticket->has_recalled) {
             return response()->json([

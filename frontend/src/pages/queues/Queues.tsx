@@ -70,6 +70,8 @@ type QueueTicket = {
   called_expires_at?: string | null;
   is_swapped?: boolean;
   deferral_count?: number;
+  absent_level?: number;
+  absent_expires_at?: string | null;
   deferred_at?: string | null;
   swapped_with_ticket_id?: number | null;
   auto_deferred?: boolean;
@@ -541,7 +543,7 @@ const Queues: React.FC = () => {
       const level = data?.absent_level ?? 1;
       if (level < 2) {
         toast.warning(`Ticket #${ticket.number} — 1re absence`, {
-          description: "L'usager est absent. Vous pouvez le rappeler via le bouton Rappel.",
+          description: "L'usager est absent. Vous pouvez le rappeler via le bouton Rappel, ou cliquer à nouveau sur Absent pour une absence définitive.",
           duration: 6000,
         });
       } else {
@@ -974,7 +976,18 @@ const Queues: React.FC = () => {
                                   <div className="font-semibold text-foreground">{t.number}</div>
                                   {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
                                   {t.created_at && <div className="text-xs text-muted-foreground">{createdDate ? createdDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}</div>}
-                                  {t.deferral_count != null && t.deferral_count > 0 && (
+                                  {t.absent_level != null && t.absent_level > 0 && (
+                                    <div className={cn(
+                                      "text-xs font-medium mt-1",
+                                      t.absent_level >= 2 ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                                    )}>
+                                      Absence {t.absent_level}/2
+                                      {t.absent_level >= 2 && t.absent_expires_at && (
+                                        <span className="ml-1">— Expiration auto</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {t.absent_level == null && t.deferral_count != null && t.deferral_count > 0 && (
                                     <div className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1">
                                       Rappel {t.deferral_count}/2
                                     </div>
@@ -1002,7 +1015,7 @@ const Queues: React.FC = () => {
                                     {t.status === "called" && "Appelé"}
                                     {t.status === "en_route" && "En route"}
                                     {t.status === "present" && "Présent"}
-                                    {t.status === "absent" && "Absent (rappel)"}
+                                    {t.status === "absent" && (t.absent_level != null && t.absent_level >= 2 ? "Absent définitif" : "Absent (rappel)")}
                                     {t.status === "closed" && "Clôturé"}
                                   </span>
                                 </td>
@@ -1053,53 +1066,67 @@ const Queues: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => recall(Number(t.id))}
-                                      disabled={
-                                        isActing ||
-                                        t.status === "waiting" ||
-                                        t.status === "closed" ||
-                                        !(t.status === "called" || t.status === "en_route" || t.status === "present" || t.status === "absent")
+                                      disabled={isActing
+                                        || t.status === "waiting"
+                                        || t.status === "closed"
+                                        || (t.status === "absent" && (t.absent_level ?? 0) >= 2)
                                       }
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                        isActing ||
-                                        t.status === "waiting" ||
-                                        t.status === "closed" ||
-                                        !(t.status === "called" || t.status === "en_route" || t.status === "present" || t.status === "absent")
+                                        isActing
+                                        || t.status === "waiting"
+                                        || t.status === "closed"
+                                        || (t.status === "absent" && (t.absent_level ?? 0) >= 2)
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
                                           : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                                       )}
                                       title={
-                                        t.status === "absent"
-                                          ? "Rappeler (dernière chance — expiration auto ensuite)"
-                                          : "Rappeler ce ticket"
+                                        t.status === "absent" && (t.absent_level ?? 0) >= 2
+                                          ? "Absence définitive — rappel impossible"
+                                          : t.status === "absent"
+                                            ? "Rappeler (dernière chance — expiration auto ensuite)"
+                                            : "Rappeler ce ticket"
                                       }
                                     >
                                       <Volume2 className="h-3.5 w-3.5" />
                                       Rappel
                                     </button>
 
-                                    {/* Absent button — two visual states:
-                                        · deferral_count=0 : orange, will defer (1st chance)
-                                        · deferral_count≥1 : red, will mark permanently absent (2nd chance) */}
-                                    <button
-                                      type="button"
-                                      onClick={() => markAbsent(t)}
-                                      disabled={isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1}
-                                      className={cn(
-                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                        isActing || t.status !== "called" || (t.deferral_count ?? 0) >= 1
-                                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                          : "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
-                                      )}
-                                      title={
-                                        (t.deferral_count ?? 0) >= 1
-                                          ? "Absent déjà signalé — rappel possible via Rappel"
-                                          : "Marquer absent (rappel possible une fois)"
-                                      }
-                                    >
-                                      <UserX className="h-3.5 w-3.5" />
-                                      Absent
-                                    </button>
+                                    {/* Absent button — two-level system:
+                                        · Level 0 (called) : orange, 1st chance
+                                        · Level 1 (absent)  : red, 2nd and definitive chance
+                                        · Level 2 (absent)  : disabled, definitive */}
+                                    {(() => {
+                                      const absentLevel = t.absent_level ?? 0;
+                                      const isAbsentDefinitive = t.status === "absent" && absentLevel >= 2;
+                                      const isSecondAbsence = t.status === "absent" && absentLevel === 1;
+                                      const canMarkAbsent = !isActing && !isAbsentDefinitive && (t.status === "called" || isSecondAbsence);
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => markAbsent(t)}
+                                          disabled={!canMarkAbsent}
+                                          className={cn(
+                                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                            !canMarkAbsent
+                                              ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                              : isSecondAbsence
+                                                ? "bg-red-500 text-white hover:bg-red-600 shadow-sm"
+                                                : "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
+                                          )}
+                                          title={
+                                            isAbsentDefinitive
+                                              ? "Absence définitive — expiration automatique en cours"
+                                              : isSecondAbsence
+                                                ? "Absence définitive — le ticket sera supprimé à expiration du délai"
+                                                : "Marquer absent (1re absence — rappel possible)"
+                                          }
+                                        >
+                                          <UserX className="h-3.5 w-3.5" />
+                                          {isSecondAbsence ? "Absent définitif" : "Absent"}
+                                        </button>
+                                      );
+                                    })()}
 
                                     <button
                                       type="button"

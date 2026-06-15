@@ -31,6 +31,8 @@ export interface Ticket {
   eta_minutes: number | null;
   queue_length?: number;
   deferral_count?: number;
+  absent_level?: number;
+  absent_expires_at?: string | null;
   recall_possible?: boolean;
   called_at?: string;
   called_expires_at?: string | null;

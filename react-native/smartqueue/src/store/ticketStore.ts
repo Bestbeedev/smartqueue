@@ -58,11 +58,10 @@ const sortActiveTickets = (tickets: Ticket[]): Ticket[] => {
 };
 
 // Filtrer les tickets terminés — garder les absents récupérables (1re absence)
+// et les absents définitifs (2e niveau) pendant le délai d'expiration.
 const filterActiveTickets = (tickets: Ticket[]): Ticket[] => {
   return tickets.filter(ticket => {
     if (ticket.status === 'closed' || ticket.status === 'served') return false;
-    // Absent définitif (2e niveau) : exclure ; absent temporaire (1er niveau) : garder
-    if (ticket.status === 'absent' && (ticket.deferral_count ?? 0) >= 2) return false;
     return true;
   });
 };
@@ -125,7 +124,7 @@ export interface TicketState {
   cancelTicket: (ticketId: number) => Promise<void>;
   refreshActiveTicket: () => Promise<void>;
   fetchActiveTicket: () => Promise<void>;
-  updateTicketStatus: (status: Ticket["status"], ticketId?: number) => void;
+  updateTicketStatus: (status: Ticket["status"], ticketId?: number, extra?: Partial<Ticket>) => void;
   setWebSocketConnected: (connected: boolean) => void;
   setLastUpdate: (date: Date) => void;
   removeExpiredTicket: (ticketId: number) => void;
@@ -432,10 +431,10 @@ export const useTicketStore = create<TicketState>()(
           const tickets = await ticketsApi.getMyActiveTickets();
           console.log("[ticketStore] fetchActiveTicket got tickets:", tickets.length);
 
-          // Keep 1st-absence tickets (recall_possible); exclude 2nd-absence + closed/served
+          // Keep all active tickets except closed/served.
+          // Level 2 absents (definitive) are kept until the backend removes them.
           const activeOnly = tickets.filter(t => {
             if (t.status === 'closed' || t.status === 'served') return false;
-            if (t.status === 'absent' && (t.deferral_count ?? 0) >= 2) return false;
             return true;
           });
           
@@ -511,34 +510,22 @@ export const useTicketStore = create<TicketState>()(
         }
       },
 
-      updateTicketStatus: (status: Ticket["status"], ticketId?: number) => {
+      updateTicketStatus: (status: Ticket["status"], ticketId?: number, extra?: Partial<Ticket>) => {
         const { activeTicket, activeTickets } = get();
         const targetId = ticketId ?? activeTicket?.id;
         if (!targetId) return;
 
-        if (status === 'absent') {
-          // Update the ticket's status in-store; filterActiveTickets will remove it
-          // if deferral_count >= 2 (definitive absence). 1st absence keeps it visible.
-          const updatedTickets = sortActiveTickets(
-            activeTickets.map(t =>
-              t.id !== targetId ? t : { ...t, status }
-            )
-          );
-          set({
-            ...buildPrimaryTicketState(updatedTickets),
-            lastUpdate: new Date(),
-          });
-          return;
-        }
-
         const updatedTickets = sortActiveTickets(
           activeTickets.map((t) => {
             if (t.id !== targetId) return t;
-            return {
-              ...t,
-              status,
-              en_route_at: status === "called" ? null : t.en_route_at,
-            };
+            const updates: Partial<Ticket> = { status };
+            if (status === "called") {
+              updates.en_route_at = null as any;
+            }
+            if (extra) {
+              Object.assign(updates, extra);
+            }
+            return { ...t, ...updates };
           }),
         );
 

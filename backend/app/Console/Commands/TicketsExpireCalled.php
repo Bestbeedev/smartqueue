@@ -43,6 +43,17 @@ class TicketsExpireCalled extends Command
 
         $this->info(($dryRun ? '[dry-run] ' : '') . "Called tickets expired: {$calledTickets->count()}");
 
+        // Niveau 2 absents : tickets en absence définitive dont le délai d'expiration est écoulé
+        $absentExpiring = Ticket::query()
+            ->with(['user', 'service'])
+            ->where('status', 'absent')
+            ->where('absent_level', '>=', 2)
+            ->whereNotNull('absent_expires_at')
+            ->where('absent_expires_at', '<=', $now)
+            ->get();
+
+        $this->info(($dryRun ? '[dry-run] ' : '') . "Absent level 2 expired: {$absentExpiring->count()}");
+
         if ($dryRun) {
             return self::SUCCESS;
         }
@@ -59,6 +70,12 @@ class TicketsExpireCalled extends Command
                 // First call timeout: mark absent, agent can still recall
                 $this->ticketService->markAbsent($ticket);
             }
+        }
+
+        // Expirer les absents de niveau 2 dont le délai est écoulé
+        foreach ($absentExpiring as $ticket) {
+            $affectedServiceIds->push($ticket->service_id);
+            $this->ticketService->permanentlyExpireAbsent($ticket);
         }
 
         foreach ($affectedServiceIds->unique() as $serviceId) {

@@ -36,26 +36,26 @@ class AgentTicketActionController extends Controller
     }
 
     /**
-     * Marque un ticket comme absent avec tentative de déférer automatiquement.
-     * Système deux chances : 1re absence = récupérable, 2e absence = définitif + expiration programmée.
+     * Marque un ticket comme absent — système à deux niveaux :
+     *   Niveau 1 : absence temporaire, rappel possible.
+     *   Niveau 2 : absence définitive avec expiration automatique programmée.
      */
     public function markAbsent(Request $request, Ticket $ticket, TicketService $svc)
     {
         $this->authorize('actOn', $ticket);
 
         $ticket       = $svc->markAbsent($ticket);
-        $absenceLevel = $ticket->deferral_count ?? 1;
+        $absenceLevel = (int) ($ticket->absent_level ?? 1);
         $recallPossible = $absenceLevel < 2;
 
         return response()->json([
             'ticket' => [
                 'id'             => $ticket->id,
                 'status'         => $ticket->status,
-                'deferral_count' => $absenceLevel,
+                'absent_level'   => $absenceLevel,
+                'deferral_count' => $ticket->deferral_count,
                 'recall_possible'=> $recallPossible,
-                'called_expires_at' => $absenceLevel >= 2
-                    ? optional($ticket->called_expires_at)->toIso8601String()
-                    : null,
+                'absent_expires_at' => $ticket->absent_expires_at?->toIso8601String(),
             ],
             'absent_level'   => $absenceLevel,
             'recall_possible'=> $recallPossible,

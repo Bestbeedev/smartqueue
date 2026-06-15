@@ -100,7 +100,7 @@ const ActiveTicketBottomSheet: React.FC<{
   useEffect(() => {
     const unsubscribe = useTicketStore.subscribe((state) => {
       const activeOnly = state.activeTickets.filter(
-        t => t.status !== 'absent' && t.status !== 'closed' && t.status !== 'served'
+        t => t.status !== 'closed' && t.status !== 'served'
       );
       setLocalTickets(activeOnly);
       setRefreshKey(prev => prev + 1);
@@ -112,12 +112,12 @@ const ActiveTicketBottomSheet: React.FC<{
   useEffect(() => {
     const storeState = useTicketStore.getState();
     const storeActive = storeState.activeTickets.filter(
-      t => t.status !== 'absent' && t.status !== 'closed' && t.status !== 'served'
+      t => t.status !== 'closed' && t.status !== 'served'
     );
     // Priorité au store (données fraîches) ; fall-back sur les props
     const activeOnly = storeActive.length > 0
       ? storeActive
-      : tickets.filter(t => t.status !== 'absent' && t.status !== 'closed' && t.status !== 'served');
+      : tickets.filter(t => t.status !== 'closed' && t.status !== 'served');
     setLocalTickets(activeOnly);
 
     if (currentIndex >= activeOnly.length && activeOnly.length > 0) {
@@ -156,7 +156,7 @@ const ActiveTicketBottomSheet: React.FC<{
       const store = useTicketStore.getState();
       store.fetchActiveTicket().catch(console.warn);
       const activeOnly = store.activeTickets.filter(
-        t => t.status !== 'absent' && t.status !== 'closed' && t.status !== 'served'
+        t => t.status !== 'closed' && t.status !== 'served'
       );
       setLocalTickets(activeOnly);
       setRefreshKey(prev => prev + 1);
@@ -312,13 +312,14 @@ export const ExploreScreen: React.FC = () => {
 
   const getActiveTicketsOnly = useCallback(() => {
     return activeTickets.filter(ticket =>
-      ticket.status !== 'absent' && ticket.status !== 'closed' && ticket.status !== 'served'
+      ticket.status !== 'closed' && ticket.status !== 'served'
     );
   }, [activeTickets, ticketStoreVersion, fabRefresh]);
 
   const activeTicketsCount = getActiveTicketsOnly().length;
   const hasAnyActiveTicket = activeTicketsCount > 0;
   const hasCalledTicket = getActiveTicketsOnly().some(t => t.status === "called");
+  const hasAbsentDefinitive = getActiveTicketsOnly().some(t => t.status === "absent" && (t.absent_level ?? 0) >= 2);
 
   useEffect(() => {
     if (hasAnyActiveTicket === false && showActiveTicketSheet) {
@@ -731,13 +732,13 @@ export const ExploreScreen: React.FC = () => {
           activeOpacity={0.8}
           style={[
             styles.activeTicketFab,
-            { backgroundColor: hasCalledTicket ? colors.danger : colors.primary }
+            { backgroundColor: hasCalledTicket || hasAbsentDefinitive ? colors.danger : colors.primary }
           ]}
           onPress={() => setShowActiveTicketSheet(true)}
         >
           <Ionicons name="ticket" size={24} color="#FFF" />
           <View style={[styles.fabBadge, { backgroundColor: "#FFF" }]}>
-            <Text style={[styles.fabBadgeText, { color: hasCalledTicket ? colors.danger : colors.primary }]}>
+            <Text style={[styles.fabBadgeText, { color: hasCalledTicket || hasAbsentDefinitive ? colors.danger : colors.primary }]}>
               {activeTicketsCount}
             </Text>
           </View>
