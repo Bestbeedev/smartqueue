@@ -152,6 +152,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       return;
     }
 
+    // cast to unknown then to the expected Timeout type to satisfy TS when lib types differ
     expiryCheckIntervalRef.current = setInterval(() => {
       const now = Date.now();
       let expired = false;
@@ -168,7 +169,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           clearInterval(expiryCheckIntervalRef.current);
         }
       }
-    }, 1000);
+    }, 1000) as unknown as NodeJS.Timeout;
 
     return () => {
       if (expiryCheckIntervalRef.current) {
@@ -723,18 +724,18 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           <View style={styles.enRouteContainer}>
             <View style={[
               styles.enRouteTimerBadge,
-              { backgroundColor: enRouteExpired ? colors.danger + "15" : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15") },
+              { backgroundColor: enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0) ? colors.danger + "15" : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger + "15" : colors.warning + "15") },
             ]}>
-              <Ionicons name="timer-outline" size={14} color={enRouteExpired ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning)} />
-              <Text style={[styles.enRouteTimerText, { color: enRouteExpired ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning), fontVariant: ["tabular-nums"] as any }]}>
-                {enRouteExpired
-                  ? "Délai expiré — L'agent va statuer"
+              <Ionicons name="timer-outline" size={14} color={enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0) ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning)} />
+              <Text style={[styles.enRouteTimerText, { color: enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0) ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning), fontVariant: ["tabular-nums"] as any }]}>
+                {enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)
+                  ? "Délai expiré — L'agent va statuer sur votre présence"
                   : enRouteCountdown !== null
                     ? `Votre délai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
                     : "Délai de présence en cours…"}
               </Text>
             </View>
-            {!enRouteExpired && (
+            {!(enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)) && (
               <TouchableOpacity
                 style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
                 onPress={handleMarkPresent}
@@ -744,11 +745,15 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
               </TouchableOpacity>
             )}
-            {enRouteExpired && (
-              <View style={[styles.stateMsg, { backgroundColor: colors.danger + "10", borderColor: colors.danger + "20", marginTop: 10 }]}>
-                <Ionicons name="warning" size={16} color={colors.danger} />
-                <Text style={[styles.stateMsgText, { color: colors.danger }]}>Délai expiré — L'agent va statuer sur votre présence</Text>
-              </View>
+            {(enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)) && (
+              <TouchableOpacity
+                style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
+                onPress={handleMarkPresent}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-done-circle" size={18} color={colors.primary} />
+                <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent (hors délai)</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -883,6 +888,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontWeight: "700",
+    textAlign: "center",
   },
   statDivider: {
     width: 1,
@@ -1019,6 +1025,7 @@ const styles = StyleSheet.create({
   calledCountdownText: {
     fontSize: 12,
     fontWeight: "700",
+    textAlign: "center",
     fontVariant: ["tabular-nums"] as any,
   },
   enRouteContainer: {
@@ -1035,6 +1042,7 @@ const styles = StyleSheet.create({
   enRouteTimerText: {
     fontSize: 11,
     fontWeight: "600",
+    textAlign: "center",
   },
   presentButton: {
     flexDirection: "row",

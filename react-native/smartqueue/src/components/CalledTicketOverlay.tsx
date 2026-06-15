@@ -353,6 +353,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FFF",
     marginBottom: 6,
+    textAlign: "center",
   },
   counterBadge: {
     paddingHorizontal: 14,

@@ -25,6 +25,7 @@ class ServiceResource extends JsonResource
             'priority_weighted_ratio' => (int) ($this->priority_weighted_ratio ?? 5),
             'call_timeout_minutes' => $this->call_timeout_minutes !== null ? (int) $this->call_timeout_minutes : null,
             'max_call_attempts' => (int) ($this->max_call_attempts ?? 2),
+            'en_route_grace_minutes' => (int) ($this->en_route_grace_minutes ?? 10),
             // Nombre de personnes en attente si chargé via withCount
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
             // Nombre d'agents assignés si chargé via withCount

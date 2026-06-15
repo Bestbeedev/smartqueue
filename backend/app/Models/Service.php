@@ -20,6 +20,7 @@ class Service extends Model
         'priority_weighted_ratio',
         'call_timeout_minutes',
         'max_call_attempts',
+        'en_route_grace_minutes',
         'capacity',
         'qr_code_token',
         'qr_code_url',

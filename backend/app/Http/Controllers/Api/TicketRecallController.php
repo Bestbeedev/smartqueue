@@ -117,7 +117,7 @@ class TicketRecallController extends Controller
             ]);
         }
 
-        $graceMinutes = (int) config('queue.en_route_grace_minutes', 10);
+        $graceMinutes = (int) ($ticket->service?->en_route_grace_minutes ?? config('queue.en_route_grace_minutes', 10));
 
         // Mark as en route
         $ticket->update([
