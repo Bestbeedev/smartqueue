@@ -58,10 +58,11 @@ class AgentTicketController extends Controller
     }
 
     /** Rappelle un ticket (status=called). */
-    public function recall(Ticket $ticket, TicketService $svc)
+    public function recall(Request $request, Ticket $ticket, TicketService $svc)
     {
         $this->authorize('actOn', $ticket);
-        $ticket = $svc->recall($ticket);
+        $counterId = $request->user()->counter?->id;
+        $ticket = $svc->recall($ticket, $counterId);
         return response()->json(['ticket' => [
             'id' => $ticket->id,
             'status' => $ticket->status,

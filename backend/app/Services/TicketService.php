@@ -997,7 +997,7 @@ class TicketService
     /**
      * Rappelle un ticket (repasse en called si toujours éligible).
      */
-    public function recall(Ticket $ticket): Ticket
+    public function recall(Ticket $ticket, ?int $counterId = null): Ticket
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
@@ -1016,6 +1016,9 @@ class TicketService
         $ticket->present_at = null;
         $ticket->response_received_at = null;
         $ticket->en_route_expires_at = null;
+        if (!is_null($counterId)) {
+            $ticket->counter_id = $counterId;
+        }
         $ticket->called_at = Carbon::now();
         $ticket->called_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
         $ticket->position = null;

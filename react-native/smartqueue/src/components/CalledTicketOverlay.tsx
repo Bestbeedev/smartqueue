@@ -188,19 +188,17 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
                   <Ionicons name="notifications" size={36} color="#FFF" />
                 </View>
               </Animated.View>
-              <Text style={styles.title}>C'est votre tour !</Text>
-              {counterNumber && (
+              <Text style={styles.title}>{absentLevel > 0 ? "Dernier appel !" : "C'est votre tour !"}</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
                 <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-                  <Text style={styles.counterText}>Guichet {counterNumber}</Text>
+                  <Text style={styles.counterText}>Appel {absentLevel + 1}/{maxCallAttempts}</Text>
                 </View>
-              )}
-              {absentLevel > 0 && (
-                <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.12)", marginTop: 6 }]}>
-                  <Text style={styles.counterText}>
-                    {maxCallAttempts - absentLevel} appel{maxCallAttempts - absentLevel > 1 ? 's' : ''} restant{maxCallAttempts - absentLevel > 1 ? 's' : ''}
-                  </Text>
-                </View>
-              )}
+                {counterNumber && (
+                  <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+                    <Text style={styles.counterText}>Guichet {counterNumber}</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Infos ticket compactes */}

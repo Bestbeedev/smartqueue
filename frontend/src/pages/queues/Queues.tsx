@@ -970,7 +970,7 @@ const Queues: React.FC = () => {
                   <div className="overflow-hidden rounded-xl border border-border">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-border">
-                        <thead className="bg-muted"><tr><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Présence usager</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th></tr></thead>
+                        <thead className="bg-muted"><tr><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tentatives</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Présence usager</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th></tr></thead>
                         <tbody className="bg-card divide-y divide-border">
                           {queue.map((t) => {
                             const createdDate = parseDate(t.created_at);
@@ -1034,23 +1034,36 @@ const Queues: React.FC = () => {
                                     {t.priority_reason && <span className="text-xs text-muted-foreground">{t.priority_reason}</span>}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {(t.status === "called" || t.status === "en_route" || t.status === "present") && t.en_route_at ? (
-                                    <div className="space-y-1">
-                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                        {t.status === "present" ? "Présent sur place" : t.estimated_travel_minutes != null ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}` : "Présence confirmée"}
-                                      </span>
-                                      <div className="text-xs text-muted-foreground">Réponse reçue à {formatTime(t.response_received_at ?? t.en_route_at)}</div>
-                                      {t.called_at && <div className="text-xs text-muted-foreground">Appelé à {formatTime(t.called_at)}</div>}
-                                      {t.en_route_expires_at && t.status === "en_route" && (<div className="flex items-center gap-2 flex-wrap"><div className="text-xs font-medium text-amber-700 dark:text-amber-300">Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}</div><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div>)}
-                                    </div>
-                                  ) : t.status === "called" ? (
-                                    <div className="space-y-1"><span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Phone className="h-3.5 w-3.5" />En attente de réponse</span><div className="flex items-center gap-1"><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div></div>
-                                  ) : (<span className="text-xs text-muted-foreground">—</span>)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex gap-2">
+                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                   {(() => {
+                                     const maxAtt = t.max_call_attempts ?? 2;
+                                     const used = t.absent_level ?? (t.status === "absent" ? 1 : 0);
+                                     const remaining = Math.max(0, maxAtt - used);
+                                     const isDefinitive = t.status === "absent" && used >= maxAtt;
+                                     return (
+                                       <span className={cn("font-medium", isDefinitive ? "text-red-600 dark:text-red-400" : remaining <= 1 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                                         {isDefinitive ? "Épuisées" : `${remaining}/${maxAtt}`}
+                                       </span>
+                                     );
+                                   })()}
+                                 </td>
+                                 <td className="px-6 py-4 whitespace-nowrap">
+                                   {(t.status === "called" || t.status === "en_route" || t.status === "present") && t.en_route_at ? (
+                                     <div className="space-y-1">
+                                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                         <CheckCircle className="h-3.5 w-3.5" />
+                                         {t.status === "present" ? "Présent sur place" : t.estimated_travel_minutes != null ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}` : "Présence confirmée"}
+                                       </span>
+                                       <div className="text-xs text-muted-foreground">Réponse reçue à {formatTime(t.response_received_at ?? t.en_route_at)}</div>
+                                       {t.called_at && <div className="text-xs text-muted-foreground">Appelé à {formatTime(t.called_at)}</div>}
+                                       {t.en_route_expires_at && t.status === "en_route" && (<div className="flex items-center gap-2 flex-wrap"><div className="text-xs font-medium text-amber-700 dark:text-amber-300">Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}</div><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div>)}
+                                     </div>
+                                   ) : t.status === "called" ? (
+                                     <div className="space-y-1"><span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Phone className="h-3.5 w-3.5" />En attente de réponse</span><div className="flex items-center gap-1"><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div></div>
+                                   ) : (<span className="text-xs text-muted-foreground">—</span>)}
+                                 </td>
+                                 <td className="px-6 py-4 whitespace-nowrap">
+                                   <div className="flex gap-2">
                                     <button
                                       type="button"
                                       onClick={() => callNext()}

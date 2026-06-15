@@ -302,7 +302,7 @@ export default function AbsentTickets() {
           color={ABSENT_RED}
         />
         <Text style={[styles.infoText, { color: ABSENT_RED }]}>
-          {"Absence niveau 1 = rappel possible · Niveau 2 = définitive, expiration auto"}
+          {`Absence < max tentatives = rappel possible · Absence >= max tentatives = définitive, expiration auto`}
         </Text>
       </View>
 
