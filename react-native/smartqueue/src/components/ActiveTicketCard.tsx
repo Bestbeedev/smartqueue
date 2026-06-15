@@ -135,23 +135,13 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     if (alertShownRef.current) return;
     alertShownRef.current = true;
 
-    const ticketNumber = activeTicket?.number || "N/A";
-    const serviceName = activeTicket?.service?.name || "Service";
-
     if (localStatus === "called") setCallExpired(true);
     if (localStatus === "en_route") setEnRouteExpired(true);
 
-    showWarning(
-      "Délai écoulé",
-      `Le délai de présentation pour le ticket ${ticketNumber} (${serviceName}) est écoulé. L'agent va statuer sur votre présence.`,
-      "OK",
-      () => {
-        if (expiryCheckIntervalRef.current) {
-          clearInterval(expiryCheckIntervalRef.current);
-        }
-      }
-    );
-  }, [activeTicket?.id, activeTicket?.number, activeTicket?.service?.name, localStatus, showWarning, onTicketExpired, removeExpiredTicket]);
+    if (expiryCheckIntervalRef.current) {
+      clearInterval(expiryCheckIntervalRef.current);
+    }
+  }, [localStatus]);
 
   useEffect(() => {
     if (expiryCheckIntervalRef.current) {

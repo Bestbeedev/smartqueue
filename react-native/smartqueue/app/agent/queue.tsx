@@ -416,6 +416,13 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
         <View style={[styles.ticketStatusBadge, { backgroundColor: statusCfg.color + "18", borderColor: statusCfg.color + "35" }]}>
           <Text style={[styles.ticketStatusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
         </View>
+        {item.absent_level != null && item.absent_level > 0 && (
+          <View style={[styles.ticketStatusBadge, { backgroundColor: "#FF3B3018", borderColor: "#FF3B3040", marginTop: 4 }]}>
+            <Text style={[styles.ticketStatusText, { color: "#FF3B30", fontSize: 9 }]}>
+              {Math.max(0, (item.max_call_attempts ?? 2) - (item.absent_level ?? 0))}/{item.max_call_attempts ?? 2}
+            </Text>
+          </View>
+        )}
         <TouchableOpacity 
           style={[styles.ticketAbsentBtn, { borderColor: "#FF3B3028" }]} 
           onPress={() => onAbsent(item.id, item.number, item.absent_level ?? 0)}
