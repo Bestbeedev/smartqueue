@@ -528,7 +528,7 @@ const Queues: React.FC = () => {
     setIsActing(true);
     setError("");
     try {
-      await api.post(`/api/tickets/${ticketId}/mark-absent`);
+      await api.post(`/api/tickets/${ticket.id}/mark-absent`);
       toast.success("Ticket marqué absent", {
         description: "L'usager a été notifié",
       });
@@ -1039,7 +1039,7 @@ const Queues: React.FC = () => {
 
                                     <button
                                       type="button"
-                                      onClick={() => markAbsent(Number(t.id))}
+                                      onClick={() => markAbsent(t)}
                                       disabled={isActing || t.status !== "called"}
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
