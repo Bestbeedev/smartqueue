@@ -236,7 +236,7 @@ export default function AbsentTickets() {
             style={[styles.elapsedBadge, { borderColor: isDefinitive ? "#DC262660" : ABSENT_RED + "50" }]}
           >
             <Text style={[styles.elapsedText, { color: cardColor }]}>
-              {absentLevel}/{maxAttempts}
+              {isDefinitive ? "Absence définitive" : "Rappel disponible"}
             </Text>
           </View>
 
@@ -302,7 +302,7 @@ export default function AbsentTickets() {
           color={ABSENT_RED}
         />
         <Text style={[styles.infoText, { color: ABSENT_RED }]}>
-          {`Absence < max tentatives = rappel possible · Absence >= max tentatives = définitive, expiration auto`}
+          {"Rappel disponible : l'usager peut encore être rappelé · Absence définitive : ticket clôturé, rappel impossible"}
         </Text>
       </View>
 

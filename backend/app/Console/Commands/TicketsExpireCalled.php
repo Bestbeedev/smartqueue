@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 class TicketsExpireCalled extends Command
 {
     protected $signature = 'tickets:expire-called {--dry-run}';
-    protected $description = 'Mark called/absent tickets on expired timer; permanent expiry when deferral_count >= max_call_attempts';
+    protected $description = 'Mark called tickets as absent on expiry, or close definitively when attempts exhausted';
 
     public function __construct(
         private TicketService $ticketService,

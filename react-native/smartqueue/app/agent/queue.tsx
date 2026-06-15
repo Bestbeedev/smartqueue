@@ -303,7 +303,7 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
         {absentLevel > 0 && (
           <View style={[styles.countdownBadge, { backgroundColor: isAbsentDefinitive ? "rgba(228,37,26,0.9)" : "rgba(255,149,0,0.9)" }]}>
             <Ionicons name="person-remove" size={11} color="#FFF" />
-            <Text style={styles.countdownText}>Absence {absentLevel}/{maxAttempts}</Text>
+            <Text style={styles.countdownText}>{isAbsentDefinitive ? "Absence définitive" : "Rappel disponible"}</Text>
           </View>
         )}
         {/* Countdown badge */}
@@ -328,7 +328,7 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
         </TouchableOpacity>
         <TouchableOpacity style={[styles.currentActionBtn, { backgroundColor: absentBtnColor, opacity: absentDisabled ? 0.5 : 1 }]} onPress={onAbsent} disabled={absentDisabled}>
           <Ionicons name="person-remove" size={14} color="#FFF" />
-          <Text style={styles.currentActionText}>{isNonDefinitiveAbsent ? `Absent ${absentLevel+1}/${maxAttempts}` : "Absent"}</Text>
+          <Text style={styles.currentActionText}>Absent</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.currentActionBtn, { backgroundColor: "rgba(32, 230, 82, 0.89)" }]} onPress={onClose} disabled={isActing}>
           <Ionicons name="checkmark-circle" size={14} color="#FFF" />
@@ -417,9 +417,9 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
           <Text style={[styles.ticketStatusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
         </View>
         {item.absent_level != null && item.absent_level > 0 && (
-          <View style={[styles.ticketStatusBadge, { backgroundColor: "#FF3B3018", borderColor: "#FF3B3040", marginTop: 4 }]}>
-            <Text style={[styles.ticketStatusText, { color: "#FF3B30", fontSize: 9 }]}>
-              {Math.max(0, (item.max_call_attempts ?? 2) - (item.absent_level ?? 0))}/{item.max_call_attempts ?? 2}
+          <View style={[styles.ticketStatusBadge, { backgroundColor: (item.absent_level ?? 0) >= (item.max_call_attempts ?? 2) ? "#EF444418" : "#FF950018", borderColor: (item.absent_level ?? 0) >= (item.max_call_attempts ?? 2) ? "#EF444440" : "#FF950040", marginTop: 4 }]}>
+            <Text style={[styles.ticketStatusText, { color: (item.absent_level ?? 0) >= (item.max_call_attempts ?? 2) ? "#EF4444" : "#FF9500", fontSize: 9 }]}>
+              {(item.absent_level ?? 0) >= (item.max_call_attempts ?? 2) ? "Absence définitive" : "Rappel disponible"}
             </Text>
           </View>
         )}

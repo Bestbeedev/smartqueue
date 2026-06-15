@@ -270,7 +270,7 @@ export default function CalledTickets() {
           {absentLevel > 0 && (
             <View style={[styles.elapsedBadge, { borderColor: absentDefinitive ? "#EF4444" : "#FF9500" }]}>
               <Text style={[styles.elapsedText, { color: absentDefinitive ? "#EF4444" : "#FF9500" }]}>
-                Absence {absentLevel}/{maxAttempts}
+                {absentDefinitive ? "Absence définitive" : "Rappel disponible"}
               </Text>
             </View>
           )}

@@ -218,8 +218,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               if (absLevel < maxAttemptsRef.current) {
                 const remaining = maxAttemptsRef.current - absLevel;
                 showWarning(
-                  "Ticket marqué absent",
-                  `Le ticket #${ticketNum} (${svcName}) est marqué absent. L'agent peut vous rappeler — restez disponible. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`,
+                  "Absence temporaire",
+                  `Vous ne vous êtes pas présenté à temps. Votre ticket #${ticketNum} (${svcName}) a été marqué absent mais peut encore être rappelé.`,
                   "OK",
                   () => {
                     alertShownRef.current = false;
@@ -229,7 +229,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               } else {
                 showError(
                   "Absence définitive",
-                  `Le ticket #${ticketNum} (${svcName}) est marqué absent définitivement. Il sera supprimé à l'expiration du délai.`,
+                  `Votre ticket #${ticketNum} (${svcName}) a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.`,
                   "OK",
                   () => {
                     alertShownRef.current = false;
@@ -246,8 +246,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               if (alertShownRef.current) return;
               alertShownRef.current = true;
               showError(
-                "Ticket supprimé",
-                `Le ticket #${ticketNum} (${svcName}) a été définitivement supprimé suite à une absence répétée.`,
+                "Ticket clôturé",
+                `Votre ticket #${ticketNum} (${svcName}) a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.`,
                 "OK",
                 () => {
                   onTicketExpired?.();
@@ -280,15 +280,15 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           if (absLevel < maxAttemptsRef.current) {
             const remaining = maxAttemptsRef.current - absLevel;
             showWarning(
-              "Ticket marqué absent",
-              `Le ticket #${ticketNum} (${svcName}) est absent. L'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`,
+              "Absence temporaire",
+              `Vous ne vous êtes pas présenté à temps. Votre ticket #${ticketNum} (${svcName}) a été marqué absent mais peut encore être rappelé.`,
               "OK",
               () => { alertShownRef.current = false; }
             );
           } else {
             showError(
               "Absence définitive",
-              `Le ticket #${ticketNum} (${svcName}) est absent définitivement. Il sera supprimé sous peu.`,
+              `Votre ticket #${ticketNum} (${svcName}) a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket.`,
               "OK",
               () => {
                 if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
@@ -339,8 +339,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const canMarkPresent = localStatus === "en_route" || localStatus === "called";
 
   const getStatusConfig = () => {
-    if (isTicketAbsentDefinitive) return { label: "Dernier appel", icon: "person-remove", color: colors.danger, bg: colors.danger + "20" };
-    if (isTicketAbsentFirst) return { label: "Absent (rappel possible)", icon: "person-remove", color: colors.warning, bg: colors.warning + "20" };
+    if (isTicketAbsentDefinitive) return { label: "Absence définitive", icon: "person-remove", color: colors.danger, bg: colors.danger + "20" };
+    if (isTicketAbsentFirst) return { label: "Absence (rappel possible)", icon: "person-remove", color: colors.warning, bg: colors.warning + "20" };
     if (isTicketPresent) return { label: "Présent", icon: "checkmark-circle", color: colors.success, bg: colors.success + "15" };
     if (isTicketEnRoute) return { label: "En route", icon: "walk", color: colors.warning, bg: colors.warning + "15" };
     if (isTicketCalledState) return { label: "Appelé !", icon: "notifications", color: colors.danger, bg: colors.danger + "15" };
@@ -485,7 +485,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       warningShownRef.current = true;
       showWarning(
         "Délai bientôt expiré",
-        `Vous avez 30 secondes pour confirmer votre présence, sinon votre ticket ${ticketNumber} sera annulé.`,
+        `Vous avez 30 secondes pour confirmer votre présence, sinon votre ticket ${ticketNumber} sera marqué absent.`,
         "OK",
         undefined
       );
@@ -597,8 +597,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Absence</Text>
-                <Text style={[styles.statValue, { color: localAbsentLevel >= localMaxAttempts ? colors.danger : colors.warning }]}>{localAbsentLevel}/{localMaxAttempts}</Text>
+                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Tentatives</Text>
+                <Text style={[styles.statValue, { color: localAbsentLevel >= localMaxAttempts ? colors.danger : colors.warning }]}>{localAbsentLevel >= localMaxAttempts ? "Épuisées" : `Rappel disponible`}</Text>
               </View>
             </>
           )}
@@ -645,10 +645,10 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Ionicons name="person-remove-outline" size={14} color={colors.warning} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.deferredBannerTitle, { color: colors.warning }]}>
-                Absent — {localMaxAttempts - localAbsentLevel} appel{localMaxAttempts - localAbsentLevel > 1 ? 's' : ''} restant{localMaxAttempts - localAbsentLevel > 1 ? 's' : ''}
+                Absence temporaire — Rappel disponible
               </Text>
               <Text style={[styles.deferredBannerSub, { color: colors.textSecondary }]}>
-                L'agent peut vous rappeler. Restez disponible et présentez-vous dès l'appel.
+                Vous ne vous êtes pas présenté à temps. L'agent peut vous rappeler. Restez disponible.
               </Text>
             </View>
           </View>
@@ -660,12 +660,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
             <Ionicons name="warning" size={14} color={colors.danger} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.deferredBannerTitle, { color: colors.danger }]}>
-                Dernier appel — Ticket va être supprimé
+                Absence définitive — Ticket clôturé
               </Text>
               <Text style={[styles.deferredBannerSub, { color: colors.textSecondary }]}>
                 {absentCountdown !== null && absentCountdown > 0
-                  ? `Expiration dans ${Math.floor(absentCountdown / 60)}:${String(absentCountdown % 60).padStart(2, "0")}`
-                  : "Expiration immédiate"}
+                  ? `Expiration dans ${Math.floor(absentCountdown / 60)}:${String(absentCountdown % 60).padStart(2, "0")} — Vous devez prendre un nouveau ticket.`
+                  : "Votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket."}
               </Text>
             </View>
           </View>
@@ -730,7 +730,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 {enRouteExpired
                   ? "Délai expiré — L'agent va statuer"
                   : enRouteCountdown !== null
-                    ? `Votre delai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
+                    ? `Votre délai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
                     : "Délai de présence en cours…"}
               </Text>
             </View>

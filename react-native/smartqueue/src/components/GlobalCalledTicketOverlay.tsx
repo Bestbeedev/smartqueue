@@ -386,7 +386,9 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
         visible={expiredAlertVisible}
         type="warning"
         title="Délai expiré"
-        message="Vous ne vous êtes pas présenté dans le délai imparti. Votre ticket a été marqué absent."
+        message={(activeTicket?.absent_level ?? 0) + 1 >= (activeTicket?.max_call_attempts ?? 2)
+          ? "Vous ne vous êtes pas présenté à temps. Votre ticket a été clôturé suite à plusieurs absences. Vous devez prendre un nouveau ticket."
+          : "Vous ne vous êtes pas présenté à temps. Votre ticket a été marqué absent mais peut encore être rappelé."}
         primaryButton={{
           text: "OK",
           onPress: () => {
