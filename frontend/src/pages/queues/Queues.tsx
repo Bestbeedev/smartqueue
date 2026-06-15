@@ -129,28 +129,37 @@ type Counter = {
 /** Countdown hook — CORRIGÉ : meilleure gestion des dates et expiration */
 function useCountdown(expiresAt?: string | null): number | null {
   const [seconds, setSeconds] = useState<number | null>(null);
-  
+
   useEffect(() => {
     if (!expiresAt) {
       setSeconds(null);
       return;
     }
-    
+
     const calc = () => {
-      // Normalize MySQL-style "YYYY-MM-DD HH:MM:SS" (no TZ) to UTC ISO-8601.
-      // toIso8601String() now sends "+00:00" form, but guard against legacy data.
-      let str = expiresAt;
-      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-        str = str.replace(' ', 'T') + 'Z';
+      try {
+        // Normalize MySQL-style "YYYY-MM-DD HH:MM:SS" (no TZ) to UTC ISO-8601.
+        let str = expiresAt;
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
+          str = str.replace(' ', 'T') + 'Z';
+        }
+        const expiryDate = new Date(str);
+
+        // Vérifier si la date est valide
+        if (isNaN(expiryDate.getTime())) {
+          return 0;
+        }
+
+        const now = new Date();
+        const diff = expiryDate.getTime() - now.getTime();
+        return Math.max(0, Math.floor(diff / 1000));
+      } catch {
+        return 0;
       }
-      const expiryDate = new Date(str);
-      const now = new Date();
-      const diff = expiryDate.getTime() - now.getTime();
-      return Math.max(0, Math.floor(diff / 1000));
     };
-    
+
     setSeconds(calc());
-    
+
     const id = setInterval(() => {
       const newSeconds = calc();
       setSeconds(newSeconds);
@@ -160,10 +169,10 @@ function useCountdown(expiresAt?: string | null): number | null {
         window.dispatchEvent(new CustomEvent('ticket-expired'));
       }
     }, 1000);
-    
+
     return () => clearInterval(id);
   }, [expiresAt]);
-  
+
   return seconds;
 }
 
@@ -182,7 +191,7 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
   if (ticket.status === "called" && calledSeconds !== null) {
     const expiring = calledSeconds <= 30;
     const isExpired = calledSeconds === 0;
-    
+
     if (isExpired) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white dark:bg-red-700">
@@ -191,7 +200,7 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
         </span>
       );
     }
-    
+
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200"}`}>
         <Timer className="h-3 w-3" />
@@ -199,11 +208,11 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
       </span>
     );
   }
-  
+
   if (ticket.status === "en_route" && enRouteSeconds !== null) {
     const expiring = enRouteSeconds <= 60;
     const isExpired = enRouteSeconds === 0;
-    
+
     if (isExpired) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white dark:bg-red-700">
@@ -212,7 +221,7 @@ const CountdownCell: React.FC<{ ticket: QueueTicket }> = ({ ticket }) => {
         </span>
       );
     }
-    
+
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums ${expiring ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 animate-pulse" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200"}`}>
         <Timer className="h-3 w-3" />
@@ -267,6 +276,36 @@ const Queues: React.FC = () => {
       ).length,
     [queue],
   );
+
+  // Fonctions de date sécurisées - CORRECTION
+  const parseDate = (date?: string | null): Date | null => {
+    if (!date) return null;
+    try {
+      let normalized = date;
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) {
+        normalized = normalized.replace(' ', 'T') + 'Z';
+      }
+      const parsedDate = new Date(normalized);
+      if (isNaN(parsedDate.getTime())) return null;
+      return parsedDate;
+    } catch {
+      return null;
+    }
+  };
+
+  const formatTime = (date?: string | null): string => {
+    const parsedDate = parseDate(date);
+    if (!parsedDate) return "—";
+    try {
+      return new Intl.DateTimeFormat("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(parsedDate);
+    } catch {
+      return "—";
+    }
+  };
 
   const fetchService = async (id: string) => {
     const numericId = Number(id);
@@ -337,16 +376,16 @@ const Queues: React.FC = () => {
   const refreshQueueAndStats = async (showToast = false) => {
     if (!serviceId) return;
     if (showToast) toast.info("Rafraîchissement en cours...");
-    
+
     try {
       const [q, s] = await Promise.all([
         fetchQueue(serviceId),
         fetchStats(serviceId),
       ]);
-      
+
       const queueData = Array.isArray(q?.tickets) ? q.tickets : [];
       setQueue(queueData);
-      
+
       const mapped: ServiceStats = {
         service_id: Number(serviceId),
         service_name: String(
@@ -357,7 +396,7 @@ const Queues: React.FC = () => {
         average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? "—"),
       };
       setStats(mapped);
-      
+
       // CORRECTION: Extraire les tickets appelés récemment depuis la queue
       const recentCalledTickets = queueData
         .filter((t: QueueTicket) => t.status === "called" || t.status === "present")
@@ -372,7 +411,7 @@ const Queues: React.FC = () => {
           priority: t.priority || 'normal',
           client_name: t.customer_name || t.display_name || undefined,
         }));
-      
+
       setTickets(recentCalledTickets);
       setLastUpdated(new Date().toLocaleTimeString());
       fetchDeferredQueue(serviceId);
@@ -599,10 +638,10 @@ const Queues: React.FC = () => {
         // WebSocket connection - Utilisation de channel au lieu de join pour éviter les erreurs d'authentification
         try {
           console.log(`[Queues] Connexion au canal service.${serviceId}`);
-          
+
           if (echo) {
             channel = echo.channel(`service.${serviceId}`);
-            
+
             if (channel) {
               channel
                 .listen('.service.ticket.called', () => {
@@ -626,7 +665,7 @@ const Queues: React.FC = () => {
                     refreshQueueAndStats(false);
                   }
                 });
-              
+
               setIsConnected(true);
               console.log(`[Queues] ✓ Connecté au canal service.${serviceId}`);
               toast.success(`Connecté au service ${serviceId} en temps réel`);
@@ -727,26 +766,12 @@ const Queues: React.FC = () => {
   };
 
   const SOURCE_CONFIG: Record<string, { label: string; Icon: React.FC<any> }> = {
-    app:       { label: "App",    Icon: Smartphone },
-    qr_scan:   { label: "QR",     Icon: QrCode },
-    agent:     { label: "Agent",  Icon: UserCog },
-    kiosk:     { label: "Kiosk",  Icon: Monitor },
-    sms:       { label: "SMS",    Icon: Phone },
+    app: { label: "App", Icon: Smartphone },
+    qr_scan: { label: "QR", Icon: QrCode },
+    agent: { label: "Agent", Icon: UserCog },
+    kiosk: { label: "Kiosk", Icon: Monitor },
+    sms: { label: "SMS", Icon: Phone },
   };
-
-  const parseDate = (date?: string | null) => {
-    if (!date) return null;
-    return new Date(date.replace(" ", "T") + "Z");
-  };
-
-  const formatTime = (date?: string | null) =>
-    date
-      ? new Intl.DateTimeFormat("fr-FR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }).format(parseDate(date)!)
-      : "—";
 
   const ActionButton = ({ onClick, disabled, icon: Icon, children, variant = "primary" }: any) => {
     const variants = {
@@ -756,7 +781,7 @@ const Queues: React.FC = () => {
       success: "bg-green-600 text-white hover:bg-green-700 py-3 shadow-sm",
       warning: "bg-amber-600 text-white hover:bg-amber-700 py-3 shadow-sm",
     };
-    
+
     return (
       <button
         type="button"
@@ -980,7 +1005,7 @@ const Queues: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                   <div className="flex flex-wrap gap-2">
                     <ActionButton
@@ -1147,231 +1172,234 @@ const Queues: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
-                          {queue.map((t) => (
-                            <tr
-                              key={t.id}
-                              className="hover:bg-muted/50 transition-colors"
-                            >
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="font-semibold text-foreground">
-                                  {t.number}
-                                </div>
-                                {t.position && (
-                                  <div className="text-xs text-muted-foreground">#{t.position}</div>
-                                )}
-                                {t.created_at && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {new Date(t.created_at.replace(" ", "T") + "Z").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          {queue.map((t) => {
+                            const createdDate = parseDate(t.created_at);
+                            return (
+                              <tr
+                                key={t.id}
+                                className="hover:bg-muted/50 transition-colors"
+                              >
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="font-semibold text-foreground">
+                                    {t.number}
                                   </div>
-                                )}
-                              </td>
-                              <td className="px-6 py-4">
-                                {(t.display_name || t.customer_name) ? (
-                                  <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div>
-                                ) : (
-                                  <div className="text-xs text-muted-foreground">—</div>
-                                )}
-                                {t.source && SOURCE_CONFIG[t.source] && (
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <span title={SOURCE_CONFIG[t.source].label}>
-                                      {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span>
+                                  {t.position && (
+                                    <div className="text-xs text-muted-foreground">#{t.position}</div>
+                                  )}
+                                  {t.created_at && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {createdDate ? createdDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4">
+                                  {(t.display_name || t.customer_name) ? (
+                                    <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div>
+                                  ) : (
+                                    <div className="text-xs text-muted-foreground">—</div>
+                                  )}
+                                  {t.source && SOURCE_CONFIG[t.source] && (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <span title={SOURCE_CONFIG[t.source].label}>
+                                        {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex gap-1 mt-0.5 flex-wrap">
+                                    {t.is_senior && (
+                                      <span title="Senior">
+                                        <Accessibility className="h-3.5 w-3.5 text-blue-500" />
+                                      </span>
+                                    )}
+                                    {t.is_handicap && (
+                                      <span title="Handicap">
+                                        <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
+                                      </span>
+                                    )}
+                                    {t.is_pregnant && (
+                                      <span title="Femme enceinte">
+                                        <Baby className="h-3.5 w-3.5 text-pink-500" />
+                                      </span>
+                                    )}
                                   </div>
-                                )}
-                                <div className="flex gap-1 mt-0.5 flex-wrap">
-                                  {t.is_senior && (
-                                    <span title="Senior">
-                                      <Accessibility className="h-3.5 w-3.5 text-blue-500" />
-                                    </span>
-                                  )}
-                                  {t.is_handicap && (
-                                    <span title="Handicap">
-                                      <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
-                                    </span>
-                                  )}
-                                  {t.is_pregnant && (
-                                    <span title="Femme enceinte">
-                                      <Baby className="h-3.5 w-3.5 text-pink-500" />
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
-                                    t.status === "waiting" &&
-                                      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
-                                    t.status === "called" &&
-                                      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
-                                    t.status === "en_route" &&
-                                      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
-                                    t.status === "present" &&
-                                      "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200",
-                                    t.status === "absent" &&
-                                      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                    t.status === "closed" &&
-                                      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
-                                  )}
-                                >
-                                  {t.is_swapped &&
-                                    t.status === "waiting" &&
-                                    "Laisser passer"}
-                                  {t.status === "waiting" &&
-                                    !t.is_swapped &&
-                                    "En attente"}
-                                  {t.status === "called" && "Appelé"}
-                                  {t.status === "en_route" && "En route"}
-                                  {t.status === "present" && "Présent"}
-                                  {t.status === "absent" && "Absent"}
-                                  {t.status === "closed" && "Clôturé"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex flex-col gap-1">
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
                                   <span
                                     className={cn(
-                                      "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium w-fit",
-                                      t.priority === "urgence" &&
-                                        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-                                      t.priority === "vip" &&
-                                        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
-                                      t.priority === "high" &&
-                                        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                      t.priority === "normal" &&
-                                        "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                                      "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                      t.status === "waiting" &&
+                                      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
+                                      t.status === "called" &&
+                                      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
+                                      t.status === "en_route" &&
+                                      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+                                      t.status === "present" &&
+                                      "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200",
+                                      t.status === "absent" &&
+                                      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                      t.status === "closed" &&
+                                      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
                                     )}
                                   >
-                                    {t.priority === "urgence" && "🚨 Urgence"}
-                                    {t.priority === "vip" && "⭐ VIP"}
-                                    {t.priority === "high" && "🔥 Haute"}
-                                    {t.priority === "normal" && "📋 Normal"}
+                                    {t.is_swapped &&
+                                      t.status === "waiting" &&
+                                      "Laisser passer"}
+                                    {t.status === "waiting" &&
+                                      !t.is_swapped &&
+                                      "En attente"}
+                                    {t.status === "called" && "Appelé"}
+                                    {t.status === "en_route" && "En route"}
+                                    {t.status === "present" && "Présent"}
+                                    {t.status === "absent" && "Absent"}
+                                    {t.status === "closed" && "Clôturé"}
                                   </span>
-                                  {t.priority_reason && (
-                                    <span className="text-xs text-muted-foreground">{t.priority_reason}</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {(t.status === "called" ||
-                                  t.status === "en_route" ||
-                                  t.status === "present") &&
-                                t.en_route_at ? (
-                                  <div className="space-y-1">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                      {t.status === "present"
-                                        ? "Présent sur place"
-                                        : t.estimated_travel_minutes != null
-                                          ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}`
-                                          : "Présence confirmée"}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex flex-col gap-1">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium w-fit",
+                                        t.priority === "urgence" &&
+                                        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                        t.priority === "vip" &&
+                                        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
+                                        t.priority === "high" &&
+                                        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                        t.priority === "normal" &&
+                                        "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                                      )}
+                                    >
+                                      {t.priority === "urgence" && "🚨 Urgence"}
+                                      {t.priority === "vip" && "⭐ VIP"}
+                                      {t.priority === "high" && "🔥 Haute"}
+                                      {t.priority === "normal" && "📋 Normal"}
                                     </span>
-                                    <div className="text-xs text-muted-foreground">
-                                      Réponse reçue à{" "}
-                                      {formatTime(t.response_received_at ?? t.en_route_at)}
-                                    </div>
-                                    {t.called_at && (
-                                      <div className="text-xs text-muted-foreground">
-                                        Appelé à{" "}
-                                        {formatTime(t.called_at)}
-                                      </div>
+                                    {t.priority_reason && (
+                                      <span className="text-xs text-muted-foreground">{t.priority_reason}</span>
                                     )}
-                                    {t.en_route_expires_at &&
-                                      t.status === "en_route" && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                                            Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}
-                                          </div>
-                                          <CountdownCell ticket={t} />
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {(t.status === "called" ||
+                                    t.status === "en_route" ||
+                                    t.status === "present") &&
+                                    t.en_route_at ? (
+                                    <div className="space-y-1">
+                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        {t.status === "present"
+                                          ? "Présent sur place"
+                                          : t.estimated_travel_minutes != null
+                                            ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}`
+                                            : "Présence confirmée"}
+                                      </span>
+                                      <div className="text-xs text-muted-foreground">
+                                        Réponse reçue à{" "}
+                                        {formatTime(t.response_received_at ?? t.en_route_at)}
+                                      </div>
+                                      {t.called_at && (
+                                        <div className="text-xs text-muted-foreground">
+                                          Appelé à{" "}
+                                          {formatTime(t.called_at)}
                                         </div>
                                       )}
-                                  </div>
-                                ) : t.status === "called" ? (
-                                  <div className="space-y-1">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                                      <Phone className="h-3.5 w-3.5" />
-                                      En attente de réponse
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                      <CountdownCell ticket={t} />
+                                      {t.en_route_expires_at &&
+                                        t.status === "en_route" && (
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                              Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}
+                                            </div>
+                                            <CountdownCell ticket={t} />
+                                          </div>
+                                        )}
                                     </div>
+                                  ) : t.status === "called" ? (
+                                    <div className="space-y-1">
+                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                        <Phone className="h-3.5 w-3.5" />
+                                        En attente de réponse
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <CountdownCell ticket={t} />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => callNext()}
+                                      disabled={isActing || t.status !== "waiting"}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        isActing || t.status !== "waiting"
+                                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                          : "bg-green-600 text-white hover:bg-green-700 shadow-sm"
+                                      )}
+                                      title="Appeler ce ticket"
+                                    >
+                                      <Phone className="h-3.5 w-3.5" />
+                                      Appeler
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => recall(Number(t.id))}
+                                      disabled={isActing || t.status === "waiting" || t.status === "closed"}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        isActing || t.status === "waiting" || t.status === "closed"
+                                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                          : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                                      )}
+                                      title="Rappeler ce ticket"
+                                    >
+                                      <Volume2 className="h-3.5 w-3.5" />
+                                      Rappel
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => markAbsent(Number(t.id))}
+                                      disabled={isActing || t.status !== "called"}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        isActing || t.status !== "called"
+                                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                          : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
+                                      )}
+                                      title="Marquer comme absent"
+                                    >
+                                      <UserX className="h-3.5 w-3.5" />
+                                      Absent
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => closeTicket(Number(t.id))}
+                                      disabled={isActing || t.status !== "called"}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        isActing || t.status !== "called"
+                                          ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                          : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                                      )}
+                                      title="Clôturer le ticket"
+                                    >
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      Servi
+                                    </button>
                                   </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => callNext()}
-                                    disabled={isActing || t.status !== "waiting"}
-                                    className={cn(
-                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                      isActing || t.status !== "waiting"
-                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                        : "bg-green-600 text-white hover:bg-green-700 shadow-sm"
-                                    )}
-                                    title="Appeler ce ticket"
-                                  >
-                                    <Phone className="h-3.5 w-3.5" />
-                                    Appeler
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => recall(Number(t.id))}
-                                    disabled={isActing || t.status === "waiting" || t.status === "closed"}
-                                    className={cn(
-                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                      isActing || t.status === "waiting" || t.status === "closed"
-                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                                    )}
-                                    title="Rappeler ce ticket"
-                                  >
-                                    <Volume2 className="h-3.5 w-3.5" />
-                                    Rappel
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => markAbsent(Number(t.id))}
-                                    disabled={isActing || t.status !== "called"}
-                                    className={cn(
-                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                      isActing || t.status !== "called"
-                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                        : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
-                                    )}
-                                    title="Marquer comme absent"
-                                  >
-                                    <UserX className="h-3.5 w-3.5" />
-                                    Absent
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => closeTicket(Number(t.id))}
-                                    disabled={isActing || t.status !== "called"}
-                                    className={cn(
-                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                                      isActing || t.status !== "called"
-                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
-                                    )}
-                                    title="Clôturer le ticket"
-                                  >
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    Servi
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1412,69 +1440,72 @@ const Queues: React.FC = () => {
                                 </tr>
                               </thead>
                               <tbody className="bg-card divide-y divide-border">
-                                {day.tickets.map((t) => (
-                                  <tr key={t.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors">
-                                    <td className="px-4 py-3">
-                                      <div className="font-bold text-foreground">{t.number}</div>
-                                      {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div>
-                                      <div className="flex gap-1 mt-0.5">
-                                        {t.is_senior && (
-                                          <span title="Senior">
-                                            <Accessibility className="h-3 w-3 text-blue-500" />
-                                          </span>
-                                        )}
-                                        {t.is_handicap && (
-                                          <span title="Handicap">
-                                            <HeartHandshake className="h-3 w-3 text-purple-500" />
-                                          </span>
-                                        )}
-                                        {t.is_pregnant && (
-                                          <span title="Femme enceinte">
-                                            <Baby className="h-3 w-3 text-pink-500" />
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
-                                        t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-                                        t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
-                                        t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                        t.priority === "normal" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-                                      )}>
-                                        {t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      {t.source && SOURCE_CONFIG[t.source] ? (
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                          <span title={SOURCE_CONFIG[t.source].label}>
-                                            {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
-                                          </span>
-                                          {SOURCE_CONFIG[t.source].label}
+                                {day.tickets.map((t) => {
+                                  const createdDate = parseDate(t.created_at);
+                                  return (
+                                    <tr key={t.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors">
+                                      <td className="px-4 py-3">
+                                        <div className="font-bold text-foreground">{t.number}</div>
+                                        {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div>
+                                        <div className="flex gap-1 mt-0.5">
+                                          {t.is_senior && (
+                                            <span title="Senior">
+                                              <Accessibility className="h-3 w-3 text-blue-500" />
+                                            </span>
+                                          )}
+                                          {t.is_handicap && (
+                                            <span title="Handicap">
+                                              <HeartHandshake className="h-3 w-3 text-purple-500" />
+                                            </span>
+                                          )}
+                                          {t.is_pregnant && (
+                                            <span title="Femme enceinte">
+                                              <Baby className="h-3 w-3 text-pink-500" />
+                                            </span>
+                                          )}
                                         </div>
-                                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                                      {t.created_at ? new Date(t.created_at.replace(" ", "T") + "Z").toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                        <CalendarClock className="h-3 w-3" />
-                                        {t.defer_reason === "past_cutoff" ? "Hors délai" :
-                                         t.defer_reason === "non_working_day" ? "Jour non ouvrable" :
-                                         t.defer_reason === "holiday" ? "Jour férié" :
-                                         t.defer_reason === "critical_zone" ? "Zone critique" :
-                                         t.defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
-                                         t.defer_reason === "outside_hours" ? "Hors horaires" :
-                                         "Reporté automatiquement"}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                                          t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
+                                          t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
+                                          t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
+                                          t.priority === "normal" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+                                        )}>
+                                          {t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        {t.source && SOURCE_CONFIG[t.source] ? (
+                                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                            <span title={SOURCE_CONFIG[t.source].label}>
+                                              {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
+                                            </span>
+                                            {SOURCE_CONFIG[t.source].label}
+                                          </div>
+                                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                                        {createdDate ? createdDate.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                          <CalendarClock className="h-3 w-3" />
+                                          {t.defer_reason === "past_cutoff" ? "Hors délai" :
+                                            t.defer_reason === "non_working_day" ? "Jour non ouvrable" :
+                                              t.defer_reason === "holiday" ? "Jour férié" :
+                                                t.defer_reason === "critical_zone" ? "Zone critique" :
+                                                  t.defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
+                                                    t.defer_reason === "outside_hours" ? "Hors horaires" :
+                                                      "Reporté automatiquement"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -1529,59 +1560,62 @@ const Queues: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
-                      {tickets.map((ticket, index) => (
-                        <tr
-                          key={`${ticket.id}-${index}`}
-                          className="hover:bg-muted/50 transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <span className="text-2xl mr-3">
-                                {getPriorityIcon(ticket.priority)}
+                      {tickets.map((ticket, index) => {
+                        const createdDate = parseDate(ticket.created_at);
+                        return (
+                          <tr
+                            key={`${ticket.id}-${index}`}
+                            className="hover:bg-muted/50 transition-colors"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <span className="text-2xl mr-3">
+                                  {getPriorityIcon(ticket.priority)}
+                                </span>
+                                <div>
+                                  <div className="font-bold text-foreground">
+                                    {ticket.ticket_number}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    #{ticket.id}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm text-foreground font-medium">
+                                {ticket.service_name}
+                              </div>
+                              {ticket.client_name && (
+                                <div className="text-sm text-muted-foreground">
+                                  {ticket.client_name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}
+                              >
+                                {ticket.priority === "urgence"
+                                  ? "🚨 Urgence"
+                                  : ticket.priority === "high"
+                                    ? "Haute priorité"
+                                    : ticket.priority === "vip"
+                                      ? "VIP"
+                                      : "Standard"}
                               </span>
-                              <div>
-                                <div className="font-bold text-foreground">
-                                  {ticket.ticket_number}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  #{ticket.id}
-                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                              <div className="font-medium">
+                                {createdDate ? createdDate.toLocaleTimeString() : "—"}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-foreground font-medium">
-                              {ticket.service_name}
-                            </div>
-                            {ticket.client_name && (
-                              <div className="text-sm text-muted-foreground">
-                                {ticket.client_name}
+                              <div className="text-xs text-muted-foreground">
+                                {createdDate ? createdDate.toLocaleDateString() : "—"}
                               </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}
-                            >
-                              {ticket.priority === "urgence"
-                                ? "🚨 Urgence"
-                                : ticket.priority === "high"
-                                  ? "Haute priorité"
-                                  : ticket.priority === "vip"
-                                    ? "VIP"
-                                    : "Standard"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                            <div className="font-medium">
-                              {new Date(ticket.created_at).toLocaleTimeString()}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(ticket.created_at).toLocaleDateString()}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
