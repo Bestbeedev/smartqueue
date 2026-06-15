@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/api/axios'
 import { useAppSelector } from '@/store'
 import { toast } from 'sonner'
-import { 
-  Ticket, 
-  CheckCircle, 
+import {
+  Ticket,
+  CheckCircle,
   UserX,
-  PieChartIcon, 
-  Clock, 
-  Users, 
-  Building2, 
-  Activity, 
+  PieChartIcon,
+  Clock,
+  Users,
+  Building2,
+  Activity,
   TrendingUp,
   Calendar as CalendarIcon,
   Bell,
@@ -29,7 +29,9 @@ import {
   Eye,
   Edit3,
   Trash2,
-  Download
+  Download,
+  BarChart3,
+  LineChart as LineChartIcon,
 } from 'lucide-react'
 import { AnalyticsCard } from '@/components/ui/analytics-card'
 import { ChartContainer } from '@/components/ui/chart-container'
@@ -41,13 +43,13 @@ import { DonutChart, LineChartComponent, VerticalBarChart } from '@/components/u
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
 
@@ -63,7 +65,7 @@ export default function Dashboard() {
   const [seriesLoading, setSeriesLoading] = useState(false)
   const [servicesLoading, setServicesLoading] = useState(false)
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week')
-  
+
   // Nouveaux états pour les fonctionnalités supplémentaires
   const [agents, setAgents] = useState<any[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
@@ -73,7 +75,7 @@ export default function Dashboard() {
   const [notificationsLoading, setNotificationsLoading] = useState(false)
   const [serviceStats, setServiceStats] = useState<Record<number, any>>({})
   const [activeTab, setActiveTab] = useState('overview')
-  
+
   const role = useAppSelector((s) => s.auth.user?.role)
   const user = useAppSelector((s) => s.auth.user)
 
@@ -97,7 +99,7 @@ export default function Dashboard() {
   const loadStats = async () => {
     if (loading) return
     if (role !== 'admin') return
-    
+
     setLoading(true)
     try {
       const response = await api.get('/api/admin/stats/overview', {
@@ -144,14 +146,11 @@ export default function Dashboard() {
     if (servicesLoading || !user?.establishment_id) return
     setServicesLoading(true)
     try {
-      // Charger les services de l'établissement
       const servicesResponse = await api.get(`/api/establishments/${user.establishment_id}/services`, {
         params: { per_page: 50, status: 'open' }
       })
       const servicesData = servicesResponse.data.data || servicesResponse.data || []
       setServices(servicesData)
-
-      // Préparer les données pour les graphiques
       prepareServicesCharts(servicesData)
     } catch (error: any) {
       console.error('Erreur lors du chargement des services:', error)
@@ -165,7 +164,6 @@ export default function Dashboard() {
 
   const prepareServicesCharts = async (servicesData: any[]) => {
     try {
-      // Distribution des tickets par service
       const distribution = servicesData.map((service: any) => ({
         name: service.name,
         value: service.people_waiting || 0
@@ -173,7 +171,6 @@ export default function Dashboard() {
 
       setServiceDistribution(distribution)
 
-      // Distribution des agents par service (basé sur la donnée API si fournie)
       const agentsDist = servicesData
         .map((service: any) => ({
           name: service.name,
@@ -183,7 +180,6 @@ export default function Dashboard() {
         .filter((row: any) => Number(row.value) > 0)
       setAgentsDistribution(agentsDist)
 
-      // Charger les stats pour chaque service
       servicesData.forEach(async (service) => {
         try {
           const statsRes = await api.get(`/api/admin/stats/services/${service.id}`, {
@@ -198,7 +194,6 @@ export default function Dashboard() {
         }
       })
 
-      // Charger les recommandations pour le premier service
       if (servicesData.length > 0) {
         const firstService = servicesData[0]
         try {
@@ -213,7 +208,6 @@ export default function Dashboard() {
     }
   }
 
-  // Charger les agents
   const loadAgents = async () => {
     if (role !== 'admin' || !user?.establishment_id) return
     setAgentsLoading(true)
@@ -231,7 +225,6 @@ export default function Dashboard() {
     }
   }
 
-  // Charger les tickets récents
   const loadRecentTickets = async () => {
     if (role !== 'admin') return
     setTicketsLoading(true)
@@ -249,7 +242,6 @@ export default function Dashboard() {
     }
   }
 
-  // Charger les notifications récentes
   const loadNotifications = async () => {
     if (role !== 'admin') return
     setNotificationsLoading(true)
@@ -325,9 +317,9 @@ export default function Dashboard() {
     }
 
     return [
-      { name: 'En attente', value: toPercent(pending), color: '#3b82f6' },
-      { name: 'Résolus', value: toPercent(closed), color: '#10b981' },
-      { name: 'Absents', value: toPercent(absent), color: '#f59e0b' },
+      { name: 'En attente', value: toPercent(pending), color: '#3b82f6', count: pending },
+      { name: 'Résolus', value: toPercent(closed), color: '#10b981', count: closed },
+      { name: 'Absents', value: toPercent(absent), color: '#f59e0b', count: absent },
     ]
   }, [stats])
 
@@ -339,38 +331,47 @@ export default function Dashboard() {
     return donutData.some((d) => Number(d.value) > 0)
   }, [donutData])
 
+  // Préparer les données pour le graphique à barres des services
+  const barChartData = useMemo(() => {
+    return serviceDistribution.map((s, idx) => ({
+      name: s.name,
+      value: s.value,
+      color: `hsl(var(--chart-${(idx % 5) + 1}))`,
+    }))
+  }, [serviceDistribution])
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
+      {/* En-tête sans ombre */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground transition-colors duration-300">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Tableau de bord
           </h1>
-          <p className="mt-2 text-muted-foreground transition-colors duration-300">
+          <p className="mt-2 text-muted-foreground">
             Bienvenue {user?.name}, voici un aperçu de vos performances
           </p>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={refreshAll}
             className="hidden sm:flex"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualiser
           </Button>
-          <div className="inline-flex rounded-xl border border-border p-1 bg-card transition-all duration-300">
+          <div className="inline-flex rounded-lg border border-border p-1 bg-card">
             {(['day', 'week', 'month'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300",
+                  "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200",
                   timeRange === range
-                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
@@ -390,6 +391,7 @@ export default function Dashboard() {
           <TabsTrigger value="activity" className="hidden lg:flex">Activité</TabsTrigger>
         </TabsList>
 
+        {/* ==================== ONGLET OVERVIEW ==================== */}
         <TabsContent value="overview" className="space-y-6">
           {/* Actions rapides */}
           <div className="flex flex-wrap gap-2">
@@ -410,6 +412,7 @@ export default function Dashboard() {
               Notification
             </Button>
           </div>
+
           {/* Cartes de statistiques */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <AnalyticsCard
@@ -442,57 +445,91 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Graphiques */}
           <div className="grid gap-6 md:grid-cols-2">
-            <ChartContainer
-              title="Activité des tickets"
-              description="Évolution des tickets créés / résolus / absents"
-            >
-              <div className="h-[300px]">
-                {seriesLoading ? (
-                  <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">Chargement…</div>
-                ) : !hasSeriesData ? (
-                  <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+            {/* Graphique linéaire - Activité des tickets */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LineChartIcon className="h-5 w-5" />
+                  Activité des tickets
+                </CardTitle>
+                <CardDescription>Évolution des tickets créés / résolus / absents</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[320px]">
+                  {seriesLoading ? (
+                    <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">Chargement…</div>
+                  ) : !hasSeriesData ? (
+                    <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                      Aucune donnée pour la période sélectionnée.
+                    </div>
+                  ) : (
+                    <LineChartComponent
+                      data={lineData}
+                      lines={[
+                        { dataKey: 'tickets', name: 'Tickets créés', stroke: '#3b82f6' },
+                        { dataKey: 'resolved', name: 'Tickets résolus', stroke: '#10b981' },
+                        { dataKey: 'absent', name: 'Absents', stroke: '#f59e0b' },
+                      ]}
+                      xAxisDataKey="date"
+                    />
+                  )}
+                </div>
+                {/* Légende du graphique linéaire */}
+                <div className="flex flex-wrap justify-center gap-4 mt-4 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-xs text-muted-foreground">Tickets créés</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <span className="text-xs text-muted-foreground">Tickets résolus</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500" />
+                    <span className="text-xs text-muted-foreground">Absents</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Graphique Donut - Répartition des tickets */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5" />
+                  Répartition des tickets
+                </CardTitle>
+                <CardDescription>Distribution par statut</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {hasDonutData ? (
+                  <>
+                    <div className="h-[240px]">
+                      <DonutChart data={donutData} height={240} />
+                    </div>
+                    {/* Légende avec valeurs réelles */}
+                    <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t">
+                      {pieData.map((item) => (
+                        <div key={item.name} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted/30">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-xs font-medium">{item.name}</span>
+                          </div>
+                          <span className="text-lg font-bold">{item.value}%</span>
+                          <span className="text-xs text-muted-foreground">({item.count} tickets)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-[320px] w-full flex items-center justify-center text-sm text-muted-foreground">
                     Aucune donnée pour la période sélectionnée.
                   </div>
-                ) : (
-                  <LineChartComponent
-                    data={lineData}
-                    lines={[
-                      { dataKey: 'tickets', name: 'Tickets créés', stroke: '#3b82f6' },
-                      { dataKey: 'resolved', name: 'Tickets résolus', stroke: '#10b981' },
-                      { dataKey: 'absent', name: 'Absents', stroke: '#f59e0b' },
-                    ]}
-                    xAxisDataKey="date"
-                  />
                 )}
-              </div>
-            </ChartContainer>
-
-            <ChartContainer
-              title="Répartition des tickets"
-              description="Répartition par statut (en attendant la distribution par service)"
-            >
-            
-              {hasDonutData ? (
-                <DonutChart data={donutData} />
-              ) : (
-                <div className="h-[300px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                  Aucune donnée pour la période sélectionnée.
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {pieData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full shadow-sm" 
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <span className="text-sm font-medium text-muted-foreground transition-colors duration-300">{item.name}</span>
-                    <span className="text-sm font-bold ml-auto text-foreground transition-colors duration-300">{item.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Section inférieure: Tickets récents et Activité */}
@@ -534,12 +571,12 @@ export default function Dashboard() {
                           <TableCell>
                             <Badge variant={
                               ticket.status === 'waiting' ? 'secondary' :
-                              ticket.status === 'called' ? 'default' :
-                              ticket.status === 'closed' ? 'outline' : 'destructive'
+                                ticket.status === 'called' ? 'default' :
+                                  ticket.status === 'closed' ? 'outline' : 'destructive'
                             }>
                               {ticket.status === 'waiting' ? 'En attente' :
-                               ticket.status === 'called' ? 'Appelé' :
-                               ticket.status === 'closed' ? 'Clôturé' : 'Absent'}
+                                ticket.status === 'called' ? 'Appelé' :
+                                  ticket.status === 'closed' ? 'Clôturé' : 'Absent'}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
@@ -583,8 +620,8 @@ export default function Dashboard() {
                         <div className={cn(
                           "w-2 h-2 rounded-full mt-2 flex-shrink-0",
                           notif.data?.type === 'error' || notif.type === 'error' ? "bg-red-500" :
-                          notif.data?.type === 'warning' || notif.type === 'warning' ? "bg-orange-500" :
-                          notif.data?.type === 'success' || notif.type === 'success' ? "bg-green-500" : "bg-blue-500"
+                            notif.data?.type === 'warning' || notif.type === 'warning' ? "bg-orange-500" :
+                              notif.data?.type === 'success' || notif.type === 'success' ? "bg-green-500" : "bg-blue-500"
                         )} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
@@ -606,8 +643,9 @@ export default function Dashboard() {
           </div>
         </TabsContent>
 
+        {/* ==================== ONGLET TICKETS ==================== */}
         <TabsContent value="tickets" className="space-y-6">
-          {/* Vue générale des tickets */}
+          {/* Cartes de statistiques Tickets */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
@@ -647,7 +685,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Graphique et répartition */}
+          {/* Graphiques Tickets */}
           <div className="grid gap-6 lg:grid-cols-2">
             <ChartContainer
               title="Évolution des tickets"
@@ -675,6 +713,13 @@ export default function Dashboard() {
                     }))}
                   />
                 )}
+              </div>
+              {/* Légende graphique à barres */}
+              <div className="flex justify-center gap-4 mt-4 pt-3 border-t">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <span className="text-xs text-muted-foreground">Tickets créés</span>
+                </div>
               </div>
             </ChartContainer>
 
@@ -709,7 +754,7 @@ export default function Dashboard() {
                     <span className="text-xl font-bold">{stats?.tickets?.absent || 0}</span>
                   </div>
                 </div>
-                
+
                 <div className="mt-6 pt-6 border-t">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Temps d'attente moyen</span>
@@ -749,8 +794,8 @@ export default function Dashboard() {
                           <div className={cn(
                             "w-2 h-2 rounded-full",
                             ticket.status === 'waiting' ? 'bg-yellow-500' :
-                            ticket.status === 'called' ? 'bg-blue-500' :
-                            ticket.status === 'closed' ? 'bg-green-500' : 'bg-red-500'
+                              ticket.status === 'called' ? 'bg-blue-500' :
+                                ticket.status === 'closed' ? 'bg-green-500' : 'bg-red-500'
                           )} />
                           <div>
                             <p className="font-medium">Ticket #{ticket.id}</p>
@@ -760,12 +805,12 @@ export default function Dashboard() {
                         <div className="text-right">
                           <Badge variant={
                             ticket.status === 'waiting' ? 'secondary' :
-                            ticket.status === 'called' ? 'default' :
-                            ticket.status === 'closed' ? 'outline' : 'destructive'
+                              ticket.status === 'called' ? 'default' :
+                                ticket.status === 'closed' ? 'outline' : 'destructive'
                           }>
                             {ticket.status === 'waiting' ? 'En attente' :
-                             ticket.status === 'called' ? 'Appelé' :
-                             ticket.status === 'closed' ? 'Clôturé' : 'Absent'}
+                              ticket.status === 'called' ? 'Appelé' :
+                                ticket.status === 'closed' ? 'Clôturé' : 'Absent'}
                           </Badge>
                           <p className="text-xs text-muted-foreground mt-1">{new Date(ticket.created_at).toLocaleDateString()}</p>
                         </div>
@@ -790,7 +835,7 @@ export default function Dashboard() {
                     const total = sStats?.created || service.people_waiting || 0
                     const closed = sStats?.closed || 0
                     const rate = total > 0 ? Math.round((closed / total) * 100) : 0
-                    
+
                     return (
                       <div key={service.id} className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
@@ -810,7 +855,6 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Bouton action */}
           <div className="flex justify-end">
             <Button onClick={() => navigate('/dashboard/queues')}>
               <Ticket className="mr-2 h-4 w-4" />
@@ -819,6 +863,7 @@ export default function Dashboard() {
           </div>
         </TabsContent>
 
+        {/* ==================== ONGLET SERVICES ==================== */}
         <TabsContent value="services" className="space-y-6">
           {/* Services Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -827,28 +872,24 @@ export default function Dashboard() {
               value={stats?.services?.active || 0}
               icon={Activity}
               change={{ value: 12, type: 'increase' }}
-              className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20"
             />
             <AnalyticsCard
               title="Total Agents"
               value={stats?.services?.agents || 0}
               icon={Users}
               change={{ value: 5, type: 'increase' }}
-              className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20"
             />
             <AnalyticsCard
               title="Tickets en Attente"
               value={stats?.services?.waiting || 0}
               icon={Clock}
               change={{ value: 8, type: 'decrease' }}
-              className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20"
             />
             <AnalyticsCard
               title="Temps Moyen"
               value={`${stats?.services?.avgTime || 0}min`}
               icon={TrendingUp}
               change={{ value: 2, type: 'decrease' }}
-              className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20"
             />
           </div>
 
@@ -943,11 +984,12 @@ export default function Dashboard() {
                       </div>
                     )}
                   </ChartContainer>
-                  <div className="mt-4 space-y-2">
+                  {/* Légende de la répartition des services */}
+                  <div className="mt-4 space-y-2 pt-3 border-t">
                     {serviceDistribution.map((item, index) => (
                       <div key={item.name} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full bg-chart-${index + 1}`} />
+                          <div className={`w-3 h-3 rounded-full bg-chart-${index + 1}`} style={{ backgroundColor: `hsl(var(--chart-${index + 1}))` }} />
                           <span>{item.name}</span>
                         </div>
                         <span className="font-medium">{item.value}</span>
@@ -959,7 +1001,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Agents Assignment */}
+          {/* Agents Assignment - Graphique à barres */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -970,7 +1012,7 @@ export default function Dashboard() {
             <CardContent>
               <ChartContainer
                 title="Répartition des Agents par Service"
-                className="h-[300px]"
+                className="h-fit"
               >
                 {agentsDistribution.length > 0 ? (
                   <VerticalBarChart data={agentsDistribution as any} height={300} />
@@ -980,6 +1022,13 @@ export default function Dashboard() {
                   </div>
                 )}
               </ChartContainer>
+              {/* Légende graphique à barres agents */}
+              <div className="flex justify-center gap-4 mt-4 pt-3 border-t">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <span className="text-xs text-muted-foreground">Nombre d'agents</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -1006,6 +1055,13 @@ export default function Dashboard() {
                       Aucune donnée.
                     </div>
                   )}
+                </div>
+                {/* Légende */}
+                <div className="flex justify-center gap-4 mt-4 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-xs text-muted-foreground">Tickets créés</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1045,7 +1101,7 @@ export default function Dashboard() {
           </div>
         </TabsContent>
 
-        {/* Onglet Agents - Simplifié */}
+        {/* ==================== ONGLET AGENTS ==================== */}
         <TabsContent value="agents" className="space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1126,7 +1182,7 @@ export default function Dashboard() {
           </div>
         </TabsContent>
 
-        {/* Onglet Activité */}
+        {/* ==================== ONGLET ACTIVITÉ ==================== */}
         <TabsContent value="activity" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Tous les tickets récents */}
@@ -1151,8 +1207,8 @@ export default function Dashboard() {
                           <div className={cn(
                             "w-2 h-2 rounded-full",
                             ticket.status === 'waiting' ? 'bg-yellow-500' :
-                            ticket.status === 'called' ? 'bg-blue-500' :
-                            ticket.status === 'closed' ? 'bg-green-500' : 'bg-red-500'
+                              ticket.status === 'called' ? 'bg-blue-500' :
+                                ticket.status === 'closed' ? 'bg-green-500' : 'bg-red-500'
                           )} />
                           <div>
                             <p className="font-medium">Ticket #{ticket.id}</p>
@@ -1164,8 +1220,8 @@ export default function Dashboard() {
                         <div className="text-right">
                           <Badge variant={
                             ticket.status === 'waiting' ? 'secondary' :
-                            ticket.status === 'called' ? 'default' :
-                            ticket.status === 'closed' ? 'outline' : 'destructive'
+                              ticket.status === 'called' ? 'default' :
+                                ticket.status === 'closed' ? 'outline' : 'destructive'
                           }>
                             {ticket.status}
                           </Badge>
@@ -1196,7 +1252,7 @@ export default function Dashboard() {
                       const total = sStats?.created || 0
                       const closed = sStats?.closed || 0
                       const rate = total > 0 ? Math.round((closed / total) * 100) : 0
-                      
+
                       return (
                         <div key={service.id} className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
