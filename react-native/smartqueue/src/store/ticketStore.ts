@@ -57,11 +57,10 @@ const sortActiveTickets = (tickets: Ticket[]): Ticket[] => {
   });
 };
 
-// Filtrer les tickets terminés — garder les absents récupérables (1re absence)
-// et les absents définitifs (2e niveau) pendant le délai d'expiration.
 const filterActiveTickets = (tickets: Ticket[]): Ticket[] => {
   return tickets.filter(ticket => {
     if (ticket.status === 'closed' || ticket.status === 'served') return false;
+    if (ticket.status === 'absent' && ticket.absent_expires_at != null) return false;
     return true;
   });
 };
@@ -431,10 +430,9 @@ export const useTicketStore = create<TicketState>()(
           const tickets = await ticketsApi.getMyActiveTickets();
           console.log("[ticketStore] fetchActiveTicket got tickets:", tickets.length);
 
-          // Keep all active tickets except closed/served.
-          // Level 2 absents (definitive) are kept until the backend removes them.
           const activeOnly = tickets.filter(t => {
             if (t.status === 'closed' || t.status === 'served') return false;
+            if (t.status === 'absent' && t.absent_expires_at != null) return false;
             return true;
           });
           

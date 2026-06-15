@@ -23,6 +23,10 @@ class AgentQueueController extends Controller
         $items = Ticket::query()
             ->where('service_id', $service->id)
             ->whereIn('status', ['waiting','called','en_route','present','absent'])
+            ->where(function ($q) {
+                $q->whereNull('absent_expires_at')
+                  ->orWhere('status', '!=', 'absent');
+            })
             ->whereDate('valid_date', Carbon::today())
             ->orderByRaw("CASE status WHEN 'present' THEN 1 WHEN 'called' THEN 2 WHEN 'en_route' THEN 3 WHEN 'waiting' THEN 4 ELSE 5 END")
             ->orderByRaw("CASE priority WHEN 'urgence' THEN 4 WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
