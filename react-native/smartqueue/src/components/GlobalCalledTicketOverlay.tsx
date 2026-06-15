@@ -51,6 +51,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
     type: 'en_route' | 'present' | 'defer';
     callback: () => void;
   } | null>(null);
+  const [expiredAlertVisible, setExpiredAlertVisible] = useState(false);
 
   const effectiveTicketId = activeTicket?.id || null;
 
@@ -122,6 +123,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
       if (countdownRef.current <= 0) {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setIsExpired(true);
+        setExpiredAlertVisible(true);
       }
     }, 1000);
 
@@ -148,6 +150,7 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
       setCountdownReady(false);
       countdownFetchedRef.current = false;
       setCallTimeoutMinutes(null);
+      setExpiredAlertVisible(false);
     }
   }, [isCalled]);
 
@@ -375,6 +378,25 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
         onClose={() => {
           setConfirmVisible(false);
           setConfirmAction(null);
+        }}
+      />
+
+      {/* Custom Alert d'expiration */}
+      <CustomAlert
+        visible={expiredAlertVisible}
+        type="warning"
+        title="Délai expiré"
+        message="Vous ne vous êtes pas présenté dans le délai imparti. Votre ticket a été marqué absent."
+        primaryButton={{
+          text: "OK",
+          onPress: () => {
+            setExpiredAlertVisible(false);
+            handleDismiss();
+          },
+        }}
+        onClose={() => {
+          setExpiredAlertVisible(false);
+          handleDismiss();
         }}
       />
     </>
