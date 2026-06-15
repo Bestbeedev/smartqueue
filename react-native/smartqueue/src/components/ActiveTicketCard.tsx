@@ -95,6 +95,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const [absentExpiresAt, setAbsentExpiresAt] = useState(activeTicket?.absent_expires_at);
   const [callExpired, setCallExpired] = useState(false);
   const [enRouteExpired, setEnRouteExpired] = useState(false);
+  const [enRouteGraceCountdown, setEnRouteGraceCountdown] = useState<number | null>(null);
+  const [enRouteExpiredSent, setEnRouteExpiredSent] = useState(false);
 
   const maxAttemptsRef = useRef(localMaxAttempts);
   maxAttemptsRef.current = localMaxAttempts;
@@ -107,6 +109,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     if (newStatus !== localStatus) {
       if (newStatus !== "called") setCallExpired(false);
       if (newStatus !== "en_route") setEnRouteExpired(false);
+      if (newStatus !== "en_route") { setEnRouteGraceCountdown(null); setEnRouteExpiredSent(false); }
     }
     setLocalStatus(newStatus);
     setLocalDeferralCount(activeTicket?.deferral_count ?? 0);
@@ -478,6 +481,47 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     }
   }, [isEnRouteExpiredNow, localStatus, handleTicketExpired]);
 
+  // Palier de grâce après expiration en_route (120s)
+  useEffect(() => {
+    if (!isTicketEnRoute || !(enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0))) {
+      setEnRouteGraceCountdown(null);
+      return;
+    }
+    if (enRouteGraceCountdown !== null) return; // déjà lancé
+    setEnRouteGraceCountdown(120);
+  }, [isTicketEnRoute, enRouteExpired, enRouteCountdown]);
+
+  useEffect(() => {
+    if (enRouteGraceCountdown === null || enRouteGraceCountdown <= 0) return;
+    const id = setInterval(() => {
+      setEnRouteGraceCountdown((prev) => {
+        if (prev == null || prev <= 1) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [enRouteGraceCountdown]);
+
+  // Fin du palier de grâce → appel API expire-en-route
+  useEffect(() => {
+    if (enRouteGraceCountdown !== 0) return;
+    if (enRouteExpiredSent) return;
+    if (!activeTicket?.id) return;
+    setEnRouteExpiredSent(true);
+    (async () => {
+      try {
+        await axiosClient.post(`/tickets/${activeTicket.id}/expire-en-route`);
+        setLocalStatus('absent');
+        setEnRouteExpiresAt(null);
+        useTicketStore.getState().fetchActiveTicket().catch(console.warn);
+      } catch (e) {
+        console.warn("[ActiveTicketCard] expire-en-route error:", e);
+      }
+    })();
+  }, [enRouteGraceCountdown, enRouteExpiredSent, activeTicket?.id]);
+
   const warningShownRef = useRef(false);
   useEffect(() => {
     if (suppressAutoAlerts) return;
@@ -729,7 +773,11 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               <Ionicons name="timer-outline" size={14} color={enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0) ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning)} />
               <Text style={[styles.enRouteTimerText, { color: enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0) ? colors.danger : (enRouteCountdown !== null && enRouteCountdown <= 60 ? colors.danger : colors.warning), fontVariant: ["tabular-nums"] as any }]}>
                 {enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)
-                  ? "Délai expiré — L'agent va statuer sur votre présence"
+                  ? enRouteGraceCountdown != null && enRouteGraceCountdown > 0
+                    ? `Délai de présentation expiré — Absence automatique dans ${Math.floor(enRouteGraceCountdown / 60)}:${String(enRouteGraceCountdown % 60).padStart(2, "0")}`
+                    : enRouteExpiredSent
+                      ? "Ticket marqué absent — l'agent peut vous rappeler"
+                      : "Délai expiré — L'agent va statuer sur votre présence"
                   : enRouteCountdown !== null
                     ? `Votre délai de présentation reste : ${Math.floor(enRouteCountdown / 60)}:${String(enRouteCountdown % 60).padStart(2, "0")} min`
                     : "Délai de présence en cours…"}
@@ -745,7 +793,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                 <Text style={[styles.presentButtonText, { color: colors.primary }]}>Je suis présent</Text>
               </TouchableOpacity>
             )}
-            {(enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)) && (
+            {(enRouteExpired || (enRouteCountdown !== null && enRouteCountdown <= 0)) && !enRouteExpiredSent && (
               <TouchableOpacity
                 style={[styles.presentButton, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
                 onPress={handleMarkPresent}
