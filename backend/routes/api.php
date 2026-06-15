@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\AgentTicketController;
 use App\Http\Controllers\Api\AgentServiceController;
 use App\Http\Controllers\Api\AgentQueueController;
 use App\Http\Controllers\Api\AgentTicketActionController;
+use App\Http\Controllers\Api\AgentClientProfileController;
 use App\Http\Controllers\Api\AgentCounterController;
 use App\Http\Controllers\Api\Admin\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
@@ -147,6 +148,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('tickets/{ticket}/priority', [AgentTicketActionController::class, 'setPriority']);
         Route::post('tickets/{ticket}/mark-absent', [AgentTicketActionController::class, 'markAbsent']);
         Route::post('tickets/{ticket}/defer', [AgentTicketActionController::class, 'defer']);
+
+        // Profil client (historique, stats)
+        Route::get('tickets/{ticket}/client-profile', [AgentClientProfileController::class, 'show']);
 
         // Ouverture/fermeture guichet (counter)
         Route::post('counters/{counter}/open', [AgentCounterController::class, 'open']);

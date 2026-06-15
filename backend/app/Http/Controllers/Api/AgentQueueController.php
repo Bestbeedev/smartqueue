@@ -20,14 +20,38 @@ class AgentQueueController extends Controller
     {
         $this->authorize('manage', $service);
 
-        $items = Ticket::query()
+        $query = Ticket::query()
             ->where('service_id', $service->id)
             ->whereIn('status', ['waiting','called','en_route','present','absent'])
             ->where(function ($q) {
                 $q->whereNull('absent_expires_at')
                   ->orWhere('status', '!=', 'absent');
             })
-            ->whereDate('valid_date', Carbon::today())
+            ->whereDate('valid_date', Carbon::today());
+
+        // Filtre par statut
+        if ($request->filled('status')) {
+            $statuses = explode(',', $request->input('status'));
+            $query->whereIn('status', $statuses);
+        }
+
+        // Filtre par priorité
+        if ($request->filled('priority')) {
+            $priorities = explode(',', $request->input('priority'));
+            $query->whereIn('priority', $priorities);
+        }
+
+        // Recherche textuelle (numéro, nom client, téléphone)
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_phone', 'like', "%{$search}%");
+            });
+        }
+
+        $items = $query
             ->orderByRaw("CASE status WHEN 'present' THEN 1 WHEN 'called' THEN 2 WHEN 'en_route' THEN 3 WHEN 'waiting' THEN 4 ELSE 5 END")
             ->orderByRaw("CASE priority WHEN 'urgence' THEN 4 WHEN 'vip' THEN 3 WHEN 'high' THEN 2 ELSE 1 END DESC")
             ->orderBy('position')
