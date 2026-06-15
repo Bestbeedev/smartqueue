@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SendPushNotification;
 use App\Models\Ticket;
 use App\Services\TicketService;
 use Illuminate\Console\Command;
@@ -11,7 +10,7 @@ use Illuminate\Support\Carbon;
 class TicketsExpireCalled extends Command
 {
     protected $signature = 'tickets:expire-called {--dry-run}';
-    protected $description = 'Expire called tickets whose call timeout has elapsed';
+    protected $description = 'Expire called tickets whose call timeout has elapsed (two-strike: defers on first expiry, marks absent on second)';
 
     public function __construct(
         private TicketService $ticketService,
@@ -28,15 +27,13 @@ class TicketsExpireCalled extends Command
         $fallbackThreshold = $now->copy()->subSeconds((int) config('queue.call_timeout_seconds', 600));
 
         $query = Ticket::query()
-            ->with('user')
+            ->with(['user', 'service'])
             ->where('status', 'called')
             ->where(function ($q) use ($now, $fallbackThreshold) {
                 $q->where(function ($sub) use ($now) {
-                    // Ticket has a specific expiry set by callNext()
                     $sub->whereNotNull('called_expires_at')
                         ->where('called_expires_at', '<=', $now);
                 })->orWhere(function ($sub) use ($fallbackThreshold) {
-                    // Legacy ticket without called_expires_at — use global config
                     $sub->whereNull('called_expires_at')
                         ->whereNotNull('called_at')
                         ->where('called_at', '<=', $fallbackThreshold);
@@ -54,20 +51,10 @@ class TicketsExpireCalled extends Command
 
         foreach ($tickets as $ticket) {
             $affectedServiceIds->push($ticket->service_id);
-            $this->ticketService->markAbsent($ticket);
-
-            if ($ticket->user) {
-                dispatch(new SendPushNotification(
-                    $ticket->user->id,
-                    'Ticket marqué absent',
-                    'Votre ticket a été marqué absent car vous n\'avez pas répondu à l\'appel.',
-                    [
-                        'ticket_id' => $ticket->id,
-                        'service_id' => $ticket->service_id,
-                        'type' => 'called_expired',
-                    ]
-                ));
-            }
+            // Two-strike: defers on first expiry (deferral_count=0), marks absent on second.
+            // markAbsentWithDeferral() internally calls markAbsent() when deferral not possible,
+            // and each path already dispatches its own push notification — no duplicate here.
+            $this->ticketService->markAbsentWithDeferral($ticket);
         }
 
         foreach ($affectedServiceIds->unique() as $serviceId) {

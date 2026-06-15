@@ -873,11 +873,14 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
-        // Vérifier si on peut déférer (période de grâce de 24h)
+        // Vérifier si on peut déférer :
+        // - statut éligible + période de grâce 24h + première absence seulement (deferral_count = 0)
+        // Au deuxième incident, on marque absent définitivement (système deux-chances).
         $referenceTime = $ticket->original_called_at ?? $ticket->called_at;
         $canDefer = in_array($ticket->status, ['called', 'en_route'], true) &&
                     $referenceTime &&
-                    !Carbon::parse($referenceTime)->addHours(24)->isPast();
+                    !Carbon::parse($referenceTime)->addHours(24)->isPast() &&
+                    ($ticket->deferral_count ?? 0) === 0;
 
         if ($canDefer) {
             // Essayer de déférer (catch exceptions pour fallback)
@@ -934,14 +937,19 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
+        $service = $ticket->service;
+        $timeoutMinutes = $service?->call_timeout_minutes
+            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+
         $ticket->status = 'called';
-        $ticket->en_route_at = null; // Rappel : réinitialise la réponse précédente
+        $ticket->en_route_at = null;
         $ticket->present_at = null;
         $ticket->response_received_at = null;
         $ticket->en_route_expires_at = null;
         $ticket->called_at = Carbon::now();
+        $ticket->called_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
         $ticket->position = null;
-        $ticket->eta_minutes = 0; // Called = no more waiting
+        $ticket->eta_minutes = 0;
         $ticket->save();
         $this->broadcastSafely(fn() => event(new TicketCalled($ticket->id, [
             'ticket_id' => $ticket->id,
@@ -954,6 +962,8 @@ class TicketService
             'status' => $ticket->status,
             'position' => null,
             'eta_minutes' => 0,
+            'called_expires_at' => $ticket->called_expires_at->toIso8601String(),
+            'deferral_count' => $ticket->deferral_count ?? 0,
         ])));
         $this->broadcastSafely(fn() => event(new ServiceTicketCalled($ticket->service_id, [
             'service_id' => $ticket->service_id,
