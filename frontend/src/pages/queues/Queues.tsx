@@ -187,6 +187,15 @@ const CountdownCell: React.FC<{ ticket: QueueTicket; onExpired?: (ticket: QueueT
     }
   }, [calledSeconds, enRouteSeconds, ticket]);
 
+  if (ticket.status === "called" && calledSeconds === null) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300 animate-pulse">
+        <Timer className="h-3 w-3" />
+        …
+      </span>
+    );
+  }
+
   if (ticket.status === "called" && calledSeconds !== null) {
     const expiring = calledSeconds <= 30;
     const isExpired = calledSeconds === 0;

@@ -67,7 +67,7 @@ class TicketResource extends JsonResource
             'closed_at' => $this->closed_at,
             'present_at' => $this->present_at,
             'response_received_at' => $this->response_received_at,
-            'en_route_expires_at' => $this->en_route_expires_at,
+            'en_route_expires_at' => optional($this->en_route_expires_at)->toIso8601String(),
             // Exposé pour que le mobile sache si l'utilisateur a déjà répondu à
             // l'appel (statut reste 'called' après "en route") et n'affiche pas
             // l'overlay à nouveau.

@@ -507,20 +507,23 @@ class TicketService
                 'position' => null,
             ])));
             $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
-                'status' => $ticket->status,
-                'position' => null,
-                'eta_minutes' => 0,
+                'status'           => $ticket->status,
+                'position'         => null,
+                'eta_minutes'      => 0,
+                'called_expires_at' => $ticket->called_expires_at->toIso8601String(),
+                'deferral_count'   => $ticket->deferral_count ?? 0,
             ])));
 
             if ($ticket->user) {
                 $this->broadcastSafely(fn() => event(new UserTicketUpdated($ticket->user->id, [
-                    'ticket_id' => $ticket->id,
-                    'service_id' => $service->id,
-                    'status' => $ticket->status,
-                    'number' => $ticket->number,
-                    'counter_id' => $ticket->counter_id,
-                    'position' => null,
-                    'eta_minutes' => 0,
+                    'ticket_id'        => $ticket->id,
+                    'service_id'       => $service->id,
+                    'status'           => $ticket->status,
+                    'number'           => $ticket->number,
+                    'counter_id'       => $ticket->counter_id,
+                    'position'         => null,
+                    'eta_minutes'      => 0,
+                    'called_expires_at' => $ticket->called_expires_at->toIso8601String(),
                 ])));
             }
 
