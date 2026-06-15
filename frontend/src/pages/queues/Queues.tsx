@@ -139,18 +139,12 @@ function useCountdown(expiresAt?: string | null): number | null {
 
     const calc = () => {
       try {
-        // Normalize MySQL-style "YYYY-MM-DD HH:MM:SS" (no TZ) to UTC ISO-8601.
         let str = expiresAt;
         if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
           str = str.replace(' ', 'T') + 'Z';
         }
         const expiryDate = new Date(str);
-
-        // Vérifier si la date est valide
-        if (isNaN(expiryDate.getTime())) {
-          return 0;
-        }
-
+        if (isNaN(expiryDate.getTime())) return 0;
         const now = new Date();
         const diff = expiryDate.getTime() - now.getTime();
         return Math.max(0, Math.floor(diff / 1000));
@@ -160,11 +154,7 @@ function useCountdown(expiresAt?: string | null): number | null {
     };
 
     setSeconds(calc());
-
-    const id = setInterval(() => {
-      setSeconds(calc());
-    }, 1000);
-
+    const id = setInterval(() => setSeconds(calc()), 1000);
     return () => clearInterval(id);
   }, [expiresAt]);
 
@@ -178,21 +168,19 @@ function fmtCountdown(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-/** Row countdown cell — isolated so only the row re-renders per tick */
+/** Row countdown cell */
 const CountdownCell: React.FC<{ ticket: QueueTicket; onExpired?: (ticket: QueueTicket) => void }> = ({ ticket, onExpired }) => {
   const calledSeconds = useCountdown(ticket.status === "called" ? (ticket.called_expires_at ?? null) : null);
   const enRouteSeconds = useCountdown(ticket.status === "en_route" ? (ticket.en_route_expires_at ?? null) : null);
 
-  // Keep onExpired stable via ref to avoid triggering the effect on every parent re-render
   const onExpiredRef = useRef(onExpired);
   onExpiredRef.current = onExpired;
   const expiredFiredRef = useRef(false);
-  // Reset when a new expiry timestamp arrives (ticket recalled / re-called)
+
   useEffect(() => { expiredFiredRef.current = false; }, [ticket.id, ticket.called_expires_at, ticket.en_route_expires_at]);
+
   useEffect(() => {
-    const activeSecs = ticket.status === "called" ? calledSeconds
-                     : ticket.status === "en_route" ? enRouteSeconds
-                     : null;
+    const activeSecs = ticket.status === "called" ? calledSeconds : ticket.status === "en_route" ? enRouteSeconds : null;
     if (activeSecs === 0 && !expiredFiredRef.current) {
       expiredFiredRef.current = true;
       onExpiredRef.current?.(ticket);
@@ -245,9 +233,7 @@ const CountdownCell: React.FC<{ ticket: QueueTicket; onExpired?: (ticket: QueueT
 
 const Queues: React.FC = () => {
   const { user } = useAppSelector((s) => s.auth);
-  const assignedServices = (user as any)?.services as
-    | AssignedService[]
-    | undefined;
+  const assignedServices = (user as any)?.services as AssignedService[] | undefined;
   const counters = (user as any)?.counters as Counter[] | undefined;
 
   const [serviceId, setServiceId] = useState<string>("");
@@ -270,6 +256,16 @@ const Queues: React.FC = () => {
   const echo = getEcho();
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Récupérer le nom du service sélectionné
+  const selectedServiceName = useMemo(() => {
+    if (!serviceId) return null;
+    if (assignedServices && assignedServices.length > 0) {
+      const found = assignedServices.find(s => String(s.id) === serviceId);
+      if (found) return found.name;
+    }
+    return stats?.service_name || `Service ${serviceId}`;
+  }, [serviceId, assignedServices, stats]);
+
   // Default service selection from assigned services
   useEffect(() => {
     if (!serviceId && assignedServices && assignedServices.length > 0) {
@@ -277,18 +273,11 @@ const Queues: React.FC = () => {
     }
   }, [serviceId, assignedServices]);
 
-  //MemoEnroute
   const enRouteCount = useMemo(
-    () =>
-      queue.filter(
-        (ticket) =>
-          (ticket.status === "en_route" || ticket.status === "present") &&
-          !!ticket.en_route_at,
-      ).length,
+    () => queue.filter((ticket) => (ticket.status === "en_route" || ticket.status === "present") && !!ticket.en_route_at).length,
     [queue],
   );
 
-  // Fonctions de date sécurisées - CORRECTION
   const parseDate = (date?: string | null): Date | null => {
     if (!date) return null;
     try {
@@ -384,23 +373,27 @@ const Queues: React.FC = () => {
     return data;
   };
 
+  // Dans refreshQueueAndStats et dans le WebSocket, corrige le mapping :
+
   const refreshQueueAndStats = async (showToast = false) => {
     if (!serviceId) return;
     if (showToast) toast.info("Rafraîchissement en cours...");
 
     try {
-      const [q, s] = await Promise.all([
-        fetchQueue(serviceId),
-        fetchStats(serviceId),
-      ]);
-
+      const [q, s] = await Promise.all([fetchQueue(serviceId), fetchStats(serviceId)]);
       const queueData = Array.isArray(q?.tickets) ? q.tickets : [];
       setQueue(queueData);
 
+
       const mapped: ServiceStats = {
         service_id: Number(serviceId),
+        // CORRECTION: Récupère le nom du service depuis plusieurs sources possibles
         service_name: String(
-          s?.service?.name || s?.service_name || `Service ${serviceId}`,
+          s?.service?.name ||           // Si la réponse a une propriété service avec name
+          s?.name ||                     // Si la réponse a directement un name
+          s?.service_name ||             // Si la réponse a service_name
+          (assignedServices?.find(srv => String(srv.id) === serviceId)?.name) || // Depuis les services assignés
+          `Service ${serviceId}`          // Fallback
         ),
         waiting: Number(s?.people ?? s?.waiting ?? 0),
         processed: Number(s?.processed ?? 0),
@@ -408,7 +401,6 @@ const Queues: React.FC = () => {
       };
       setStats(mapped);
 
-      // CORRECTION: Extraire les tickets appelés récemment depuis la queue
       const recentCalledTickets = queueData
         .filter((t: QueueTicket) => t.status === "called" || t.status === "present")
         .slice(0, 10)
@@ -433,7 +425,16 @@ const Queues: React.FC = () => {
     }
   };
 
-  // Ref so CountdownCell's onExpired always sees the latest version (avoids stale closure)
+  // Mettre à jour le nom du service dans stats quand assignedServices change
+  useEffect(() => {
+    if (stats && assignedServices && serviceId) {
+      const found = assignedServices.find(s => String(s.id) === serviceId);
+      if (found && found.name !== stats.service_name) {
+        setStats(prev => prev ? { ...prev, service_name: found.name } : null);
+      }
+    }
+  }, [assignedServices, serviceId, stats]);
+
   const refreshQueueRef = useRef(refreshQueueAndStats);
   useEffect(() => { refreshQueueRef.current = refreshQueueAndStats; });
 
@@ -442,7 +443,6 @@ const Queues: React.FC = () => {
       description: "Le délai de priorité est écoulé. La file est actualisée.",
       duration: 6000,
     });
-    // Small delay so the backend scheduler has time to mark the ticket absent
     setTimeout(() => refreshQueueRef.current(false), 2000);
   };
 
@@ -452,9 +452,7 @@ const Queues: React.FC = () => {
     setError("");
     try {
       const numericCounterId = counterId ? Number(counterId) : null;
-      await api.post(`/api/services/${Number(serviceId)}/call-next`, {
-        counter_id: numericCounterId,
-      });
+      await api.post(`/api/services/${Number(serviceId)}/call-next`, { counter_id: numericCounterId });
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
@@ -530,29 +528,14 @@ const Queues: React.FC = () => {
     setIsActing(true);
     setError("");
     try {
-      // Second absence (deferral_count >= 1): force permanent absent (no further deferral)
-      const forceAbsent = (ticket.deferral_count ?? 0) >= 1;
-      const { data } = await api.post(`/api/tickets/${ticket.id}/mark-absent`, {
-        force_absent: forceAbsent,
+      await api.post(`/api/tickets/${ticketId}/mark-absent`);
+      toast.success("Ticket marqué absent", {
+        description: "L'usager a été notifié",
       });
-
-      if (data?.deferred) {
-        toast.info("Ticket différé", {
-          description: "L'usager reprend sa place plus loin dans la file. Il a 24h pour se présenter.",
-          duration: 6000,
-        });
-      } else {
-        toast.warning("Ticket absent définitivement", {
-          description: "L'usager a été notifié. Le ticket est retiré de la file.",
-          duration: 5000,
-        });
-      }
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
-      toast.error("Erreur", {
-        description: e?.response?.data?.message || e?.message,
-      });
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -567,9 +550,7 @@ const Queues: React.FC = () => {
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
-      toast.error("Erreur", {
-        description: e?.response?.data?.message || e?.message,
-      });
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -584,9 +565,7 @@ const Queues: React.FC = () => {
       await refreshQueueAndStats();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erreur");
-      toast.error("Erreur", {
-        description: e?.response?.data?.message || e?.message,
-      });
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
       setIsActing(false);
     }
@@ -595,30 +574,16 @@ const Queues: React.FC = () => {
   // Rafraîchissement automatique (polling de secours)
   useEffect(() => {
     if (!serviceId) return;
-
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-      refreshIntervalRef.current = null;
-    }
-
+    if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
     refreshIntervalRef.current = setInterval(() => {
-      if (serviceId && !isActing && !isLoading) {
-        refreshQueueAndStats(false);
-      }
+      if (serviceId && !isActing && !isLoading) refreshQueueAndStats(false);
     }, 10000);
-
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
-      }
-    };
+    return () => { if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current); };
   }, [serviceId, isActing, isLoading]);
 
-  // CORRECTION 2: WebSocket avec meilleure gestion d'erreur
+  // WebSocket
   useEffect(() => {
     if (!serviceId) return;
-
     let cancelled = false;
     let channel: any = null;
 
@@ -633,66 +598,38 @@ const Queues: React.FC = () => {
         await fetchService(serviceId);
         if (cancelled) return;
 
-        // Initial load (queue + stats)
         try {
           const q = await fetchQueue(serviceId);
-          if (!cancelled) {
-            setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
-          }
-        } catch (e: any) {
-          if (!cancelled) setError(e?.message || "Erreur");
-        }
+          if (!cancelled) setQueue(Array.isArray(q?.tickets) ? q.tickets : []);
+        } catch (e: any) { if (!cancelled) setError(e?.message || "Erreur"); }
 
-        // Charger les tickets reportés
         if (!cancelled) fetchDeferredQueue(serviceId);
 
-        // Charger les stats initiales
         try {
           const s = await fetchStats(serviceId);
           if (!cancelled) {
-            const mapped: ServiceStats = {
+            setStats({
               service_id: Number(serviceId),
-              service_name: String(
-                s?.service?.name || s?.service_name || `Service ${serviceId}`,
-              ),
+              service_name: String(s?.service?.name || s?.service_name || `Service ${serviceId}`),
               waiting: Number(s?.people ?? s?.waiting ?? 0),
               processed: Number(s?.processed ?? 0),
-              average_wait_time: String(
-                s?.eta_avg ?? s?.average_wait_time ?? "—",
-              ),
-            };
-            setStats(mapped);
+              average_wait_time: String(s?.eta_avg ?? s?.average_wait_time ?? "—"),
+            });
           }
-        } catch (e: any) {
-          console.warn("Erreur chargement stats initiales:", e);
-        }
+        } catch (e: any) { console.warn("Erreur chargement stats initiales:", e); }
 
-        // Arrêter le loading - les données sont chargées
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
 
-        // WebSocket connection - Utilisation de channel au lieu de join pour éviter les erreurs d'authentification
         try {
           console.log(`[Queues] Connexion au canal service.${serviceId}`);
-
           if (echo) {
             channel = echo.channel(`service.${serviceId}`);
-
             if (channel) {
               channel
-                .listen('.service.ticket.called', () => {
-                  if (!cancelled) refreshQueueAndStats(false);
-                })
-                .listen('.service.ticket.enqueued', () => {
-                  if (!cancelled) refreshQueueAndStats(false);
-                })
-                .listen('.service.ticket.absent', () => {
-                  if (!cancelled) refreshQueueAndStats(false);
-                })
-                .listen('.service.stats.updated', (e: any) => {
-                  if (!cancelled && e.stats) setStats(e.stats);
-                })
+                .listen('.service.ticket.called', () => { if (!cancelled) refreshQueueAndStats(false); })
+                .listen('.service.ticket.enqueued', () => { if (!cancelled) refreshQueueAndStats(false); })
+                .listen('.service.ticket.absent', () => { if (!cancelled) refreshQueueAndStats(false); })
+                .listen('.service.stats.updated', (e: any) => { if (!cancelled && e.stats) setStats(e.stats); })
                 .listen('.user.en_route', (e: any) => {
                   if (!cancelled) {
                     toast.success("Usager en route", {
@@ -702,10 +639,9 @@ const Queues: React.FC = () => {
                     refreshQueueAndStats(false);
                   }
                 });
-
               setIsConnected(true);
               console.log(`[Queues] ✓ Connecté au canal service.${serviceId}`);
-              toast.success(`Connecté au service ${serviceId} en temps réel`);
+              toast.success(`Connecté au service ${selectedServiceName || serviceId} en temps réel`);
             } else {
               throw new Error("Impossible de créer le canal");
             }
@@ -715,7 +651,6 @@ const Queues: React.FC = () => {
         } catch (wsError) {
           console.warn("[Queues] WebSocket non disponible, mode polling actif:", wsError);
           setIsConnected(false);
-          // Pas de toast d'erreur pour ne pas spammer l'utilisateur
         }
       } catch (error) {
         if (!cancelled) {
@@ -728,13 +663,7 @@ const Queues: React.FC = () => {
 
     return () => {
       cancelled = true;
-      try {
-        if (channel && typeof channel.leave === 'function') {
-          channel.leave();
-        }
-      } catch (error) {
-        console.error("[Queues] Erreur nettoyage canal:", error);
-      }
+      try { if (channel && typeof channel.leave === 'function') channel.leave(); } catch (error) { console.error("[Queues] Erreur nettoyage canal:", error); }
     };
   }, [serviceId]);
 
@@ -747,7 +676,6 @@ const Queues: React.FC = () => {
     refreshQueueAndStats(true);
   };
 
-  // CORRECTION 3: refreshData simplifié - pas de bouton séparé
   const refreshData = () => {
     if (!serviceId) {
       toast.error("Aucun service sélectionné");
@@ -756,6 +684,7 @@ const Queues: React.FC = () => {
     refreshQueueAndStats(true);
   };
 
+  // Message de chargement amélioré avec nom du service
   if (isLoading && serviceId) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -770,7 +699,7 @@ const Queues: React.FC = () => {
             Connexion en cours
           </h2>
           <p className="text-muted-foreground mb-6">
-            Connexion au service {serviceId}...
+            Connexion au service <span className="font-semibold">{selectedServiceName || serviceId}</span>...
           </p>
           <div className="w-full bg-muted rounded-full h-2">
             <div className="bg-primary h-2 rounded-full animate-pulse"></div>
@@ -782,14 +711,10 @@ const Queues: React.FC = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "urgence":
-        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/30";
-      case "high":
-        return "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800/30";
-      case "vip":
-        return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800/30";
-      default:
-        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800/30";
+      case "urgence": return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/30";
+      case "high": return "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800/30";
+      case "vip": return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800/30";
+      default: return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800/30";
     }
   };
 
@@ -818,19 +743,11 @@ const Queues: React.FC = () => {
       success: "bg-green-600 text-white hover:bg-green-700 py-3 shadow-sm",
       warning: "bg-amber-600 text-white hover:bg-amber-700 py-3 shadow-sm",
     };
-
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className={cn(
-          "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-          disabled
-            ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed border border-gray-200 dark:border-gray-700"
-            : variants[variant]
-        )}
-      >
+      <button type="button" onClick={onClick} disabled={disabled} className={cn(
+        "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+        disabled ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed border border-gray-200 dark:border-gray-700" : variants[variant]
+      )}>
         {Icon && <Icon className="h-4 w-4" />}
         {children}
       </button>
@@ -845,12 +762,8 @@ const Queues: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">
-                  Tableau de bord des files d'attente
-                </h1>
-                <p className="text-blue-100 mt-1">
-                  Surveillez en temps réel l'activité de vos services
-                </p>
+                <h1 className="text-2xl md:text-3xl font-bold">Tableau de bord des files d'attente</h1>
+                <p className="text-blue-100 mt-1">Surveillez en temps réel l'activité de vos services</p>
               </div>
               {lastUpdated && (
                 <div className="mt-4 md:mt-0 text-sm bg-blue-700 bg-opacity-50 px-3 py-1.5 rounded-full inline-flex items-center">
@@ -866,12 +779,7 @@ const Queues: React.FC = () => {
             <form onSubmit={handleServiceIdSubmit}>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-grow">
-                  <label
-                    htmlFor="serviceId"
-                    className="block text-sm font-medium text-foreground mb-1"
-                  >
-                    Service
-                  </label>
+                  <label htmlFor="serviceId" className="block text-sm font-medium text-foreground mb-1">Service</label>
                   <div className="relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Ticket className="h-5 w-5 text-blue-500" />
@@ -885,7 +793,7 @@ const Queues: React.FC = () => {
                       >
                         {assignedServices.map((s) => (
                           <option key={s.id} value={String(s.id)}>
-                            {s.name} ({s.status})
+                            {s.name} ({s.status === 'open' ? '🟢 Ouvert' : '🔴 Fermé'})
                           </option>
                         ))}
                       </select>
@@ -900,23 +808,14 @@ const Queues: React.FC = () => {
                       />
                     )}
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <button
-                        type="submit"
-                        className="p-2 text-blue-600 rounded-full hover:text-blue-800 focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        title="Actualiser"
-                      >
+                      <button type="submit" className="p-2 text-blue-600 rounded-full hover:text-blue-800 focus:outline-none hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Actualiser">
                         <RefreshCw className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-end">
-                  <ActionButton
-                    onClick={() => refreshData()}
-                    disabled={false}
-                    icon={TrendingUp}
-                    variant="primary"
-                  >
+                  <ActionButton onClick={() => refreshData()} disabled={false} icon={TrendingUp} variant="primary">
                     Afficher les statistiques
                   </ActionButton>
                 </div>
@@ -932,16 +831,13 @@ const Queues: React.FC = () => {
             {serviceId && (
               <div className="mt-4 flex items-center gap-4">
                 <div className="flex items-center">
-                  <div
-                    className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`}
-                  ></div>
+                  <div className={`h-3 w-3 rounded-full mr-2 ${isConnected ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`}></div>
                   <span className="text-sm font-medium text-foreground">
                     {isConnected
-                      ? `✅ Connecté au service ${serviceId} (temps réel)`
+                      ? `✅ Connecté au service ${selectedServiceName || serviceId} (temps réel)`
                       : `⚠️ Mode hors ligne - mise à jour toutes les 10s`}
                   </span>
                 </div>
-                {/* Bouton Actualiser maintenant retiré comme demandé */}
               </div>
             )}
           </div>
@@ -956,65 +852,24 @@ const Queues: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mr-4">
-                      <User className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        En attente
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {stats.waiting}
-                      </p>
-                    </div>
+                    <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mr-4"><User className="h-6 w-6" /></div>
+                    <div><p className="text-sm font-medium text-muted-foreground">En attente</p><p className="text-2xl font-bold text-foreground">{stats.waiting}</p></div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Service: {stats.service_name}</span>
-                    </div>
-                  </div>
+                  <div className="mt-3 pt-3 border-t border-border"><div className="flex justify-between text-xs text-muted-foreground"><span>Service: {stats.service_name}</span></div></div>
                 </div>
-
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mr-4">
-                      <Ticket className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Traités
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {stats.processed}
-                      </p>
-                    </div>
+                    <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 mr-4"><Ticket className="h-6 w-6" /></div>
+                    <div><p className="text-sm font-medium text-muted-foreground">Traités</p><p className="text-2xl font-bold text-foreground">{stats.processed}</p></div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="text-xs text-muted-foreground">
-                      <span>Service: {stats.service_name}</span>
-                    </div>
-                  </div>
+                  <div className="mt-3 pt-3 border-t border-border"><div className="text-xs text-muted-foreground"><span>Service: {stats.service_name}</span></div></div>
                 </div>
-
                 <div className="bg-card p-5 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center">
-                    <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mr-4">
-                      <Users className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Temps d'attente
-                      </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {stats.average_wait_time}
-                      </p>
-                    </div>
+                    <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mr-4"><Users className="h-6 w-6" /></div>
+                    <div><p className="text-sm font-medium text-muted-foreground">Temps d'attente</p><p className="text-2xl font-bold text-foreground">{stats.average_wait_time}</p></div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="text-xs text-muted-foreground">
-                      <span>Moyenne pour {stats.service_name}</span>
-                    </div>
-                  </div>
+                  <div className="mt-3 pt-3 border-t border-border"><div className="text-xs text-muted-foreground"><span>Moyenne pour {stats.service_name}</span></div></div>
                 </div>
               </div>
             </div>
@@ -1027,68 +882,27 @@ const Queues: React.FC = () => {
                 <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                        Confirmation de présence usager
-                      </h3>
-                      <p className="text-sm text-emerald-700/90 dark:text-emerald-200/80">
-                        Les tickets appelés qui ont répondu affichent désormais
-                        un indicateur visible dans la file.
-                      </p>
+                      <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Confirmation de présence usager</h3>
+                      <p className="text-sm text-emerald-700/90 dark:text-emerald-200/80">Les tickets appelés qui ont répondu affichent désormais un indicateur visible dans la file.</p>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
                       <CheckCircle className="h-4 w-4" />
-                      {enRouteCount} usager{enRouteCount > 1 ? "s" : ""} en
-                      route
+                      {enRouteCount} usager{enRouteCount > 1 ? "s" : ""} en route
                     </div>
                   </div>
                 </div>
 
                 <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                   <div className="flex flex-wrap gap-2">
-                    <ActionButton
-                      onClick={callNext}
-                      disabled={!serviceId || isActing}
-                      icon={Phone}
-                      variant="success"
-                    >
-                      Appeler suivant
-                    </ActionButton>
-                    <ActionButton
-                      onClick={openService}
-                      disabled={!serviceId || isActing}
-                      icon={CheckCircle}
-                      variant="primary"
-                    >
-                      Ouvrir service
-                    </ActionButton>
-                    <ActionButton
-                      onClick={closeService}
-                      disabled={!serviceId || isActing}
-                      icon={X}
-                      variant="secondary"
-                    >
-                      Fermer service
-                    </ActionButton>
-                    <ActionButton
-                      onClick={refreshData}
-                      disabled={!serviceId || isActing}
-                      icon={RefreshCw}
-                      variant="secondary"
-                    >
-                      Rafraîchir
-                    </ActionButton>
-                    <ActionButton
-                      onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutDialog(true); }}
-                      disabled={!serviceId}
-                      icon={Timer}
-                      variant="secondary"
-                    >
+                    <ActionButton onClick={callNext} disabled={!serviceId || isActing} icon={Phone} variant="success">Appeler suivant</ActionButton>
+                    <ActionButton onClick={openService} disabled={!serviceId || isActing} icon={CheckCircle} variant="primary">Ouvrir service</ActionButton>
+                    <ActionButton onClick={closeService} disabled={!serviceId || isActing} icon={X} variant="secondary">Fermer service</ActionButton>
+                    <ActionButton onClick={refreshData} disabled={!serviceId || isActing} icon={RefreshCw} variant="secondary">Rafraîchir</ActionButton>
+                    <ActionButton onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutDialog(true); }} disabled={!serviceId} icon={Timer} variant="secondary">
                       {callTimeoutMinutes ? `${callTimeoutMinutes} min` : "Délai"}
                     </ActionButton>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {isActing ? "Action en cours…" : ""}
-                  </div>
+                  <div className="text-sm text-muted-foreground">{isActing ? "Action en cours…" : ""}</div>
                 </div>
               </>
             )}
@@ -1096,43 +910,15 @@ const Queues: React.FC = () => {
             {counters && counters.length > 0 && (
               <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center">
                 <div className="w-full md:w-96">
-                  <label
-                    htmlFor="counterId"
-                    className="block text-sm font-medium text-foreground mb-1"
-                  >
-                    Guichet
-                  </label>
-                  <select
-                    id="counterId"
-                    value={counterId}
-                    onChange={(e) => setCounterId(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
+                  <label htmlFor="counterId" className="block text-sm font-medium text-foreground mb-1">Guichet</label>
+                  <select id="counterId" value={counterId} onChange={(e) => setCounterId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
                     <option value="">— Aucun guichet —</option>
-                    {counters.map((c) => (
-                      <option key={c.id} value={String(c.id)}>
-                        {c.name} ({c.status})
-                      </option>
-                    ))}
+                    {counters.map((c) => (<option key={c.id} value={String(c.id)}>{c.name} ({c.status})</option>))}
                   </select>
                 </div>
                 <div className="flex gap-2 items-end">
-                  <ActionButton
-                    onClick={openCounter}
-                    disabled={!counterId || isActing}
-                    icon={CheckCircle}
-                    variant="primary"
-                  >
-                    Ouvrir guichet
-                  </ActionButton>
-                  <ActionButton
-                    onClick={closeCounter}
-                    disabled={!counterId || isActing}
-                    icon={X}
-                    variant="secondary"
-                  >
-                    Fermer guichet
-                  </ActionButton>
+                  <ActionButton onClick={openCounter} disabled={!counterId || isActing} icon={CheckCircle} variant="primary">Ouvrir guichet</ActionButton>
+                  <ActionButton onClick={closeCounter} disabled={!counterId || isActing} icon={X} variant="secondary">Fermer guichet</ActionButton>
                 </div>
               </div>
             )}
@@ -1141,150 +927,49 @@ const Queues: React.FC = () => {
               <div className="mb-8">
                 {/* Onglets File du jour / Reportés */}
                 <div className="flex items-center gap-2 mb-4">
-                  <button
-                    onClick={() => setQueueView("today")}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                      queueView === "today"
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-card text-foreground border-border hover:bg-muted",
-                    )}
-                  >
+                  <button onClick={() => setQueueView("today")} className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors", queueView === "today" ? "bg-blue-600 text-white border-blue-600" : "bg-card text-foreground border-border hover:bg-muted")}>
                     <CalendarCheck2 className="h-4 w-4" />
                     File du jour
-                    {queue.length > 0 && (
-                      <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "today" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground")}>
-                        {queue.length}
-                      </span>
-                    )}
+                    {queue.length > 0 && (<span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "today" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground")}>{queue.length}</span>)}
                   </button>
-                  <button
-                    onClick={() => setQueueView("deferred")}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
-                      queueView === "deferred"
-                        ? "bg-amber-600 text-white border-amber-600"
-                        : "bg-card text-foreground border-border hover:bg-muted",
-                    )}
-                  >
+                  <button onClick={() => setQueueView("deferred")} className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors", queueView === "deferred" ? "bg-amber-600 text-white border-amber-600" : "bg-card text-foreground border-border hover:bg-muted")}>
                     <CalendarClock className="h-4 w-4" />
                     Reportés
-                    {deferredTotal > 0 && (
-                      <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "deferred" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300")}>
-                        {deferredTotal}
-                      </span>
-                    )}
+                    {deferredTotal > 0 && (<span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold", queueView === "deferred" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300")}>{deferredTotal}</span>)}
                   </button>
                 </div>
 
                 {/* VUE FILE DU JOUR */}
                 {queueView === "today" && (queue.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">
-                    Aucun ticket en attente aujourd'hui
-                  </div>
+                  <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">Aucun ticket en attente aujourd'hui</div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-border">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Ticket
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Client
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Statut
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Priorité
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Présence usager
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
+                        <thead className="bg-muted"><tr><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Présence usager</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th></tr></thead>
                         <tbody className="bg-card divide-y divide-border">
                           {queue.map((t) => {
                             const createdDate = parseDate(t.created_at);
                             return (
-                              <tr
-                                key={t.id}
-                                className="hover:bg-muted/50 transition-colors"
-                              >
+                              <tr key={t.id} className="hover:bg-muted/50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="font-semibold text-foreground">
-                                    {t.number}
-                                  </div>
-                                  {t.position && (
-                                    <div className="text-xs text-muted-foreground">#{t.position}</div>
-                                  )}
-                                  {t.created_at && (
-                                    <div className="text-xs text-muted-foreground">
-                                      {createdDate ? createdDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                                    </div>
-                                  )}
+                                  <div className="font-semibold text-foreground">{t.number}</div>
+                                  {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
+                                  {t.created_at && <div className="text-xs text-muted-foreground">{createdDate ? createdDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}</div>}
                                 </td>
                                 <td className="px-6 py-4">
-                                  {(t.display_name || t.customer_name) ? (
-                                    <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div>
-                                  ) : (
-                                    <div className="text-xs text-muted-foreground">—</div>
-                                  )}
-                                  {t.source && SOURCE_CONFIG[t.source] && (
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <span title={SOURCE_CONFIG[t.source].label}>
-                                        {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span>
-                                    </div>
-                                  )}
+                                  {(t.display_name || t.customer_name) ? <div className="text-sm font-medium text-foreground">{t.display_name || t.customer_name}</div> : <div className="text-xs text-muted-foreground">—</div>}
+                                  {t.source && SOURCE_CONFIG[t.source] && (<div className="flex items-center gap-1 mt-0.5"><span title={SOURCE_CONFIG[t.source].label}>{React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3 text-muted-foreground" })}</span><span className="text-xs text-muted-foreground">{SOURCE_CONFIG[t.source].label}</span></div>)}
                                   <div className="flex gap-1 mt-0.5 flex-wrap">
-                                    {t.is_senior && (
-                                      <span title="Senior">
-                                        <Accessibility className="h-3.5 w-3.5 text-blue-500" />
-                                      </span>
-                                    )}
-                                    {t.is_handicap && (
-                                      <span title="Handicap">
-                                        <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
-                                      </span>
-                                    )}
-                                    {t.is_pregnant && (
-                                      <span title="Femme enceinte">
-                                        <Baby className="h-3.5 w-3.5 text-pink-500" />
-                                      </span>
-                                    )}
+                                    {t.is_senior && <span title="Senior"><Accessibility className="h-3.5 w-3.5 text-blue-500" /></span>}
+                                    {t.is_handicap && <span title="Handicap"><HeartHandshake className="h-3.5 w-3.5 text-purple-500" /></span>}
+                                    {t.is_pregnant && <span title="Femme enceinte"><Baby className="h-3.5 w-3.5 text-pink-500" /></span>}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
-                                      t.status === "waiting" &&
-                                      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200",
-                                      t.status === "called" &&
-                                      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
-                                      t.status === "en_route" &&
-                                      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
-                                      t.status === "present" &&
-                                      "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200",
-                                      t.status === "absent" &&
-                                      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                      t.status === "closed" &&
-                                      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
-                                    )}
-                                  >
-                                    {t.is_swapped &&
-                                      t.status === "waiting" &&
-                                      "Laisser passer"}
-                                    {t.status === "waiting" &&
-                                      !t.is_swapped &&
-                                      "En attente"}
+                                  <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", t.status === "waiting" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200", t.status === "called" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200", t.status === "en_route" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200", t.status === "present" && "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200", t.status === "absent" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200", t.status === "closed" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200")}>
+                                    {t.is_swapped && t.status === "waiting" && "Laisser passer"}
+                                    {t.status === "waiting" && !t.is_swapped && "En attente"}
                                     {t.status === "called" && "Appelé"}
                                     {t.status === "en_route" && "En route"}
                                     {t.status === "present" && "Présent"}
@@ -1294,78 +979,29 @@ const Queues: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex flex-col gap-1">
-                                    <span
-                                      className={cn(
-                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium w-fit",
-                                        t.priority === "urgence" &&
-                                        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-                                        t.priority === "vip" &&
-                                        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
-                                        t.priority === "high" &&
-                                        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                        t.priority === "normal" &&
-                                        "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-                                      )}
-                                    >
+                                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium w-fit", t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200", t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200", t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200", t.priority === "normal" && "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200")}>
                                       {t.priority === "urgence" && "🚨 Urgence"}
                                       {t.priority === "vip" && "⭐ VIP"}
                                       {t.priority === "high" && "🔥 Haute"}
                                       {t.priority === "normal" && "📋 Normal"}
                                     </span>
-                                    {t.priority_reason && (
-                                      <span className="text-xs text-muted-foreground">{t.priority_reason}</span>
-                                    )}
+                                    {t.priority_reason && <span className="text-xs text-muted-foreground">{t.priority_reason}</span>}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  {(t.status === "called" ||
-                                    t.status === "en_route" ||
-                                    t.status === "present") &&
-                                    t.en_route_at ? (
+                                  {(t.status === "called" || t.status === "en_route" || t.status === "present") && t.en_route_at ? (
                                     <div className="space-y-1">
                                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
                                         <CheckCircle className="h-3.5 w-3.5" />
-                                        {t.status === "present"
-                                          ? "Présent sur place"
-                                          : t.estimated_travel_minutes != null
-                                            ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}`
-                                            : "Présence confirmée"}
+                                        {t.status === "present" ? "Présent sur place" : t.estimated_travel_minutes != null ? `En route · ≈ ${t.estimated_travel_minutes} min${t.last_distance_m != null ? ` · ${(t.last_distance_m / 1000).toFixed(1)} km` : ""}` : "Présence confirmée"}
                                       </span>
-                                      <div className="text-xs text-muted-foreground">
-                                        Réponse reçue à{" "}
-                                        {formatTime(t.response_received_at ?? t.en_route_at)}
-                                      </div>
-                                      {t.called_at && (
-                                        <div className="text-xs text-muted-foreground">
-                                          Appelé à{" "}
-                                          {formatTime(t.called_at)}
-                                        </div>
-                                      )}
-                                      {t.en_route_expires_at &&
-                                        t.status === "en_route" && (
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                                              Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}
-                                            </div>
-                                            <CountdownCell ticket={t} onExpired={handleCountdownExpired} />
-                                          </div>
-                                        )}
+                                      <div className="text-xs text-muted-foreground">Réponse reçue à {formatTime(t.response_received_at ?? t.en_route_at)}</div>
+                                      {t.called_at && <div className="text-xs text-muted-foreground">Appelé à {formatTime(t.called_at)}</div>}
+                                      {t.en_route_expires_at && t.status === "en_route" && (<div className="flex items-center gap-2 flex-wrap"><div className="text-xs font-medium text-amber-700 dark:text-amber-300">Priorité jusqu&apos;à {formatTime(t.en_route_expires_at)}</div><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div>)}
                                     </div>
                                   ) : t.status === "called" ? (
-                                    <div className="space-y-1">
-                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                                        <Phone className="h-3.5 w-3.5" />
-                                        En attente de réponse
-                                      </span>
-                                      <div className="flex items-center gap-1">
-                                        <CountdownCell ticket={t} onExpired={handleCountdownExpired} />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">
-                                      —
-                                    </span>
-                                  )}
+                                    <div className="space-y-1"><span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Phone className="h-3.5 w-3.5" />En attente de réponse</span><div className="flex items-center gap-1"><CountdownCell ticket={t} onExpired={handleCountdownExpired} /></div></div>
+                                  ) : (<span className="text-xs text-muted-foreground">—</span>)}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex gap-2">
@@ -1401,28 +1037,20 @@ const Queues: React.FC = () => {
                                       Rappel
                                     </button>
 
-                                    {/* Absent button — two visual states:
-                                        · deferral_count=0 : orange, will defer (1st chance)
-                                        · deferral_count≥1 : red, will mark permanently absent (2nd chance) */}
                                     <button
                                       type="button"
-                                      onClick={() => markAbsent(t)}
+                                      onClick={() => markAbsent(Number(t.id))}
                                       disabled={isActing || t.status !== "called"}
                                       className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                                         isActing || t.status !== "called"
                                           ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                                          : (t.deferral_count ?? 0) >= 1
-                                            ? "bg-red-600 text-white hover:bg-red-700 shadow-sm"
-                                            : "bg-orange-500 text-white hover:bg-orange-600 shadow-sm"
+                                          : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
                                       )}
-                                      title={(t.deferral_count ?? 0) >= 1
-                                        ? "Marquer définitivement absent (2e manquement)"
-                                        : "Reporter le ticket (1re chance — sera différé dans la file)"
-                                      }
+                                      title="Marquer comme absent"
                                     >
                                       <UserX className="h-3.5 w-3.5" />
-                                      {(t.deferral_count ?? 0) >= 1 ? "Absent (def.)" : "Absent"}
+                                      Absent
                                     </button>
 
                                     <button
@@ -1465,89 +1093,23 @@ const Queues: React.FC = () => {
                         <div key={day.date} className="rounded-xl border border-amber-200 dark:border-amber-900/40 overflow-hidden">
                           <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-900/40">
                             <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                              {new Date(day.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
-                            </span>
-                            <span className="ml-auto text-xs font-bold bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                              {day.count} ticket{day.count > 1 ? "s" : ""}
-                            </span>
+                            <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{new Date(day.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}</span>
+                            <span className="ml-auto text-xs font-bold bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">{day.count} ticket{day.count > 1 ? "s" : ""}</span>
                           </div>
                           <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-border">
-                              <thead className="bg-muted/60">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticket</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Priorité</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Source</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Créé le</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Raison</th>
-                                </tr>
-                              </thead>
+                              <thead className="bg-muted/60"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticket</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Priorité</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Source</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Créé le</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Raison</th></tr></thead>
                               <tbody className="bg-card divide-y divide-border">
                                 {day.tickets.map((t) => {
                                   const createdDate = parseDate(t.created_at);
                                   return (
                                     <tr key={t.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors">
-                                      <td className="px-4 py-3">
-                                        <div className="font-bold text-foreground">{t.number}</div>
-                                        {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div>
-                                        <div className="flex gap-1 mt-0.5">
-                                          {t.is_senior && (
-                                            <span title="Senior">
-                                              <Accessibility className="h-3 w-3 text-blue-500" />
-                                            </span>
-                                          )}
-                                          {t.is_handicap && (
-                                            <span title="Handicap">
-                                              <HeartHandshake className="h-3 w-3 text-purple-500" />
-                                            </span>
-                                          )}
-                                          {t.is_pregnant && (
-                                            <span title="Femme enceinte">
-                                              <Baby className="h-3 w-3 text-pink-500" />
-                                            </span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
-                                          t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
-                                          t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200",
-                                          t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200",
-                                          t.priority === "normal" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-                                        )}>
-                                          {t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        {t.source && SOURCE_CONFIG[t.source] ? (
-                                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <span title={SOURCE_CONFIG[t.source].label}>
-                                              {React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}
-                                            </span>
-                                            {SOURCE_CONFIG[t.source].label}
-                                          </div>
-                                        ) : <span className="text-xs text-muted-foreground">—</span>}
-                                      </td>
-                                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                                        {createdDate ? createdDate.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                          <CalendarClock className="h-3 w-3" />
-                                          {t.defer_reason === "past_cutoff" ? "Hors délai" :
-                                            t.defer_reason === "non_working_day" ? "Jour non ouvrable" :
-                                              t.defer_reason === "holiday" ? "Jour férié" :
-                                                t.defer_reason === "critical_zone" ? "Zone critique" :
-                                                  t.defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
-                                                    t.defer_reason === "outside_hours" ? "Hors horaires" :
-                                                      "Reporté automatiquement"}
-                                        </span>
-                                      </td>
+                                      <td className="px-4 py-3"><div className="font-bold text-foreground">{t.number}</div>{t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}</td>
+                                      <td className="px-4 py-3"><div className="text-sm text-foreground">{t.display_name ?? t.customer_name ?? "—"}</div><div className="flex gap-1 mt-0.5">{t.is_senior && <span title="Senior"><Accessibility className="h-3 w-3 text-blue-500" /></span>}{t.is_handicap && <span title="Handicap"><HeartHandshake className="h-3 w-3 text-purple-500" /></span>}{t.is_pregnant && <span title="Femme enceinte"><Baby className="h-3 w-3 text-pink-500" /></span>}</div></td>
+                                      <td className="px-4 py-3"><span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium", t.priority === "urgence" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200", t.priority === "vip" && "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200", t.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200", t.priority === "normal" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300")}>{t.priority === "urgence" ? "🚨 Urgence" : t.priority === "vip" ? "⭐ VIP" : t.priority === "high" ? "🔥 Prioritaire" : "Normal"}</span></td>
+                                      <td className="px-4 py-3">{t.source && SOURCE_CONFIG[t.source] ? (<div className="flex items-center gap-1 text-xs text-muted-foreground"><span title={SOURCE_CONFIG[t.source].label}>{React.createElement(SOURCE_CONFIG[t.source].Icon, { className: "h-3 w-3" })}</span>{SOURCE_CONFIG[t.source].label}</div>) : <span className="text-xs text-muted-foreground">—</span>}</td>
+                                      <td className="px-4 py-3 text-xs text-muted-foreground">{createdDate ? createdDate.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                                      <td className="px-4 py-3"><span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"><CalendarClock className="h-3 w-3" />{t.defer_reason === "past_cutoff" ? "Hors délai" : t.defer_reason === "non_working_day" ? "Jour non ouvrable" : t.defer_reason === "holiday" ? "Jour férié" : t.defer_reason === "critical_zone" ? "Zone critique" : t.defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" : t.defer_reason === "outside_hours" ? "Hors horaires" : "Reporté automatiquement"}</span></td>
                                     </tr>
                                   );
                                 })}
@@ -1563,101 +1125,30 @@ const Queues: React.FC = () => {
             )}
 
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-foreground flex items-center">
-                <Ticket className="mr-2 text-blue-600" />
-                Derniers tickets appelés
-              </h2>
-              {tickets.length > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  Affichage des {Math.min(tickets.length, 10)} derniers
-                </span>
-              )}
+              <h2 className="text-lg font-semibold text-foreground flex items-center"><Ticket className="mr-2 text-blue-600" />Derniers tickets appelés</h2>
+              {tickets.length > 0 && <span className="text-sm text-muted-foreground">Affichage des {Math.min(tickets.length, 10)} derniers</span>}
             </div>
 
             {tickets.length === 0 ? (
               <div className="text-center py-12 bg-muted/50 rounded-xl border-2 border-dashed border-border">
                 <Ticket className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium text-foreground">
-                  Aucun ticket récent
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-                  Aucun ticket n'a été appelé récemment pour ce service.
-                </p>
+                <h3 className="text-lg font-medium text-foreground">Aucun ticket récent</h3>
+                <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">Aucun ticket n'a été appelé récemment pour ce service.</p>
               </div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-border">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Détails
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Service
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Priorité
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Heure
-                        </th>
-                      </tr>
-                    </thead>
+                    <thead className="bg-muted"><tr><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Détails</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Service</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Heure</th></tr></thead>
                     <tbody className="bg-card divide-y divide-border">
                       {tickets.map((ticket, index) => {
                         const createdDate = parseDate(ticket.created_at);
                         return (
-                          <tr
-                            key={`${ticket.id}-${index}`}
-                            className="hover:bg-muted/50 transition-colors"
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <span className="text-2xl mr-3">
-                                  {getPriorityIcon(ticket.priority)}
-                                </span>
-                                <div>
-                                  <div className="font-bold text-foreground">
-                                    {ticket.ticket_number}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    #{ticket.id}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-foreground font-medium">
-                                {ticket.service_name}
-                              </div>
-                              {ticket.client_name && (
-                                <div className="text-sm text-muted-foreground">
-                                  {ticket.client_name}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}
-                              >
-                                {ticket.priority === "urgence"
-                                  ? "🚨 Urgence"
-                                  : ticket.priority === "high"
-                                    ? "Haute priorité"
-                                    : ticket.priority === "vip"
-                                      ? "VIP"
-                                      : "Standard"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                              <div className="font-medium">
-                                {createdDate ? createdDate.toLocaleTimeString() : "—"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {createdDate ? createdDate.toLocaleDateString() : "—"}
-                              </div>
-                            </td>
+                          <tr key={`${ticket.id}-${index}`} className="hover:bg-muted/50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><span className="text-2xl mr-3">{getPriorityIcon(ticket.priority)}</span><div><div className="font-bold text-foreground">{ticket.ticket_number}</div><div className="text-xs text-muted-foreground">#{ticket.id}</div></div></div></td>
+                            <td className="px-6 py-4"><div className="text-sm text-foreground font-medium">{ticket.service_name}</div>{ticket.client_name && <div className="text-sm text-muted-foreground">{ticket.client_name}</div>}</td>
+                            <td className="px-6 py-4 whitespace-nowrap"><span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(ticket.priority)}`}>{ticket.priority === "urgence" ? "🚨 Urgence" : ticket.priority === "high" ? "Haute priorité" : ticket.priority === "vip" ? "VIP" : "Standard"}</span></td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground"><div className="font-medium">{createdDate ? createdDate.toLocaleTimeString() : "—"}</div><div className="text-xs text-muted-foreground">{createdDate ? createdDate.toLocaleDateString() : "—"}</div></td>
                           </tr>
                         );
                       })}
@@ -1670,10 +1161,7 @@ const Queues: React.FC = () => {
         </div>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>
-            Système de gestion de file d'attente en temps réel •{" "}
-            {new Date().getFullYear()}
-          </p>
+          <p>Système de gestion de file d'attente en temps réel • {new Date().getFullYear()}</p>
         </div>
       </div>
 
@@ -1682,46 +1170,18 @@ const Queues: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTimeoutDialog(false)}>
           <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600">
-                <Timer className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-foreground">Délai de priorité</h3>
-                <p className="text-xs text-muted-foreground">Durée avant marquage absent automatique</p>
-              </div>
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600"><Timer className="h-5 w-5" /></div>
+              <div><h3 className="text-base font-semibold text-foreground">Délai de priorité</h3><p className="text-xs text-muted-foreground">Durée avant marquage absent automatique</p></div>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Après l'appel d'un ticket, l'usager dispose de ce délai pour se présenter. Passé ce délai, il est automatiquement marqué absent.
-            </p>
+            <p className="text-sm text-muted-foreground mb-4">Après l'appel d'un ticket, l'usager dispose de ce délai pour se présenter. Passé ce délai, il est automatiquement marqué absent.</p>
             <div className="relative mb-2">
-              <input
-                type="number"
-                min={1}
-                max={60}
-                value={timeoutInput}
-                onChange={(e) => setTimeoutInput(e.target.value)}
-                placeholder="10 min par défaut"
-                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16"
-              />
+              <input type="number" min={1} max={60} value={timeoutInput} onChange={(e) => setTimeoutInput(e.target.value)} placeholder="10 min par défaut" className="w-full rounded-lg border border-border bg-background px-4 py-3 text-xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16" />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
             </div>
             <p className="text-xs text-muted-foreground mb-6">Laissez vide pour la valeur par défaut · Entre 1 et 60 minutes</p>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowTimeoutDialog(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={updateCallTimeout}
-                disabled={isUpdatingTimeout}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
-              >
-                {isUpdatingTimeout ? "Enregistrement…" : "Enregistrer"}
-              </button>
+              <button type="button" onClick={() => setShowTimeoutDialog(false)} className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">Annuler</button>
+              <button type="button" onClick={updateCallTimeout} disabled={isUpdatingTimeout} className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60">{isUpdatingTimeout ? "Enregistrement…" : "Enregistrer"}</button>
             </div>
           </div>
         </div>
