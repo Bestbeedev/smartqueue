@@ -46,7 +46,8 @@ class AgentTicketActionController extends Controller
 
         $ticket       = $svc->markAbsent($ticket);
         $absenceLevel = (int) ($ticket->absent_level ?? 1);
-        $recallPossible = $absenceLevel < 2;
+        $maxAttempts  = (int) ($ticket->service?->max_call_attempts ?? 2);
+        $recallPossible = $absenceLevel < $maxAttempts;
 
         return response()->json([
             'ticket' => [
@@ -59,6 +60,7 @@ class AgentTicketActionController extends Controller
             ],
             'absent_level'   => $absenceLevel,
             'recall_possible'=> $recallPossible,
+            'max_call_attempts' => $maxAttempts,
             'message'        => $recallPossible
                 ? 'Ticket marqué absent — rappel possible.'
                 : 'Ticket absent définitivement — expiration automatique programmée.',

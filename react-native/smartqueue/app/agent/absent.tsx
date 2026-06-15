@@ -30,6 +30,9 @@ type Ticket = {
   absent_at: string | null;
   created_at: string;
   service_name?: string;
+  absent_level?: number;
+  absent_expires_at?: string | null;
+  max_call_attempts?: number;
 };
 
 const ABSENT_RED = "#EF4444";
@@ -168,7 +171,7 @@ export default function AbsentTickets() {
     try {
       await axiosClient.post(`/tickets/${ticketId}/recall`);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error recalling ticket:", error);
     }
   };
@@ -193,16 +196,21 @@ export default function AbsentTickets() {
 
   const renderTicket = ({ item }: { item: Ticket }) => {
     const refDate = item.absent_at || item.created_at;
+    const absentLevel = item.absent_level ?? 0;
+    const maxAttempts = (item as any).max_call_attempts ?? 2;
+    const isDefinitive = absentLevel >= maxAttempts;
+    const cardColor = isDefinitive ? "#DC2626" : ABSENT_RED;
+
     return (
       <View
         style={[
           styles.ticketCard,
-          { backgroundColor: colors.surface, borderColor: ABSENT_RED + "40" },
+          { backgroundColor: colors.surface, borderColor: isDefinitive ? "#DC262660" : ABSENT_RED + "40" },
         ]}
       >
         {/* Header row */}
         <View style={styles.cardRow}>
-          <View style={[styles.numberBadge, { backgroundColor: ABSENT_RED }]}>
+          <View style={[styles.numberBadge, { backgroundColor: cardColor }]}>
             <Text style={styles.numberText}>{item.number}</Text>
           </View>
 
@@ -210,16 +218,25 @@ export default function AbsentTickets() {
             <View
               style={[
                 styles.statusChip,
-                { backgroundColor: ABSENT_RED + "18" },
+                { backgroundColor: isDefinitive ? "#DC262618" : ABSENT_RED + "18" },
               ]}
             >
-              <Ionicons name="person-remove" size={11} color={ABSENT_RED} />
-              <Text style={[styles.statusChipText, { color: ABSENT_RED }]}>
-                ABSENT
+              <Ionicons name="person-remove" size={11} color={cardColor} />
+              <Text style={[styles.statusChipText, { color: cardColor }]}>
+                {isDefinitive ? "ABSENT DÉF." : "ABSENT"}
               </Text>
             </View>
             <Text style={[styles.metaTime, { color: colors.textSecondary }]}>
               {formatDate(refDate)} · {formatTime(refDate)}
+            </Text>
+          </View>
+
+          {/* Absent level badge */}
+          <View
+            style={[styles.elapsedBadge, { borderColor: isDefinitive ? "#DC262660" : ABSENT_RED + "50" }]}
+          >
+            <Text style={[styles.elapsedText, { color: cardColor }]}>
+              {absentLevel}/{maxAttempts}
             </Text>
           </View>
 
@@ -232,14 +249,17 @@ export default function AbsentTickets() {
           </View>
         </View>
 
-        {/* Recall action */}
+        {/* Recall action — disabled pour absence définitive */}
         <TouchableOpacity
-          style={[styles.recallBtn, { backgroundColor: ABSENT_RED }]}
-          onPress={() => recallTicket(item.id)}
+          style={[styles.recallBtn, { backgroundColor: isDefinitive ? "#6B7280" : ABSENT_RED }]}
+          onPress={() => !isDefinitive && recallTicket(item.id)}
           activeOpacity={0.78}
+          disabled={isDefinitive}
         >
           <Ionicons name="megaphone" size={15} color="white" />
-          <Text style={styles.recallBtnText}>Rappeler</Text>
+          <Text style={styles.recallBtnText}>
+            {isDefinitive ? "Rappel impossible" : "Rappeler"}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -282,7 +302,7 @@ export default function AbsentTickets() {
           color={ABSENT_RED}
         />
         <Text style={[styles.infoText, { color: ABSENT_RED }]}>
-          {"Usagers qui n'ont pas répondu à l'appel · Actualisé en temps réel"}
+          {"Absence niveau 1 = rappel possible · Niveau 2 = définitive, expiration auto"}
         </Text>
       </View>
 

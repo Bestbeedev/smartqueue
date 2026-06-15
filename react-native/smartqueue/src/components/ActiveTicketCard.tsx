@@ -238,16 +238,17 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               }
 
             } else if (data.status === 'closed' && data.reason === 'expired_absent') {
-              // Expiration définitive — ticket supprimé
+              // Expiration définitive — ticket supprimé immédiatement du store
+              if (activeTicket?.id) removeExpiredTicket(activeTicket.id);
+              setLocalStatus('closed');
+              if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
               if (alertShownRef.current) return;
               alertShownRef.current = true;
-              if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
               showError(
                 "Ticket supprimé",
                 `Le ticket #${ticketNum} (${svcName}) a été définitivement supprimé suite à une absence répétée.`,
                 "OK",
                 () => {
-                  if (activeTicket?.id) removeExpiredTicket(activeTicket.id);
                   onTicketExpired?.();
                 }
               );
