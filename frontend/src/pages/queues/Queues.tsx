@@ -1078,6 +1078,9 @@ const Queues: React.FC = () => {
                                       Rappel
                                     </button>
 
+                                    {/* Absent button — two visual states:
+                                        · deferral_count=0 : orange, will defer (1st chance)
+                                        · deferral_count≥1 : red, will mark permanently absent (2nd chance) */}
                                     <button
                                       type="button"
                                       onClick={() => markAbsent(t)}
