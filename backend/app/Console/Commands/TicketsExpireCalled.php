@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 class TicketsExpireCalled extends Command
 {
     protected $signature = 'tickets:expire-called {--dry-run}';
-    protected $description = 'Expire called tickets whose call timeout has elapsed (two-strike: defers on first expiry, marks absent on second)';
+    protected $description = 'Two-strike absence system: auto-absent on 1st expiry, permanent expiry on 2nd';
 
     public function __construct(
         private TicketService $ticketService,
@@ -21,12 +21,12 @@ class TicketsExpireCalled extends Command
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $now = Carbon::now();
+        $now    = Carbon::now();
 
-        // Prefer per-ticket called_expires_at; fall back to global config for legacy tickets
         $fallbackThreshold = $now->copy()->subSeconds((int) config('queue.call_timeout_seconds', 600));
 
-        $query = Ticket::query()
+        // ── 1. Called tickets whose call window has expired → auto-absent (two-strike) ──
+        $calledQuery = Ticket::query()
             ->with(['user', 'service'])
             ->where('status', 'called')
             ->where(function ($q) use ($now, $fallbackThreshold) {
@@ -40,8 +40,19 @@ class TicketsExpireCalled extends Command
                 });
             });
 
-        $tickets = $query->get();
-        $this->info(($dryRun ? '[dry-run] ' : '') . 'Expiring called tickets: ' . $tickets->count());
+        $calledTickets = $calledQuery->get();
+        $this->info(($dryRun ? '[dry-run] ' : '') . "Called tickets to auto-absent: {$calledTickets->count()}");
+
+        // ── 2. Definitively absent tickets (deferral_count >= 2) whose timer expired ──
+        $absentQuery = Ticket::query()
+            ->with(['user', 'service'])
+            ->where('status', 'absent')
+            ->where('deferral_count', '>=', 2)
+            ->whereNotNull('called_expires_at')
+            ->where('called_expires_at', '<=', $now);
+
+        $absentTickets = $absentQuery->get();
+        $this->info(($dryRun ? '[dry-run] ' : '') . "Absent tickets to permanently expire: {$absentTickets->count()}");
 
         if ($dryRun) {
             return self::SUCCESS;
@@ -49,12 +60,15 @@ class TicketsExpireCalled extends Command
 
         $affectedServiceIds = collect();
 
-        foreach ($tickets as $ticket) {
+        foreach ($calledTickets as $ticket) {
             $affectedServiceIds->push($ticket->service_id);
-            // Two-strike: defers on first expiry (deferral_count=0), marks absent on second.
-            // markAbsentWithDeferral() internally calls markAbsent() when deferral not possible,
-            // and each path already dispatches its own push notification — no duplicate here.
-            $this->ticketService->markAbsentWithDeferral($ticket);
+            // markAbsent() handles two-strike automatically via deferral_count
+            $this->ticketService->markAbsent($ticket);
+        }
+
+        foreach ($absentTickets as $ticket) {
+            $affectedServiceIds->push($ticket->service_id);
+            $this->ticketService->permanentlyExpireAbsent($ticket);
         }
 
         foreach ($affectedServiceIds->unique() as $serviceId) {

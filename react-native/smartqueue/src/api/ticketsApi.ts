@@ -30,6 +30,8 @@ export interface Ticket {
   position: number | null;
   eta_minutes: number | null;
   queue_length?: number;
+  deferral_count?: number;
+  recall_possible?: boolean;
   called_at?: string;
   called_expires_at?: string | null;
   closed_at?: string;

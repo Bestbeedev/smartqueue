@@ -37,49 +37,31 @@ class AgentTicketActionController extends Controller
 
     /**
      * Marque un ticket comme absent avec tentative de déférer automatiquement.
-     * Si le ticket est dans la période de grâce (24h), il échangera sa position
-     * avec le ticket suivant au lieu d'être marqué absent.
+     * Système deux chances : 1re absence = récupérable, 2e absence = définitif + expiration programmée.
      */
     public function markAbsent(Request $request, Ticket $ticket, TicketService $svc)
     {
         $this->authorize('actOn', $ticket);
 
-        $data = $request->validate([
-            'force_absent' => 'boolean',
-        ]);
-
-        // Si force_absent est true, on marque absent directement sans déférer
-        if ($data['force_absent'] ?? false) {
-            $ticket = $svc->markAbsent($ticket);
-            return response()->json([
-                'ticket' => [
-                    'id' => $ticket->id,
-                    'status' => $ticket->status,
-                    'absent_at' => $ticket->absent_at,
-                ],
-                'deferred' => false,
-                'message' => 'Ticket marqué absent',
-            ]);
-        }
-
-        // Sinon, essayer de déférer d'abord
-        $ticket = $svc->markAbsentWithDeferral($ticket);
-
-        $wasDeferred = $ticket->is_swapped && $ticket->status === 'waiting';
+        $ticket       = $svc->markAbsent($ticket);
+        $absenceLevel = $ticket->deferral_count ?? 1;
+        $recallPossible = $absenceLevel < 2;
 
         return response()->json([
             'ticket' => [
-                'id' => $ticket->id,
-                'status' => $ticket->status,
-                'position' => $ticket->position,
-                'is_swapped' => $ticket->is_swapped,
-                'deferred_at' => $ticket->deferred_at,
-                'grace_period_expires_at' => $ticket->grace_period_expires_at,
+                'id'             => $ticket->id,
+                'status'         => $ticket->status,
+                'deferral_count' => $absenceLevel,
+                'recall_possible'=> $recallPossible,
+                'called_expires_at' => $absenceLevel >= 2
+                    ? optional($ticket->called_expires_at)->toIso8601String()
+                    : null,
             ],
-            'deferred' => $wasDeferred,
-            'message' => $wasDeferred 
-                ? 'Ticket différé : position échangée avec le suivant. 24h pour se présenter.' 
-                : 'Ticket marqué absent',
+            'absent_level'   => $absenceLevel,
+            'recall_possible'=> $recallPossible,
+            'message'        => $recallPossible
+                ? 'Ticket marqué absent — rappel possible.'
+                : 'Ticket absent définitivement — expiration automatique programmée.',
         ]);
     }
 

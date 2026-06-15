@@ -564,56 +564,131 @@ class TicketService
     }
 
     /**
-     * Marque un ticket absent et notifie.
+     * Marque un ticket absent avec système deux chances.
+     * - 1re absence (deferral_count 0→1) : ticket reste visible, agent peut rappeler.
+     * - 2e absence (deferral_count 1→2) : absence définitive, expiration automatique programmée.
      */
     public function markAbsent(Ticket $ticket): Ticket
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
-        $ticket->status = 'absent';
+        $absenceLevel = ($ticket->deferral_count ?? 0) + 1;
+
+        $ticket->status    = 'absent';
         $ticket->absent_at = Carbon::now();
         $ticket->en_route_expires_at = null;
-        $ticket->position = null;
-        $ticket->eta_minutes = null; // No longer in queue
+        $ticket->deferral_count      = $absenceLevel;
+        $ticket->position  = null;
+        $ticket->eta_minutes = null;
+
+        if ($absenceLevel >= 2) {
+            // 2e absence : programmer l'expiration définitive
+            $service        = $ticket->service;
+            $timeoutMinutes = $service?->call_timeout_minutes
+                ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+            $ticket->called_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
+        }
+
         $ticket->save();
 
         $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
-            'status' => $ticket->status,
-            'position' => null,
-            'eta_minutes' => null,
+            'status'          => 'absent',
+            'deferral_count'  => $absenceLevel,
+            'recall_possible' => $absenceLevel < 2,
+            'position'        => null,
+            'eta_minutes'     => null,
+            'called_expires_at' => $absenceLevel >= 2 ? $ticket->called_expires_at?->toIso8601String() : null,
         ])));
 
         if ($ticket->user) {
             $this->broadcastSafely(fn() => event(new UserTicketUpdated($ticket->user->id, [
-                'ticket_id' => $ticket->id,
-                'service_id' => $ticket->service_id,
-                'status' => $ticket->status,
-                'position' => null,
-                'eta_minutes' => null,
+                'ticket_id'       => $ticket->id,
+                'service_id'      => $ticket->service_id,
+                'status'          => 'absent',
+                'deferral_count'  => $absenceLevel,
+                'recall_possible' => $absenceLevel < 2,
+                'position'        => null,
+                'eta_minutes'     => null,
             ])));
 
-            // Send push notification for absent
-            dispatch(new SendPushNotification($ticket->user->id, 'Ticket marqué absent', 'Vous avez été marqué absent pour le ticket '.$ticket->number, [
-                'ticket_id' => $ticket->id,
-                'service_id' => $ticket->service_id,
-                'type' => 'absent',
-            ]));
+            if ($absenceLevel === 1) {
+                dispatch(new SendPushNotification(
+                    $ticket->user->id,
+                    'Ticket marqué absent',
+                    "Le ticket {$ticket->number} est marqué absent. L'agent peut vous rappeler.",
+                    ['ticket_id' => $ticket->id, 'service_id' => $ticket->service_id, 'type' => 'absent_first']
+                ));
+            } else {
+                dispatch(new SendPushNotification(
+                    $ticket->user->id,
+                    'Absence définitive',
+                    "Le ticket {$ticket->number} est marqué absent définitivement. Il sera supprimé à l'expiration du délai.",
+                    ['ticket_id' => $ticket->id, 'service_id' => $ticket->service_id, 'type' => 'absent_final']
+                ));
+                if (!empty($ticket->user->phone)) {
+                    dispatch(new SendSmsNotification(
+                        $ticket->user->phone,
+                        "Votre ticket {$ticket->number} est absent définitivement et sera supprimé sous peu."
+                    ));
+                }
+            }
         }
 
-        // Diffusion service: ticket marqué absent
         $this->broadcastSafely(fn() => event(new ServiceTicketAbsent($ticket->service_id, [
-            'service_id' => $ticket->service_id,
-            'ticket_id' => $ticket->id,
-            'ticket_number' => $ticket->number,
-            'ticket' => [
-                'id' => $ticket->id,
-                'number' => $ticket->number,
-            ]
+            'service_id'     => $ticket->service_id,
+            'ticket_id'      => $ticket->id,
+            'ticket_number'  => $ticket->number,
+            'deferral_count' => $absenceLevel,
+            'ticket'         => ['id' => $ticket->id, 'number' => $ticket->number],
         ])));
 
-        if ($ticket->user && !empty($ticket->user->phone)) {
-            dispatch(new SendSmsNotification($ticket->user->phone, 'Vous avez été marqué absent pour le ticket '.$ticket->number));
+        $this->recomputePositions($ticket->service);
+        return $ticket->fresh();
+    }
+
+    /**
+     * Expire définitivement un ticket marqué absent (2e niveau).
+     * Appelé par le scheduler quand called_expires_at est dépassé pour un absent définitif.
+     */
+    public function permanentlyExpireAbsent(Ticket $ticket): Ticket
+    {
+        $ticket->status    = 'closed';
+        $ticket->closed_at = Carbon::now();
+        $ticket->position  = null;
+        $ticket->eta_minutes     = null;
+        $ticket->called_expires_at = null;
+        $ticket->save();
+
+        $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
+            'status'   => 'closed',
+            'reason'   => 'expired_absent',
+            'position' => null,
+        ])));
+
+        if ($ticket->user) {
+            $this->broadcastSafely(fn() => event(new UserTicketUpdated($ticket->user->id, [
+                'ticket_id'  => $ticket->id,
+                'service_id' => $ticket->service_id,
+                'status'     => 'closed',
+                'reason'     => 'expired_absent',
+                'position'   => null,
+            ])));
+
+            dispatch(new SendPushNotification(
+                $ticket->user->id,
+                'Ticket supprimé',
+                "Le ticket {$ticket->number} a été définitivement supprimé suite à une absence répétée.",
+                ['ticket_id' => $ticket->id, 'service_id' => $ticket->service_id, 'type' => 'expired_absent']
+            ));
         }
+
+        $this->broadcastSafely(fn() => event(new ServiceTicketAbsent($ticket->service_id, [
+            'service_id'    => $ticket->service_id,
+            'ticket_id'     => $ticket->id,
+            'ticket_number' => $ticket->number,
+            'reason'        => 'expired_absent',
+            'ticket'        => ['id' => $ticket->id, 'number' => $ticket->number],
+        ])));
 
         $this->recomputePositions($ticket->service);
         return $ticket->fresh();
@@ -866,39 +941,10 @@ class TicketService
     }
 
     /**
-     * Version améliorée de markAbsent qui tente d'abord de déférer le ticket
-     * pendant la période de grâce de 24h.
+     * Alias de markAbsent() — conservé pour compatibilité avec les appels existants.
      */
     public function markAbsentWithDeferral(Ticket $ticket): Ticket
     {
-        $this->expireOldTicketsForServiceId($ticket->service_id);
-
-        // Vérifier si on peut déférer :
-        // - statut éligible + période de grâce 24h + première absence seulement (deferral_count = 0)
-        // Au deuxième incident, on marque absent définitivement (système deux-chances).
-        $referenceTime = $ticket->original_called_at ?? $ticket->called_at;
-        $canDefer = in_array($ticket->status, ['called', 'en_route'], true) &&
-                    $referenceTime &&
-                    !Carbon::parse($referenceTime)->addHours(24)->isPast() &&
-                    ($ticket->deferral_count ?? 0) === 0;
-
-        if ($canDefer) {
-            // Essayer de déférer (catch exceptions pour fallback)
-            try {
-                $deferred = $this->deferCalledTicket($ticket);
-                if ($deferred) {
-                    return $deferred;
-                }
-            } catch (\Exception $e) {
-                // Si erreur lors du défert, on continue vers markAbsent normal
-                \Log::warning('Failed to defer ticket, falling back to markAbsent', [
-                    'ticket_id' => $ticket->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        // Fallback : marquer absent classiquement
         return $this->markAbsent($ticket);
     }
 

@@ -82,6 +82,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const progress = queueLength > 0 ? processedCount / queueLength : 0;
 
   const [localStatus, setLocalStatus] = useState(activeTicket?.status);
+  const [localDeferralCount, setLocalDeferralCount] = useState(activeTicket?.deferral_count ?? 0);
   const [calledExpiresAt, setCalledExpiresAt] = useState((activeTicket as any)?.called_expires_at);
   const [enRouteExpiresAt, setEnRouteExpiresAt] = useState(activeTicket?.en_route_expires_at);
 
@@ -90,18 +91,16 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     const newEnRouteExp = activeTicket?.en_route_expires_at;
     const newStatus = activeTicket?.status;
     setLocalStatus(newStatus);
+    setLocalDeferralCount(activeTicket?.deferral_count ?? 0);
     setCalledExpiresAt(newCalledExp);
     setEnRouteExpiresAt(newEnRouteExp);
 
-    // Only reset the alert flag when the expiry is genuinely in the future (a new call).
-    // If the ticket loads with an already-expired timestamp, keep alertShownRef=true
-    // to prevent a false expiry alert on mount/re-mount.
     const now = Date.now();
     const alreadyExpired =
       (newStatus === "called" && newCalledExp && new Date(newCalledExp).getTime() <= now) ||
       (newStatus === "en_route" && newEnRouteExp && new Date(newEnRouteExp).getTime() <= now);
     alertShownRef.current = !!alreadyExpired;
-  }, [activeTicket?.id, activeTicket?.status]);
+  }, [activeTicket?.id, activeTicket?.status, activeTicket?.deferral_count]);
 
   const isCalledExpired = localStatus === "called" && calledExpiresAt 
     ? new Date(calledExpiresAt).getTime() <= Date.now()
@@ -118,19 +117,16 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     const ticketNumber = activeTicket?.number || "N/A";
     const serviceName = activeTicket?.service?.name || "Service";
 
-    // Always show — suppressAutoAlerts only blocks non-critical countdown warnings (30s/60s)
+    // Show info about delay — the real absent/expiry alert comes from the WebSocket event
     showWarning(
-      "Ticket expiré",
-      `Le ticket ${ticketNumber} (${serviceName}) n'est plus actif car le délai de réponse est dépassé.`,
+      "Délai écoulé",
+      `Le délai de présentation pour le ticket ${ticketNumber} (${serviceName}) est écoulé. L'agent va statuer sur votre présence.`,
       "OK",
       () => {
         if (expiryCheckIntervalRef.current) {
           clearInterval(expiryCheckIntervalRef.current);
         }
-        if (activeTicket?.id) {
-          removeExpiredTicket(activeTicket.id);
-        }
-        onTicketExpired?.();
+        // Don't remove ticket yet — the WebSocket event will handle the final state
       }
     );
   }, [activeTicket?.id, activeTicket?.number, activeTicket?.service?.name, showWarning, onTicketExpired, removeExpiredTicket]);
@@ -191,58 +187,99 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
 
         const handleTicketUpdated = (data: any) => {
           if (data.status) {
+            const ticketNum = activeTicket?.number || "N/A";
+            const svcName  = activeTicket?.service?.name || "Service";
+
             if (data.status === 'absent') {
-              // Permanent absence (2nd strike or forced): same flow as timer expiry
-              handleTicketExpired();
-            } else if (data.status === 'waiting' && (data.is_swapped || data.deferred)) {
-              // First-strike deferral: ticket put back in queue (still active as "waiting")
-              if (alertShownRef.current) return;
-              alertShownRef.current = true;
-              const ticketNum = activeTicket?.number || "N/A";
-              const svcName = activeTicket?.service?.name || "Service";
-              const position = data.position ? ` à la position ${data.position}` : '';
-              // Stop the expiry interval; ticket is no longer called/en_route
+              const absLevel = data.deferral_count ?? 1;
+              setLocalStatus('absent');
+              setLocalDeferralCount(absLevel);
               if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
-              setLocalStatus('waiting');
               setCalledExpiresAt(null);
               setEnRouteExpiresAt(null);
-              // Alert the user — refreshes store on OK so FAB / sheet update immediately
-              showWarning(
-                "Ticket différé",
-                `Le ticket #${ticketNum} (${svcName}) n'a pas pu être traité. Vous êtes replacé en file${position}. Votre ticket reste valide 24h.`,
+
+              if (alertShownRef.current) return;
+              alertShownRef.current = true;
+
+              if (absLevel < 2) {
+                // 1re absence — rappel possible
+                showWarning(
+                  "Ticket marqué absent",
+                  `Le ticket #${ticketNum} (${svcName}) est marqué absent. L'agent peut vous rappeler — restez disponible.`,
+                  "OK",
+                  () => {
+                    alertShownRef.current = false; // allow future alerts (recall etc.)
+                    useTicketStore.getState().fetchActiveTicket().catch(console.warn);
+                  }
+                );
+              } else {
+                // 2e absence — définitif, expiration programmée
+                showError(
+                  "Absence définitive",
+                  `Le ticket #${ticketNum} (${svcName}) est marqué absent définitivement. Il sera supprimé à l'expiration du délai.`,
+                  "OK",
+                  () => {
+                    alertShownRef.current = false;
+                    useTicketStore.getState().fetchActiveTicket().catch(console.warn);
+                    onTicketExpired?.();
+                  }
+                );
+              }
+
+            } else if (data.status === 'closed' && data.reason === 'expired_absent') {
+              // Expiration définitive — ticket supprimé
+              if (alertShownRef.current) return;
+              alertShownRef.current = true;
+              if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
+              showError(
+                "Ticket supprimé",
+                `Le ticket #${ticketNum} (${svcName}) a été définitivement supprimé suite à une absence répétée.`,
                 "OK",
                 () => {
-                  alertShownRef.current = false; // allow future alerts (recall etc.)
-                  useTicketStore.getState().fetchActiveTicket().catch(console.warn);
-                  onTicketExpired?.(); // close bottom-sheet card so FAB refreshes
+                  if (activeTicket?.id) removeExpiredTicket(activeTicket.id);
+                  onTicketExpired?.();
                 }
               );
+
             } else {
               setLocalStatus(data.status);
+              if (data.deferral_count !== undefined) setLocalDeferralCount(data.deferral_count);
               if (data.called_expires_at) setCalledExpiresAt(data.called_expires_at);
               if (data.en_route_expires_at) setEnRouteExpiresAt(data.en_route_expires_at);
+              if (data.status === 'called') {
+                alertShownRef.current = false; // new call — reset alert gate
+              }
             }
           }
-          const store = useTicketStore.getState();
-          store.fetchActiveTicket().catch(console.warn);
+          useTicketStore.getState().fetchActiveTicket().catch(console.warn);
         };
 
-        const handleMarkedAbsent = () => {
+        const handleMarkedAbsent = (data?: any) => {
+          // Handled by handleTicketUpdated via .ticket.updated — this is a legacy fallback
           if (alertShownRef.current) return;
           alertShownRef.current = true;
           const ticketNum = activeTicket?.number || "N/A";
-          const svcName = activeTicket?.service?.name || "Service";
-          // Always show — suppressAutoAlerts only blocks non-critical countdown warnings
-          showWarning(
-            "Ticket marqué absent",
-            `Le ticket #${ticketNum} pour le service "${svcName}" a été marqué absent par l'agent.`,
-            "OK",
-            () => {
-              if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
-              if (activeTicket?.id) removeExpiredTicket(activeTicket.id);
-              onTicketExpired?.();
-            }
-          );
+          const svcName   = activeTicket?.service?.name || "Service";
+          const absLevel  = data?.deferral_count ?? localDeferralCount;
+          if (absLevel < 2) {
+            showWarning(
+              "Ticket marqué absent",
+              `Le ticket #${ticketNum} (${svcName}) est absent. L'agent peut vous rappeler.`,
+              "OK",
+              () => { alertShownRef.current = false; }
+            );
+          } else {
+            showError(
+              "Absence définitive",
+              `Le ticket #${ticketNum} (${svcName}) est absent définitivement. Il sera supprimé sous peu.`,
+              "OK",
+              () => {
+                if (expiryCheckIntervalRef.current) clearInterval(expiryCheckIntervalRef.current);
+                if (activeTicket?.id) removeExpiredTicket(activeTicket.id);
+                onTicketExpired?.();
+              }
+            );
+          }
         };
 
         channel.listen('.ticket.updated', handleTicketUpdated);
@@ -275,10 +312,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     }).start();
   }, [progress]);
 
-  if (localStatus === "absent") {
+  // 2nd-level definitively absent: card hides (handled by store + onTicketExpired alert)
+  if (localStatus === "absent" && localDeferralCount >= 2) {
     return null;
   }
 
+  const isTicketAbsentFirst = localStatus === "absent" && localDeferralCount < 2;
   const isTicketCalledState = localStatus === "called";
   const isTicketEnRoute = localStatus === "en_route";
   const isTicketPresent = localStatus === "present";
@@ -287,6 +326,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const canMarkPresent = localStatus === "en_route" || localStatus === "called";
 
   const getStatusConfig = () => {
+    if (isTicketAbsentFirst) return { label: "Absent (rappel possible)", icon: "person-remove", color: colors.warning, bg: colors.warning + "20" };
     if (isTicketPresent) return { label: "Présent", icon: "checkmark-circle", color: colors.success, bg: colors.success + "15" };
     if (isTicketEnRoute) return { label: "En route", icon: "walk", color: colors.warning, bg: colors.warning + "15" };
     if (isTicketCalledState) return { label: "Appelé !", icon: "notifications", color: colors.danger, bg: colors.danger + "15" };
@@ -294,7 +334,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   };
 
   const statusConfig = getStatusConfig();
-  const isSpecialStatus = isTicketCalledState || isTicketEnRoute || isTicketPresent;
+  const isSpecialStatus = isTicketCalledState || isTicketEnRoute || isTicketPresent || isTicketAbsentFirst;
   const isSoon = position <= 3 && !isSpecialStatus;
 
   const [calledCountdown, setCalledCountdown] = useState<number | null>(null);
@@ -451,6 +491,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   ];
 
   const getQueueDisplay = () => {
+    if (isTicketAbsentFirst) return { label: "Statut", value: "Absent", color: colors.warning };
     if (isTicketPresent) return { label: "Statut", value: "Présent", color: colors.success };
     if (isTicketEnRoute) return { label: "Statut", value: "En route", color: colors.warning };
     if (isTicketCalledState) return { label: "Statut", value: "Appelé", color: colors.danger };
@@ -558,6 +599,21 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
                  (activeTicket as any).defer_reason === "critical_zone" ? "File saturée — reporté automatiquement" :
                  (activeTicket as any).defer_reason === "exceptional_closure" ? "Fermeture exceptionnelle" :
                  "Votre ticket sera traité à l'ouverture"}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Bannière absence temporaire (1re absence — rappel possible) */}
+        {isTicketAbsentFirst && (
+          <View style={[styles.deferredBanner, { backgroundColor: colors.warning + "25", borderColor: colors.warning + "60" }]}>
+            <Ionicons name="person-remove-outline" size={14} color={colors.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.deferredBannerTitle, { color: colors.warning }]}>
+                Absent — rappel possible
+              </Text>
+              <Text style={[styles.deferredBannerSub, { color: colors.textSecondary }]}>
+                L'agent peut vous rappeler. Restez disponible et présentez-vous dès l'appel.
               </Text>
             </View>
           </View>
