@@ -63,7 +63,8 @@ class TicketResource extends JsonResource
             'absent_level'     => (int) ($this->absent_level ?? 0),
             'absent_expires_at'=> optional($this->absent_expires_at)->toIso8601String(),
             'deferral_count'   => (int) ($this->deferral_count ?? 0),
-            'recall_possible'  => ($this->status === 'absent') && ($this->absent_level ?? 0) < 2,
+            'max_call_attempts' => (int) ($this->service?->max_call_attempts ?? 2),
+            'recall_possible'  => ($this->status === 'absent') && ($this->absent_level ?? 0) < (int) ($this->service?->max_call_attempts ?? 2),
             'called_at'       => $this->called_at,
             'called_expires_at' => optional($this->called_expires_at)->toIso8601String(),
             'closed_at' => $this->closed_at,
@@ -87,6 +88,7 @@ class TicketResource extends JsonResource
                 'name' => $this->service->name,
                 'status' => $this->service->status,
                 'avg_service_time_minutes' => $this->service->avg_service_time_minutes,
+                'max_call_attempts' => (int) ($this->service->max_call_attempts ?? 2),
             ] : null,
             // Résumé de l'établissement avec coordonnées
             'establishment' => ($this->service && $this->service->establishment) ? [

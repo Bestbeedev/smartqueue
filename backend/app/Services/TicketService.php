@@ -575,6 +575,9 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
+        $service = $ticket->service;
+        $maxAttempts = (int) ($service?->max_call_attempts ?? 2);
+
         $currentLevel = (int) ($ticket->absent_level ?? 0);
         $newLevel = $currentLevel + 1;
         $ticket->absent_level = $newLevel;
@@ -584,16 +587,14 @@ class TicketService
         $ticket->position = null;
         $ticket->eta_minutes = null;
 
-        if ($newLevel === 1) {
-            // Niveau 1 : absence temporaire, rappel possible
-            $ticket->status = 'absent';
-            $ticket->absent_at = Carbon::now();
+        $ticket->status = 'absent';
+        $ticket->absent_at = Carbon::now();
+
+        if ($newLevel < $maxAttempts) {
+            // Niveaux < max : absence temporaire, rappel possible
             $ticket->absent_expires_at = null;
-        } elseif ($newLevel >= 2) {
-            // Niveau 2 : absence définitive, expiration programmée
-            $ticket->status = 'absent';
-            $ticket->absent_at = Carbon::now();
-            $service = $ticket->service;
+        } else {
+            // Niveau >= max : absence définitive, expiration programmée
             $timeoutMinutes = $service?->call_timeout_minutes
                 ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
             $ticket->absent_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
@@ -601,7 +602,7 @@ class TicketService
 
         $ticket->save();
 
-        $recallPossible = $newLevel < 2;
+        $recallPossible = $newLevel < $maxAttempts;
 
         $this->broadcastSafely(fn() => event(new TicketUpdated($ticket->id, [
             'status'           => 'absent',
@@ -626,7 +627,7 @@ class TicketService
                 'eta_minutes'      => null,
             ])));
 
-            if ($newLevel < 2) {
+            if ($newLevel < $maxAttempts) {
                 dispatch(new SendPushNotification(
                     $ticket->user->id,
                     'Ticket marqué absent',
@@ -997,7 +998,9 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
-        if (($ticket->absent_level ?? 0) >= 2) {
+        $maxAttempts = (int) ($ticket->service?->max_call_attempts ?? 2);
+
+        if (($ticket->absent_level ?? 0) >= $maxAttempts) {
             throw new \InvalidArgumentException('Ce ticket est en absence définitive et ne peut plus être rappelé.');
         }
 
@@ -1028,6 +1031,8 @@ class TicketService
             'eta_minutes' => 0,
             'called_expires_at' => $ticket->called_expires_at->toIso8601String(),
             'deferral_count' => $ticket->deferral_count ?? 0,
+            'absent_level' => (int) ($ticket->absent_level ?? 0),
+            'counter_id' => $ticket->counter_id,
         ])));
         $this->broadcastSafely(fn() => event(new ServiceTicketCalled($ticket->service_id, [
             'service_id' => $ticket->service_id,
@@ -1048,6 +1053,7 @@ class TicketService
                 'counter_id' => $ticket->counter_id,
                 'position' => null,
                 'eta_minutes' => 0,
+                'absent_level' => (int) ($ticket->absent_level ?? 0),
             ])));
 
             // Send push notification for recall

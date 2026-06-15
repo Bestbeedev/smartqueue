@@ -63,11 +63,13 @@ class TicketsExpireCalled extends Command
         foreach ($calledTickets as $ticket) {
             $affectedServiceIds->push($ticket->service_id);
 
-            if (($ticket->deferral_count ?? 0) >= 1) {
-                // Second call timeout: the agent already gave one recall — permanent expiry
+            $maxAttempts = (int) ($ticket->service?->max_call_attempts ?? 2);
+
+            if (($ticket->deferral_count ?? 0) >= $maxAttempts - 1) {
+                // At or beyond max attempts — permanent expiry
                 $this->ticketService->permanentlyExpireAbsent($ticket);
             } else {
-                // First call timeout: mark absent, agent can still recall
+                // Still has attempts left — mark absent (agent can still recall)
                 $this->ticketService->markAbsent($ticket);
             }
         }

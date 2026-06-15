@@ -54,6 +54,8 @@ type Ticket = {
   auto_deferred?: boolean;
   defer_reason?: string | null;
   valid_date?: string | null;
+  absent_level?: number;
+  absent_expires_at?: string | null;
 };
 
 type ServiceStats = {
@@ -264,6 +266,14 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
   const calledCountdown = useCountdown(ticket.status === "called" ? ticket.called_expires_at : null);
   const enRouteCountdown = useCountdown(ticket.status === "en_route" ? ticket.en_route_expires_at : null);
 
+  const absentLevel = ticket.absent_level ?? 0;
+  const maxAttempts = ticket.max_call_attempts ?? 2;
+  const isAbsentDefinitive = ticket.status === "absent" && absentLevel >= maxAttempts;
+  const isNonDefinitiveAbsent = ticket.status === "absent" && absentLevel > 0 && absentLevel < maxAttempts;
+  const recallDisabled = isActing || isAbsentDefinitive || ticket.status === "waiting";
+  const absentDisabled = isActing || isAbsentDefinitive || (ticket.status !== "called" && !isNonDefinitiveAbsent);
+  const absentBtnColor = isNonDefinitiveAbsent ? "rgba(228, 37, 26, 0.95)" : "rgba(255, 149, 0, 0.9)";
+
   let statusLine = "";
   if (ticket.status === "present") statusLine = "Usager présent";
   else if (ticket.en_route_at) {
@@ -289,6 +299,13 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
             <Text style={styles.currentStatusText}>{statusCfg.label.toUpperCase()}</Text>
           </View>
         </View>
+        {/* Absent level badge */}
+        {absentLevel > 0 && (
+          <View style={[styles.countdownBadge, { backgroundColor: isAbsentDefinitive ? "rgba(228,37,26,0.9)" : "rgba(255,149,0,0.9)" }]}>
+            <Ionicons name="person-remove" size={11} color="#FFF" />
+            <Text style={styles.countdownText}>Absence {absentLevel}/{maxAttempts}</Text>
+          </View>
+        )}
         {/* Countdown badge */}
         {ticket.status === "called" && calledCountdown !== null && (
           <View style={[styles.countdownBadge, { backgroundColor: isCalledExpiring ? "rgba(255,59,48,0.9)" : "rgba(255,255,255,0.2)" }]}>
@@ -305,13 +322,13 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
       </View>
       {statusLine !== "" && <Text style={styles.currentStatusLine}>{statusLine}</Text>}
       <View style={styles.currentActions}>
-        <TouchableOpacity style={styles.currentActionBtn} onPress={onRecall} disabled={isActing}>
+        <TouchableOpacity style={[styles.currentActionBtn, { opacity: recallDisabled ? 0.5 : 1 }]} onPress={onRecall} disabled={recallDisabled}>
           <Ionicons name="volume-high" size={14} color="#FFF" />
           <Text style={styles.currentActionText}>Rappel</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.currentActionBtn, { backgroundColor: "rgba(228, 37, 26, 0.95)" }]} onPress={onAbsent} disabled={isActing}>
+        <TouchableOpacity style={[styles.currentActionBtn, { backgroundColor: absentBtnColor, opacity: absentDisabled ? 0.5 : 1 }]} onPress={onAbsent} disabled={absentDisabled}>
           <Ionicons name="person-remove" size={14} color="#FFF" />
-          <Text style={styles.currentActionText}>Absent</Text>
+          <Text style={styles.currentActionText}>{isNonDefinitiveAbsent ? `Absent ${absentLevel+1}/${maxAttempts}` : "Absent"}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.currentActionBtn, { backgroundColor: "rgba(32, 230, 82, 0.89)" }]} onPress={onClose} disabled={isActing}>
           <Ionicons name="checkmark-circle" size={14} color="#FFF" />
@@ -401,7 +418,7 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
         </View>
         <TouchableOpacity 
           style={[styles.ticketAbsentBtn, { borderColor: "#FF3B3028" }]} 
-          onPress={() => onAbsent(item.id, item.number)}
+          onPress={() => onAbsent(item.id, item.number, item.absent_level ?? 0)}
         >
           <Ionicons name="person-remove-outline" size={16} color="#FF3B30" />
         </TouchableOpacity>
@@ -651,6 +668,7 @@ export default function AgentQueue() {
       });
       setServiceStatus(serviceRes.data?.status || "open");
       setCallTimeoutMinutes(serviceRes.data?.call_timeout_minutes ?? null);
+      setMaxCallAttempts(serviceRes.data?.max_call_attempts ?? 2);
 
       if (availRes?.data) {
         const cap = availRes.data.capacity ?? {};
@@ -754,13 +772,30 @@ export default function AgentQueue() {
     } finally { setIsActing(false); }
   };
 
-  const handleMarkAbsent = async (ticketId: number, ticketNumber?: string) => {
-    showWarning("Marquer absent", `Marquer le ticket ${ticketNumber ?? ticketId} comme absent ?`, "Marquer", async () => {
+  const [maxCallAttempts, setMaxCallAttempts] = useState(2);
+
+  const handleMarkAbsent = async (ticketId: number, ticketNumber: string, currentAbsentLevel: number = 0) => {
+    const nextLevel = currentAbsentLevel + 1;
+    const maxAttempts = maxCallAttempts;
+    const isDefinitive = nextLevel >= maxAttempts;
+    const title = isDefinitive
+      ? "Absence définitive"
+      : `Marquer absent (${nextLevel}/${maxAttempts})`;
+    const message = isDefinitive
+      ? `Ticket ${ticketNumber} — Absence définitive. Le ticket sera supprimé automatiquement après expiration du délai.`
+      : `Marquer le ticket ${ticketNumber} comme absent ? Un rappel sera possible (${nextLevel}/${maxAttempts}).`;
+    const confirmLabel = isDefinitive ? "Absent définitif" : "Marquer absent";
+    showWarning(title, message, confirmLabel, async () => {
       setIsActing(true);
       try {
-        await axiosClient.post(`/tickets/${ticketId}/mark-absent`);
+        const res = await axiosClient.post(`/tickets/${ticketId}/mark-absent`);
+        const level = res.data?.absent_level ?? nextLevel;
+        if (level < maxAttempts) {
+          showSuccess("Absence temporaire", `Ticket ${ticketNumber} — Absence ${level}/${maxAttempts}. Rappel possible.`);
+        } else {
+          showWarning("Absence définitive", `Ticket ${ticketNumber} — Absence définitive. Expiration automatique programmée.`);
+        }
         await fetchData();
-        showSuccess("Succès", "Ticket marqué absent");
       } catch (error: any) { showError("Erreur", error?.response?.data?.message || "Erreur"); }
       finally { setIsActing(false); }
     }, "Annuler");
@@ -932,7 +967,7 @@ export default function AgentQueue() {
           <CurrentTicketCard
             ticket={currentTicket}
             onRecall={() => handleRecall(currentTicket.id)}
-            onAbsent={() => handleMarkAbsent(currentTicket.id, currentTicket.number)}
+            onAbsent={() => handleMarkAbsent(currentTicket.id, currentTicket.number, currentTicket.absent_level ?? 0)}
             onClose={() => handleClose(currentTicket.id)}
             isActing={isActing}
             colors={colors}

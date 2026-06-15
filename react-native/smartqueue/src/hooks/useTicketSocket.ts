@@ -41,6 +41,7 @@ interface TicketCalledEvent {
 interface TicketUpdatedEvent {
   ticket_id: number;
   status?: string;
+  reason?: string;
   position?: number;
   eta_minutes?: number;
   counter_id?: number;
@@ -54,6 +55,7 @@ interface TicketUpdatedEvent {
 interface UserTicketUpdatedEvent {
   ticket_id: number;
   status?: string;
+  reason?: string;
   position?: number;
   eta_minutes?: number;
   counter_id?: number;
@@ -224,8 +226,8 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           if (data.ticket_id !== numericTicketId) return;
 
           const counterNum = data.counter ?? data.counter_id;
-          markAsCalled(counterNum?.toString());
           updateTicketStatus("called", numericTicketId);
+          markAsCalled(counterNum?.toString());
           setLastUpdate(new Date());
 
           triggerHapticFeedback("success");
@@ -244,6 +246,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             if (data.absent_level !== undefined) extra.absent_level = data.absent_level;
             if (data.absent_expires_at !== undefined) extra.absent_expires_at = data.absent_expires_at;
             if (data.recall_possible !== undefined) extra.recall_possible = data.recall_possible;
+            if (data.counter_id !== undefined) extra.counter_id = data.counter_id;
             updateTicketStatus(data.status as any, numericTicketId, extra as any);
 
             switch (data.status) {
@@ -263,6 +266,22 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 break;
               }
               case "closed":
+                if (data.reason === 'expired_absent') {
+                  triggerLocalNotification(
+                    "Ticket supprimé",
+                    "Le ticket a été définitivement supprimé suite à une absence répétée.",
+                    numericTicketId,
+                  );
+                  triggerHapticFeedback("warning");
+                } else {
+                  triggerLocalNotification(
+                    "Service terminé",
+                    "Votre ticket a été servi. Merci !",
+                    numericTicketId,
+                  );
+                  triggerHapticFeedback("success");
+                }
+                break;
               case "served":
                 triggerLocalNotification(
                   "Service terminé",
@@ -311,6 +330,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               if (data.absent_level !== undefined) extra.absent_level = data.absent_level;
               if (data.absent_expires_at !== undefined) extra.absent_expires_at = data.absent_expires_at;
               if (data.recall_possible !== undefined) extra.recall_possible = data.recall_possible;
+              if (data.counter_id !== undefined) extra.counter_id = data.counter_id;
               updateTicketStatus(data.status as any, numericTicketId, extra as any);
 
               switch (data.status) {

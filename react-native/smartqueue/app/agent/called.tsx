@@ -34,6 +34,9 @@ type Ticket = {
   response_received_at?: string | null;
   en_route_expires_at?: string | null;
   estimated_travel_minutes?: number | null;
+  absent_level?: number;
+  absent_expires_at?: string | null;
+  max_call_attempts?: number;
 };
 
 // Visual config per status
@@ -194,9 +197,11 @@ export default function CalledTickets() {
     }, [serviceId, fetchData]),
   );
 
-  const markAbsent = async (ticketId: number) => {
+  const markAbsent = async (ticket: Ticket) => {
+    const nextLevel = (ticket.absent_level ?? 0) + 1;
+    const isDefinitive = nextLevel >= 2;
     try {
-      await axiosClient.post(`/tickets/${ticketId}/mark-absent`);
+      await axiosClient.post(`/tickets/${ticket.id}/mark-absent`);
       fetchData();
     } catch (error) {
       console.error("Error marking absent:", error);
@@ -229,6 +234,9 @@ export default function CalledTickets() {
     const calledAt = item.called_at || item.created_at;
     const isPresent = item.status === "present";
     const isEnRoute = item.status === "en_route";
+    const absentLevel = item.absent_level ?? 0;
+    const maxAttempts = (item as any).max_call_attempts ?? 2;
+    const absentDefinitive = absentLevel >= maxAttempts;
 
     return (
       <View
@@ -256,6 +264,15 @@ export default function CalledTickets() {
               Appelé à {formatTime(calledAt)}
             </Text>
           </View>
+
+          {/* Absent level badge */}
+          {absentLevel > 0 && (
+            <View style={[styles.elapsedBadge, { borderColor: absentDefinitive ? "#EF4444" : "#FF9500" }]}>
+              <Text style={[styles.elapsedText, { color: absentDefinitive ? "#EF4444" : "#FF9500" }]}>
+                Absence {absentLevel}/{maxAttempts}
+              </Text>
+            </View>
+          )}
 
           {/* Elapsed badge */}
           <View
@@ -289,15 +306,15 @@ export default function CalledTickets() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          {/* "Absent" only for called / en_route — not when already present */}
-          {!isPresent && (
+          {/* "Absent" only for called / en_route — not when already present or already definitive */}
+          {!isPresent && !absentDefinitive && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: "#EF4444" }]}
-              onPress={() => markAbsent(item.id)}
+              onPress={() => markAbsent(item)}
               activeOpacity={0.8}
             >
               <Ionicons name="person-remove" size={16} color="white" />
-              <Text style={styles.actionBtnText}>Absent</Text>
+              <Text style={styles.actionBtnText}>{absentLevel >= 1 ? `Absent ${absentLevel+1}/${maxAttempts}` : "Absent"}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
