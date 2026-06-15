@@ -89,9 +89,13 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
   const [localStatus, setLocalStatus] = useState(activeTicket?.status);
   const [localDeferralCount, setLocalDeferralCount] = useState(activeTicket?.deferral_count ?? 0);
   const [localAbsentLevel, setLocalAbsentLevel] = useState(activeTicket?.absent_level ?? 0);
+  const [localMaxAttempts, setLocalMaxAttempts] = useState(activeTicket?.max_call_attempts ?? 2);
   const [calledExpiresAt, setCalledExpiresAt] = useState((activeTicket as any)?.called_expires_at);
   const [enRouteExpiresAt, setEnRouteExpiresAt] = useState(activeTicket?.en_route_expires_at);
   const [absentExpiresAt, setAbsentExpiresAt] = useState(activeTicket?.absent_expires_at);
+
+  const maxAttemptsRef = useRef(localMaxAttempts);
+  maxAttemptsRef.current = localMaxAttempts;
 
   useEffect(() => {
     const newCalledExp = (activeTicket as any)?.called_expires_at;
@@ -101,6 +105,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     setLocalStatus(newStatus);
     setLocalDeferralCount(activeTicket?.deferral_count ?? 0);
     setLocalAbsentLevel(activeTicket?.absent_level ?? 0);
+    setLocalMaxAttempts(activeTicket?.max_call_attempts ?? 2);
     setCalledExpiresAt(newCalledExp);
     setEnRouteExpiresAt(newEnRouteExp);
     setAbsentExpiresAt(newAbsentExp);
@@ -110,7 +115,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
       (newStatus === "called" && newCalledExp && new Date(newCalledExp).getTime() <= now) ||
       (newStatus === "en_route" && newEnRouteExp && new Date(newEnRouteExp).getTime() <= now);
     alertShownRef.current = !!alreadyExpired;
-  }, [activeTicket?.id, activeTicket?.status, activeTicket?.absent_level, activeTicket?.deferral_count, (activeTicket as any)?.called_expires_at, activeTicket?.en_route_expires_at, activeTicket?.absent_expires_at]);
+  }, [activeTicket?.id, activeTicket?.status, activeTicket?.absent_level, activeTicket?.deferral_count, activeTicket?.max_call_attempts, (activeTicket as any)?.called_expires_at, activeTicket?.en_route_expires_at, activeTicket?.absent_expires_at]);
 
   const isCalledExpired = localStatus === "called" && calledExpiresAt
     ? parseExpiry(calledExpiresAt) <= Date.now()
@@ -213,19 +218,18 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               if (alertShownRef.current) return;
               alertShownRef.current = true;
 
-              if (absLevel < 2) {
-                // 1re absence — rappel possible
+              if (absLevel < maxAttemptsRef.current) {
+                const remaining = maxAttemptsRef.current - absLevel;
                 showWarning(
                   "Ticket marqué absent",
-                  `Le ticket #${ticketNum} (${svcName}) est marqué absent. L'agent peut vous rappeler — restez disponible.`,
+                  `Le ticket #${ticketNum} (${svcName}) est marqué absent. L'agent peut vous rappeler — restez disponible. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`,
                   "OK",
                   () => {
-                    alertShownRef.current = false; // allow future alerts (recall etc.)
+                    alertShownRef.current = false;
                     useTicketStore.getState().fetchActiveTicket().catch(console.warn);
                   }
                 );
               } else {
-                // 2e absence — définitif, expiration programmée
                 showError(
                   "Absence définitive",
                   `Le ticket #${ticketNum} (${svcName}) est marqué absent définitivement. Il sera supprimé à l'expiration du délai.`,
@@ -269,16 +273,16 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
         };
 
         const handleMarkedAbsent = (data?: any) => {
-          // Handled by handleTicketUpdated via .ticket.updated — this is a legacy fallback
           if (alertShownRef.current) return;
           alertShownRef.current = true;
           const ticketNum = activeTicket?.number || "N/A";
           const svcName   = activeTicket?.service?.name || "Service";
           const absLevel  = data?.deferral_count ?? localDeferralCount;
-          if (absLevel < 2) {
+          if (absLevel < maxAttemptsRef.current) {
+            const remaining = maxAttemptsRef.current - absLevel;
             showWarning(
               "Ticket marqué absent",
-              `Le ticket #${ticketNum} (${svcName}) est absent. L'agent peut vous rappeler.`,
+              `Le ticket #${ticketNum} (${svcName}) est absent. L'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`,
               "OK",
               () => { alertShownRef.current = false; }
             );
@@ -326,8 +330,8 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
     }).start();
   }, [progress]);
 
-  const isTicketAbsentFirst = localStatus === "absent" && localAbsentLevel < 2;
-  const isTicketAbsentDefinitive = localStatus === "absent" && localAbsentLevel >= 2;
+  const isTicketAbsentFirst = localStatus === "absent" && localAbsentLevel < localMaxAttempts;
+  const isTicketAbsentDefinitive = localStatus === "absent" && localAbsentLevel >= localMaxAttempts;
   const isTicketCalledState = localStatus === "called";
   const isTicketEnRoute = localStatus === "en_route";
   const isTicketPresent = localStatus === "present";
@@ -595,7 +599,7 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Absence</Text>
-                <Text style={[styles.statValue, { color: localAbsentLevel >= 2 ? colors.danger : colors.warning }]}>{localAbsentLevel}/2</Text>
+                <Text style={[styles.statValue, { color: localAbsentLevel >= localMaxAttempts ? colors.danger : colors.warning }]}>{localAbsentLevel}/{localMaxAttempts}</Text>
               </View>
             </>
           )}
@@ -637,13 +641,12 @@ export const ActiveTicketCard: React.FC<ActiveTicketCardProps> = ({
           </View>
         )}
 
-        {/* Bannière absence temporaire (1re absence — rappel possible) */}
         {isTicketAbsentFirst && (
           <View style={[styles.deferredBanner, { backgroundColor: colors.warning + "25", borderColor: colors.warning + "60" }]}>
             <Ionicons name="person-remove-outline" size={14} color={colors.warning} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.deferredBannerTitle, { color: colors.warning }]}>
-                Absent — rappel possible
+                Absent — {localMaxAttempts - localAbsentLevel} appel{localMaxAttempts - localAbsentLevel > 1 ? 's' : ''} restant{localMaxAttempts - localAbsentLevel > 1 ? 's' : ''}
               </Text>
               <Text style={[styles.deferredBannerSub, { color: colors.textSecondary }]}>
                 L'agent peut vous rappeler. Restez disponible et présentez-vous dès l'appel.

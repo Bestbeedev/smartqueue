@@ -32,6 +32,8 @@ interface CalledTicketOverlayProps {
   hasRecalled: boolean;
   isSwapped?: boolean;
   gracePeriodExpiresAt?: string | null;
+  absentLevel?: number;
+  maxCallAttempts?: number;
   onEnRoute: () => void;
   onPresent?: () => Promise<void> | void;
   onRecall: () => Promise<void>;
@@ -50,6 +52,8 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
   hasRecalled,
   isSwapped = false,
   gracePeriodExpiresAt,
+  absentLevel = 0,
+  maxCallAttempts = 2,
   onEnRoute,
   onPresent,
   onRecall,
@@ -188,6 +192,13 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
               {counterNumber && (
                 <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
                   <Text style={styles.counterText}>Guichet {counterNumber}</Text>
+                </View>
+              )}
+              {absentLevel > 0 && (
+                <View style={[styles.counterBadge, { backgroundColor: "rgba(255,255,255,0.12)", marginTop: 6 }]}>
+                  <Text style={styles.counterText}>
+                    {maxCallAttempts - absentLevel} appel{maxCallAttempts - absentLevel > 1 ? 's' : ''} restant{maxCallAttempts - absentLevel > 1 ? 's' : ''}
+                  </Text>
                 </View>
               )}
             </View>

@@ -258,9 +258,11 @@ export const useTicketSocket = (ticketId: string | number | null) => {
               }
               case "absent": {
                 const absLevel = data.absent_level ?? 1;
-                const title = absLevel < 2 ? "Ticket absent" : "Absence définitive";
-                const body = absLevel < 2
-                  ? "Vous avez été marqué absent — l'agent peut vous rappeler"
+                const maxAttempts = useTicketStore.getState().activeTicket?.max_call_attempts ?? 2;
+                const title = absLevel < maxAttempts ? "Ticket absent" : "Absence définitive";
+                const remaining = maxAttempts - absLevel;
+                const body = absLevel < maxAttempts
+                  ? `Vous avez été marqué absent — l'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`
                   : "Absence définitive — le ticket sera supprimé à l'expiration du délai";
                 triggerLocalNotification(title, body, numericTicketId);
                 triggerHapticFeedback("warning");
@@ -343,9 +345,11 @@ export const useTicketSocket = (ticketId: string | number | null) => {
                 }
                 case "absent": {
                   const absLevel = data.absent_level ?? 1;
-                  const absTitle = absLevel < 2 ? "Ticket absent" : "Absence définitive";
-                  const absBody = absLevel < 2
-                    ? "Vous avez été marqué absent — l'agent peut vous rappeler"
+                  const maxAttempts = useTicketStore.getState().activeTicket?.max_call_attempts ?? 2;
+                  const absTitle = absLevel < maxAttempts ? "Ticket absent" : "Absence définitive";
+                  const remaining = maxAttempts - absLevel;
+                  const absBody = absLevel < maxAttempts
+                    ? `Vous avez été marqué absent — l'agent peut vous rappeler. Il vous reste ${remaining} appel${remaining > 1 ? 's' : ''}.`
                     : "Absence définitive — le ticket sera supprimé à l'expiration du délai";
                   triggerLocalNotification(absTitle, absBody, numericTicketId);
                   triggerHapticFeedback("warning");
