@@ -49,10 +49,16 @@ class AgentClientProfileController extends Controller
         $absentCount = $allTickets->where('status', 'absent')->count();
 
         // Temps moyen de service (closed_at - called_at) en secondes
+        $driver = DB::connection()->getDriverName();
+        $diffExpr = match ($driver) {
+            'pgsql'  => "EXTRACT(EPOCH FROM (closed_at - called_at))",
+            'sqlite' => "CAST(strftime('%s', closed_at) - strftime('%s', called_at) AS REAL)",
+            default  => "TIMESTAMPDIFF(SECOND, called_at, closed_at)",
+        };
         $avgServiceSeconds = (clone $query)
             ->whereNotNull('called_at')
             ->whereNotNull('closed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, called_at, closed_at)) as avg_seconds')
+            ->selectRaw("AVG($diffExpr) as avg_seconds")
             ->value('avg_seconds');
 
         $recentTickets = $allTickets->take(10)->map(fn(Ticket $t) => [

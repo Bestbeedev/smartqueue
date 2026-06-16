@@ -100,7 +100,11 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
     } catch (error: any) {
       console.warn("[GlobalCalledTicketOverlay] countdown fetch error", error?.message);
       if (!countdownFetchedRef.current) {
+        const defaultSeconds = (callTimeoutMinutes ?? 10) * 60;
+        countdownRef.current = defaultSeconds;
+        setLocalCountdown(defaultSeconds);
         setCountdownReady(true);
+        countdownFetchedRef.current = true;
       }
     }
   }, [effectiveTicketId, fetchActiveTicket, clearCalled]);

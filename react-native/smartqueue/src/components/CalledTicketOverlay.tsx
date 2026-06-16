@@ -176,7 +176,7 @@ export const CalledTicketOverlay: React.FC<CalledTicketOverlayProps> = ({
 
   if (!visible) return null;
 
-  const isExpired = countdownSeconds <= 0;
+  const isExpired = countdownReady && countdownSeconds <= 0;
 
   return (
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={() => {}}>
