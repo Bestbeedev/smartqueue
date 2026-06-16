@@ -249,8 +249,8 @@ export default function Establishments() {
       const from = sevenDaysAgo.toISOString().split('T')[0]
       const to = now.toISOString().split('T')[0]
       const response = await api.get(`/api/admin/stats/series?bucket=day&from=${from}&to=${to}`)
-      const data = response.data?.data || response.data || []
-      setWeeklyTrend(Array.isArray(data) ? data : [])
+      const series = response.data?.series || response.data?.data?.series || response.data?.data || response.data || []
+      setWeeklyTrend(Array.isArray(series) ? series : [])
     } catch (error) {
       console.error('Erreur chargement tendance hebdo:', error)
       setWeeklyTrend([])
@@ -345,9 +345,11 @@ export default function Establishments() {
     return d.toLocaleDateString('fr-FR', { weekday: 'short' })
   }
 
-  const trendData = weeklyTrend.flatMap((day: any) => [
-    { name: formatDayLabel(day.date), value: Number(day.created ?? 0), color: '#3b82f6' }
-  ])
+  const trendData = weeklyTrend.map((day: any) => ({
+    name: formatDayLabel(day.bucket),
+    value: Number(day.created ?? 0),
+    color: '#3b82f6'
+  }))
 
   const maxPeakCount = peakHoursData.length > 0
     ? Math.max(...peakHoursData.map((h: any) => h.count ?? 0), 1)

@@ -501,7 +501,7 @@ export default function Services(){
         </Select>
       </div>
 
-      <div className="rounded-xl shadow-lg">
+      <div className="rounded-xl">
         {loading ? (
           <div className="overflow-auto rounded-md border shadow-lg border-border">
             <table className="min-w-full divide-y divide-border">

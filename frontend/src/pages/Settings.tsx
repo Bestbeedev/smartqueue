@@ -353,7 +353,7 @@ export default function Settings() {
   const currentPlanFeatures = getPlanFeatures(currentPlan)
 
   return (
-    <div className="container mx-auto px-4 py-8 ">
+    <div className="w-full mx-auto px-4 py-8 ">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Paramètres de l'établissement</h1>
         <p className="text-muted-foreground">
