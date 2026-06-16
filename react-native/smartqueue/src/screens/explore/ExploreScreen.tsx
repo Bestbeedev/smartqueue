@@ -301,6 +301,7 @@ export const ExploreScreen: React.FC = () => {
   const [showSortSheet, setShowSortSheet] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [ticketStoreVersion, setTicketStoreVersion] = useState(0);
+  const { favoriteIds, loadFavorites, toggleFavorite } = useFavorites();
   const [fabRefresh, setFabRefresh] = useState(0);
 
   useEffect(() => {
@@ -356,7 +357,6 @@ export const ExploreScreen: React.FC = () => {
   const { setCachedData, shouldUseCache, cachedEstablishments, forceRefresh } = useExploreCache();
   const { notifyCrowdLevelChange, notifyEstablishmentOpen } = useSimpleNotification();
   const notifiedEstablishmentsRef = useRef<Set<string>>(new Set());
-  const { favoriteIds, loadFavorites, toggleFavorite } = useFavorites();
 
   const establishmentCoords = React.useMemo(() => {
     if (!activeTicket?.establishment) return null;
