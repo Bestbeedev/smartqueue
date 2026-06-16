@@ -406,6 +406,12 @@ export default function AgentDashboard() {
     return "bg-red-500";
   };
 
+  const getAffluenceBadge = (count: number) => {
+    if (count >= 10) return { label: "Élevée", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200" };
+    if (count >= 5) return { label: "Modérée", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200" };
+    return { label: "Faible", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200" };
+  };
+
   const getGaugeColor = (score: number) => {
     if (score >= 75) return "#22c55e";
     if (score >= 50) return "#f59e0b";
@@ -831,6 +837,9 @@ export default function AgentDashboard() {
                           }
                         >
                           {service.waiting_count} en attente
+                        </Badge>
+                        <Badge className={cn("border text-xs", getAffluenceBadge(service.waiting_count).className)} variant="outline">
+                          {getAffluenceBadge(service.waiting_count).label}
                         </Badge>
                       </div>
                     </div>

@@ -62,6 +62,12 @@ import {
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
 
+function getAffluenceBadge(count: number) {
+  if (count >= 10) return { label: 'Élevée', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200' }
+  if (count >= 5) return { label: 'Modérée', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200' }
+  return { label: 'Faible', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200' }
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<any>(null)
@@ -1115,6 +1121,9 @@ export default function Dashboard() {
                         <Progress value={rate} className="h-2" />
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>{service.people_waiting || 0} en attente</span>
+                          <Badge variant="outline" className={cn('text-xs', getAffluenceBadge(service.people_waiting || 0).className)}>
+                            {getAffluenceBadge(service.people_waiting || 0).label}
+                          </Badge>
                           <span>{service.agents_count || 0} agents</span>
                         </div>
                       </div>
@@ -1199,6 +1208,9 @@ export default function Dashboard() {
                                 <Ticket className="h-3 w-3" />
                                 {service.people_waiting || 0} en attente
                               </span>
+                              <Badge variant="outline" className={cn('text-xs', getAffluenceBadge(service.people_waiting || 0).className)}>
+                                {getAffluenceBadge(service.people_waiting || 0).label}
+                              </Badge>
                             </div>
                           </div>
                         </div>

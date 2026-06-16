@@ -658,6 +658,8 @@ export default function AgentQueue() {
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [timeoutInput, setTimeoutInput] = useState("");
   const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
+  const [affluenceData, setAffluenceData] = useState<any>(null);
+  const [showAffluenceSheet, setShowAffluenceSheet] = useState(false);
   const [queueTab, setQueueTab] = useState<"today" | "deferred">("today");
   const [deferredDays, setDeferredDays] = useState<DeferredDay[]>([]);
   const [deferredTotal, setDeferredTotal] = useState(0);
@@ -680,8 +682,9 @@ export default function AgentQueue() {
 
       setTickets(waitingTickets);
       setFilteredTickets(waitingTickets);
+      setAffluenceData(statsRes.data);
       setStats({
-        waiting: statsRes.data?.waiting || statsRes.data?.people || 0,
+        waiting: statsRes.data?.people || 0,
         processed: statsRes.data?.processed || 0,
         avg_wait_time: statsRes.data?.eta_avg || statsRes.data?.average_wait_time || 0,
       });
@@ -988,7 +991,9 @@ export default function AgentQueue() {
       {stats && (
         <View style={[styles.kpiGrid, { paddingHorizontal: hPad, marginTop: 15 }]}>
           <View style={styles.kpiRow}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => affluenceData && setShowAffluenceSheet(true)} activeOpacity={0.7}>
             <KpiPill icon="people-outline" label="Attente" value={String(stats.waiting)} accent="#007AFF" colors={colors} />
+          </TouchableOpacity>
             <KpiPill icon="checkmark-done-outline" label="Traités" value={String(stats.processed)} accent="#34C759" colors={colors} />
           </View>
           <View style={styles.kpiRow}>
@@ -1396,6 +1401,81 @@ export default function AgentQueue() {
         </View>
       </Modal>
 
+      {/* Modal Affluence */}
+      <Modal visible={showAffluenceSheet} transparent animationType="slide" onRequestClose={() => setShowAffluenceSheet(false)}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={cmStyles.backdrop} activeOpacity={1} onPress={() => setShowAffluenceSheet(false)} />
+          <View style={[cmStyles.sheet, { backgroundColor: colors.background, maxHeight: "80%" }]}>
+            <View style={[cmStyles.handle, { backgroundColor: colors.border }]} />
+            <View style={[cmStyles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[cmStyles.sheetTitle, { color: colors.textPrimary }]}>Affluence</Text>
+              <TouchableOpacity onPress={() => setShowAffluenceSheet(false)} style={cmStyles.closeBtn}>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {affluenceData && (
+              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  <View style={[styles.affluenceStatBox, { borderColor: colors.border }]}>
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textSecondary }]}>En attente</Text>
+                    <Text style={[styles.affluenceStatValue, { color: affluenceData.level === 'high' ? '#FF3B30' : affluenceData.level === 'medium' ? '#FF9500' : '#34C759' }]}>
+                      {affluenceData.people ?? 0}
+                    </Text>
+                  </View>
+                  <View style={[styles.affluenceStatBox, { borderColor: colors.border }]}>
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textSecondary }]}>Attente moy.</Text>
+                    <Text style={[styles.affluenceStatValue, { color: colors.textPrimary }]}>~{affluenceData.eta_avg ?? '--'} min</Text>
+                  </View>
+                  <View style={[styles.affluenceStatBox, { borderColor: colors.border }]}>
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textSecondary }]}>Niveau</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <View style={[styles.affluenceDot, { backgroundColor: affluenceData.level === 'high' ? '#FF3B30' : affluenceData.level === 'medium' ? '#FF9500' : '#34C759' }]} />
+                      <Text style={[styles.affluenceStatValue, { color: colors.textPrimary, fontSize: 14 }]}>
+                        {affluenceData.level === 'high' ? 'Élevée' : affluenceData.level === 'medium' ? 'Modérée' : 'Faible'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                {affluenceData.hourly_data && affluenceData.hourly_data.length > 0 && (
+                  <>
+                    <Text style={[styles.affluenceChartTitle, { color: colors.textPrimary }]}>Créneaux d'affluence (30 jours)</Text>
+                    <View style={[styles.affluenceChart, { backgroundColor: colors.surfaceSecondary }]}>
+                      <View style={styles.affluenceChartBars}>
+                        {affluenceData.hourly_data.map((pt: any) => {
+                          const maxCount = Math.max(...affluenceData.hourly_data.map((d: any) => d.count), 1);
+                          const heightPct = (pt.count / maxCount) * 100;
+                          const barColor = affluenceData.peak_hours?.high?.includes(pt.hour) ? '#FF3B30'
+                            : affluenceData.peak_hours?.medium?.includes(pt.hour) ? '#FF9500'
+                            : colors.success + "60";
+                          return (
+                            <View key={pt.hour} style={styles.affluenceBarCol}>
+                              <View style={styles.affluenceBarWrapper}>
+                                <View style={[styles.affluenceBar, { height: `${Math.max(heightPct, 2)}%`, backgroundColor: barColor }]} />
+                              </View>
+                              <Text style={[styles.affluenceBarLabel, { color: colors.textTertiary }]}>
+                                {String(pt.hour).padStart(2, '0')}h
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </>
+                )}
+                {affluenceData.peak_hours?.high?.length > 0 && (
+                  <View style={[styles.affluenceTip, { backgroundColor: '#FF950012' }]}>
+                    <Ionicons name="bulb-outline" size={16} color="#FF9500" />
+                    <Text style={[styles.affluenceTipText, { color: colors.textSecondary }]}>
+                      Heures d'affluence : {affluenceData.peak_hours.high.map((h: number) => `${String(h).padStart(2,'0')}h`).join(', ')}.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {AlertComponent}
     </SafeAreaView>
   );
@@ -1529,6 +1609,19 @@ const styles = StyleSheet.create({
   historyTicket: { fontSize: 13, fontWeight: "600" },
   historyMeta: { fontSize: 10, marginTop: 1 },
   historyStatus: { fontSize: 12, fontWeight: "700" },
+  affluenceStatBox: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 10, alignItems: 'center' },
+  affluenceStatLabel: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+  affluenceStatValue: { fontSize: 18, fontWeight: "800", marginTop: 2 },
+  affluenceDot: { width: 8, height: 8, borderRadius: 4 },
+  affluenceChartTitle: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
+  affluenceChart: { borderRadius: 12, padding: 14, marginBottom: 12 },
+  affluenceChartBars: { flexDirection: "row", alignItems: "flex-end", height: 120, gap: 2 },
+  affluenceBarCol: { flex: 1, alignItems: "center" },
+  affluenceBarWrapper: { flex: 1, width: "100%", justifyContent: "flex-end", alignItems: "center" },
+  affluenceBar: { width: "100%", borderRadius: 3, minHeight: 2 },
+  affluenceBarLabel: { fontSize: 8, marginTop: 4 },
+  affluenceTip: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12 },
+  affluenceTipText: { fontSize: 12, flex: 1, lineHeight: 16 },
 });
 
 const tmStyles = StyleSheet.create({
