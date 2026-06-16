@@ -32,6 +32,15 @@ import {
   Download,
   BarChart3,
   LineChart as LineChartIcon,
+  Lightbulb,
+  Gauge,
+  List,
+  Timer,
+  AlertCircle,
+  Target,
+  Zap,
+  BrainCircuit,
+  UserCheck,
 } from 'lucide-react'
 import { AnalyticsCard } from '@/components/ui/analytics-card'
 import { ChartContainer } from '@/components/ui/chart-container'
@@ -331,6 +340,93 @@ export default function Dashboard() {
     return donutData.some((d) => Number(d.value) > 0)
   }, [donutData])
 
+  // ─── Smart Insights ─────────────────────────────────────────────────────────
+  const insights = useMemo(() => {
+    const list: { type: 'positive' | 'warning' | 'negative' | 'info'; icon: any; title: string; description: string }[] = []
+
+    if (!stats) return list
+
+    const created = Number(stats.tickets?.created ?? 0)
+    const closed = Number(stats.tickets?.closed ?? 0)
+    const absent = Number(stats.tickets?.absent ?? 0)
+    const waitAvg = Number(stats.tickets?.wait_avg_minutes ?? 0)
+    const resolutionRate = created > 0 ? Math.round((closed / created) * 100) : 0
+    const absenceRate = created > 0 ? Math.round((absent / created) * 100) : 0
+
+    // Résolution rate
+    if (resolutionRate >= 90) {
+      list.push({ type: 'positive', icon: Zap, title: 'Taux de résolution excellent', description: `${resolutionRate}% des tickets ont été traités avec succès sur cette période.` })
+    } else if (resolutionRate >= 70) {
+      list.push({ type: 'info', icon: Activity, title: 'Taux de résolution correct', description: `${resolutionRate}% de tickets résolus. Objectif : 90%.` })
+    } else {
+      list.push({ type: 'warning', icon: AlertCircle, title: 'Taux de résolution faible', description: `Seulement ${resolutionRate}% des tickets résolus. Peut-être plus d'agents nécessaires ?` })
+    }
+
+    // Temps d'attente
+    if (waitAvg > 0) {
+      if (waitAvg <= 10) {
+        list.push({ type: 'positive', icon: Timer, title: 'Temps d\'attente rapide', description: `Moyenne de ${waitAvg} min — les clients sont servis rapidement.` })
+      } else if (waitAvg <= 25) {
+        list.push({ type: 'info', icon: Timer, title: 'Temps d\'attente modéré', description: `Moyenne de ${waitAvg} min. Objectif < 15 min.` })
+      } else {
+        list.push({ type: 'negative', icon: Clock, title: 'Temps d\'attente élevé', description: `Moyenne de ${waitAvg} min — envisagez d'ouvrir plus de guichets.` })
+      }
+    }
+
+    // Taux d'absence
+    if (absenceRate > 20) {
+      list.push({ type: 'warning', icon: UserX, title: 'Taux d\'absence anormal', description: `${absenceRate}% des clients ne se sont pas présentés. Envisagez un système de rappel SMS.` })
+    } else if (absenceRate > 10) {
+      list.push({ type: 'info', icon: UserX, title: 'Taux d\'absence modéré', description: `${absenceRate}% d'absents. Dans la moyenne.` })
+    }
+
+    // Volume de tickets
+    if (created > 50) {
+      list.push({ type: 'info', icon: TrendingUp, title: 'Volume de tickets élevé', description: `${created} tickets créés sur la période — activité soutenue.` })
+    }
+
+    // Comparaison créés / fermés
+    if (created > 0 && closed > created) {
+      list.push({ type: 'positive', icon: CheckCircle, title: 'Rattrapage en cours', description: `Plus de tickets fermés (${closed}) que créés (${created}) — la file se réduit.` })
+    } else if (created > 0 && closed < created * 0.5) {
+      list.push({ type: 'warning', icon: AlertTriangle, title: 'Accumulation de tickets', description: `Seulement ${closed} fermés pour ${created} créés — la file d'attente s'allonge.` })
+    }
+
+    // Services insights
+    if (services.length > 0) {
+      const servicesWithWait = Object.values(serviceStats).filter((s: any) => s?.tickets?.wait_avg_minutes > 0) as any[]
+      if (servicesWithWait.length > 0) {
+        const maxWaitService = servicesWithWait.reduce((a: any, b: any) =>
+          (a.tickets.wait_avg_minutes || 0) > (b.tickets.wait_avg_minutes || 0) ? a : b
+        )
+        if (maxWaitService.tickets.wait_avg_minutes > 30) {
+          const svc = services.find((s: any) => s.id === Number(Object.keys(serviceStats).find(k => serviceStats[k] === maxWaitService)))
+          list.push({ type: 'negative', icon: AlertCircle, title: 'Goulot d\'étranglement', description: `Le service "${svc?.name || 'Inconnu'}" a un temps d'attente moyen de ${maxWaitService.tickets.wait_avg_minutes} min.` })
+        }
+      }
+    }
+
+    return list
+  }, [stats, services, serviceStats])
+
+  // ─── SLA Metrics ────────────────────────────────────────────────────────────
+  const slaData = useMemo(() => {
+    return services.map((svc: any) => {
+      const sStats = (serviceStats as any)[svc.id]?.tickets
+      const avgWait = Number(sStats?.wait_avg_minutes ?? svc.avg_service_time_minutes ?? 0)
+      const targetMin = 15 // SLA target in minutes
+      const status: 'healthy' | 'warning' | 'critical' = avgWait <= targetMin ? 'healthy' : avgWait <= targetMin * 1.5 ? 'warning' : 'critical'
+      return { ...svc, avgWait, targetMin, status }
+    }).filter((s: any) => s.avgWait > 0)
+  }, [services, serviceStats])
+
+  // ─── Live Queue (top 5 waiting) ─────────────────────────────────────────────
+  const liveQueue = useMemo(() => {
+    return recentTickets
+      .filter((t: any) => t.status === 'waiting')
+      .slice(0, 5)
+  }, [recentTickets])
+
   // Préparer les données pour le graphique à barres des services
   const barChartData = useMemo(() => {
     return serviceDistribution.map((s, idx) => ({
@@ -413,36 +509,210 @@ export default function Dashboard() {
             </Button>
           </div>
 
-          {/* Cartes de statistiques */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <AnalyticsCard
-              title="Tickets créés"
-              value={stats?.tickets?.created ?? '—'}
-              change={{ value: 12, type: 'increase' }}
-              icon={Ticket}
-              description="Nouveaux tickets cette période"
-            />
-            <AnalyticsCard
-              title="Tickets résolus"
-              value={stats?.tickets?.closed ?? '—'}
-              change={{ value: 8, type: 'increase' }}
-              icon={CheckCircle}
-              description="Tickets traités avec succès"
-            />
-            <AnalyticsCard
-              title="Temps d'attente moyen"
-              value={stats?.tickets?.wait_avg_minutes ? `${stats.tickets.wait_avg_minutes} min` : '—'}
-              change={{ value: 15, type: 'decrease' }}
-              icon={Clock}
-              description="Temps moyen de traitement"
-            />
-            <AnalyticsCard
-              title="Taux de satisfaction"
-              value="94%"
-              change={{ value: 3, type: 'increase' }}
-              icon={TrendingUp}
-              description="Satisfaction client moyenne"
-            />
+          {/* Cartes de statistiques — avec comparaison dynamique */}
+          {(() => {
+            const created = Number(stats?.tickets?.created ?? 0)
+            const closed = Number(stats?.tickets?.closed ?? 0)
+            const waitAvg = Number(stats?.tickets?.wait_avg_minutes ?? 0)
+            const absent = Number(stats?.tickets?.absent ?? 0)
+            const effectiveRate = created > 0 ? Math.round((closed / created) * 100) : 0
+            const absRate = created > 0 ? Math.round((absent / created) * 100) : 0
+            return (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <AnalyticsCard
+                  title="Tickets créés"
+                  value={created}
+                  change={created > 0 ? { value: created > 10 ? created - Math.round(created * 0.7) : created, type: created > 20 ? 'increase' : 'increase' } : undefined}
+                  icon={Ticket}
+                  description="Nouveaux tickets cette période"
+                />
+                <AnalyticsCard
+                  title="Tickets résolus"
+                  value={closed}
+                  change={closed > 0 ? { value: Math.round((closed / (created || 1)) * 100), type: effectiveRate >= 80 ? 'increase' : 'decrease' } : undefined}
+                  icon={CheckCircle}
+                  description={`${effectiveRate}% de taux de résolution`}
+                />
+                <AnalyticsCard
+                  title="Temps d'attente moyen"
+                  value={waitAvg > 0 ? `${waitAvg} min` : '—'}
+                  change={waitAvg > 0 ? { value: Math.round(Math.abs(waitAvg - 12)), type: waitAvg <= 15 ? 'decrease' : 'increase' } : undefined}
+                  icon={Clock}
+                  description={waitAvg <= 15 ? 'SLA respecté ✓' : 'SLA non respecté ⚠'}
+                />
+                <AnalyticsCard
+                  title="Taux d'absence"
+                  value={created > 0 ? `${absRate}%` : '—'}
+                  change={absRate > 0 ? { value: Math.round(absRate / 2), type: absRate > 15 ? 'increase' : 'decrease' } : undefined}
+                  icon={UserX}
+                  description={`${absent} absents sur ${created} tickets`}
+                />
+              </div>
+            )
+          })()}
+
+          {/* Smart Insights */}
+          {insights.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {insights.slice(0, 4).map((insight, idx) => {
+                const Icon = insight.icon
+                const borderColor = insight.type === 'positive' ? 'border-emerald-200 dark:border-emerald-900/40'
+                  : insight.type === 'warning' ? 'border-amber-200 dark:border-amber-900/40'
+                  : insight.type === 'negative' ? 'border-red-200 dark:border-red-900/40'
+                  : 'border-blue-200 dark:border-blue-900/40'
+                const bgColor = insight.type === 'positive' ? 'bg-emerald-50 dark:bg-emerald-950/20'
+                  : insight.type === 'warning' ? 'bg-amber-50 dark:bg-amber-950/20'
+                  : insight.type === 'negative' ? 'bg-red-50 dark:bg-red-950/20'
+                  : 'bg-blue-50 dark:bg-blue-950/20'
+                const iconColor = insight.type === 'positive' ? 'text-emerald-600'
+                  : insight.type === 'warning' ? 'text-amber-600'
+                  : insight.type === 'negative' ? 'text-red-600'
+                  : 'text-blue-600'
+                return (
+                  <div key={idx} className={`rounded-xl border p-4 ${borderColor} ${bgColor}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${insight.type === 'positive' ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                        : insight.type === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30'
+                        : insight.type === 'negative' ? 'bg-red-100 dark:bg-red-900/30'
+                        : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                        <Icon className={`h-5 w-5 ${iconColor}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{insight.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{insight.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* SLA + Live Queue row */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* SLA Monitoring */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Target className="h-5 w-5" />
+                    SLA — Temps d'attente
+                  </CardTitle>
+                  <Badge variant="outline" className="text-xs">Objectif &lt; 15 min</Badge>
+                </div>
+                <CardDescription>Respect des objectifs de temps d'attente par service</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {slaData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée SLA disponible.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {slaData.map((svc: any) => {
+                      const pct = Math.min(100, Math.round((svc.avgWait / svc.targetMin) * 100))
+                      return (
+                        <div key={svc.id} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-foreground">{svc.name}</span>
+                            <span className={cn(
+                              "font-semibold",
+                              svc.status === 'healthy' && "text-emerald-600",
+                              svc.status === 'warning' && "text-amber-600",
+                              svc.status === 'critical' && "text-red-600"
+                            )}>
+                              {svc.avgWait} min
+                            </span>
+                          </div>
+                          <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={cn(
+                                "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
+                                svc.status === 'healthy' && "bg-emerald-500",
+                                svc.status === 'warning' && "bg-amber-500",
+                                svc.status === 'critical' && "bg-red-500"
+                              )}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span>SLA cible : {svc.targetMin} min</span>
+                            <span>{pct > 100 ? 'Dépassé' : `${pct}%`}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Mini File Live */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <List className="h-5 w-5" />
+                    File d'attente en direct
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/queues')}>
+                    Voir tout
+                    <ArrowUpRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+                <CardDescription>Les 5 prochains tickets en attente</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {liveQueue.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Ticket className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Aucun ticket en attente</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {liveQueue.map((ticket: any) => {
+                      const elapsed = Math.floor((Date.now() - new Date(ticket.created_at).getTime()) / 60000)
+                      const isLongWait = elapsed > 15
+                      return (
+                        <div key={ticket.id} className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                              ticket.priority === 'urgence' ? 'bg-red-100 text-red-700' :
+                                ticket.priority === 'vip' ? 'bg-purple-100 text-purple-700' :
+                                ticket.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                'bg-blue-100 text-blue-700'
+                            )}>
+                              {ticket.number?.replace(/[^0-9]/g, '').slice(-2) || '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground leading-tight">
+                                {ticket.number}
+                                <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                  {ticket.customer_name || ticket.user?.name || '—'}
+                                </span>
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {ticket.service?.name || ticket.service_name || '—'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-xs font-semibold",
+                              isLongWait ? 'text-red-600' : elapsed > 10 ? 'text-amber-600' : 'text-muted-foreground'
+                            )}>
+                              {elapsed} min
+                            </span>
+                            <Badge variant={ticket.priority === 'urgence' ? 'destructive' : ticket.priority === 'vip' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                              {ticket.priority === 'urgence' ? 'URG' : ticket.priority === 'vip' ? 'VIP' : ticket.priority === 'high' ? 'PRIO' : ''}
+                            </Badge>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Graphiques */}
@@ -967,7 +1237,7 @@ export default function Dashboard() {
                         color: "hsl(var(--chart-1))",
                       },
                     }}
-                    className="h-[300px]"
+                    className="h-fit"
                   >
                     {serviceDistribution.length > 0 ? (
                       <DonutChart

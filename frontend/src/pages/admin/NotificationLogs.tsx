@@ -91,7 +91,7 @@ export default function NotificationLogs() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl space-y-4">
+    <div className=" mx-auto px-4 py-8 w-full space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Historique des notifications envoyées</h1>

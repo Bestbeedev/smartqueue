@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { api } from '@/api/axios'
 import { cn } from '@/lib/utils'
 import { AnalyticsCard } from '@/components/ui/analytics-card'
@@ -7,6 +7,9 @@ import { AreaChartComponent, DonutChart, VerticalBarChart, LineChartComponent } 
 import {
   Ticket, CheckCircle2, UserX, Clock, Timer, CalendarClock,
   Activity, Star, Target, CalendarDays, RefreshCw,
+  TrendingUp, TrendingDown, Lightbulb,
+  ArrowUpRight, ArrowDownRight, Minus,
+  BrainCircuit, BarChart4, Gauge, ListChecks, ThumbsUp, ThumbsDown, Meh,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -150,6 +153,68 @@ function RateBadge({ rate, label }: { rate: number; label?: string }) {
   )
 }
 
+function computePrediction(series: SeriesPoint[]) {
+  if (series.length < 2) return null
+  const n = Math.min(3, series.length - 1)
+  const deltas = { created: 0, closed: 0, absent: 0 }
+  for (let i = series.length - n; i < series.length; i++) {
+    deltas.created += series[i].created - series[i - 1].created
+    deltas.closed += series[i].closed - series[i - 1].closed
+    deltas.absent += series[i].absent - series[i - 1].absent
+  }
+  const last = series[series.length - 1]
+  return {
+    created: Math.max(0, Math.round(last.created + deltas.created / n)),
+    closed: Math.max(0, Math.round(last.closed + deltas.closed / n)),
+    absent: Math.max(0, Math.round(last.absent + deltas.absent / n)),
+  }
+}
+
+function computeNPS(distribution: Array<{ rating: number; count: number }>) {
+  const total = distribution.reduce((s, d) => s + d.count, 0)
+  if (total === 0) return null
+  const promoters = distribution.filter(d => d.rating >= 4).reduce((s, d) => s + d.count, 0)
+  const detractors = distribution.filter(d => d.rating <= 2).reduce((s, d) => s + d.count, 0)
+  const passives = total - promoters - detractors
+  return {
+    nps: Math.round(((promoters - detractors) / total) * 100),
+    promotersPct: Math.round((promoters / total) * 100),
+    passivesPct: Math.round((passives / total) * 100),
+    detractorsPct: Math.round((detractors / total) * 100),
+  }
+}
+
+type TrendDir = 'up' | 'down' | 'flat'
+
+function linearRegression(values: number[]) {
+  const n = values.length
+  if (n < 2) return null
+  const xMean = (n - 1) / 2
+  const yMean = values.reduce((a, b) => a + b, 0) / n
+  let num = 0, den = 0
+  for (let i = 0; i < n; i++) {
+    num += (i - xMean) * (values[i] - yMean)
+    den += (i - xMean) * (i - xMean)
+  }
+  const slope = den === 0 ? 0 : num / den
+  let direction: TrendDir = 'flat'
+  if (slope > 0.5) direction = 'up'
+  else if (slope < -0.5) direction = 'down'
+  return {
+    predicted: Math.max(0, Math.round(slope * n + (yMean - slope * xMean))),
+    slope,
+    direction,
+  }
+}
+
+const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+function getDayName(dateStr: string): string | null {
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return null
+  return DAY_NAMES[d.getDay()]
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function Stats() {
@@ -272,6 +337,64 @@ export default function Stats() {
         </div>
       </div>
 
+      {/* ── Key Takeaways ── */}
+      {k && advanced && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {(() => {
+            const insights: Array<{ icon: any; text: string; color: string; bg: string }> = []
+
+            const completionColor = k.completion_rate >= 70 ? 'text-green-600' : k.completion_rate >= 50 ? 'text-amber-600' : 'text-red-600'
+            const completionBg = k.completion_rate >= 70 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : k.completion_rate >= 50 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+            insights.push({
+              icon: Target,
+              text: `Taux de réalisation : ${k.completion_rate}%`,
+              color: completionColor,
+              bg: completionBg,
+            })
+
+            if (k.absenteeism_rate > 0) {
+              const absColor = k.absenteeism_rate > 20 ? 'text-red-600' : k.absenteeism_rate > 10 ? 'text-amber-600' : 'text-green-600'
+              const absBg = k.absenteeism_rate > 20 ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' : k.absenteeism_rate > 10 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+              insights.push({
+                icon: UserX,
+                text: `Absentéisme : ${k.absenteeism_rate}%`,
+                color: absColor,
+                bg: absBg,
+              })
+            }
+
+            if (pk) {
+              const compDiff = pk.completion_rate > 0 ? Math.round(((k.completion_rate - pk.completion_rate) / pk.completion_rate) * 100) : 0
+              const trendIcon = compDiff > 0 ? TrendingUp : compDiff < 0 ? TrendingDown : null
+              const trendColor = compDiff >= 0 ? 'text-green-600' : 'text-red-600'
+              const trendBg = compDiff >= 0 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              if (trendIcon) {
+                insights.push({
+                  icon: trendIcon,
+                  text: `Tendance taux réal. : ${compDiff > 0 ? '+' : ''}${compDiff}% vs période précédente`,
+                  color: trendColor,
+                  bg: trendBg,
+                })
+              }
+            }
+
+            return insights.slice(0, 3).map((insight, i) => (
+              <div key={i} className={cn('flex items-start gap-3 rounded-lg border p-3', insight.bg)}>
+                <div className={cn('mt-0.5 shrink-0', insight.color)}>
+                  <insight.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className={cn('text-xs font-medium', insight.color)}>{insight.text}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {i === 0 ? 'Tickets servis / créés' : i === 1 ? 'Non présentés' : 'Comparaison inter-période'}
+                  </p>
+                </div>
+              </div>
+            ))
+          })()}
+        </div>
+      )}
+
       {/* ── Tab Navigation ── */}
       <div className="flex gap-0 border-b border-border overflow-x-auto">
         {TABS.map(t => (
@@ -356,6 +479,103 @@ export default function Stats() {
               icon={CalendarClock}
               description="Renvoyés au lendemain"
             />
+          </div>
+
+          {/* Innovations row */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Predictive Trend Card */}
+            {series.length >= 2 && (() => {
+              const pred = computePrediction(series)
+              if (!pred) return null
+              const last = series[series.length - 1]
+              const CreateIcon = pred.created > last.created ? TrendingUp : pred.created < last.created ? TrendingDown : Minus
+              const CloseIcon = pred.closed > last.closed ? TrendingUp : pred.closed < last.closed ? TrendingDown : Minus
+              const AbsentIcon = pred.absent > last.absent ? TrendingUp : pred.absent < last.absent ? TrendingDown : Minus
+              const createColor = pred.created > last.created ? 'text-green-500' : pred.created < last.created ? 'text-red-500' : 'text-muted-foreground'
+              const closeColor = pred.closed > last.closed ? 'text-green-500' : pred.closed < last.closed ? 'text-red-500' : 'text-muted-foreground'
+              const absentColor = pred.absent > last.absent ? 'text-red-500' : pred.absent < last.absent ? 'text-green-500' : 'text-muted-foreground'
+              return (
+                <div className="bg-card rounded-xl shadow-lg border border-border p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BrainCircuit className="h-4 w-4 text-blue-500" />
+                    <span className="text-sm font-medium text-foreground">Prévision prochaine période</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Créés</div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold text-foreground">{pred.created}</span>
+                        <CreateIcon className={cn("h-3.5 w-3.5", createColor)} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Servis</div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold text-foreground">{pred.closed}</span>
+                        <CloseIcon className={cn("h-3.5 w-3.5", closeColor)} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Absents</div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold text-foreground">{pred.absent}</span>
+                        <AbsentIcon className={cn("h-3.5 w-3.5", absentColor)} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Performance at a Glance */}
+            {k && (
+              <div className="bg-card rounded-xl shadow-lg border border-border p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gauge className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm font-medium text-foreground">Performance en un coup d'œil</span>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Taux de réalisation</span>
+                      <span className="font-bold text-foreground">{k.completion_rate}%</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all bg-green-500"
+                        style={{ width: `${Math.min(k.completion_rate, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Taux d'absentéisme</span>
+                      <span className="font-bold text-foreground">{k.absenteeism_rate}%</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          k.absenteeism_rate > 20 ? 'bg-red-500' : k.absenteeism_rate > 10 ? 'bg-amber-500' : 'bg-green-500'
+                        )}
+                        style={{ width: `${Math.min(k.absenteeism_rate, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  {(() => {
+                    const perfIndex = Math.round(k.completion_rate * (1 - k.absenteeism_rate / 100))
+                    const perfColor = perfIndex >= 70 ? 'text-green-600' : perfIndex >= 50 ? 'text-amber-600' : 'text-red-600'
+                    const perfBg = perfIndex >= 70 ? 'bg-green-50 dark:bg-green-950/20' : perfIndex >= 50 ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-red-50 dark:bg-red-950/20'
+                    return (
+                      <div className={cn("flex items-center justify-between rounded-lg p-2.5 mt-1", perfBg)}>
+                        <span className="text-sm font-medium text-muted-foreground">Indice de performance</span>
+                        <span className={cn("text-lg font-bold", perfColor)}>{perfIndex}</span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Indicators row */}
@@ -582,6 +802,59 @@ export default function Stats() {
                   ))}
                 </div>
               </ChartContainer>
+
+              {/* Service Ranking */}
+              <ChartContainer title="Classement des services" description="Top 3 et flop 3 par taux de réalisation">
+                {(() => {
+                  const sorted = [...advanced.by_service].sort((a, b) => b.completion_rate - a.completion_rate)
+                  const top3 = sorted.slice(0, 3)
+                  const bottom3 = sorted.slice(-3).reverse()
+                  return (
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                          <TrendingUp className="h-4 w-4 text-green-500" />
+                          Meilleurs services
+                        </h4>
+                        <div className="space-y-2">
+                          {top3.map((s, i) => (
+                            <div key={s.service_id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{['🥇', '🥈', '🥉'][i]}</span>
+                                <span className="text-sm font-medium text-foreground">{s.service_name}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-green-600 font-medium">{s.completion_rate}% réalis.</span>
+                                <span className="text-xs text-amber-600">{s.absenteeism_rate}% abs.</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                          <TrendingDown className="h-4 w-4 text-red-500" />
+                          Services à améliorer
+                        </h4>
+                        <div className="space-y-2">
+                          {bottom3.map(s => (
+                            <div key={s.service_id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">📉</span>
+                                <span className="text-sm font-medium text-foreground">{s.service_name}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-green-600 font-medium">{s.completion_rate}% réalis.</span>
+                                <span className="text-xs text-amber-600">{s.absenteeism_rate}% abs.</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </ChartContainer>
             </>
           )}
         </div>
@@ -683,6 +956,41 @@ export default function Stats() {
                   />
                 </ChartContainer>
               )}
+
+              {/* Day-of-Week Analysis */}
+              {series.length > 0 && bucket === 'day' && (() => {
+                const dayTotals: Record<string, { created: number; closed: number; absent: number }> = {}
+                series.forEach(point => {
+                  const day = getDayName(point.bucket)
+                  if (!day) return
+                  if (!dayTotals[day]) dayTotals[day] = { created: 0, closed: 0, absent: 0 }
+                  dayTotals[day].created += point.created
+                  dayTotals[day].closed += point.closed
+                  dayTotals[day].absent += point.absent
+                })
+                const maxVal = Math.max(...Object.values(dayTotals).map(d => d.created), 1)
+                const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+                const daysWithData = dayOrder.filter(d => dayTotals[d]?.created > 0)
+                if (daysWithData.length === 0) return null
+                return (
+                  <ChartContainer title="Analyse par jour de la semaine" description="Volume de tickets créés par jour">
+                    <div className="flex gap-2 flex-wrap justify-center">
+                      {daysWithData.map(day => {
+                        const data = dayTotals[day]!
+                        const intensity = Math.round((data.created / maxVal) * 100)
+                        const bgColor = intensity > 75 ? 'bg-blue-600' : intensity > 50 ? 'bg-blue-500' : intensity > 25 ? 'bg-blue-400' : 'bg-blue-200'
+                        return (
+                          <div key={day} className={cn("flex flex-col items-center p-3 rounded-lg min-w-[85px] text-white", bgColor)}>
+                            <span className="text-xs font-medium opacity-90">{day.slice(0, 3)}</span>
+                            <span className="text-lg font-bold">{data.created}</span>
+                            <span className="text-xs opacity-75">{data.closed} servis</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </ChartContainer>
+                )
+              })()}
             </>
           )}
         </div>
@@ -765,6 +1073,49 @@ export default function Stats() {
               )}
             </ChartContainer>
           )}
+
+          {/* Trend Prediction */}
+          {series.length >= 2 && (() => {
+            const createdLR = linearRegression(series.map(s => s.created))
+            const closedLR = linearRegression(series.map(s => s.closed))
+            const absentLR = linearRegression(series.map(s => s.absent))
+            if (!createdLR) return null
+            const TrendIcon = createdLR.direction === 'up' ? TrendingUp : createdLR.direction === 'down' ? TrendingDown : Minus
+            const trendColor = createdLR.direction === 'up' ? 'text-green-600' : createdLR.direction === 'down' ? 'text-red-600' : 'text-muted-foreground'
+            return (
+              <ChartContainer title="Prédiction de tendance" description="Régression linéaire sur les données de la période">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Créés (prochaine période)</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold text-foreground">{createdLR.predicted}</span>
+                      <TrendIcon className={cn("h-4 w-4", trendColor)} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Servis (prochaine période)</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold text-foreground">{closedLR?.predicted ?? '—'}</span>
+                      {closedLR && (closedLR.direction === 'up' ? <TrendingUp className="h-4 w-4 text-green-500" /> : closedLR.direction === 'down' ? <TrendingDown className="h-4 w-4 text-red-500" /> : <Minus className="h-4 w-4 text-muted-foreground" />)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Absents (prochaine période)</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold text-foreground">{absentLR?.predicted ?? '—'}</span>
+                      {absentLR && (absentLR.direction === 'up' ? <TrendingUp className="h-4 w-4 text-amber-500" /> : absentLR.direction === 'down' ? <TrendingDown className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-muted-foreground" />)}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <TrendIcon className={cn("h-4 w-4", trendColor)} />
+                  <span className="text-xs text-muted-foreground">
+                    Tendance actuelle : {createdLR.direction === 'up' ? 'à la hausse ↗' : createdLR.direction === 'down' ? 'à la baisse ↘' : 'stable →'}
+                  </span>
+                </div>
+              </ChartContainer>
+            )
+          })()}
         </div>
       )}
 
@@ -802,6 +1153,38 @@ export default function Stats() {
                   </div>
                 </div>
               </div>
+
+              {/* Resolution Time Estimation */}
+              {advanced.deferred.total > 0 && (() => {
+                const avgMinutesPerTicket = 15
+                const estimatedMinutes = advanced.deferred.total * avgMinutesPerTicket
+                const estimatedHours = Math.round(estimatedMinutes / 60 * 10) / 10
+                const progressPct = k ? Math.round((k.served / Math.max(k.total, 1)) * 100) : 0
+                return (
+                  <div className="bg-card rounded-xl shadow-lg border border-border p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-foreground">Temps estimé de traitement</span>
+                    </div>
+                    <div className="flex items-baseline gap-1 mb-3">
+                      <span className="text-2xl font-bold text-foreground">{estimatedHours}</span>
+                      <span className="text-sm text-muted-foreground">heures estimées</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>Progression du traitement</span>
+                        <span>{progressPct}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-purple-500 transition-all"
+                          style={{ width: `${Math.min(progressPct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Reason breakdown */}
               {advanced.deferred.by_reason.some(r => r.count > 0) ? (
@@ -896,6 +1279,55 @@ export default function Stats() {
                   <div className="text-3xl font-bold text-foreground">{reviews.services.length}</div>
                 </div>
               </div>
+
+              {/* NPS Score */}
+              {(() => {
+                const npsData = computeNPS(reviews.distribution)
+                if (!npsData) return null
+                const npsColor = npsData.nps >= 50 ? 'text-green-600' : npsData.nps >= 0 ? 'text-amber-600' : 'text-red-600'
+                const npsBg = npsData.nps >= 50 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : npsData.nps >= 0 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                return (
+                  <div className={cn("rounded-xl border p-5", npsBg)}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <ThumbsUp className="h-4 w-4 text-foreground" />
+                      <span className="text-sm font-medium text-foreground">NPS - Net Promoter Score</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className={cn("text-4xl font-bold", npsColor)}>{npsData.nps > 0 ? `+${npsData.nps}` : npsData.nps}</span>
+                      <span className="text-sm text-muted-foreground">sur 100</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-green-600 font-medium">Promoteurs</span>
+                          <span className="text-muted-foreground">{npsData.promotersPct}%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-green-500" style={{ width: `${npsData.promotersPct}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-amber-600 font-medium">Passifs</span>
+                          <span className="text-muted-foreground">{npsData.passivesPct}%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-amber-400" style={{ width: `${npsData.passivesPct}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-red-600 font-medium">Détracteurs</span>
+                          <span className="text-muted-foreground">{npsData.detractorsPct}%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-red-500" style={{ width: `${npsData.detractorsPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Distribution */}

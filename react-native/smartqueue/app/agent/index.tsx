@@ -24,6 +24,18 @@ type Counter = {
   status: string;
 };
 
+type PerformanceData = {
+  daily: {
+    date: string;
+    total: number;
+    closed: number;
+    absent: number;
+  }[];
+  total_closed: number;
+  total_absent: number;
+  avg_service_time: number | null;
+};
+
 export default function AgentHome() {
   const colors = useThemeColors();
   const { user, logout } = useAuth();
@@ -35,6 +47,7 @@ export default function AgentHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isTogglingCounter, setIsTogglingCounter] = useState(false);
+  const [weeklyPerformance, setWeeklyPerformance] = useState<PerformanceData | null>(null);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -84,15 +97,26 @@ export default function AgentHome() {
     }
   };
 
+  const fetchWeeklyPerformance = async () => {
+    try {
+      const response = await axiosClient.get('/agent/dashboard/performance');
+      setWeeklyPerformance(response.data);
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadData();
+      fetchWeeklyPerformance();
     }, [user])
   );
 
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+    fetchWeeklyPerformance();
   };
 
   const navigateToProfile = () => router.push('/agent/profile');
@@ -151,7 +175,6 @@ export default function AgentHome() {
     router.push(`/agent/priority?serviceId=${selectedService.id}`);
   };
 
-  // Render service item
   const renderServiceItem = ({ item }: { item: Service }) => (
     <TouchableOpacity
       style={[
@@ -171,7 +194,6 @@ export default function AgentHome() {
     </TouchableOpacity>
   );
 
-  // Render counter item
   const renderCounterItem = ({ item }: { item: Counter }) => (
     <View style={[
       styles.counterCard,
@@ -196,6 +218,41 @@ export default function AgentHome() {
       </TouchableOpacity>
     </View>
   );
+
+  const getInsightData = () => {
+    if (!selectedService) return null;
+    const peopleWaiting = selectedService.people_waiting || 0;
+    const avgTime = selectedService.avg_service_time_minutes || 5;
+    
+    if (peopleWaiting > 5) {
+      return {
+        message: `⚠️ ${peopleWaiting} personnes en attente — affluence élevée`,
+        emoji: '😟',
+        color: '#FF9500',
+      };
+    }
+    if (avgTime > 10) {
+      return {
+        message: `⏱ Temps de service élevé (${avgTime} min)`,
+        emoji: '😕',
+        color: '#FF9500',
+      };
+    }
+    return {
+      message: '✅ Bonne affluence, temps de service normal',
+      emoji: '😊',
+      color: '#4CAF50',
+    };
+  };
+
+  const dayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+  const todayData = weeklyPerformance?.daily?.[weeklyPerformance.daily.length - 1];
+  const completionRate = todayData && todayData.total > 0
+    ? Math.round((todayData.closed / todayData.total) * 100)
+    : 0;
+
+  const insight = getInsightData();
 
   return (
     <ScrollView 
@@ -288,6 +345,30 @@ export default function AgentHome() {
         </View>
       </View>
 
+      {/* Weekly Mini Chart */}
+      {weeklyPerformance && weeklyPerformance.daily && weeklyPerformance.daily.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Tickets cette semaine</Text>
+          <View style={[styles.weeklyChartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.barsRow}>
+              {weeklyPerformance.daily.map((day, index) => {
+                const maxClosed = Math.max(...weeklyPerformance.daily.map(d => d.closed), 1);
+                const barHeight = (day.closed / maxClosed) * 60;
+                return (
+                  <View key={day.date} style={styles.barColumn}>
+                    <View style={[styles.bar, { height: barHeight, backgroundColor: colors.primary, opacity: 0.7 + (day.closed / maxClosed) * 0.3 }]} />
+                    <Text style={[styles.barLabel, { color: colors.textSecondary }]}>{dayLabels[index] || ''}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={[styles.weeklySummary, { color: colors.textSecondary }]}>
+              {weeklyPerformance.total_closed} tickets traités cette semaine
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Statistiques compactes */}
       {selectedService && (
         <View style={styles.section}>
@@ -302,6 +383,22 @@ export default function AgentHome() {
               <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.avg_service_time_minutes || 5} min</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Temps moyen</Text>
             </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <View style={[styles.ring, { borderColor: completionRate >= 50 ? '#4CAF50' : '#FF9500' }]}>
+                <Text style={[styles.ringText, { color: colors.textPrimary }]}>{completionRate}%</Text>
+              </View>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Taux complétion</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Smart Insight Bar */}
+      {selectedService && insight && (
+        <View style={styles.section}>
+          <View style={[styles.insightCard, { backgroundColor: insight.color + '15', borderColor: insight.color + '40' }]}>
+            <Text style={[styles.insightText, { color: insight.color }]}>{insight.emoji} {insight.message}</Text>
           </View>
         </View>
       )}
@@ -364,4 +461,17 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: '700' },
   statLabel: { fontSize: 10, marginTop: 2 },
   statDivider: { width: 1, marginVertical: 8 },
+
+  weeklyChartCard: { padding: 16, borderRadius: 14, borderWidth: 1 },
+  barsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 80 },
+  barColumn: { alignItems: 'center', flex: 1 },
+  bar: { width: 16, borderRadius: 4, minHeight: 4 },
+  barLabel: { fontSize: 10, marginTop: 4 },
+  weeklySummary: { fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 10 },
+
+  ring: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  ringText: { fontSize: 11, fontWeight: '700' },
+
+  insightCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
+  insightText: { fontSize: 13, fontWeight: '500' },
 });

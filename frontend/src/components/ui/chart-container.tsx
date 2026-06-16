@@ -22,7 +22,7 @@ export function ChartContainer({
   return (
     <Card className={cn(
       "bg-card border-border transition-all duration-300 hover:shadow-xl",
-      "shadow-lg shadow-gray-900/10 dark:shadow-black/20",
+      
       className
     )}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">

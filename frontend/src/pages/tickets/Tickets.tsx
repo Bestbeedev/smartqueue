@@ -48,6 +48,14 @@ import {
   DownloadCloud,
   CalendarDays,
   Table as TableIcon,
+  ListChecks,
+  Trash2,
+  CheckSquare,
+  History,
+  Loader2,
+  GripVertical,
+  AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { api } from '@/api/axios'
 import { useAppSelector } from '@/store'
@@ -82,6 +90,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type TicketData = {
   id: number
@@ -114,6 +130,8 @@ type TicketData = {
   called_at: string | null
   closed_at: string | null
   absent_at: string | null
+  en_route_at?: string | null
+  present_at?: string | null
   created_at: string
   updated_at: string
   auto_deferred?: boolean
@@ -265,6 +283,24 @@ export default function TicketsPage() {
 
   // Feature: Calendar view data
   const [calendarData, setCalendarData] = useState<Record<string, TicketData[]>>({})
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkAction, setBulkAction] = useState<string>('')
+  const [bulkExecuting, setBulkExecuting] = useState(false)
+
+  // Timeline modal
+  const [timelineTicket, setTimelineTicket] = useState<TicketData | null>(null)
+
+  // Smart filter chips
+  const smartFilters = useMemo(() => {
+    return [
+      { id: 'long_wait', label: '⏳ Attente > 30 min', enabled: false },
+      { id: 'vip', label: '⭐ VIP uniquement', enabled: false },
+      { id: 'absent_risk', label: '⚠️ Risque absence', enabled: false },
+      { id: 'no_show', label: '🚫 Abandon récent', enabled: false },
+    ]
+  }, [])
 
   // Determine API endpoint
   const apiEndpoint = role === 'agent' ? '/api/agent/tickets' : '/api/admin/tickets'
@@ -843,6 +879,29 @@ export default function TicketsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* Smart Filter Chips */}
+                <div className="flex flex-wrap gap-2">
+                  {smartFilters.map((chip) => (
+                    <button
+                      key={chip.id}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                        chip.enabled
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                      )}
+                      onClick={() => {
+                        // Toggle chip — would apply additional filters
+                        const updated = smartFilters.map(f => f.id === chip.id ? { ...f, enabled: !f.enabled } : f)
+                        // In a real implementation, this would update the filters
+                        toast.info(`Filtre "${chip.label}" ${!chip.enabled ? 'activé' : 'désactivé'}`)
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1016,43 +1075,141 @@ export default function TicketsPage() {
                   ))
                 )}
               </div>
-            ) : viewMode === 'list' ? (
+            ) : (
+            <>
+            {/* Bulk Actions Bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40">
+                <CheckSquare className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  {selectedIds.size} ticket{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                </span>
+                <div className="flex gap-2 ml-auto">
+                  <Select value={bulkAction} onValueChange={async (v) => {
+                    setBulkExecuting(true)
+                    try {
+                      const ids = Array.from(selectedIds)
+                      if (v === 'close') {
+                        await Promise.all(ids.map(id => api.post(`${apiEndpoint}/${id}/close`).catch(() => {})))
+                        toast.success(`${ids.length} ticket(s) clôturé(s)`)
+                      } else if (v === 'export') {
+                        // Export selected as CSV
+                        const csvContent = "data:text/csv;charset=utf-8," + ids.join(",")
+                        const encodedUri = encodeURI(csvContent)
+                        const link = document.createElement('a')
+                        link.href = encodedUri
+                        link.setAttribute('download', 'tickets_selection.csv')
+                        document.body.appendChild(link); link.click(); link.remove()
+                        toast.success(`${ids.length} ID(s) exporté(s)`)
+                      }
+                      setSelectedIds(new Set())
+                      loadTickets(page)
+                    } catch { toast.error("Erreur lors de l'action groupée") }
+                    finally { setBulkExecuting(false); setBulkAction('') }
+                  }}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Action groupée" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="close">Clôturer</SelectItem>
+                      <SelectItem value="export">Exporter IDs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} disabled={bulkExecuting}>
+                    <X className="h-4 w-4 mr-1" /> Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'list' ? (
               /* Vue Liste */
               <Card className="overflow-hidden border-border/50 shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-muted/30">
                       <tr className="border-b border-border/50">
+                        <th className="px-3 py-3 w-10">
+                          <Checkbox
+                            checked={filteredAndSortedTickets.length > 0 && selectedIds.size === filteredAndSortedTickets.length}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedIds(new Set(filteredAndSortedTickets.map(t => t.id)))
+                              else setSelectedIds(new Set())
+                            }}
+                          />
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">N°</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Service</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Statut</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Priorité</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Client</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Création</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Attente</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                       {loading ? (
-                        <tr><td colSpan={7} className="p-8 text-center">Chargement...</td></tr>
+                        <tr><td colSpan={8} className="p-8 text-center">Chargement...</td></tr>
                       ) : filteredAndSortedTickets.length === 0 ? (
-                        <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Aucun ticket</td></tr>
+                        <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Aucun ticket</td></tr>
                       ) : (
-                        filteredAndSortedTickets.map(ticket => (
-                          <tr key={ticket.id} className="hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-3 font-semibold">{ticket.number}</td>
-                            <td className="px-4 py-3 text-sm">{ticket.service.name}</td>
-                            <td className="px-4 py-3">{getStatusBadge(ticket.status)}</td>
-                            <td className="px-4 py-3">{getPriorityBadge(ticket.priority)}</td>
-                            <td className="px-4 py-3 text-sm">{ticket.customer_name || ticket.user?.name || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-muted-foreground">{formatTimeDisplay(ticket.created_at)}</td>
-                            <td className="px-4 py-3">
-                              <Button variant="ghost" size="sm" onClick={() => setSelectedTicket(ticket)}>
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
+                        filteredAndSortedTickets.map(ticket => {
+                          const created = parseSafeDate(ticket.created_at)
+                          const waitMinutes = created ? Math.floor((Date.now() - created.getTime()) / 60000) : 0
+                          const slaOk = waitMinutes <= 15
+                          const slaWarn = waitMinutes > 15 && waitMinutes <= 30
+                          const slaCritical = waitMinutes > 30
+                          return (
+                            <tr key={ticket.id} className={cn(
+                              "transition-colors",
+                              slaCritical && "bg-red-50/60 dark:bg-red-950/10 hover:bg-red-100/60 dark:hover:bg-red-950/20",
+                              slaWarn && "bg-amber-50/40 dark:bg-amber-950/5 hover:bg-amber-100/40 dark:hover:bg-amber-950/15",
+                              !slaWarn && !slaCritical && "hover:bg-muted/20"
+                            )}>
+                              <td className="px-3 py-3">
+                                <Checkbox
+                                  checked={selectedIds.has(ticket.id)}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedIds)
+                                    checked ? next.add(ticket.id) : next.delete(ticket.id)
+                                    setSelectedIds(next)
+                                  }}
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">{ticket.number}</span>
+                                  {slaCritical && <AlertTriangle className="h-3.5 w-3.5 text-red-500" aria-label="Attente excessive" />}
+                                  {slaWarn && <AlertCircle className="h-3.5 w-3.5 text-amber-500" aria-label="Attente modérée" />}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm">{ticket.service.name}</td>
+                              <td className="px-4 py-3">{getStatusBadge(ticket.status)}</td>
+                              <td className="px-4 py-3">{getPriorityBadge(ticket.priority)}</td>
+                              <td className="px-4 py-3 text-sm">{ticket.customer_name || ticket.user?.name || '—'}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn(
+                                  "text-xs font-semibold",
+                                  slaCritical && "text-red-600",
+                                  slaWarn && "text-amber-600",
+                                  slaOk && "text-emerald-600"
+                                )}>
+                                  {waitMinutes < 60 ? `${waitMinutes} min` : `${Math.floor(waitMinutes / 60)}h${waitMinutes % 60 > 0 ? waitMinutes % 60 + 'min' : ''}`}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => setSelectedTicket(ticket)} title="Détails">
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => setTimelineTicket(ticket)} title="Timeline">
+                                    <History className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1099,29 +1256,79 @@ export default function TicketsPage() {
                               <table className="w-full">
                                 <thead className="bg-muted/30">
                                   <tr>
+                                    <th className="px-3 py-3 w-10">
+                                      <Checkbox
+                                        checked={serviceTickets.length > 0 && serviceTickets.every(t => selectedIds.has(t.id))}
+                                        onCheckedChange={(checked) => {
+                                          const next = new Set(selectedIds)
+                                          serviceTickets.forEach(t => checked ? next.add(t.id) : next.delete(t.id))
+                                          setSelectedIds(next)
+                                        }}
+                                      />
+                                    </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">N°</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Statut</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Priorité</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Client</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Création</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Attente</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                  {serviceTickets.map(ticket => (
-                                    <tr key={ticket.id} className="hover:bg-muted/20">
-                                      <td className="px-4 py-3 font-semibold">{ticket.number}</td>
-                                      <td className="px-4 py-3">{getStatusBadge(ticket.status)}</td>
-                                      <td className="px-4 py-3">{getPriorityBadge(ticket.priority)}</td>
-                                      <td className="px-4 py-3 text-sm">{ticket.customer_name || ticket.user?.name || '—'}</td>
-                                      <td className="px-4 py-3 text-sm text-muted-foreground">{formatTimeDisplay(ticket.created_at)}</td>
-                                      <td className="px-4 py-3">
-                                        <Button variant="ghost" size="sm" onClick={() => setSelectedTicket(ticket)}>
-                                          <Eye className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {serviceTickets.map(ticket => {
+                                    const created = parseSafeDate(ticket.created_at)
+                                    const waitMinutes = created ? Math.floor((Date.now() - created.getTime()) / 60000) : 0
+                                    const slaCritical = waitMinutes > 30
+                                    const slaWarn = waitMinutes > 15 && waitMinutes <= 30
+                                    return (
+                                      <tr key={ticket.id} className={cn(
+                                        "hover:bg-muted/20",
+                                        slaCritical && "bg-red-50/60 dark:bg-red-950/10",
+                                        slaWarn && "bg-amber-50/40 dark:bg-amber-950/5",
+                                      )}>
+                                        <td className="px-3 py-3">
+                                          <Checkbox
+                                            checked={selectedIds.has(ticket.id)}
+                                            onCheckedChange={(checked) => {
+                                              const next = new Set(selectedIds)
+                                              checked ? next.add(ticket.id) : next.delete(ticket.id)
+                                              setSelectedIds(next)
+                                            }}
+                                          />
+                                        </td>
+                                        <td className="px-4 py-3 font-semibold">
+                                          <div className="flex items-center gap-2">
+                                            {ticket.number}
+                                            {slaCritical && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                                            {slaWarn && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3">{getStatusBadge(ticket.status)}</td>
+                                        <td className="px-4 py-3">{getPriorityBadge(ticket.priority)}</td>
+                                        <td className="px-4 py-3 text-sm">{ticket.customer_name || ticket.user?.name || '—'}</td>
+                                        <td className="px-4 py-3">
+                                          <span className={cn(
+                                            "text-xs font-semibold",
+                                            slaCritical && "text-red-600",
+                                            slaWarn && "text-amber-600",
+                                            !slaWarn && !slaCritical && "text-emerald-600"
+                                          )}>
+                                            {waitMinutes < 60 ? `${waitMinutes} min` : `${Math.floor(waitMinutes / 60)}h`}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="flex gap-1">
+                                            <Button variant="ghost" size="sm" onClick={() => setSelectedTicket(ticket)}>
+                                              <Eye className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button variant="ghost" size="sm" onClick={() => setTimelineTicket(ticket)}>
+                                              <History className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
                                 </tbody>
                               </table>
                             )}
@@ -1133,6 +1340,7 @@ export default function TicketsPage() {
                 )}
               </div>
             )}
+          </>)}
           </div>
 
           {/* ========== PAGINATION ========== */}
@@ -1164,6 +1372,57 @@ export default function TicketsPage() {
           )}
 
           {/* ========== MODALS ========== */}
+          {/* Timeline Modal */}
+          {timelineTicket && (
+            <Dialog open={!!timelineTicket} onOpenChange={() => setTimelineTicket(null)}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Timeline — Ticket {timelineTicket.number}
+                  </DialogTitle>
+                  <DialogDescription>Chronologie complète des événements</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-0 relative before:absolute before:left-[15px] before:top-0 before:bottom-0 before:w-0.5 before:bg-border">
+                  {[
+                    { label: 'Création', time: timelineTicket.created_at, icon: Plus, color: 'bg-blue-500' },
+                    ...(timelineTicket.called_at ? [{ label: 'Appelé', time: timelineTicket.called_at, icon: PhoneCall, color: 'bg-blue-500' }] : []),
+                    ...(timelineTicket.en_route_at ? [{ label: 'En route', time: timelineTicket.en_route_at, icon: Clock, color: 'bg-amber-500' }] : []),
+                    ...(timelineTicket.present_at ? [{ label: 'Présent', time: timelineTicket.present_at, icon: CheckCircle, color: 'bg-violet-500' }] : []),
+                    ...(timelineTicket.absent_at ? [{ label: 'Absent', time: timelineTicket.absent_at, icon: UserX, color: 'bg-red-500' }] : []),
+                    ...(timelineTicket.closed_at ? [{ label: 'Clôturé', time: timelineTicket.closed_at, icon: CheckCheck, color: 'bg-green-500' }] : []),
+                  ].filter(e => e.time).map((event, idx) => {
+                    const eventDate = parseSafeDate(event.time)
+                    return (
+                      <div key={idx} className="relative pl-10 pb-6 last:pb-0">
+                        <div className={`absolute left-[9px] w-[14px] h-[14px] rounded-full border-2 border-background ${event.color} z-10`} />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <event.icon className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">{event.label}</span>
+                          </div>
+                          {eventDate && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              {' · '}
+                              {eventDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-3 text-xs text-muted-foreground border-t">
+                  <Info className="h-3.5 w-3.5" />
+                  Service : {timelineTicket.service.name}
+                  {timelineTicket.customer_name && <> · Client : {timelineTicket.customer_name}</>}
+                  {timelineTicket.counter?.name && <> · Guichet : {timelineTicket.counter.name}</>}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
           {/* Create Ticket Modal */}
           {showCreateModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">

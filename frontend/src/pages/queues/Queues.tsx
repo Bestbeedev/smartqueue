@@ -28,6 +28,13 @@ import {
   Settings2,
   CalendarClock,
   CalendarCheck2,
+  Search,
+  Filter,
+  History,
+  Clock,
+  UserCircle,
+  BarChart3,
+  Info,
 } from "lucide-react";
 import { getEcho } from "@/api/echo";
 import { cn } from "@/lib/utils";
@@ -267,6 +274,28 @@ const Queues: React.FC = () => {
   const [deferredTotal, setDeferredTotal] = useState(0);
   const echo = getEcho();
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Recherche + Filtres
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Profil client
+  const [clientProfileTicket, setClientProfileTicket] = useState<QueueTicket | null>(null);
+  const [clientProfileData, setClientProfileData] = useState<any>(null);
+  const [clientProfileLoading, setClientProfileLoading] = useState(false);
+
+  // Fil d'activité
+  type ActivityEvent = {
+    id: string;
+    type: string;
+    ticket_number: string;
+    message: string;
+    timestamp: Date;
+    status?: string;
+  };
+  const [activities, setActivities] = useState<ActivityEvent[]>([]);
 
   // Récupérer le nom du service sélectionné
   const selectedServiceName = useMemo(() => {
@@ -650,9 +679,26 @@ const Queues: React.FC = () => {
             channel = echo.channel(`service.${serviceId}`);
             if (channel) {
               channel
-                .listen('.service.ticket.called', () => { if (!cancelled) refreshQueueAndStats(false); })
-                .listen('.service.ticket.enqueued', () => { if (!cancelled) refreshQueueAndStats(false); })
-                .listen('.service.ticket.absent', () => { if (!cancelled) refreshQueueAndStats(false); })
+                .listen('.service.ticket.called', (e: any) => {
+                  if (!cancelled) {
+                    refreshQueueAndStats(false);
+                    addActivity('called', e?.ticket_number || '?', 'Appelé');
+                  }
+                })
+                .listen('.service.ticket.enqueued', (e: any) => {
+                  if (!cancelled) {
+                    refreshQueueAndStats(false);
+                    addActivity('enqueued', e?.ticket_number || '?', 'Nouveau ticket en file');
+                  }
+                })
+                .listen('.service.ticket.absent', (e: any) => {
+                  if (!cancelled) {
+                    refreshQueueAndStats(false);
+                    const level = e?.absent_level ?? 1;
+                    const max = e?.max_call_attempts ?? 2;
+                    addActivity('absent', e?.ticket_number || '?', level >= max ? 'Absence définitive' : 'Absence temporaire');
+                  }
+                })
                 .listen('.service.stats.updated', (e: any) => { if (!cancelled && e.stats) setStats(e.stats); })
                 .listen('.user.en_route', (e: any) => {
                   if (!cancelled) {
@@ -661,6 +707,19 @@ const Queues: React.FC = () => {
                       duration: 5000,
                     });
                     refreshQueueAndStats(false);
+                    addActivity('en_route', e?.ticket_number || '?', 'En route vers le guichet');
+                  }
+                })
+                .listen('.service.ticket.closed', (e: any) => {
+                  if (!cancelled) {
+                    refreshQueueAndStats(false);
+                    addActivity('closed', e?.ticket_number || '?', 'Servi / Clôturé');
+                  }
+                })
+                .listen('.service.ticket.recalled', (e: any) => {
+                  if (!cancelled) {
+                    refreshQueueAndStats(false);
+                    addActivity('recalled', e?.ticket_number || '?', 'Rappelé');
                   }
                 });
               setIsConnected(true);
@@ -698,6 +757,57 @@ const Queues: React.FC = () => {
       return;
     }
     refreshQueueAndStats(true);
+  };
+
+  const fetchClientProfile = async (ticket: QueueTicket) => {
+    setClientProfileTicket(ticket);
+    setClientProfileLoading(true);
+    setClientProfileData(null);
+    try {
+      const { data } = await api.get(`/api/tickets/${ticket.id}/client-profile`);
+      setClientProfileData(data);
+    } catch (e: any) {
+      toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
+    } finally {
+      setClientProfileLoading(false);
+    }
+  };
+
+  // File filtrée (recherche + status + priorité)
+  const filteredQueue = useMemo(() => {
+    let items = queue;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(t =>
+        t.number.toLowerCase().includes(q) ||
+        (t.customer_name || "").toLowerCase().includes(q) ||
+        (t.customer_phone || "").toLowerCase().includes(q) ||
+        (t.display_name || "").toLowerCase().includes(q)
+      );
+    }
+    if (statusFilter.length > 0) {
+      items = items.filter(t => statusFilter.includes(t.status));
+    }
+    if (priorityFilter.length > 0) {
+      items = items.filter(t => priorityFilter.includes(t.priority));
+    }
+    return items;
+  }, [queue, searchQuery, statusFilter, priorityFilter]);
+
+  // Ajouter une activité
+  const addActivity = (type: string, ticketNumber: string, message: string) => {
+    setActivities(prev => {
+      const event: ActivityEvent = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type,
+        ticket_number: ticketNumber,
+        message,
+        timestamp: new Date(),
+      };
+      const updated = [event, ...prev];
+      if (updated.length > 200) return updated.slice(0, 200);
+      return updated;
+    });
   };
 
   const refreshData = () => {
@@ -903,6 +1013,100 @@ const Queues: React.FC = () => {
           <div className="p-6">
             {serviceId && (
               <>
+                {/* Barre de recherche + Filtres */}
+                <div className="mb-4 space-y-3">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Rechercher par n° ticket, nom ou téléphone…"
+                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={cn(
+                        "inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors",
+                        showFilters
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-card text-foreground border-border hover:bg-muted"
+                      )}
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filtres
+                      {(statusFilter.length > 0 || priorityFilter.length > 0) && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-xs font-bold">
+                          {statusFilter.length + priorityFilter.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  {showFilters && (
+                    <div className="flex flex-col md:flex-row gap-4 p-4 rounded-lg border border-border bg-muted/30">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Statut</p>
+                        <div className="flex flex-wrap gap-2">
+                          {["waiting","called","en_route","present","absent"].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => setStatusFilter(prev =>
+                                prev.includes(s) ? prev.filter(v => v !== s) : [...prev, s]
+                              )}
+                              className={cn(
+                                "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                                statusFilter.includes(s)
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-card text-muted-foreground border-border hover:bg-muted"
+                              )}
+                            >
+                              {s === "waiting" ? "En attente"
+                                : s === "called" ? "Appelé"
+                                : s === "en_route" ? "En route"
+                                : s === "present" ? "Présent"
+                                : "Absent"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Priorité</p>
+                        <div className="flex flex-wrap gap-2">
+                          {["normal","high","vip","urgence"].map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => setPriorityFilter(prev =>
+                                prev.includes(p) ? prev.filter(v => v !== p) : [...prev, p]
+                              )}
+                              className={cn(
+                                "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                                priorityFilter.includes(p)
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-card text-muted-foreground border-border hover:bg-muted"
+                              )}
+                            >
+                              {p === "urgence" ? "🚨 Urgence"
+                                : p === "vip" ? "⭐ VIP"
+                                : p === "high" ? "🔥 Haute"
+                                : "📋 Normal"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {(statusFilter.length > 0 || priorityFilter.length > 0) && (
+                        <button
+                          onClick={() => { setStatusFilter([]); setPriorityFilter([]); }}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium self-end"
+                        >
+                          Réinitialiser les filtres
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
@@ -966,16 +1170,22 @@ const Queues: React.FC = () => {
                 {/* VUE FILE DU JOUR */}
                 {queueView === "today" && (queue.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">Aucun ticket en attente aujourd'hui</div>
+                ) : filteredQueue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-6 text-center bg-muted/40 rounded-xl border-2 border-dashed border-border">Aucun ticket ne correspond aux filtres sélectionnés</div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-border">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted"><tr><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ticket</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Priorité</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tentatives</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Présence usager</th><th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th></tr></thead>
                         <tbody className="bg-card divide-y divide-border">
-                          {queue.map((t) => {
+                          {filteredQueue.map((t) => {
                             const createdDate = parseDate(t.created_at);
                             return (
-                              <tr key={t.id} className="hover:bg-muted/50 transition-colors">
+                              <tr
+                                key={t.id}
+                                className="hover:bg-muted/50 transition-colors cursor-pointer"
+                                onClick={() => fetchClientProfile(t)}
+                              >
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="font-semibold text-foreground">{t.number}</div>
                                   {t.position && <div className="text-xs text-muted-foreground">#{t.position}</div>}
@@ -1218,6 +1428,41 @@ const Queues: React.FC = () => {
               </div>
             )}
 
+            {/* Fil d'activité en direct */}
+            {serviceId && activities.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-foreground flex items-center mb-3">
+                  <History className="mr-2 text-blue-600" />
+                  Fil d'activité en direct
+                  {isConnected && <span className="ml-2 w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />}
+                </h2>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card">
+                  <div className="divide-y divide-border">
+                    {activities.slice(0, 50).map((event) => (
+                      <div key={event.id} className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted/30">
+                        <span className="text-xs text-muted-foreground font-mono shrink-0 w-12">
+                          {event.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold shrink-0",
+                          event.type === "called" && "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+                          event.type === "enqueued" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
+                          event.type === "absent" && event.message.includes("définitive") ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+                          event.type === "en_route" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+                          event.type === "closed" && "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+                          event.type === "recalled" && "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+                        )}>
+                          <Clock className="h-3 w-3" />
+                          {event.ticket_number}
+                        </span>
+                        <span className="text-foreground">{event.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center"><Ticket className="mr-2 text-blue-600" />Derniers tickets appelés</h2>
               {tickets.length > 0 && <span className="text-sm text-muted-foreground">Affichage des {Math.min(tickets.length, 10)} derniers</span>}
@@ -1258,6 +1503,124 @@ const Queues: React.FC = () => {
           <p>Système de gestion de file d'attente en temps réel • {new Date().getFullYear()}</p>
         </div>
       </div>
+
+      {/* Modal Profil Client */}
+      {clientProfileTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setClientProfileTicket(null); setClientProfileData(null); }}>
+          <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* En-tête */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-5 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <UserCircle className="h-8 w-8" />
+                  <div>
+                    <h3 className="text-lg font-bold">{clientProfileTicket.customer_name || clientProfileTicket.display_name || `Ticket #${clientProfileTicket.number}`}</h3>
+                    <p className="text-blue-100 text-sm">Ticket {clientProfileTicket.number}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setClientProfileTicket(null); setClientProfileData(null); }} className="p-1 hover:bg-blue-700 rounded-full transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {clientProfileLoading ? (
+              <div className="p-8 text-center">
+                <div className="inline-block h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-sm text-muted-foreground">Chargement du profil…</p>
+              </div>
+            ) : clientProfileData ? (
+              <div className="p-5 space-y-5">
+                {/* Coordonnées */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Téléphone</p>
+                    <p className="text-base font-medium text-foreground">{clientProfileData.customer_phone || "Non renseigné"}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Visites</p>
+                    <p className="text-base font-medium text-foreground">{clientProfileData.total_visits}</p>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40">
+                    <div className="flex items-center gap-2">
+                      <UserX className="h-4 w-4 text-orange-600" />
+                      <p className="text-xs text-orange-600 dark:text-orange-400 uppercase font-semibold">Absences</p>
+                    </div>
+                    <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{clientProfileData.absent_count}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-blue-600" />
+                      <p className="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold">Tps service moy.</p>
+                    </div>
+                    <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                      {clientProfileData.avg_service_seconds != null
+                        ? `${Math.floor(clientProfileData.avg_service_seconds / 60)} min ${clientProfileData.avg_service_seconds % 60}s`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tickets récents */}
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <Ticket className="h-4 w-4 text-muted-foreground" />
+                    Historique des tickets
+                    <span className="text-xs text-muted-foreground font-normal">({clientProfileData.recent_tickets.length} derniers)</span>
+                  </h4>
+                  <div className="max-h-52 overflow-y-auto space-y-1">
+                    {clientProfileData.recent_tickets.map((t: any) => {
+                      const statusLabel = t.status === "closed" ? "Servi"
+                        : t.status === "absent" && t.absent_level >= clientProfileTicket.max_call_attempts ? "Absent définitif"
+                        : t.status === "absent" ? "Absent (rappel)"
+                        : t.status === "called" ? "Appelé"
+                        : t.status === "en_route" ? "En route"
+                        : t.status === "present" ? "Présent"
+                        : t.status === "waiting" ? "En attente"
+                        : t.status;
+                      const statusColor = t.status === "closed" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                        : t.status === "absent" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                        : t.status === "called" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                        : t.status === "en_route" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : t.status === "present" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300";
+                      return (
+                        <div key={t.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm text-foreground">{t.number}</span>
+                            <span className="text-xs text-muted-foreground">{t.service_name || "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {t.counter_name && <span className="text-xs text-muted-foreground">Guichet {t.counter_name}</span>}
+                            <span className={cn("px-2 py-0.5 rounded text-xs font-medium", statusColor)}>{statusLabel}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Bouton fermer */}
+                <button
+                  onClick={() => { setClientProfileTicket(null); setClientProfileData(null); }}
+                  className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <Info className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Impossible de charger le profil.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Dialog de configuration du délai de priorité */}
       {showTimeoutDialog && (

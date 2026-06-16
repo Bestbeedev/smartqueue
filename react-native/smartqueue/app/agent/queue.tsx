@@ -340,7 +340,7 @@ const CurrentTicketCard = ({ ticket, onRecall, onAbsent, onClose, isActing, colo
 };
 
 // TicketRow complètement refait pour meilleur alignement
-const TicketRow = ({ item, index, colors, onAbsent }: any) => {
+const TicketRow = ({ item, index, colors, onAbsent, onPress }: any) => {
   const prio = PRIORITY_CFG[item.priority] ?? PRIORITY_CFG.normal;
   const statusCfg = STATUS_CFG[item.status] ?? { color: "#8E8E93", label: item.status };
   const etaLabel = typeof item.eta_minutes === "number" && item.eta_minutes > 0 ? `≈ ${item.eta_minutes}min` : null;
@@ -353,7 +353,11 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
   if (item.is_pregnant) specialAttrs.push({ icon: "body-outline", color: "#FF6B9D" });
 
   return (
-    <View style={[styles.ticketRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <TouchableOpacity
+      style={[styles.ticketRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={() => onPress?.(item)}
+      activeOpacity={0.7}
+    >
       {/* Position avec badge priorité */}
       <View style={[styles.ticketPosition, { backgroundColor: prio.color + "18", borderColor: prio.color + "40" }]}>
         <Text style={[styles.ticketPositionText, { color: prio.color }]}>{item.position ?? index + 1}</Text>
@@ -430,7 +434,7 @@ const TicketRow = ({ item, index, colors, onAbsent }: any) => {
           <Ionicons name="person-remove-outline" size={16} color="#FF3B30" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -631,6 +635,13 @@ export default function AgentQueue() {
   const [refreshing, setRefreshing] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<string>("open");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [clientProfileTicket, setClientProfileTicket] = useState<Ticket | null>(null);
+  const [clientProfileData, setClientProfileData] = useState<any>(null);
+  const [clientProfileLoading, setClientProfileLoading] = useState(false);
+  const [activities, setActivities] = useState<{ id: string; type: string; ticket_number: string; message: string; timestamp: Date }[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState<CreateTicketForm>({
     priority: "normal",
@@ -743,11 +754,13 @@ export default function AgentQueue() {
 
         echoRef.current = echo;
         echo.join(`service.${serviceId}`)
-          .listen(".user.en_route", () => { if (isActive) fetchData(); })
-          .listen(".service.ticket.called", () => { if (isActive) fetchData(); })
-          .listen(".service.ticket.absent", () => { if (isActive) fetchData(); })
-          .listen(".service.ticket.served", () => { if (isActive) fetchData(); })
-          .listen(".service.stats.updated", () => { if (isActive) fetchData(); });
+          .listen(".user.en_route", (e: any) => { if (isActive) { fetchData(); addActivity('en_route', e?.ticket_number || '?', 'En route vers le guichet'); } })
+          .listen(".service.ticket.called", (e: any) => { if (isActive) { fetchData(); addActivity('called', e?.ticket_number || '?', 'Appelé'); } })
+          .listen(".service.ticket.absent", (e: any) => { if (isActive) { fetchData(); const level = e?.absent_level ?? 1; const max = e?.max_call_attempts ?? 2; addActivity('absent', e?.ticket_number || '?', level >= max ? 'Absence définitive' : 'Absence temporaire'); } })
+          .listen(".service.ticket.served", (e: any) => { if (isActive) { fetchData(); addActivity('closed', e?.ticket_number || '?', 'Servi / Clôturé'); } })
+          .listen(".service.stats.updated", () => { if (isActive) fetchData(); })
+          .listen(".service.ticket.recalled", (e: any) => { if (isActive) { fetchData(); addActivity('recalled', e?.ticket_number || '?', 'Rappelé'); } })
+          .listen(".service.ticket.enqueued", (e: any) => { if (isActive) { fetchData(); addActivity('enqueued', e?.ticket_number || '?', 'Nouveau ticket en file'); } });
       };
       connectRealtime();
       return () => {
@@ -757,13 +770,46 @@ export default function AgentQueue() {
     }, [serviceId, fetchData])
   );
 
-  useEffect(() => {
-    if (!searchQuery.trim()) setFilteredTickets(tickets);
-    else {
-      const q = searchQuery.toLowerCase();
-      setFilteredTickets(tickets.filter(t => t.number.toLowerCase().includes(q) || String(t.position ?? "").includes(q)));
+  const addActivity = (type: string, ticketNumber: string, message: string) => {
+    setActivities(prev => {
+      const event = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, ticket_number: ticketNumber, message, timestamp: new Date() };
+      const updated = [event, ...prev];
+      return updated.length > 200 ? updated.slice(0, 200) : updated;
+    });
+  };
+
+  const fetchClientProfile = async (ticket: Ticket) => {
+    setClientProfileTicket(ticket);
+    setClientProfileLoading(true);
+    setClientProfileData(null);
+    try {
+      const { data } = await axiosClient.get(`/tickets/${ticket.id}/client-profile`);
+      setClientProfileData(data);
+    } catch (error: any) {
+      // silent
+    } finally {
+      setClientProfileLoading(false);
     }
-  }, [searchQuery, tickets]);
+  };
+
+  useEffect(() => {
+    let items = tickets;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(t =>
+        t.number.toLowerCase().includes(q) ||
+        (t.customer_name || "").toLowerCase().includes(q) ||
+        String(t.position ?? "").includes(q)
+      );
+    }
+    if (statusFilter.length > 0) {
+      items = items.filter(t => statusFilter.includes(t.status));
+    }
+    if (priorityFilter.length > 0) {
+      items = items.filter(t => priorityFilter.includes(t.priority));
+    }
+    setFilteredTickets(items);
+  }, [searchQuery, tickets, statusFilter, priorityFilter]);
 
   const handleCallNext = async () => {
     if (!serviceId) return;
@@ -1026,10 +1072,81 @@ export default function AgentQueue() {
                 <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              onPress={() => setShowFilters(!showFilters)}
+              style={[styles.filterToggle, { backgroundColor: showFilters ? "#007AFF" : "transparent", borderColor: showFilters ? "#007AFF" : colors.border }]}
+            >
+              <Ionicons name="funnel" size={14} color={showFilters ? "#FFF" : colors.textSecondary} />
+            </TouchableOpacity>
           </View>
+
+          {showFilters && (
+            <View style={{ paddingHorizontal: hPad, marginBottom: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  {["waiting","called","en_route","present","absent"].map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => setStatusFilter(prev => prev.includes(s) ? prev.filter(v => v !== s) : [...prev, s])}
+                      style={[styles.filterChip, {
+                        backgroundColor: statusFilter.includes(s) ? "#007AFF" : colors.surface,
+                        borderColor: statusFilter.includes(s) ? "#007AFF" : colors.border,
+                      }]}
+                    >
+                      <Text style={[styles.filterChipText, { color: statusFilter.includes(s) ? "#FFF" : colors.textSecondary }]}>
+                        {s === "waiting" ? "Attente" : s === "called" ? "Appelé" : s === "en_route" ? "En route" : s === "present" ? "Présent" : "Absent"}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  {["normal","high","vip","urgence"].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      onPress={() => setPriorityFilter(prev => prev.includes(p) ? prev.filter(v => v !== p) : [...prev, p])}
+                      style={[styles.filterChip, {
+                        backgroundColor: priorityFilter.includes(p) ? "#007AFF" : colors.surface,
+                        borderColor: priorityFilter.includes(p) ? "#007AFF" : colors.border,
+                      }]}
+                    >
+                      <Text style={[styles.filterChipText, { color: priorityFilter.includes(p) ? "#FFF" : colors.textSecondary }]}>
+                        {p === "urgence" ? "Urgence" : p === "vip" ? "VIP" : p === "high" ? "Prioritaire" : "Normal"}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Fil d'activité */}
+          {activities.length > 0 && (
+            <View style={{ paddingHorizontal: hPad, marginBottom: 8 }}>
+              <View style={[styles.activityFeed, { borderColor: colors.border }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, paddingHorizontal: 8, paddingTop: 6 }}>
+                  <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.activityTitle, { color: colors.textSecondary }]}>Activité</Text>
+                </View>
+                <ScrollView style={{ maxHeight: 80 }} nestedScrollEnabled>
+                  {activities.slice(0, 20).map((event) => (
+                    <View key={event.id} style={styles.activityRow}>
+                      <Text style={[styles.activityTime, { color: colors.textTertiary }]}>
+                        {event.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                      <Text style={[styles.activityTicket, { color: colors.textPrimary }]}>#{event.ticket_number}</Text>
+                      <Text style={[styles.activityMessage, { color: colors.textSecondary }]} numberOfLines={1}>{event.message}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          )}
+
           <FlatList
             data={filteredTickets}
-            renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} />}
+            renderItem={({ item, index }) => <TicketRow item={item} index={index} colors={colors} onAbsent={handleMarkAbsent} onPress={fetchClientProfile} />}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 6, paddingBottom: serviceStatus === "open" ? 200 : 24, flexGrow: 1 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
@@ -1153,6 +1270,79 @@ export default function AgentQueue() {
           </View>
         </View>
       )}
+
+      {/* Modal Profil Client */}
+      <Modal visible={!!clientProfileTicket} transparent animationType="slide" onRequestClose={() => { setClientProfileTicket(null); setClientProfileData(null); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <TouchableOpacity style={cmStyles.backdrop} activeOpacity={1} onPress={() => { setClientProfileTicket(null); setClientProfileData(null); }} />
+          <View style={[cmStyles.sheet, { backgroundColor: colors.background, maxHeight: "80%" }]}>
+            <View style={[cmStyles.handle, { backgroundColor: colors.border }]} />
+            <View style={[cmStyles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <View>
+                <Text style={[cmStyles.sheetTitle, { color: colors.textPrimary }]}>
+                  {clientProfileTicket?.customer_name || clientProfileTicket?.display_name || `Ticket #${clientProfileTicket?.number}`}
+                </Text>
+                <Text style={[cmStyles.sheetSub, { color: colors.textSecondary }]}>Ticket {clientProfileTicket?.number}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setClientProfileTicket(null); setClientProfileData(null); }} style={cmStyles.closeBtn}>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {clientProfileLoading ? (
+              <View style={{ padding: 40, alignItems: "center" }}>
+                <Ionicons name="hourglass-outline" size={24} color={colors.textSecondary} />
+                <Text style={[cmStyles.sheetSub, { color: colors.textSecondary, marginTop: 8 }]}>Chargement...</Text>
+              </View>
+            ) : clientProfileData ? (
+              <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+                <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+                  <View style={[styles.profileStatBox, { borderColor: colors.border }]}>
+                    <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>Téléphone</Text>
+                    <Text style={[styles.profileStatValue, { color: colors.textPrimary }]}>{clientProfileData.customer_phone || "—"}</Text>
+                  </View>
+                  <View style={[styles.profileStatBox, { borderColor: colors.border }]}>
+                    <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>Visites</Text>
+                    <Text style={[styles.profileStatValue, { color: colors.textPrimary }]}>{clientProfileData.total_visits}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+                  <View style={[styles.profileStatBox, { borderColor: "#FF950040", backgroundColor: "#FF950008" }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                      <Ionicons name="person-remove" size={14} color="#FF9500" />
+                      <Text style={[styles.profileStatLabel, { color: "#FF9500" }]}>Absences</Text>
+                    </View>
+                    <Text style={[styles.profileStatValue, { color: "#FF9500" }]}>{clientProfileData.absent_count}</Text>
+                  </View>
+                  <View style={[styles.profileStatBox, { borderColor: "#007AFF40", backgroundColor: "#007AFF08" }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                      <Ionicons name="bar-chart" size={14} color="#007AFF" />
+                      <Text style={[styles.profileStatLabel, { color: "#007AFF" }]}>Tps moy.</Text>
+                    </View>
+                    <Text style={[styles.profileStatValue, { color: "#007AFF" }]}>
+                      {clientProfileData.avg_service_seconds != null
+                        ? `${Math.floor(clientProfileData.avg_service_seconds / 60)}min ${clientProfileData.avg_service_seconds % 60}s`
+                        : "—"}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[cmStyles.sectionLabel, { color: colors.textSecondary, marginBottom: 8 }]}>Historique</Text>
+                {clientProfileData.recent_tickets?.map((t: any) => {
+                  const statusLabel = t.status === "closed" ? "Servi" : t.status === "absent" ? "Absent" : t.status === "called" ? "Appelé" : t.status === "en_route" ? "En route" : t.status === "present" ? "Présent" : t.status;
+                  return (
+                    <View key={t.id} style={[styles.historyRow, { borderBottomColor: colors.border }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.historyTicket, { color: colors.textPrimary }]}>{t.number}</Text>
+                        <Text style={[styles.historyMeta, { color: colors.textSecondary }]}>{t.service_name || "—"} {t.counter_name ? `· ${t.counter_name}` : ""}</Text>
+                      </View>
+                      <Text style={[styles.historyStatus, { color: t.status === "closed" ? "#34C759" : t.status === "absent" ? "#FF3B30" : colors.textSecondary }]}>{statusLabel}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <CreateTicketModal
         visible={showCreateModal}
@@ -1322,6 +1512,22 @@ const styles = StyleSheet.create({
   deferredPriorityText: { fontSize: 11, fontWeight: "600" },
   deferredReasonBadge: { backgroundColor: "#FF950018", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
   deferredReasonText: { color: "#CC7700", fontSize: 10, fontWeight: "600" },
+  filterToggle: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1 },
+  filterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1 },
+  filterChipText: { fontSize: 11, fontWeight: "600" },
+  activityFeed: { borderRadius: 10, borderWidth: 1, overflow: "hidden", paddingBottom: 4 },
+  activityTitle: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  activityRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 2 },
+  activityTime: { fontSize: 10, fontFamily: "monospace", width: 40 },
+  activityTicket: { fontSize: 10, fontWeight: "700", fontFamily: "monospace" },
+  activityMessage: { fontSize: 10, flex: 1 },
+  profileStatBox: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 10 },
+  profileStatLabel: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+  profileStatValue: { fontSize: 16, fontWeight: "800", marginTop: 2 },
+  historyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8, borderBottomWidth: 0.5 },
+  historyTicket: { fontSize: 13, fontWeight: "600" },
+  historyMeta: { fontSize: 10, marginTop: 1 },
+  historyStatus: { fontSize: 12, fontWeight: "700" },
 });
 
 const tmStyles = StyleSheet.create({

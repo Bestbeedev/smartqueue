@@ -6,16 +6,21 @@
  * - PUT /api/admin/services/{id} (édition)
  * Champs: establishment_id, name, avg_service_time_minutes, status (open/closed), priority_support
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { api } from '@/api/axios'
 import DataTable from '@/components/DataTable'
 import Modal from '@/components/Modal'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download, CalendarClock, Bell } from 'lucide-react'
+import { Plus, Ticket, Edit, Trash2, Pencil, QrCode, Download, CalendarClock, Bell, Search, ArrowUpDown, Star, Loader2, Activity, Clock, Layers } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import ServiceScheduleModal from '@/components/ServiceScheduleModal'
 import ServiceSoundModal from '@/components/ServiceSoundModal'
+import { AnalyticsCard } from '@/components/ui/analytics-card'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 type Service = {
   id:number;
@@ -56,6 +61,15 @@ export default function Services(){
   const [createErrors, setCreateErrors] = useState<Record<string,string>>({})
   const [editErrors, setEditErrors] = useState<Record<string,string>>({})
 
+  // Recherche, filtres, tri, pagination
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [establishmentFilter, setEstablishmentFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+  const [sortField, setSortField] = useState<string>('id')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
   // Schémas de validation Zod
   const serviceSchema = z.object({
     establishment_id: z.number().int().positive('Établissement requis'),
@@ -72,14 +86,13 @@ export default function Services(){
   })
 
   const load = async () => {
-    if (loading) return // Éviter les appels multiples
+    if (loading) return
     setLoading(true)
     try {
       const response = await api.get('/api/admin/services?per_page=50')
       const data = response.data.data || response.data
       const arr = Array.isArray(data) ? data : []
       setRows(arr)
-      // Pas de toast ici pour éviter les messages au chargement initial
     } catch (error: any) {
       const status = error?.response?.status
       if (status === 401) {
@@ -157,7 +170,7 @@ export default function Services(){
     } catch(e:any) {
       const status = e?.response?.status
       const message = e?.response?.data?.error?.message || e?.response?.data?.message
-      
+
       if (status === 401) {
         toast.error('Session expirée. Veuillez vous reconnecter.')
       } else if (status === 403) {
@@ -188,7 +201,6 @@ export default function Services(){
       setOpenEdit(false)
       setEditing(null)
 
-      // Optimistic UI update if API returns the updated service.
       const updated = response?.data?.data || response?.data
       if (updated && typeof updated === 'object' && updated.id) {
         setRows((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)))
@@ -198,7 +210,7 @@ export default function Services(){
     } catch(e:any) {
       const status = e?.response?.status
       const message = e?.response?.data?.error?.message || e?.response?.data?.message
-      
+
       if (status === 401) {
         toast.error('Session expirée. Veuillez vous reconnecter.')
       } else if (status === 403) {
@@ -221,16 +233,14 @@ export default function Services(){
     try {
       const response = await api.post(`/api/admin/services/${service.id}/qr-code`)
       const qrData = response.data.qr_code
-      // Mapper les propriétés de l'API vers le type Service
-      const updatedService = { 
-        ...service, 
+      const updatedService = {
+        ...service,
         qr_code_token: qrData.token,
         qr_code_url: qrData.url,
         qr_generated_at: qrData.generated_at,
       }
       setQrService(updatedService)
       toast.success('QR code généré avec succès')
-      // Update the row in the table
       setRows(prev => prev.map(s => s.id === service.id ? updatedService : s))
     } catch(e: any) {
       const status = e?.response?.status
@@ -250,7 +260,6 @@ export default function Services(){
     setQrService(service)
     setOpenQr(true)
     if (!service.qr_code_token) {
-      // Générer le QR code si pas encore fait
       await generateQrCode(service)
     }
   }
@@ -259,39 +268,32 @@ export default function Services(){
   const downloadQrCode = async (service: Service) => {
     if (!service.qr_code_url) return
     try {
-      // Créer un PDF avec jsPDF
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageWidth = doc.internal.pageSize.getWidth()
-      
-      // Titre
+
       doc.setFontSize(28)
       doc.setFont('helvetica', 'bold')
       doc.text(service.name, pageWidth / 2, 30, { align: 'center' })
-      
-      // Établissement
+
       doc.setFontSize(16)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(100, 100, 100)
       doc.text(service.establishment?.name || '', pageWidth / 2, 42, { align: 'center' })
-      
-      // QR Code - convertir le data URI en image
+
       doc.setTextColor(0, 0, 0)
       const qrSize = 80
       const qrX = (pageWidth - qrSize) / 2
-      
-      // Ajouter le QR code (data URI SVG)
+
       doc.addImage(service.qr_code_url, 'SVG', qrX, 55, qrSize, qrSize)
-      
-      // Encadrer le QR code
+
       doc.setDrawColor(50, 50, 50)
       doc.setLineWidth(0.5)
       doc.rect(qrX - 5, 50, qrSize + 10, qrSize + 10)
-      
-      // Informations
+
       doc.setFontSize(11)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(60, 60, 60)
-      
+
       const infoY = 150
       doc.text(`Service: ${service.name}`, 20, infoY)
       doc.text(`Établissement: ${service.establishment?.name || ''}`, 20, infoY + 8)
@@ -299,36 +301,127 @@ export default function Services(){
       if (service.qr_generated_at) {
         doc.text(`Généré le: ${new Date(service.qr_generated_at).toLocaleDateString('fr-FR')}`, 20, infoY + 24)
       }
-      
-      // Instructions
+
       doc.setFillColor(232, 244, 232)
       doc.rect(15, infoY + 35, pageWidth - 30, 40, 'F')
-      
+
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(45, 90, 45)
       doc.text('Instructions pour les usagers:', 20, infoY + 45)
-      
+
       doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(60, 60, 60)
       doc.text('• Scannez ce QR code avec l\'application SmartQueue', 25, infoY + 55)
       doc.text('• Un ticket sera automatiquement créé pour ce service', 25, infoY + 62)
       doc.text('• Consultez votre position dans la file d\'attente en temps réel', 25, infoY + 69)
-      
-      // Footer
+
       doc.setFontSize(9)
       doc.setTextColor(150, 150, 150)
       doc.text('SmartQueue - Système de gestion de files d\'attente', pageWidth / 2, 280, { align: 'center' })
       doc.text('Ce QR code est permanent et peut être utilisé chaque jour', pageWidth / 2, 286, { align: 'center' })
-      
-      // Télécharger
+
       doc.save(`qr-${service.name}-${service.qr_code_token}.pdf`)
       toast.success('PDF téléchargé avec succès')
     } catch(e: any) {
       console.error('PDF generation error:', e)
       toast.error('Erreur lors de la génération du PDF')
     }
+  }
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  const overallAvgTime = useMemo(() => {
+    const withTime = rows.filter(r => r.avg_service_time_minutes != null && r.avg_service_time_minutes > 0)
+    if (withTime.length === 0) return 0
+    return withTime.reduce((sum, r) => sum + r.avg_service_time_minutes!, 0) / withTime.length
+  }, [rows])
+
+  const filteredServices = useMemo(() => {
+    let result = [...rows]
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(r => r.name.toLowerCase().includes(q))
+    }
+
+    if (statusFilter !== 'all') {
+      result = result.filter(r => r.status === statusFilter)
+    }
+
+    if (establishmentFilter !== 'all') {
+      const estId = Number(establishmentFilter)
+      result = result.filter(r => r.establishment?.id === estId)
+    }
+
+    result.sort((a, b) => {
+      let aVal: any, bVal: any
+      if (sortField === 'name') {
+        aVal = a.name.toLowerCase()
+        bVal = b.name.toLowerCase()
+      } else if (sortField === 'avg_service_time_minutes') {
+        aVal = a.avg_service_time_minutes ?? Infinity
+        bVal = b.avg_service_time_minutes ?? Infinity
+      } else if (sortField === 'capacity') {
+        aVal = a.capacity ?? -Infinity
+        bVal = b.capacity ?? -Infinity
+      } else {
+        aVal = (a as any)[sortField]
+        bVal = (b as any)[sortField]
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return result
+  }, [rows, searchQuery, statusFilter, establishmentFilter, sortField, sortDir])
+
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / pageSize))
+  const paginatedServices = filteredServices.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, statusFilter, establishmentFilter])
+
+  const totalCapacity = rows.reduce((sum, r) => sum + (r.capacity ?? 0), 0)
+
+  const sortArrow = (field: string) => {
+    if (sortField !== field) return null
+    return (
+      <ArrowUpDown className={cn(
+        "h-3 w-3 transition-transform",
+        sortDir === 'desc' && "rotate-180"
+      )} />
+    )
+  }
+
+  const healthIndicator = (service: Service) => {
+    if (service.avg_service_time_minutes == null || service.avg_service_time_minutes === 0) {
+      return <span className="inline-block h-2 w-2 rounded-full bg-gray-400" title="—" />
+    }
+    if (service.avg_service_time_minutes <= overallAvgTime) {
+      return <span className="inline-block h-2 w-2 rounded-full bg-green-500" title="Bon" />
+    }
+    if (service.avg_service_time_minutes <= overallAvgTime * 1.2) {
+      return <span className="inline-block h-2 w-2 rounded-full bg-amber-500" title="Moyen" />
+    }
+    return <span className="inline-block h-2 w-2 rounded-full bg-red-500" title="Lent" />
+  }
+
+  const healthLabel = (service: Service) => {
+    if (service.avg_service_time_minutes == null || service.avg_service_time_minutes === 0) return <span className="text-muted-foreground">—</span>
+    if (service.avg_service_time_minutes <= overallAvgTime) return <span className="text-green-600 dark:text-green-400 text-xs">Bon</span>
+    if (service.avg_service_time_minutes <= overallAvgTime * 1.2) return <span className="text-amber-600 dark:text-amber-400 text-xs">Moyen</span>
+    return <span className="text-red-600 dark:text-red-400 text-xs">Lent</span>
   }
 
   return (
@@ -343,7 +436,7 @@ export default function Services(){
             <p className="text-sm text-muted-foreground">Gérez les services et leurs établissements</p>
           </div>
         </div>
-        <button 
+        <button
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           onClick={()=>setOpenCreate(true)}
         >
@@ -352,80 +445,282 @@ export default function Services(){
         </button>
       </div>
 
-      <div className=" rounded-xl shadow-lg">
-        <DataTable columns={[
-          { key:'id', header:'ID' },
-          { key:'name', header:'Service' },
-          { key:'status', header:'Statut', render:(r:Service)=> (
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${r.status === 'open' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 ring-1 ring-inset ring-green-200 dark:ring-green-800/30' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 ring-1 ring-inset ring-red-200 dark:ring-red-800/30'}`}>
-              {r.status}
-            </span>
-          ) },
-          { key:'avg_service_time_minutes', header:'Temps moyen (min)' },
-          { key:'capacity', header:'Capacité', render:(r:Service)=> (r.capacity === null || r.capacity === undefined ? '—' : r.capacity) },
-          { key:'establishment', header:'Établissement', render:(r:Service)=> r.establishment?.name },
-          { key:'actions', header:'Actions', render:(r:Service)=> (
-            <div className="flex gap-1">
-              <button
-                className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                onClick={()=>{ setScheduleServiceId(r.id); setOpenSchedule(true) }}
-                title="Horaires & jours fériés"
-              >
-                <CalendarClock className="h-4 w-4" />
-              </button>
-              <button
-                className="p-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-                onClick={()=>{ setSoundService(r); setOpenSound(true) }}
-                title="Alertes sonores"
-              >
-                <Bell className="h-4 w-4" />
-              </button>
-              <button
-                className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                onClick={()=>openQrModal(r)}
-                title="QR Code"
-              >
-                <QrCode className="h-4 w-4" />
-              </button>
-              <button
-                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                onClick={()=>openEditModal(r)}
-                title="Éditer"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button 
-                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
-                onClick={async ()=>{
-                  if (!confirm(`Supprimer le service ${r.name} ?`)) return
-                  try { 
-                    await api.delete(`/api/admin/services/${r.id}`); 
-                    toast.success('Service supprimé avec succès'); 
-                    await load(); 
-                  } catch(e:any){ 
-                    const status = e?.response?.status
-                    const message = e?.response?.data?.error?.message || e?.response?.data?.message
-                    
-                    if (status === 401) {
-                      toast.error('Session expirée. Veuillez vous reconnecter.')
-                    } else if (status === 403) {
-                      toast.error('Permission refusée pour supprimer ce service.')
-                    } else if (status === 404) {
-                      toast.error('Service non trouvé.')
-                    } else if (status >= 500) {
-                      toast.error('Erreur serveur lors de la suppression.')
-                    } else {
-                      toast.error(message || 'Suppression impossible')
-                    }
-                  }
-                }}
-                title="Supprimer"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnalyticsCard
+          title="Total services"
+          value={rows.length}
+          icon={Layers}
+        />
+        <AnalyticsCard
+          title="Services ouverts"
+          value={rows.filter(r => r.status === 'open').length}
+          icon={Activity}
+        />
+        <AnalyticsCard
+          title="Temps moyen"
+          value={overallAvgTime > 0 ? `${Math.round(overallAvgTime)} min` : '—'}
+          icon={Clock}
+        />
+        <AnalyticsCard
+          title="Capacité totale"
+          value={totalCapacity > 0 ? totalCapacity : '—'}
+          icon={Plus}
+        />
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous</SelectItem>
+            <SelectItem value="open">Ouvert</SelectItem>
+            <SelectItem value="closed">Fermé</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={establishmentFilter} onValueChange={setEstablishmentFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Établissement" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les établissements</SelectItem>
+            {ests.map(est => (
+              <SelectItem key={est.id} value={String(est.id)}>{est.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-xl shadow-lg">
+        {loading ? (
+          <div className="overflow-auto rounded-md border shadow-lg border-border">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted">
+                <tr>
+                  {['ID', 'Service', 'Statut', 'Temps moyen (min)', 'Capacité', 'Établissement', 'Actions'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="px-3 py-2">
+                        <div className="h-4 bg-muted animate-pulse rounded" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : paginatedServices.length === 0 ? (
+          <div className="rounded-md border shadow-lg border-border p-8 text-center text-muted-foreground">
+            Aucun service trouvé
+          </div>
+        ) : (
+          <>
+            <div className="overflow-auto rounded-md border shadow-lg border-border">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">ID</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('name')}>
+                      <div className="flex items-center gap-1">
+                        Service
+                        {sortArrow('name')}
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Statut</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('avg_service_time_minutes')}>
+                      <div className="flex items-center gap-1">
+                        Temps moyen (min)
+                        {sortArrow('avg_service_time_minutes')}
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground cursor-pointer select-none" onClick={() => handleSort('capacity')}>
+                      <div className="flex items-center gap-1">
+                        Capacité
+                        {sortArrow('capacity')}
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Établissement</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-sm">
+                  {paginatedServices.map((row, i) => (
+                    <tr key={(row.id ?? i).toString()} className="hover-card transition-colors">
+                      <td className="px-3 py-2 text-foreground">{row.id}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            {healthIndicator(row)}
+                            <span>{row.name}</span>
+                          </div>
+                          {row.priority_support && (
+                            <Badge variant="warning" className="gap-1 text-[10px] px-1.5 py-0">
+                              <Star className="h-3 w-3" />
+                              Prioritaire
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${row.status === 'open' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 ring-1 ring-inset ring-green-200 dark:ring-green-800/30' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 ring-1 ring-inset ring-red-200 dark:ring-red-800/30'}`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>{row.avg_service_time_minutes ?? '—'}</span>
+                          {row.avg_service_time_minutes != null && (
+                            <div className="flex items-center gap-1">
+                              {healthIndicator(row)}
+                              {healthLabel(row)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-foreground">{row.capacity === null || row.capacity === undefined ? '—' : row.capacity}</td>
+                      <td className="px-3 py-2 text-foreground">{row.establishment?.name}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        <div className="flex gap-1">
+                          <button
+                            className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                            onClick={()=>{ setScheduleServiceId(row.id); setOpenSchedule(true) }}
+                            title="Horaires & jours fériés"
+                          >
+                            <CalendarClock className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                            onClick={()=>{ setSoundService(row); setOpenSound(true) }}
+                            title="Alertes sonores"
+                          >
+                            <Bell className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                            onClick={()=>openQrModal(row)}
+                            title="QR Code"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            onClick={()=>openEditModal(row)}
+                            title="Éditer"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            onClick={async ()=>{
+                              if (!confirm(`Supprimer le service ${row.name} ?`)) return
+                              try {
+                                await api.delete(`/api/admin/services/${row.id}`);
+                                toast.success('Service supprimé avec succès');
+                                await load();
+                              } catch(e:any){
+                                const status = e?.response?.status
+                                const message = e?.response?.data?.error?.message || e?.response?.data?.message
+
+                                if (status === 401) {
+                                  toast.error('Session expirée. Veuillez vous reconnecter.')
+                                } else if (status === 403) {
+                                  toast.error('Permission refusée pour supprimer ce service.')
+                                } else if (status === 404) {
+                                  toast.error('Service non trouvé.')
+                                } else if (status >= 500) {
+                                  toast.error('Erreur serveur lors de la suppression.')
+                                } else {
+                                  toast.error(message || 'Suppression impossible')
+                                }
+                              }
+                            }}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) },
-        ]} data={rows} />
+
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} sur {totalPages}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    currentPage <= 1
+                      ? "text-muted-foreground cursor-not-allowed"
+                      : "text-foreground bg-muted hover:bg-accent"
+                  )}
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                >
+                  Précédent
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => {
+                    if (totalPages <= 7) return true
+                    if (p === 1 || p === totalPages) return true
+                    if (Math.abs(p - currentPage) <= 1) return true
+                    return false
+                  })
+                  .map((p, idx, arr) => {
+                    const showEllipsis = idx > 0 && p - arr[idx - 1] > 1
+                    return (
+                      <span key={p} className="flex items-center">
+                        {showEllipsis && <span className="px-1 text-muted-foreground">...</span>}
+                        <button
+                          className={cn(
+                            "inline-flex items-center justify-center w-8 h-8 text-sm font-medium rounded-md transition-colors",
+                            p === currentPage
+                              ? "bg-primary text-primary-foreground"
+                              : "text-foreground bg-muted hover:bg-accent"
+                          )}
+                          onClick={() => setCurrentPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </span>
+                    )
+                  })}
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    currentPage >= totalPages
+                      ? "text-muted-foreground cursor-not-allowed"
+                      : "text-foreground bg-muted hover:bg-accent"
+                  )}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal Création */}
@@ -638,8 +933,8 @@ export default function Services(){
             </div>
           ) : qrService?.qr_code_url ? (
             <>
-              <img 
-                src={qrService.qr_code_url} 
+              <img
+                src={qrService.qr_code_url}
                 alt={`QR Code ${qrService.name}`}
                 className="w-48 h-48 object-contain border border-border rounded-lg"
               />
