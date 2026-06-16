@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ForgotPasswordController;
+use App\Http\Controllers\Api\FavoriteController;
 
 /*
 |--------------------------------------------------------------------------
