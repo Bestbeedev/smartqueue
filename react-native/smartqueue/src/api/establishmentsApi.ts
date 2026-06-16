@@ -46,12 +46,39 @@ export interface EstablishmentsParams {
   q?: string; // search query
 }
 
+export interface HourlyDataPoint {
+  hour: number;
+  count: number;
+}
+
+export interface PeakHours {
+  high: number[];
+  medium: number[];
+  low: number[];
+}
+
 export interface AffluenceData {
-  crowd_level: 'low' | 'moderate' | 'high';
-  active_tickets: number;
-  avg_wait_min: number;
-  open_now: boolean;
-  peak_hours: string[];
+  level: 'low' | 'medium' | 'high';
+  people: number;
+  eta_avg: number;
+  hourly_data: HourlyDataPoint[];
+  peak_hours: PeakHours;
+}
+
+export interface ServiceReview {
+  id: number;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  user: { id: number; name: string } | null;
+}
+
+export interface ServiceReviewsResponse {
+  reviews: ServiceReview[];
+  avg_rating: number;
+  total: number;
+  distribution: Record<number, number>;
+  has_more: boolean;
 }
 
 export interface EstablishmentStatus {
@@ -185,6 +212,12 @@ export const establishmentsApi = {
   // Obtenir l'affluence d'un service
   getServiceAffluence: async (serviceId: number): Promise<AffluenceData> => {
     const response = await axiosClient.get(`/services/${serviceId}/affluence`);
+    return response.data;
+  },
+
+  // Obtenir les avis publics d'un service
+  getServiceReviews: async (serviceId: number): Promise<ServiceReviewsResponse> => {
+    const response = await axiosClient.get(`/services/${serviceId}/reviews`);
     return response.data;
   },
 
