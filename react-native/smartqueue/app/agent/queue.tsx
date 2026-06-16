@@ -1436,7 +1436,7 @@ export default function AgentQueue() {
                     </View>
                   </View>
                 </View>
-                {affluenceData.hourly_data && affluenceData.hourly_data.length > 0 && (
+                        {affluenceData.hourly_data && affluenceData.hourly_data.length > 0 && (
                   <>
                     <Text style={[styles.affluenceChartTitle, { color: colors.textPrimary }]}>Créneaux d'affluence (30 jours)</Text>
                     <View style={[styles.affluenceChart, { backgroundColor: colors.surfaceSecondary }]}>
@@ -1458,6 +1458,20 @@ export default function AgentQueue() {
                             </View>
                           );
                         })}
+                      </View>
+                      <View style={styles.affluenceLegend}>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: '#FF3B30' }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Peak</Text>
+                        </View>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: '#FF9500' }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Moyen</Text>
+                        </View>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: colors.success + "60" }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Calme</Text>
+                        </View>
                       </View>
                     </View>
                   </>
@@ -1620,6 +1634,10 @@ const styles = StyleSheet.create({
   affluenceBarWrapper: { flex: 1, width: "100%", justifyContent: "flex-end", alignItems: "center" },
   affluenceBar: { width: "100%", borderRadius: 3, minHeight: 2 },
   affluenceBarLabel: { fontSize: 8, marginTop: 4 },
+  affluenceLegend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10 },
+  affluenceLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  affluenceLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  affluenceLegendText: { fontSize: 11 },
   affluenceTip: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12 },
   affluenceTipText: { fontSize: 12, flex: 1, lineHeight: 16 },
 });
