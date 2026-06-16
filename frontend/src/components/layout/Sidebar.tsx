@@ -236,7 +236,7 @@ export default function Sidebar() {
       to: "/dashboard/queues",
       icon: ListOrdered,
       label: "Files d'attente",
-      roles: ["agent", "admin"],
+      roles: ["agent"],
       submenu: [
         { to: "/dashboard/queues/called", icon: Activity, label: "Tickets appelés" },
         { to: "/dashboard/queues/absent", icon: Ban, label: "Absents" },
@@ -253,6 +253,7 @@ export default function Sidebar() {
       roles: ["admin"],
     },
     { to: "/dashboard/stats", icon: BarChart, label: "Statistiques", roles: ["admin"] },
+    { to: "/dashboard/admin/notification-logs", icon: Bell, label: "Journal notifications", roles: ["admin"] },
     {
       to: "/dashboard/settings",
       icon: SettingsIcon,
@@ -633,8 +634,8 @@ export default function Sidebar() {
 
           {/* Section Administration */}
           {filteredItems.some(item => item.to.startsWith('/dashboard/admin')) && !isCollapsed && (
-            <div className="px-3 mt-6 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Administration
+            <div className="px-3 mt-6 mb-10 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Audit & Logs
             </div>
           )}
           {filteredItems.filter(item => item.to.startsWith('/dashboard/admin')).map((item) => {
@@ -784,7 +785,7 @@ export default function Sidebar() {
 
       {/* Menu Tickets - uniquement en mode collapsed */}
       <div className={`p-3 border-t border-border ${isCollapsed ? "" : "hidden"} space-y-2`}>
-        {isCollapsed && (role === "agent" || role === "admin") && (
+        {isCollapsed && role === "agent" && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
