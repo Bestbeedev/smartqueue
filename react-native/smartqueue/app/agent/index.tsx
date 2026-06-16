@@ -10,12 +10,21 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
+type AffluenceData = {
+  level: 'low' | 'medium' | 'high';
+  people: number;
+  eta_avg: number;
+  hourly_data?: { hour: number; count: number }[];
+  peak_hours?: { high: number[]; medium: number[]; low: number[] };
+};
+
 type Service = {
   id: number;
   name: string;
   status: string;
   avg_service_time_minutes?: number;
   people_waiting?: number;
+  affluence?: AffluenceData;
 };
 
 type Counter = {
@@ -73,10 +82,17 @@ export default function AgentHome() {
             const response = await axiosClient.get(`/services/${s.id}/affluence`);
             return {
               ...s,
-              people_waiting: response.data?.waiting || response.data?.people || 0,
+              people_waiting: response.data?.people || 0,
+              affluence: {
+                level: response.data?.level || 'low',
+                people: response.data?.people || 0,
+                eta_avg: response.data?.eta_avg || 0,
+                hourly_data: response.data?.hourly_data,
+                peak_hours: response.data?.peak_hours,
+              },
             };
           } catch {
-            return { ...s, people_waiting: 0 };
+            return { ...s, people_waiting: 0, affluence: { level: 'low' as const, people: 0, eta_avg: 0 } };
           }
         })
       );
@@ -175,24 +191,33 @@ export default function AgentHome() {
     router.push(`/agent/priority?serviceId=${selectedService.id}`);
   };
 
-  const renderServiceItem = ({ item }: { item: Service }) => (
-    <TouchableOpacity
-      style={[
-        styles.serviceCard,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-        selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
-      ]}
-      onPress={() => setSelectedService(item)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '15' }]}>
-        <Ionicons name="layers-outline" size={22} color={colors.primary} />
-      </View>
-      <Text style={[styles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
-      <View style={[styles.statusDot, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]} />
-      <Text style={[styles.waitingText, { color: colors.textSecondary }]}>{item.people_waiting} en attente</Text>
-    </TouchableOpacity>
-  );
+  const AFFLUENCE_LABELS = { high: 'Élevée', medium: 'Modérée', low: 'Faible' } as const;
+
+  const renderServiceItem = ({ item }: { item: Service }) => {
+    const affLevel = item.affluence?.level || 'low';
+    const affColor = AFFLUENCE_COLORS[affLevel];
+    return (
+      <TouchableOpacity
+        style={[
+          styles.serviceCard,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          selectedService?.id === item.id && { borderColor: colors.primary, borderWidth: 2 }
+        ]}
+        onPress={() => setSelectedService(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.serviceIcon, { backgroundColor: colors.primary + '15' }]}>
+          <Ionicons name="layers-outline" size={22} color={colors.primary} />
+        </View>
+        <Text style={[styles.serviceName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+        <View style={[styles.statusDot, { backgroundColor: item.status === 'open' ? '#4CAF50' : '#FF5722' }]} />
+        <View style={[styles.affluenceBadge, { backgroundColor: affColor + '20', borderColor: affColor + '40' }]}>
+          <View style={[styles.affluenceDot, { backgroundColor: affColor }]} />
+          <Text style={[styles.affluenceBadgeText, { color: affColor }]}>{AFFLUENCE_LABELS[affLevel]}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderCounterItem = ({ item }: { item: Counter }) => (
     <View style={[
@@ -219,30 +244,30 @@ export default function AgentHome() {
     </View>
   );
 
+  const AFFLUENCE_COLORS = {
+    high: '#FF3B30',
+    medium: '#FF9500',
+    low: '#34C759',
+  } as const;
+
   const getInsightData = () => {
     if (!selectedService) return null;
-    const peopleWaiting = selectedService.people_waiting || 0;
+    const aff = selectedService.affluence;
+    const level = aff?.level || 'low';
+    const peopleWaiting = aff?.people || selectedService.people_waiting || 0;
     const avgTime = selectedService.avg_service_time_minutes || 5;
-    
-    if (peopleWaiting > 5) {
-      return {
-        message: `⚠️ ${peopleWaiting} personnes en attente — affluence élevée`,
-        emoji: '😟',
-        color: '#FF9500',
-      };
+    const ac = AFFLUENCE_COLORS[level];
+
+    if (level === 'high') {
+      return { message: `⚠️ ${peopleWaiting} personnes en attente — affluence élevée`, emoji: '😟', color: ac };
+    }
+    if (level === 'medium') {
+      return { message: `⚠️ ${peopleWaiting} personnes — affluence modérée`, emoji: '😐', color: ac };
     }
     if (avgTime > 10) {
-      return {
-        message: `⏱ Temps de service élevé (${avgTime} min)`,
-        emoji: '😕',
-        color: '#FF9500',
-      };
+      return { message: `⏱ Temps de service élevé (${avgTime} min)`, emoji: '😕', color: '#FF9500' };
     }
-    return {
-      message: '✅ Bonne affluence, temps de service normal',
-      emoji: '😊',
-      color: '#4CAF50',
-    };
+    return { message: '✅ Bonne affluence, temps de service normal', emoji: '😊', color: ac };
   };
 
   const dayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -375,7 +400,7 @@ export default function AgentHome() {
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Stats</Text>
           <View style={[styles.statsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.people_waiting || 0}</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.affluence?.people ?? selectedService.people_waiting || 0}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -436,7 +461,9 @@ const styles = StyleSheet.create({
   serviceIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   serviceName: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
-  waitingText: { fontSize: 11 },
+  affluenceBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1, gap: 3 },
+  affluenceDot: { width: 6, height: 6, borderRadius: 3 },
+  affluenceBadgeText: { fontSize: 9, fontWeight: '600' },
   
   emptyCard: { padding: 20, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 14, fontWeight: '500', marginTop: 10 },
