@@ -463,8 +463,8 @@ class TicketRecallController extends Controller
         }
 
         $service = $ticket->service;
-        $timeoutMinutes = $service->call_timeout_minutes
-            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+        $timeoutMinutes = max(1, $service->call_timeout_minutes
+            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60));
 
         return response()->json([
             'is_called' => $ticket->status === 'called',

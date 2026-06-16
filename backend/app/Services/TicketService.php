@@ -494,8 +494,8 @@ class TicketService
                 $ticket->counter_id = $counterId;
             }
             $ticket->called_at = Carbon::now();
-            $timeoutMinutes = $service->call_timeout_minutes
-                ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+            $timeoutMinutes = max(1, $service->call_timeout_minutes
+                ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60));
             $ticket->called_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
             $ticket->position = null;
             $ticket->eta_minutes = 0; // Called = no more waiting
@@ -603,8 +603,8 @@ class TicketService
             $ticket->absent_expires_at = null;
         } else {
             // Niveau >= max : absence définitive, expiration programmée
-            $timeoutMinutes = $service?->call_timeout_minutes
-                ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+            $timeoutMinutes = max(1, $service?->call_timeout_minutes
+                ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60));
             $ticket->absent_expires_at = Carbon::now()->addMinutes($timeoutMinutes);
         }
 
@@ -1018,8 +1018,8 @@ class TicketService
         }
 
         $service = $ticket->service;
-        $timeoutMinutes = $service?->call_timeout_minutes
-            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60);
+        $timeoutMinutes = max(1, $service?->call_timeout_minutes
+            ?? (int) ceil((int) config('queue.call_timeout_seconds', 600) / 60));
 
         $ticket->status = 'called';
         $ticket->en_route_at = null;
