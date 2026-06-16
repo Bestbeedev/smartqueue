@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\Service;
 use App\Services\TicketService;
+use App\Services\AlertService;
 use App\Events\TicketUpdated;
 use App\Events\UserTicketUpdated;
 use App\Events\UserEnRoute;
@@ -459,9 +460,11 @@ class TicketRecallController extends Controller
 
         // Use called_at-based elapsed time to avoid datetime second-truncation issues:
         // when called_expires_at is stored as datetime (no microseconds), now() can appear
-        // later by <1s, causing diffInSeconds to return -1 → clamped to 0 → false "expiré"
+        // later by <1s, causing diffInSeconds to return -1 → clamped to 0 → false "expiré".
+        // NB: Carbon 3 diffInSeconds is SIGNED — compute elapsed in the calledAt→now
+        // direction (positive) so remaining = timeout - elapsed, not timeout + elapsed.
         $calledAt = $ticket->called_at ?? $ticket->created_at;
-        $elapsed = (int) now()->diffInSeconds($calledAt);
+        $elapsed = (int) $calledAt->diffInSeconds(now());
         $remaining = max(0, $timeoutSeconds - $elapsed);
 
         return response()->json([
