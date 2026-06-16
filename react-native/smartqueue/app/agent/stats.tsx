@@ -169,96 +169,182 @@ export default function AgentStats() {
     legend: ['Traités', 'Total'],
   } : null;
 
-  const renderOverview = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.statsGrid}>
-        <StatCard icon="ticket-outline" value={stats?.today_total || 0} label="Total" color="#3B82F6" colors={colors} />
-        <StatCard icon="checkmark-circle-outline" value={stats?.today_closed || 0} label="Traités" color="#22C55E" colors={colors} />
-        <StatCard icon="megaphone-outline" value={stats?.today_called || 0} label="Appelés" color="#FF9500" colors={colors} />
-        <StatCard icon="person-remove-outline" value={stats?.today_absent || 0} label="Absents" color="#FF3B30" colors={colors} />
-      </View>
+  const renderOverview = () => {
+    const absenteeismRate = stats?.today_total ? (stats.today_absent / stats.today_total) * 100 : 0;
 
-      <View style={[styles.timeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Temps moyens</Text>
-        <View style={styles.timeRow}>
-          <View style={styles.timeItem}>
-            <Ionicons name="timer-outline" size={22} color={colors.primary} />
-            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_service_time ?? null)}</Text>
-            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Service</Text>
+    const renderInsight = () => {
+      if ((stats?.today_absent ?? 0) > 3 && absenteeismRate > 20) {
+        return (
+          <View style={[styles.insightCard, { backgroundColor: '#FF3B3015', borderColor: '#FF3B30' }]}>
+            <Text style={[styles.insightText, { color: '#FF3B30' }]}>⚠️ Taux d'absentéisme élevé aujourd'hui ({Math.round(absenteeismRate)}%)</Text>
           </View>
-          <View style={[styles.timeDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.timeItem}>
-            <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
-            <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_wait_time ?? null)}</Text>
-            <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Attente</Text>
+        );
+      }
+      if ((stats?.today_closed ?? 0) > (stats?.today_total ?? 0) * 0.8) {
+        const rate = stats?.today_total ? Math.round((stats.today_closed / stats.today_total) * 100) : 0;
+        return (
+          <View style={[styles.insightCard, { backgroundColor: '#22C55E15', borderColor: '#22C55E' }]}>
+            <Text style={[styles.insightText, { color: '#22C55E' }]}>✅ Bon taux de réalisation : {rate}%</Text>
           </View>
+        );
+      }
+      if ((stats?.avg_wait_time ?? 0) > 15) {
+        return (
+          <View style={[styles.insightCard, { backgroundColor: '#FF950015', borderColor: '#FF9500' }]}>
+            <Text style={[styles.insightText, { color: '#FF9500' }]}>⏱ Temps d'attente moyen élevé ({Math.round(stats?.avg_wait_time ?? 0)} min)</Text>
+          </View>
+        );
+      }
+      return (
+        <View style={[styles.insightCard, { backgroundColor: '#3B82F615', borderColor: '#3B82F6' }]}>
+          <Text style={[styles.insightText, { color: '#3B82F6' }]}>ℹ️ Activité normale aujourd'hui</Text>
         </View>
-      </View>
+      );
+    };
 
-      <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>État actuel</Text>
-        <View style={styles.statusRow}>
-          <StatusItem value={stats?.active_services || 0} label="Services ouverts" color="#22C55E" colors={colors} />
-          <StatusItem value={stats?.current_queue_size || 0} label="En file" color="#F59E0B" colors={colors} />
-          <StatusItem value={stats?.tickets_per_day || 0} label="Moy/jour (7j)" color="#8B5CF6" colors={colors} />
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.statsGrid}>
+          <StatCard icon="ticket-outline" value={stats?.today_total || 0} label="Total" color="#3B82F6" colors={colors} />
+          <StatCard icon="checkmark-circle-outline" value={stats?.today_closed || 0} label="Traités" color="#22C55E" colors={colors} />
+          <StatCard icon="megaphone-outline" value={stats?.today_called || 0} label="Appelés" color="#FF9500" colors={colors} />
+          <StatCard icon="person-remove-outline" value={stats?.today_absent || 0} label="Absents" color="#FF3B30" colors={colors} />
         </View>
-      </View>
-    </View>
-  );
 
-  const renderPerformance = () => (
-    <View style={styles.tabContent}>
-      <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.summaryRow}>
-          <SummaryItem value={performance?.total_closed || 0} label="Traités (7j)" color="#22C55E" colors={colors} />
-          <SummaryItem value={performance?.total_absent || 0} label="Absents (7j)" color="#FF3B30" colors={colors} />
-          <SummaryItem value={formatTime(performance?.avg_service_time ?? null)} label="Temps moyen" color={colors.primary} colors={colors} />
-        </View>
-      </View>
+        {renderInsight()}
 
-      {chartData && (
-        <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Performance sur 7 jours</Text>
-          <LineChart
-            data={chartData}
-            width={width - 32}
-            height={180}
-            chartConfig={{
-              backgroundColor: colors.surface,
-              backgroundGradientFrom: colors.surface,
-              backgroundGradientTo: colors.surface,
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-              labelColor: () => colors.textSecondary,
-              style: { borderRadius: 12 },
-              propsForDots: { r: '3', strokeWidth: '2' },
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
-      )}
-
-      <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Détail par jour</Text>
-        {performance?.daily.slice().reverse().map((day, index) => (
-          <View key={day.date} style={[styles.dailyRow, index > 0 && { borderTopColor: colors.border, borderTopWidth: 0.5 }]}>
-            <Text style={[styles.dailyDate, { color: colors.textPrimary }]}>
-              {new Date(day.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })}
-            </Text>
-            <View style={styles.dailyStats}>
-              <DailyStat value={day.total} label="Total" color="#3B82F6" />
-              <DailyStat value={day.closed} label="Traités" color="#22C55E" />
-              <DailyStat value={day.absent} label="Absents" color="#FF3B30" />
+        <View style={[styles.timeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Temps moyens</Text>
+          <View style={styles.timeRow}>
+            <View style={styles.timeItem}>
+              <Ionicons name="timer-outline" size={22} color={colors.primary} />
+              <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_service_time ?? null)}</Text>
+              <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Service</Text>
+            </View>
+            <View style={[styles.timeDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.timeItem}>
+              <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
+              <Text style={[styles.timeValue, { color: colors.textPrimary }]}>{formatTime(stats?.avg_wait_time ?? null)}</Text>
+              <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>Attente</Text>
             </View>
           </View>
-        ))}
+        </View>
+
+        <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>État actuel</Text>
+          <View style={styles.statusRow}>
+            <StatusItem value={stats?.active_services || 0} label="Services ouverts" color="#22C55E" colors={colors} dotColor={(stats?.active_services ?? 0) > 0 ? '#22C55E' : '#6B7280'} />
+            <StatusItem value={stats?.current_queue_size || 0} label="En file" color="#F59E0B" colors={colors} dotColor={(stats?.current_queue_size ?? 0) > 15 ? '#FF3B30' : (stats?.current_queue_size ?? 0) > 5 ? '#FF9500' : '#22C55E'} />
+            <StatusItem value={stats?.tickets_per_day || 0} label="Moy/jour (7j)" color="#8B5CF6" colors={colors} dotColor="#8B5CF6" />
+          </View>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
+
+  const renderPerformance = () => {
+    const daily = performance?.daily;
+    let trendSection = null;
+    if (daily && daily.length >= 2) {
+      const mid = Math.floor(daily.length / 2);
+      const firstHalf = daily.slice(0, mid);
+      const secondHalf = daily.slice(mid);
+
+      const firstClosed = firstHalf.reduce((s, d) => s + d.closed, 0);
+      const secondClosed = secondHalf.reduce((s, d) => s + d.closed, 0);
+      const firstAbsent = firstHalf.reduce((s, d) => s + d.absent, 0);
+      const secondAbsent = secondHalf.reduce((s, d) => s + d.absent, 0);
+
+      const closedTrend = firstClosed > 0 ? ((secondClosed - firstClosed) / firstClosed) * 100 : 0;
+      const absentTrend = firstAbsent > 0 ? ((secondAbsent - firstAbsent) / firstAbsent) * 100 : 0;
+
+      const closedArrow = closedTrend > 0 ? '↑' : closedTrend < 0 ? '↓' : '→';
+      const absentArrow = absentTrend > 0 ? '↑' : absentTrend < 0 ? '↓' : '→';
+
+      trendSection = (
+        <View style={[styles.trendCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>Tendance</Text>
+          <View style={styles.trendRow}>
+            <View style={styles.trendItem}>
+              <Text style={[styles.trendValue, { color: closedTrend >= 0 ? '#22C55E' : '#FF3B30' }]}>
+                {closedArrow} {Math.abs(Math.round(closedTrend))}%
+              </Text>
+              <Text style={[styles.trendSubLabel, { color: colors.textSecondary }]}>Traités</Text>
+            </View>
+            <View style={styles.trendItem}>
+              <Text style={[styles.trendValue, { color: absentTrend > 0 ? '#FF3B30' : '#22C55E' }]}>
+                {absentArrow} {Math.abs(Math.round(absentTrend))}%
+              </Text>
+              <Text style={[styles.trendSubLabel, { color: colors.textSecondary }]}>Absents</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.summaryRow}>
+            <SummaryItem value={performance?.total_closed || 0} label="Traités (7j)" color="#22C55E" colors={colors} />
+            <SummaryItem value={performance?.total_absent || 0} label="Absents (7j)" color="#FF3B30" colors={colors} />
+            <SummaryItem value={formatTime(performance?.avg_service_time ?? null)} label="Temps moyen" color={colors.primary} colors={colors} />
+          </View>
+        </View>
+
+        {trendSection}
+
+        {chartData && (
+          <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Performance sur 7 jours</Text>
+            <LineChart
+              data={chartData}
+              width={width - 32}
+              height={180}
+              chartConfig={{
+                backgroundColor: colors.surface,
+                backgroundGradientFrom: colors.surface,
+                backgroundGradientTo: colors.surface,
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
+                labelColor: () => colors.textSecondary,
+                style: { borderRadius: 12 },
+                propsForDots: { r: '3', strokeWidth: '2' },
+              }}
+              bezier
+              style={styles.chart}
+            />
+          </View>
+        )}
+
+        <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Détail par jour</Text>
+          {performance?.daily.slice().reverse().map((day, index) => (
+            <View key={day.date} style={[styles.dailyRow, index > 0 && { borderTopColor: colors.border, borderTopWidth: 0.5 }]}>
+              <Text style={[styles.dailyDate, { color: colors.textPrimary }]}>
+                {new Date(day.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </Text>
+              <View style={styles.dailyStats}>
+                <DailyStat value={day.total} label="Total" color="#3B82F6" />
+                <DailyStat value={day.closed} label="Traités" color="#22C55E" />
+                <DailyStat value={day.absent} label="Absents" color="#FF3B30" />
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   const renderTickets = () => (
     <View style={styles.tabContent}>
+      {stats && (
+        <View style={[styles.ticketSummary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.ticketSummaryText, { color: colors.textSecondary }]}>
+            {stats.today_total} tickets aujourd'hui — {stats.today_waiting} en attente, {stats.today_closed} clôturés, {stats.today_absent} absents
+          </Text>
+        </View>
+      )}
       {todayTickets.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="ticket-outline" size={48} color={colors.textSecondary} />
@@ -416,8 +502,11 @@ const StatCard = ({ icon, value, label, color, colors }: any) => (
   </View>
 );
 
-const StatusItem = ({ value, label, color, colors }: any) => (
+const StatusItem = ({ value, label, color, colors, dotColor }: any) => (
   <View style={styles.statusItem}>
+    {dotColor !== undefined && (
+      <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+    )}
     <View style={[styles.statusBadge, { backgroundColor: color + '15' }]}>
       <Text style={[styles.statusBadgeText, { color }]}>{value}</Text>
     </View>
@@ -512,4 +601,19 @@ const styles = StyleSheet.create({
   attrText: { fontSize: 10, fontWeight: '600' },
   ticketFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
   ticketTime: { fontSize: 10 },
+
+  insightCard: { padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  insightText: { fontSize: 13, fontWeight: '600' },
+
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
+
+  trendCard: { padding: 16, borderRadius: 14, borderWidth: 1 },
+  trendLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  trendRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 },
+  trendItem: { alignItems: 'center' },
+  trendValue: { fontSize: 18, fontWeight: '800' },
+  trendSubLabel: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+
+  ticketSummary: { padding: 10, borderRadius: 10, borderWidth: 1, alignItems: 'center', marginBottom: 4 },
+  ticketSummaryText: { fontSize: 12, fontWeight: '500' },
 });

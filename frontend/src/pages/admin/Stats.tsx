@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { api } from '@/api/axios'
 import { cn } from '@/lib/utils'
 import { AnalyticsCard } from '@/components/ui/analytics-card'
@@ -7,6 +7,7 @@ import { AreaChartComponent, DonutChart, VerticalBarChart, LineChartComponent } 
 import {
   Ticket, CheckCircle2, UserX, Clock, Timer, CalendarClock,
   Activity, Star, Target, CalendarDays, RefreshCw,
+  TrendingUp, TrendingDown, Lightbulb,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -271,6 +272,64 @@ export default function Stats() {
           </button>
         </div>
       </div>
+
+      {/* ── Key Takeaways ── */}
+      {k && advanced && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {(() => {
+            const insights: Array<{ icon: any; text: string; color: string; bg: string }> = []
+
+            const completionColor = k.completion_rate >= 70 ? 'text-green-600' : k.completion_rate >= 50 ? 'text-amber-600' : 'text-red-600'
+            const completionBg = k.completion_rate >= 70 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : k.completion_rate >= 50 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+            insights.push({
+              icon: Target,
+              text: `Taux de réalisation : ${k.completion_rate}%`,
+              color: completionColor,
+              bg: completionBg,
+            })
+
+            if (k.absenteeism_rate > 0) {
+              const absColor = k.absenteeism_rate > 20 ? 'text-red-600' : k.absenteeism_rate > 10 ? 'text-amber-600' : 'text-green-600'
+              const absBg = k.absenteeism_rate > 20 ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' : k.absenteeism_rate > 10 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+              insights.push({
+                icon: UserX,
+                text: `Absentéisme : ${k.absenteeism_rate}%`,
+                color: absColor,
+                bg: absBg,
+              })
+            }
+
+            if (pk) {
+              const compDiff = pk.completion_rate > 0 ? Math.round(((k.completion_rate - pk.completion_rate) / pk.completion_rate) * 100) : 0
+              const trendIcon = compDiff > 0 ? TrendingUp : compDiff < 0 ? TrendingDown : null
+              const trendColor = compDiff >= 0 ? 'text-green-600' : 'text-red-600'
+              const trendBg = compDiff >= 0 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              if (trendIcon) {
+                insights.push({
+                  icon: trendIcon,
+                  text: `Tendance taux réal. : ${compDiff > 0 ? '+' : ''}${compDiff}% vs période précédente`,
+                  color: trendColor,
+                  bg: trendBg,
+                })
+              }
+            }
+
+            return insights.slice(0, 3).map((insight, i) => (
+              <div key={i} className={cn('flex items-start gap-3 rounded-lg border p-3', insight.bg)}>
+                <div className={cn('mt-0.5 shrink-0', insight.color)}>
+                  <insight.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className={cn('text-xs font-medium', insight.color)}>{insight.text}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {i === 0 ? 'Tickets servis / créés' : i === 1 ? 'Non présentés' : 'Comparaison inter-période'}
+                  </p>
+                </div>
+              </div>
+            ))
+          })()}
+        </div>
+      )}
 
       {/* ── Tab Navigation ── */}
       <div className="flex gap-0 border-b border-border overflow-x-auto">

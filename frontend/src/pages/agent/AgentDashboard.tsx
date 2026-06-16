@@ -9,6 +9,7 @@ import {
   CheckCircle,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
   Activity,
   ListOrdered,
   UserX,
@@ -20,6 +21,7 @@ import {
   Zap,
   Star,
   Flame,
+  Gauge,
 } from "lucide-react";
 import {
   Card,
@@ -61,8 +63,6 @@ type QueueTicket = {
   user_name: string | null;
   wait_time_minutes: number;
   created_at: string;
-
-  // Optional fields returned by API
   is_swapped?: boolean;
   deferred_at?: string | null;
   swapped_with_ticket_id?: number | null;
@@ -203,7 +203,6 @@ export default function AgentDashboard() {
     loadAll();
   }, []);
 
-  // Performance chart data
   const performanceChartData = useMemo(() => {
     if (!performance?.daily) return [];
     return performance.daily.map((d) => ({
@@ -215,6 +214,39 @@ export default function AgentDashboard() {
       color: "#22c55e",
     }));
   }, [performance]);
+
+  const yesterdayChange = useMemo(() => {
+    if (!performance?.daily || performance.daily.length < 2) return null;
+    const days = performance.daily;
+    const today = days[days.length - 1].closed;
+    const yesterday = days[days.length - 2].closed;
+    if (yesterday === 0) return today > 0 ? 100 : 0;
+    return Math.round(((today - yesterday) / yesterday) * 100);
+  }, [performance]);
+
+  const slaPercent = useMemo(() => {
+    if (!currentQueue?.tickets || currentQueue.tickets.length === 0) return null;
+    const total = currentQueue.tickets.length;
+    const under15 = currentQueue.tickets.filter(t => t.wait_time_minutes < 15).length;
+    return Math.round((under15 / total) * 100);
+  }, [currentQueue]);
+
+  const efficiencyScore = useMemo(() => {
+    if (!stats || stats.today_total === 0) return null;
+    return Math.round((stats.today_closed / stats.today_total) * 100);
+  }, [stats]);
+
+  const performanceScore = useMemo(() => {
+    if (!performance) return 0;
+    const total = performance.total_closed + performance.total_absent;
+    if (total === 0) return 0;
+    return Math.round((performance.total_closed / total) * 100);
+  }, [performance]);
+
+  const highPriorityCount = useMemo(() => {
+    if (!currentQueue?.tickets) return 0;
+    return currentQueue.tickets.filter(t => t.priority === "high" || t.priority === "vip").length;
+  }, [currentQueue]);
 
   const getStatusBadge = (status: string) => {
     const config = STATUS_CONFIG[status] || STATUS_CONFIG.waiting;
@@ -228,7 +260,6 @@ export default function AgentDashboard() {
   };
 
   const getTicketBadge = (ticket: any) => {
-    // Laisser passer (swapped but waiting)
     if (ticket.is_swapped && ticket.status === "waiting") {
       return (
         <Badge className={cn("bg-gray-100 text-gray-700 font-medium text-xs")}>
@@ -237,7 +268,6 @@ export default function AgentDashboard() {
       );
     }
 
-    // Called without response
     if (ticket.status === "called" && !ticket.response_received_at) {
       return (
         <Badge className={cn("bg-blue-100 text-blue-700 font-medium text-xs")}>
@@ -246,7 +276,6 @@ export default function AgentDashboard() {
       );
     }
 
-    // En route
     if (ticket.status === "en_route") {
       return (
         <Badge
@@ -257,7 +286,6 @@ export default function AgentDashboard() {
       );
     }
 
-    // Present
     if (ticket.status === "present") {
       return (
         <Badge
@@ -275,6 +303,24 @@ export default function AgentDashboard() {
     const config = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.normal;
     const Icon = config.icon;
     return <Icon className="h-3 w-3" />;
+  };
+
+  const getSlaColor = (minutes: number) => {
+    if (minutes < 10) return "bg-green-500";
+    if (minutes < 20) return "bg-amber-500";
+    return "bg-red-500";
+  };
+
+  const getHealthColor = (count: number) => {
+    if (count < 5) return "bg-green-500";
+    if (count <= 15) return "bg-amber-500";
+    return "bg-red-500";
+  };
+
+  const getGaugeColor = (score: number) => {
+    if (score >= 75) return "#22c55e";
+    if (score >= 50) return "#f59e0b";
+    return "#ef4444";
   };
 
   return (
@@ -337,8 +383,104 @@ export default function AgentDashboard() {
           />
         </div>
 
+        {/* Smart Insights */}
+        {yesterdayChange !== null && slaPercent !== null && efficiencyScore !== null && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    yesterdayChange >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
+                  )}>
+                    {yesterdayChange >= 0 ? (
+                      <TrendingUp className={cn(
+                        "h-5 w-5",
+                        yesterdayChange >= 0 ? "text-green-600" : "text-red-600"
+                      )} />
+                    ) : (
+                      <TrendingDown className="h-5 w-5 text-red-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Tendance vs hier</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      yesterdayChange >= 0 ? "text-green-600" : "text-red-600"
+                    )}>
+                      {yesterdayChange >= 0 ? "↑" : "↓"} {Math.abs(yesterdayChange)}% de tickets traités
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    slaPercent >= 80 ? "bg-green-100 dark:bg-green-900/30" :
+                    slaPercent >= 60 ? "bg-amber-100 dark:bg-amber-900/30" :
+                    "bg-red-100 dark:bg-red-900/30"
+                  )}>
+                    <Clock className={cn(
+                      "h-5 w-5",
+                      slaPercent >= 80 ? "text-green-600" :
+                      slaPercent >= 60 ? "text-amber-600" :
+                      "text-red-600"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">SLA Performance</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      slaPercent >= 80 ? "text-green-600" :
+                      slaPercent >= 60 ? "text-amber-600" :
+                      "text-red-600"
+                    )}>
+                      {slaPercent}% servis sous 15 min
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    efficiencyScore >= 80 ? "bg-green-100 dark:bg-green-900/30" :
+                    efficiencyScore >= 60 ? "bg-amber-100 dark:bg-amber-900/30" :
+                    "bg-red-100 dark:bg-red-900/30"
+                  )}>
+                    <Star className={cn(
+                      "h-5 w-5",
+                      efficiencyScore >= 80 ? "text-green-600" :
+                      efficiencyScore >= 60 ? "text-amber-600" :
+                      "text-red-600"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Score d'efficacité</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      efficiencyScore >= 80 ? "text-green-600" :
+                      efficiencyScore >= 60 ? "text-amber-600" :
+                      "text-red-600"
+                    )}>
+                      {efficiencyScore}/100
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -388,6 +530,30 @@ export default function AgentDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Performance Pulse */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="relative w-16 h-16">
+                    <div
+                      className="w-16 h-16 rounded-full"
+                      style={{
+                        background: `conic-gradient(${getGaugeColor(performanceScore)} 0% ${performanceScore}%, #e5e7eb ${performanceScore}% 100%)`
+                      }}
+                    >
+                      <div className="absolute inset-[3px] rounded-full bg-card flex items-center justify-center">
+                        <span className="text-sm font-bold">{performanceScore}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Performance</p>
+                </div>
+                <Gauge className="h-8 w-8 text-emerald-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Grid */}
@@ -420,6 +586,10 @@ export default function AgentDashboard() {
                       className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-1 h-10 rounded-full shrink-0",
+                          getSlaColor(ticket.wait_time_minutes)
+                        )} />
                         <div className="flex items-center gap-2">
                           {getPriorityBadge(ticket.priority)}
                           <span className="font-semibold text-lg">
@@ -442,7 +612,6 @@ export default function AgentDashboard() {
                           </p>
                         </div>
                         <div className="text-right">
-                          {/* Status badge */}
                           {ticket.is_swapped && ticket.status === "waiting" ? (
                             <Badge
                               className={cn(
@@ -455,7 +624,6 @@ export default function AgentDashboard() {
                             getTicketBadge(ticket)
                           )}
 
-                          {/* Response info */}
                           <div className="text-xs text-muted-foreground mt-1">
                             {ticket.response_received_at ? (
                               <span>
@@ -486,7 +654,6 @@ export default function AgentDashboard() {
                               </span>
                             ) : null}
 
-                            {/* En route details */}
                             {ticket.status === "en_route" &&
                               ticket.estimated_travel_minutes && (
                                 <div>
@@ -538,13 +705,19 @@ export default function AgentDashboard() {
                         />
                         <span className="font-medium">{service.name}</span>
                       </div>
-                      <Badge
-                        variant={
-                          service.waiting_count > 0 ? "default" : "secondary"
-                        }
-                      >
-                        {service.waiting_count} en attente
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          getHealthColor(service.waiting_count)
+                        )} />
+                        <Badge
+                          variant={
+                            service.waiting_count > 0 ? "default" : "secondary"
+                          }
+                        >
+                          {service.waiting_count} en attente
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -664,25 +837,25 @@ export default function AgentDashboard() {
               <Link to="/dashboard/queues">
                 <Button className="w-full h-15 flex gap-2 items-center" variant="default">
                   <Play className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Gérer la file</span>
+                  <span className="text-sm">Gérer la file ({currentQueue?.total_waiting ?? 0} en attente)</span>
                 </Button>
               </Link>
               <Link to="/dashboard/tickets">
-                <Button className="w-full  h-15 flex gap-2 items-center" variant="secondary">
+                <Button className="w-full h-15 flex gap-2 items-center" variant="secondary">
                   <Eye className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Voir tickets</span>
+                  <span className="text-sm">Voir tickets ({stats?.today_total ?? 0})</span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/called">
                 <Button className="w-full h-15 flex gap-2 items-center" variant="outline">
                   <Activity className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Tickets appelés</span>
+                  <span className="text-sm">Tickets appelés ({stats?.today_called ?? 0})</span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/priority">
                 <Button className="w-full h-15 flex gap-2 items-center" variant="destructive">
                   <AlertTriangle className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Prioritaires</span>
+                  <span className="text-sm">Prioritaires ({highPriorityCount})</span>
                 </Button>
               </Link>
             </div>
