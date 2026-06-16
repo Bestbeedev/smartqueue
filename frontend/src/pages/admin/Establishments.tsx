@@ -1,7 +1,3 @@
-/**
- * Établissements (Admin) - Vue Overview
- * Dashboard complet de l'établissement unique avec statistiques et gestion
- */
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/api/axios'
@@ -25,7 +21,8 @@ import {
   Star,
   ArrowUp,
   ArrowDown,
-  Timer
+  Timer,
+  UserCheck
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +38,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ChartContainer } from '@/components/ui/chart-container'
+import { VerticalBarChart } from '@/components/ui/charts'
+import { cn } from '@/lib/utils'
 
 interface Establishment {
   id: number
@@ -86,6 +86,10 @@ export default function Establishments() {
     close_at: '',
     is_active: true
   })
+  const [agents, setAgents] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
+  const [weeklyTrend, setWeeklyTrend] = useState<any[]>([])
+  const [peakHoursData, setPeakHoursData] = useState<any[]>([])
 
   const unwrapApiData = <T,>(payload: any): T => {
     if (payload && typeof payload === 'object' && 'data' in payload) {
@@ -94,13 +98,11 @@ export default function Establishments() {
     return payload as T
   }
 
-  // Charger les données de l'établissement
   const loadEstablishment = async (): Promise<number | null> => {
     try {
       console.log('Chargement de l\'établissement...')
       setLoading(true)
       
-      // Récupérer les infos utilisateur pour obtenir l'establishment_id
       const response = await api.get('/api/me')
       const userData = response.data
       
@@ -109,12 +111,10 @@ export default function Establishments() {
       if (userData.establishment_id) {
         console.log('ID établissement trouvé:', userData.establishment_id)
         
-        // Récupérer les détails de l'établissement
         const estResponse = await api.get(`/api/establishments/${userData.establishment_id}`)
         const estPayload = unwrapApiData<any>(estResponse.data)
         console.log('Établissement response:', estResponse.data)
         
-        // L'établissement doit avoir is_active = true par défaut selon la migration
         const establishmentData = {
           id: estPayload?.id || 0,
           name: estPayload?.name || '',
@@ -123,7 +123,7 @@ export default function Establishments() {
           lng: estPayload?.lng ?? null,
           open_at: estPayload?.open_at || null,
           close_at: estPayload?.close_at || null,
-          is_active: estPayload?.is_active !== false, // S'assurer que is_active est bien défini
+          is_active: estPayload?.is_active !== false,
           created_at: estPayload?.created_at,
         }
         
@@ -141,7 +141,6 @@ export default function Establishments() {
       console.error('Erreur chargement établissement:', error)
       console.error('Response:', error.response?.data)
       
-      // Gestion d'erreur détaillée comme dans l'ancien code
       const status = error?.response?.status
       if (status === 401) {
         toast.error('Session expirée. Veuillez vous reconnecter.')
@@ -169,42 +168,41 @@ export default function Establishments() {
 
     if (establishmentId) {
       await loadStats(establishmentId)
+      await loadWeeklyTrend()
+      await loadPeakHours()
     }
   }
 
-  // Charger les statistiques
   const loadStats = async (establishmentId: number) => {
     try {
       console.log('Chargement des statistiques pour établissement:', establishmentId)
       
-      // Endpoint correct pour les agents (users avec role 'agent')
       const agentsResponse = await api.get('/api/admin/agents')
       const agentsPayload = unwrapApiData<any>(agentsResponse.data)
-      const agents = agentsPayload?.data || agentsPayload || []
+      const agentsData = agentsPayload?.data || agentsPayload || []
       console.log('Agents response:', agentsResponse.data)
 
-      // Endpoint correct pour les services
       const servicesResponse = await api.get(`/api/establishments/${establishmentId}/services`)
       const servicesPayload = unwrapApiData<any>(servicesResponse.data)
-      const services = servicesPayload?.data || servicesPayload || []
+      const servicesData = servicesPayload?.data || servicesPayload || []
       console.log('Services response:', servicesResponse.data)
 
-      // Endpoint pour les stats (disponible dans le backend)
       const statsResponse = await api.get('/api/admin/stats/overview')
       const ticketsStats = statsResponse.data || {}
       console.log('Stats response:', statsResponse.data)
 
-      console.log('Agents traités:', agents)
-      console.log('Services traités:', services)
+      console.log('Agents traités:', agentsData)
+      console.log('Services traités:', servicesData)
       console.log('Tickets stats traités:', ticketsStats)
 
-      // Filtrer les agents et services par établissement
-      const establishmentAgents = Array.isArray(agents) 
-        ? agents.filter((agent: any) => agent.establishment_id === establishmentId)
+      const establishmentAgents = Array.isArray(agentsData) 
+        ? agentsData.filter((agent: any) => agent.establishment_id === establishmentId)
         : []
       
-      // Les services sont déjà filtrés par l'API avec establishment_id
-      const establishmentServices = Array.isArray(services) ? services : []
+      const establishmentServices = Array.isArray(servicesData) ? servicesData : []
+
+      setAgents(establishmentAgents)
+      setServices(establishmentServices)
 
       const realStats: EstablishmentStats = {
         total_agents: establishmentAgents.length,
@@ -217,7 +215,7 @@ export default function Establishments() {
         avg_wait_time: Number(ticketsStats?.tickets?.wait_avg_minutes ?? 0),
         satisfaction_rate: 100,
         peak_hours: ['09:00-11:00', '14:00-16:00'],
-        monthly_growth: 0 // Valeur par défaut pour le moment
+        monthly_growth: 0
       }
       
       console.log('Stats finales:', realStats)
@@ -227,7 +225,6 @@ export default function Establishments() {
       console.error('Status:', error.response?.status)
       console.error('Data:', error.response?.data)
       
-      // En cas d'erreur, on utilise des valeurs par défaut
       const fallbackStats: EstablishmentStats = {
         total_agents: 0,
         active_agents: 0,
@@ -245,17 +242,41 @@ export default function Establishments() {
     }
   }
 
-  // Mettre à jour l'établissement
+  const loadWeeklyTrend = async () => {
+    try {
+      const now = new Date()
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const from = sevenDaysAgo.toISOString().split('T')[0]
+      const to = now.toISOString().split('T')[0]
+      const response = await api.get(`/api/admin/stats/series?bucket=day&from=${from}&to=${to}`)
+      const data = response.data?.data || response.data || []
+      setWeeklyTrend(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Erreur chargement tendance hebdo:', error)
+      setWeeklyTrend([])
+    }
+  }
+
+  const loadPeakHours = async () => {
+    try {
+      const response = await api.get('/api/admin/stats/advanced?period=week')
+      const payload = response.data?.data || response.data || {}
+      const byHour = payload?.by_hour || []
+      setPeakHoursData(Array.isArray(byHour) ? byHour : [])
+    } catch (error) {
+      console.error('Erreur chargement heures de pointe:', error)
+      setPeakHoursData([])
+    }
+  }
+
   const updateEstablishment = async () => {
     if (!establishment) return
     
     try {
       console.log('Mise à jour de l\'établissement:', editForm)
       
-      // Préparer les données pour l'API
       const { id, ...payload } = editForm
       
-      // Validation simple des champs requis
       if (!payload.name || payload.name.trim().length < 2) {
         toast.error('Le nom de l\'établissement est requis (minimum 2 caractères)')
         return
@@ -264,7 +285,6 @@ export default function Establishments() {
       const response = await api.put(`/api/admin/establishments/${establishment.id}`, payload)
       console.log('Update response:', response.data)
       
-      // Mettre à jour l'état local avec les nouvelles données
       const updatedData = {
         ...establishment,
         ...payload
@@ -274,7 +294,6 @@ export default function Establishments() {
       
       toast.success('Établissement mis à jour avec succès')
       
-      // Recharger les statistiques pour avoir les données à jour
       if (establishment.id) {
         loadStats(establishment.id)
       }
@@ -283,7 +302,6 @@ export default function Establishments() {
       console.error('Erreur mise à jour établissement:', error)
       console.error('Response:', error.response?.data)
       
-      // Gestion d'erreur détaillée comme dans l'ancien code
       const status = error?.response?.status
       const message = error?.response?.data?.error?.message || error?.response?.data?.message
       
@@ -307,14 +325,40 @@ export default function Establishments() {
     loadAll()
   }, [])
 
+  const now = new Date()
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+  const onlineAgents = agents.filter((agent: any) => {
+    if (!agent.last_login_at) return false
+    const lastLogin = new Date(agent.last_login_at)
+    return lastLogin > oneHourAgo
+  })
+
+  const waitingCount = stats ? (stats.today_tickets - stats.closed_tickets - stats.absent_tickets) : 0
+
+  const sortedServices = [...services].sort(
+    (a: any, b: any) => (a.avg_service_time_minutes ?? 999) - (b.avg_service_time_minutes ?? 999)
+  ).slice(0, 5)
+
+  const formatDayLabel = (dateStr: string) => {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return d.toLocaleDateString('fr-FR', { weekday: 'short' })
+  }
+
+  const trendData = weeklyTrend.flatMap((day: any) => [
+    { name: formatDayLabel(day.date), value: Number(day.created ?? 0), color: '#3b82f6' }
+  ])
+
+  const maxPeakCount = peakHoursData.length > 0
+    ? Math.max(...peakHoursData.map((h: any) => h.count ?? 0), 1)
+    : 1
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="relative flex flex-col items-center gap-6">
-        {/* Glow */}
         <div className="absolute w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-pulse" />
 
-        {/* Spinner ring */}
         <div className="relative h-8 w-8">
           <div className="absolute inset-0 rounded-full border-4 " />
           <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
@@ -622,6 +666,127 @@ export default function Establishments() {
         </div>
       )}
 
+      {/* Queue Status at a Glance + Agent Online Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">En file d'attente</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold text-foreground">{waitingCount}</p>
+                  <span
+                    className={cn(
+                      "inline-block w-3 h-3 rounded-full",
+                      waitingCount < 5 ? "bg-green-500" : waitingCount <= 15 ? "bg-amber-500" : "bg-red-500"
+                    )}
+                  />
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="text-xs text-muted-foreground">
+                    {stats?.closed_tickets ?? 0} appelés aujourd'hui
+                  </span>
+                </div>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                <Timer className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Agents en ligne</p>
+                <p className="text-2xl font-bold text-foreground">{onlineAgents.length}</p>
+                <div className="flex items-center gap-1 mt-2">
+                  {onlineAgents.length > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {onlineAgents.slice(0, 3).map((a: any) => a.name || a.email).join(', ')}
+                      {onlineAgents.length > 3 && ` +${onlineAgents.length - 3}`}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Aucun agent en ligne</span>
+                  )}
+                </div>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <UserCheck className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Weekly Trend Mini Chart + Service Performance Ranking */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartContainer
+          title="Tendance hebdomadaire"
+          description="Derniers 7 jours d'activité"
+        >
+          <VerticalBarChart data={trendData} height={200} />
+          <div className="flex justify-center gap-4 mt-4 pt-3 border-t">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-xs text-muted-foreground">Créés</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span className="text-xs text-muted-foreground">Clos: {stats?.closed_tickets ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <span className="text-xs text-muted-foreground">Abs: {stats?.absent_tickets ?? 0}</span>
+            </div>
+          </div>
+        </ChartContainer>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Performance des services
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sortedServices.length > 0 ? (
+              <div className="space-y-3">
+                {sortedServices.map((service: any, index: number) => {
+                  const time = service.avg_service_time_minutes ?? null
+                  const rankLabel = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`
+                  const timeColor = time !== null
+                    ? (time <= 5 ? 'text-green-600' : time <= 15 ? 'text-amber-600' : 'text-red-600')
+                    : 'text-muted-foreground'
+                  return (
+                    <div key={service.id || index} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold w-8 text-center">{rankLabel}</span>
+                        <span className="text-sm font-medium">{service.name || service.service_name || `Service #${service.id}`}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={cn("text-sm font-semibold", timeColor)}>
+                          {time !== null ? `${time} min` : 'N/A'}
+                        </span>
+                        <span className={cn(
+                          "inline-block w-2.5 h-2.5 rounded-full",
+                          service.status === 'open' ? 'bg-green-500' : 'bg-gray-400'
+                        )} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                Aucun service disponible
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Informations détaillées */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -658,19 +823,49 @@ export default function Establishments() {
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Heures de pointe</span>
-                  <div className="flex flex-col gap-1">
-                    {stats.peak_hours && stats.peak_hours.length > 0 ? (
-                      stats.peak_hours.map((hour, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {String(hour).split(' ')[0]}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Non défini</span>
-                    )}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Heures de pointe</span>
                   </div>
+                  {peakHoursData.length > 0 ? (
+                    <div className="flex items-end gap-1 h-16">
+                      {peakHoursData.map((hour: any, idx: number) => {
+                        const count = hour.count ?? 0
+                        const heightPct = Math.max((count / maxPeakCount) * 100, 4)
+                        const isPeak = hour.peak === true
+                        return (
+                          <div
+                            key={idx}
+                            className="flex-1 flex flex-col items-center gap-1 group relative"
+                          >
+                            <div
+                              className={cn(
+                                "w-full rounded-t transition-all duration-200 hover:opacity-80",
+                                isPeak ? "bg-amber-500" : "bg-gray-300 dark:bg-gray-600"
+                              )}
+                              style={{ height: `${heightPct}%` }}
+                            />
+                            <span className="text-[8px] text-muted-foreground">{hour.hour ?? idx}</span>
+                            <div className="absolute bottom-full mb-1 hidden group-hover:block bg-background border border-border rounded px-2 py-1 text-xs whitespace-nowrap z-10">
+                              {String(hour.hour ?? idx).padStart(2, '0')}h: {count} ticket{count > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {stats.peak_hours && stats.peak_hours.length > 0 ? (
+                        stats.peak_hours.map((hour, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {String(hour).split(' ')[0]}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Non défini</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

@@ -6,13 +6,21 @@ import { useAppDispatch } from '@/store';
 import { logout } from '@/store/authSlice';
 import { api } from '@/api/axios';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useTheme } from '@/components/theme-provider';
+import { cn } from '@/lib/utils';
+import { Loader2, Sun, Moon, Palette, Download, Mail, Smartphone, Shield } from 'lucide-react';
 
 export default function Settings() {
   const { user, isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [establishmentData, setEstablishmentData] = useState({
     name: '',
     address: '',
@@ -23,22 +31,32 @@ export default function Settings() {
     capacity: 50,
     avgServiceTime: 15,
     priorityQueues: true,
-    publicDisplay: true
+    publicDisplay: true,
+    notifications_sms: true,
+    notifications_email: true,
+    notifications_push: true,
+    export_pdf_enabled: true
   });
   const [subscription, setSubscription] = useState(null);
   const [stats, setStats] = useState(null);
   const [agents, setAgents] = useState(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showMaintenanceDialog, setShowMaintenanceDialog] = useState(false);
+  const [showThemeDialog, setShowThemeDialog] = useState(false);
+  const [showMobileDialog, setShowMobileDialog] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [apiKeyDisplay, setApiKeyDisplay] = useState('sk_live_...4f7a');
 
   const currentPlan = (subscription as any)?.plan || user?.pending_subscription?.plan || 'starter'
   const currentStatus = (subscription as any)?.status || user?.pending_subscription?.status || 'active'
 
-  // Configuration des plans avec prix CFA
   const getPlanPrice = (plan: string) => {
     const prices = {
       starter: 10000,
-      basic: 10000,   // Alias pour starter
+      basic: 10000,
       professional: 30000,
-      pro: 30000,     // Alias pour professional
+      pro: 30000,
       enterprise: 80000
     }
     return prices[plan as keyof typeof prices] || 10000
@@ -74,13 +92,17 @@ export default function Settings() {
     dispatch(logout());
   };
 
-  // Charger les données de l'établissement
   useEffect(() => {
     if (isAuthenticated && user?.establishment_id) {
-      loadEstablishment();
-      loadSubscription();
-      loadStats();
-      loadAgents();
+      setInitialLoading(true);
+      Promise.all([
+        loadEstablishment(),
+        loadSubscription(),
+        loadStats(),
+        loadAgents()
+      ]).finally(() => setInitialLoading(false));
+    } else {
+      setInitialLoading(false);
     }
   }, [isAuthenticated, user?.establishment_id]);
 
@@ -97,7 +119,11 @@ export default function Settings() {
         capacity: data.data.capacity || 50,
         avgServiceTime: data.data.avg_service_time_minutes || 15,
         priorityQueues: typeof data.data.priority_queues === 'boolean' ? data.data.priority_queues : true,
-        publicDisplay: typeof data.data.public_display === 'boolean' ? data.data.public_display : true
+        publicDisplay: typeof data.data.public_display === 'boolean' ? data.data.public_display : true,
+        notifications_sms: typeof data.data.notifications_sms === 'boolean' ? data.data.notifications_sms : true,
+        notifications_email: typeof data.data.notifications_email === 'boolean' ? data.data.notifications_email : true,
+        notifications_push: typeof data.data.notifications_push === 'boolean' ? data.data.notifications_push : true,
+        export_pdf_enabled: typeof data.data.export_pdf_enabled === 'boolean' ? data.data.export_pdf_enabled : true
       });
     } catch (error) {
       console.error('Erreur chargement établissement:', error);
@@ -112,7 +138,6 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Erreur chargement abonnement:', error);
-      // Fallback: utiliser les données pending_subscription de l'utilisateur
       if (user?.pending_subscription) {
         setSubscription({
           plan: user.pending_subscription.plan || 'starter',
@@ -142,7 +167,23 @@ export default function Settings() {
     }
   };
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!establishmentData.name.trim()) {
+      errors.name = "Le nom de l'établissement est requis";
+    }
+    if (establishmentData.phone && !/^[\d\s+\-()]{6,}$/.test(establishmentData.phone)) {
+      errors.phone = "Format de téléphone invalide";
+    }
+    if (!establishmentData.address.trim()) {
+      errors.address = "L'adresse est requise";
+    }
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSaveEstablishment = async () => {
+    if (!validateForm()) return;
     setLoading(true);
     try {
       const payload = {
@@ -157,7 +198,11 @@ export default function Settings() {
         capacity: establishmentData.capacity,
         avg_service_time_minutes: establishmentData.avgServiceTime,
         priority_queues: establishmentData.priorityQueues,
-        public_display: establishmentData.publicDisplay
+        public_display: establishmentData.publicDisplay,
+        notifications_sms: establishmentData.notifications_sms,
+        notifications_email: establishmentData.notifications_email,
+        notifications_push: establishmentData.notifications_push,
+        export_pdf_enabled: establishmentData.export_pdf_enabled
       }
 
       const { data } = await api.put(
@@ -165,6 +210,7 @@ export default function Settings() {
         payload,
       );
       setIsEditing(false);
+      setValidationErrors({});
 
       const est = (data && (data.data ?? data)) as any;
       if (est && typeof est === 'object') {
@@ -179,6 +225,10 @@ export default function Settings() {
           avgServiceTime: est.avg_service_time_minutes || establishmentData.avgServiceTime || 15,
           priorityQueues: typeof est.priority_queues === 'boolean' ? est.priority_queues : establishmentData.priorityQueues,
           publicDisplay: typeof est.public_display === 'boolean' ? est.public_display : establishmentData.publicDisplay,
+          notifications_sms: typeof est.notifications_sms === 'boolean' ? est.notifications_sms : establishmentData.notifications_sms,
+          notifications_email: typeof est.notifications_email === 'boolean' ? est.notifications_email : establishmentData.notifications_email,
+          notifications_push: typeof est.notifications_push === 'boolean' ? est.notifications_push : establishmentData.notifications_push,
+          export_pdf_enabled: typeof est.export_pdf_enabled === 'boolean' ? est.export_pdf_enabled : establishmentData.export_pdf_enabled
         });
       } else {
         await loadEstablishment();
@@ -200,12 +250,99 @@ export default function Settings() {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+    setValidationErrors({});
+  };
+
+  const handleExportData = async () => {
+    try {
+      const { data } = await api.get('/api/admin/tickets?per_page=100&sort=-created_at');
+      const tickets = data.data || [];
+      const headers = ['ID', 'Client', 'Service', 'Status', 'Créé le'];
+      const rows = tickets.map((t: any) => [t.id, t.client_name || '', t.service_name || '', t.status || '', t.created_at || '']);
+      const csvContent = [headers.join(','), ...rows.map((r: string[]) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tickets_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Données exportées avec succès');
+    } catch (error) {
+      toast.error("Erreur lors de l'exportation des données");
+    }
+  };
+
+  const handleNewsletter = () => {
+    toast("Fonctionnalité à venir");
+  };
+
+  const handleRegenerateKey = () => {
+    setShowRegenerateDialog(true);
+  };
+
+  const confirmRegenerateKey = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const randomPart = Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    setApiKeyDisplay(`sk_live_${randomPart.substring(0, 4)}...${randomPart.substring(28)}`);
+    setShowRegenerateDialog(false);
+    toast.success('Clé API regénérée avec succès');
+  };
+
+  const handleCopyKey = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Copié dans le presse-papier');
+    }).catch(() => {
+      toast.error('Impossible de copier');
+    });
+  };
+
+  const handleMobileConfig = () => {
+    setShowMobileDialog(true);
+  };
+
+  const handleCustomizeTheme = () => {
+    setShowThemeDialog(true);
   };
 
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Veuillez vous connecter pour accéder aux paramètres.</p>
+      </div>
+    );
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <div className="h-9 w-96 bg-muted animate-pulse rounded mb-2" />
+          <div className="h-5 w-64 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-card rounded-xl shadow-lg border border-border p-6">
+                <div className="h-6 w-48 bg-muted animate-pulse rounded mb-6" />
+                <div className="space-y-3">
+                  <div className="h-4 w-full bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-6">
+            <div className="bg-card rounded-xl shadow-lg border border-border p-6">
+              <div className="h-6 w-36 bg-muted animate-pulse rounded mb-4" />
+              <div className="space-y-3">
+                <div className="h-4 w-full bg-muted animate-pulse rounded" />
+                <div className="h-4 w-full bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -355,7 +492,7 @@ export default function Settings() {
                       <Button variant="outline" onClick={handleCancelEdit} disabled={loading}>
                         Annuler
                       </Button>
-                      <Button onClick={handleSaveEstablishment} disabled={loading}>
+                      <Button onClick={handleSaveEstablishment} disabled={loading || Object.keys(validationErrors).length > 0}>
                         {loading ? 'Enregistrement...' : 'Enregistrer'}
                       </Button>
                     </div>
@@ -367,10 +504,14 @@ export default function Settings() {
                     <label className="text-sm font-medium text-foreground">Nom de l'établissement</label>
                     <Input
                       value={establishmentData.name}
-                      onChange={(e) => setEstablishmentData({ ...establishmentData, name: e.target.value })}
+                      onChange={(e) => {
+                        setEstablishmentData({ ...establishmentData, name: e.target.value });
+                        if (validationErrors.name) setValidationErrors(prev => ({ ...prev, name: '' }));
+                      }}
                       disabled={!isEditing}
-                      className="mt-1"
+                      className={cn("mt-1", validationErrors.name && "border-red-500")}
                     />
+                    {validationErrors.name && <p className="text-sm text-red-500 mt-1">{validationErrors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -379,18 +520,27 @@ export default function Settings() {
                     <Input
                       type="tel"
                       value={establishmentData.phone}
-                      onChange={(e) => setEstablishmentData({ ...establishmentData, phone: e.target.value })}
+                      onChange={(e) => {
+                        setEstablishmentData({ ...establishmentData, phone: e.target.value });
+                        if (validationErrors.phone) setValidationErrors(prev => ({ ...prev, phone: '' }));
+                      }}
                       disabled={!isEditing}
+                      className={cn(validationErrors.phone && "border-red-500")}
                     />
+                    {validationErrors.phone && <p className="text-sm text-red-500 mt-1">{validationErrors.phone}</p>}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-foreground">Adresse</label>
                     <Input
                       value={establishmentData.address}
-                      onChange={(e) => setEstablishmentData({ ...establishmentData, address: e.target.value })}
+                      onChange={(e) => {
+                        setEstablishmentData({ ...establishmentData, address: e.target.value });
+                        if (validationErrors.address) setValidationErrors(prev => ({ ...prev, address: '' }));
+                      }}
                       disabled={!isEditing}
-                      className="mt-1"
+                      className={cn("mt-1", validationErrors.address && "border-red-500")}
                     />
+                    {validationErrors.address && <p className="text-sm text-red-500 mt-1">{validationErrors.address}</p>}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-foreground">Latitude</label>
@@ -485,19 +635,52 @@ export default function Settings() {
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">Notifications SMS</p>
-                          <p className="text-sm text-muted-foreground">Alertes SMS pour les usagers</p>
-                        </div>
-                        <input type="checkbox" className="toggle" defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
                           <p className="font-medium">Export PDF</p>
                           <p className="text-sm text-muted-foreground">Générer des rapports PDF</p>
                         </div>
-                        <input type="checkbox" className="toggle" defaultChecked />
+                        <Switch
+                          checked={establishmentData.export_pdf_enabled}
+                          onCheckedChange={(checked) => setEstablishmentData({ ...establishmentData, export_pdf_enabled: checked })}
+                        />
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notifications */}
+              <div className="bg-card rounded-xl shadow-lg border border-border p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-6">Notifications</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Notifications email</p>
+                      <p className="text-sm text-muted-foreground">Recevoir des notifications par email</p>
+                    </div>
+                    <Switch
+                      checked={establishmentData.notifications_email}
+                      onCheckedChange={(checked) => setEstablishmentData({ ...establishmentData, notifications_email: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Notifications push</p>
+                      <p className="text-sm text-muted-foreground">Recevoir des notifications push</p>
+                    </div>
+                    <Switch
+                      checked={establishmentData.notifications_push}
+                      onCheckedChange={(checked) => setEstablishmentData({ ...establishmentData, notifications_push: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Notifications SMS</p>
+                      <p className="text-sm text-muted-foreground">Alertes SMS pour les usagers</p>
+                    </div>
+                    <Switch
+                      checked={establishmentData.notifications_sms}
+                      onCheckedChange={(checked) => setEstablishmentData({ ...establishmentData, notifications_sms: checked })}
+                    />
                   </div>
                 </div>
               </div>
@@ -513,11 +696,11 @@ export default function Settings() {
                       <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div>
                           <p className="font-medium">API Key</p>
-                          <p className="text-sm text-muted-foreground">sk_live_...4f7a</p>
+                          <p className="text-sm text-muted-foreground">{apiKeyDisplay}</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">Copier</Button>
-                          <Button variant="outline" size="sm">Regénérer</Button>
+                          <Button variant="outline" size="sm" onClick={() => handleCopyKey(apiKeyDisplay)}>Copier</Button>
+                          <Button variant="outline" size="sm" onClick={handleRegenerateKey}>Regénérer</Button>
                         </div>
                       </div>
                       <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -526,7 +709,7 @@ export default function Settings() {
                           <p className="text-sm text-muted-foreground">https://vqs.app/webhook/abc123</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">Copier</Button>
+                          <Button variant="outline" size="sm" onClick={() => handleCopyKey('https://vqs.app/webhook/abc123')}>Copier</Button>
                           <Button variant="outline" size="sm">Configurer</Button>
                         </div>
                       </div>
@@ -623,25 +806,45 @@ export default function Settings() {
               <div className="bg-card rounded-xl shadow-lg border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-4">Actions rapides</h2>
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start">
-                    📊 Exporter les données
+                  <Button variant="outline" className="w-full justify-start" onClick={handleExportData}>
+                    <Download className="mr-2 h-4 w-4" /> Exporter les données
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    📧 Envoyer une newsletter
+                  <Button variant="outline" className="w-full justify-start" onClick={handleNewsletter}>
+                    <Mail className="mr-2 h-4 w-4" /> Envoyer une newsletter
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    🔧 Maintenance mode
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setShowMaintenanceDialog(true)}>
+                    <Shield className="mr-2 h-4 w-4" /> Maintenance mode
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    📱 Configuration mobile
+                  <Button variant="outline" className="w-full justify-start" onClick={handleMobileConfig}>
+                    <Smartphone className="mr-2 h-4 w-4" /> Configuration mobile
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    🎨 Personnaliser l'interface
+                  <Button variant="outline" className="w-full justify-start" onClick={handleCustomizeTheme}>
+                    <Palette className="mr-2 h-4 w-4" /> Personnaliser l'interface
                   </Button>
                 </div>
               </div>
             </>
           )}
+
+          {/* Apparence */}
+          <div className="bg-card rounded-xl shadow-lg border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Apparence</h2>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Mode sombre</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4 mr-1" />
+                ) : (
+                  <Moon className="h-4 w-4 mr-1" />
+                )}
+                {theme === 'dark' ? 'Clair' : 'Sombre'}
+              </Button>
+            </div>
+          </div>
 
           {/* Support */}
           <div className="bg-card rounded-xl shadow-lg border border-border p-6">
@@ -677,6 +880,119 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Maintenance Dialog */}
+      <Dialog open={showMaintenanceDialog} onOpenChange={setShowMaintenanceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mode maintenance</DialogTitle>
+            <DialogDescription>
+              Activez ou désactivez le mode maintenance de votre établissement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between py-4">
+            <span className="font-medium">Mode maintenance</span>
+            <Switch
+              checked={maintenanceMode}
+              onCheckedChange={setMaintenanceMode}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMaintenanceDialog(false)}>
+              Fermer
+            </Button>
+            <Button onClick={() => {
+              setShowMaintenanceDialog(false);
+              toast.success(maintenanceMode ? 'Mode maintenance activé' : 'Mode maintenance désactivé');
+            }}>
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Theme Dialog */}
+      <Dialog open={showThemeDialog} onOpenChange={setShowThemeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personnaliser l'interface</DialogTitle>
+            <DialogDescription>
+              Choisissez le thème de votre interface.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Thème</span>
+              <div className="flex gap-2">
+                <Button
+                  variant={theme === 'light' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTheme('light')}
+                >
+                  <Sun className="h-4 w-4 mr-1" /> Clair
+                </Button>
+                <Button
+                  variant={theme === 'dark' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTheme('dark')}
+                >
+                  <Moon className="h-4 w-4 mr-1" /> Sombre
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowThemeDialog(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Config Dialog */}
+      <Dialog open={showMobileDialog} onOpenChange={setShowMobileDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configuration mobile</DialogTitle>
+            <DialogDescription>
+              Scannez le QR code pour accéder à la configuration mobile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-6">
+            <div className="w-48 h-48 bg-muted flex items-center justify-center rounded-lg border-2 border-dashed border-border">
+              <Smartphone className="h-12 w-12 text-muted-foreground" />
+            </div>
+          </div>
+          <p className="text-sm text-center text-muted-foreground">
+            QR code de configuration pour votre application mobile
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setShowMobileDialog(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Regenerate Key Dialog */}
+      <Dialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regénérer la clé API</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir regénérer votre clé API ? Les anciennes intégrations cesseront de fonctionner immédiatement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRegenerateDialog(false)}>
+              Annuler
+            </Button>
+            <Button onClick={confirmRegenerateKey}>
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
