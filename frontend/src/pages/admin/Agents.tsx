@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search, Filter, User, Mail, Phone, Lock, Check, Loader2, Users, UserCheck, UserCog, Activity, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +74,7 @@ export default function Agents() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const { user } = useAuth();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -159,12 +161,6 @@ export default function Agents() {
         : [];
       setServices(list);
     } catch (error: any) {
-      const status = error?.response?.status
-      if (status === 401 || status === 403) {
-        toast.error("Accès refusé. Connectez-vous avec un compte administrateur pour voir les services.")
-      } else {
-        toast.error('Impossible de charger la liste des services');
-      }
       console.error('Erreur lors de la récupération des services:', error);
     } finally {
       setLoading(prev => ({ ...prev, services: false }));
@@ -324,6 +320,7 @@ export default function Agents() {
   const countByRole = (role: string) => filteredAgents.filter(a => a.role === role).length;
   const actifCount = countByStatus('active');
   const enLigneCount = filteredAgents.filter(a => isOnline(a.last_login)).length;
+  const displayAdminCount = countByRole('admin') + (user?.role === 'admin' ? 1 : 0);
 
   const statusChartData = [
     { name: 'Actifs', value: countByStatus('active'), color: '#22c55e' },
@@ -387,7 +384,7 @@ export default function Agents() {
   if (loading.agents || loading.services) {
     return (
       <TooltipProvider>
-        <div className="container mx-auto px-4 py-6">
+        <div className="w-full mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Gestion des agents</h1>
@@ -462,7 +459,7 @@ export default function Agents() {
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto px-4 py-6">
+      <div className="w-full mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Gestion des agents</h1>
@@ -501,7 +498,7 @@ export default function Agents() {
             />
             <AnalyticsCard
               title="Répartition rôles"
-              value={`${countByRole('admin')} admin, ${countByRole('supervisor')} superviseur, ${countByRole('agent')} agent`}
+              value={`${countByRole('agent')} agent${countByRole('agent') > 1 ? 's' : ''} · ${countByRole('supervisor')} superviseur${countByRole('supervisor') > 1 ? 's' : ''}${displayAdminCount > 0 ? ` · ${displayAdminCount} admin${displayAdminCount > 1 ? 's' : ''}` : ''}`}
               icon={UserCog}
             />
           </div>
@@ -509,6 +506,20 @@ export default function Agents() {
             <div className="p-4">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Répartition par statut</h3>
               <DonutChart data={statusChartData} height={160} innerRadius={45} outerRadius={65} />
+              <div className="flex items-center justify-center gap-4 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#22c55e' }} />
+                  <span className="text-xs text-muted-foreground">Actifs</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+                  <span className="text-xs text-muted-foreground">Inactifs</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+                  <span className="text-xs text-muted-foreground">En attente</span>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
@@ -568,7 +579,7 @@ export default function Agents() {
           </div>
         </Card>
 
-        <Card className='shadow-lg'>
+        <Card className='shadow-lg w-full'>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
