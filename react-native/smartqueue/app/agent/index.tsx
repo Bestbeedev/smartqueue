@@ -410,7 +410,7 @@ export default function AgentHome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 100 },
   
   header: {
     flexDirection: 'row',
@@ -452,11 +452,11 @@ const styles = StyleSheet.create({
   primaryAction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, marginBottom: 10, gap: 10 },
   primaryActionText: { flex: 1, color: '#FFF', fontSize: 15, fontWeight: '600' },
   
-  actionRow: { flexDirection: 'row', gap: 10 },
+  actionRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' ,alignItems:'center',},
   smallAction: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 1, gap: 6 },
   smallActionText: { fontSize: 11, fontWeight: '500' },
   
-  statsRow: { flexDirection: 'row', paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
+  statsRow: { flexDirection: 'row', paddingVertical: 12, borderRadius: 14, borderWidth: 1, alignContent: 'center' },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 20, fontWeight: '700' },
   statLabel: { fontSize: 10, marginTop: 2 },

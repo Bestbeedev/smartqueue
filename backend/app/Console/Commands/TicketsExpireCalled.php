@@ -65,7 +65,7 @@ class TicketsExpireCalled extends Command
 
             $maxAttempts = (int) ($ticket->service?->max_call_attempts ?? 2);
 
-            if (($ticket->deferral_count ?? 0) >= $maxAttempts) {
+            if (($ticket->absent_level ?? 0) >= $maxAttempts) {
                 // At or beyond max attempts — permanent expiry
                 $this->ticketService->permanentlyExpireAbsent($ticket);
             } else {
