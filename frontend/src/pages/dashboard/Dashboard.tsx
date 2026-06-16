@@ -1237,7 +1237,7 @@ export default function Dashboard() {
                         color: "hsl(var(--chart-1))",
                       },
                     }}
-                    className="h-[300px]"
+                    className="h-fit"
                   >
                     {serviceDistribution.length > 0 ? (
                       <DonutChart

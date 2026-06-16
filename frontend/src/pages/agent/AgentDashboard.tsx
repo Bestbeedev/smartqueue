@@ -22,6 +22,7 @@ import {
   Star,
   Flame,
   Gauge,
+  Lightbulb,
 } from "lucide-react";
 import {
   Card,
@@ -155,6 +156,12 @@ const PRIORITY_CONFIG: Record<string, { label: string; icon: any }> = {
   vip: { label: "VIP", icon: Star },
 };
 
+const PRIORITY_COLORS: Record<string, { bar: string; text: string; bg: string }> = {
+  normal: { bar: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-100 dark:bg-blue-900/30" },
+  high: { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-100 dark:bg-amber-900/30" },
+  vip: { bar: "bg-purple-500", text: "text-purple-700", bg: "bg-purple-100 dark:bg-purple-900/30" },
+};
+
 export default function AgentDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [todayTickets, setTodayTickets] = useState<TodayTicket[]>([]);
@@ -166,6 +173,8 @@ export default function AgentDashboard() {
   const [performance, setPerformance] = useState<Performance | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [agentPeriod, setAgentPeriod] = useState<'today' | '7days' | '30days'>('today');
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const user = useAppSelector((s) => s.auth.user);
 
   const loadAll = async (isRefresh = false) => {
@@ -187,6 +196,16 @@ export default function AgentDashboard() {
       setTodayTickets(ticketsRes.data);
       setCurrentQueue(queueRes.data);
       setPerformance(perfRes.data);
+
+      const firstServiceId = queueRes.data?.services?.[0]?.id;
+      if (firstServiceId) {
+        try {
+          const recRes = await api.get(`/api/services/${firstServiceId}/recommendations`);
+          setRecommendations(recRes.data.windows || []);
+        } catch {
+          setRecommendations([]);
+        }
+      }
     } catch (error: any) {
       const status = error?.response?.status;
       const detail =
@@ -246,6 +265,76 @@ export default function AgentDashboard() {
   const highPriorityCount = useMemo(() => {
     if (!currentQueue?.tickets) return 0;
     return currentQueue.tickets.filter(t => t.priority === "high" || t.priority === "vip").length;
+  }, [currentQueue]);
+
+  const kpiValues = useMemo(() => {
+    const todayKpis = {
+      waiting: stats?.today_waiting ?? 0,
+      called: stats?.today_called ?? 0,
+      closed: stats?.today_closed ?? 0,
+      absent: stats?.today_absent ?? 0,
+      total: stats?.today_total ?? 0,
+    };
+    if (agentPeriod === 'today') return todayKpis;
+    const weeklyTotal = performance?.daily?.reduce((s, d) => s + d.total, 0) ?? 0;
+    const weeklyClosed = performance?.total_closed ?? 0;
+    const weeklyAbsent = performance?.total_absent ?? 0;
+    if (agentPeriod === '7days') {
+      return {
+        waiting: currentQueue?.total_waiting ?? 0,
+        called: weeklyTotal,
+        closed: weeklyClosed,
+        absent: weeklyAbsent,
+        total: weeklyClosed + weeklyAbsent,
+      };
+    }
+    const factor = 4;
+    return {
+      waiting: currentQueue?.total_waiting ?? 0,
+      called: weeklyTotal * factor,
+      closed: weeklyClosed * factor,
+      absent: weeklyAbsent * factor,
+      total: (weeklyClosed + weeklyAbsent) * factor,
+    };
+  }, [agentPeriod, stats, performance, currentQueue]);
+
+  const avgServiceTime = useMemo(() => {
+    if (agentPeriod === 'today') return stats?.avg_service_time;
+    return performance?.avg_service_time;
+  }, [agentPeriod, stats, performance]);
+
+  const avgWaitTime = useMemo(() => {
+    return stats?.avg_wait_time;
+  }, [stats]);
+
+  const dailyAverage = useMemo(() => {
+    if (agentPeriod === 'today') return stats?.tickets_per_day;
+    const days = performance?.daily?.length || 7;
+    return Math.round((performance?.total_closed ?? 0) / days);
+  }, [agentPeriod, stats, performance]);
+
+  const priorityDistribution = useMemo(() => {
+    if (!currentQueue?.tickets || currentQueue.tickets.length === 0) return [];
+    const counts: Record<string, number> = {};
+    currentQueue.tickets.forEach(t => {
+      const key = t.priority || 'normal';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const total = currentQueue.tickets.length;
+    const order = ['normal', 'high', 'vip'];
+    return order.map(key => {
+      const config = PRIORITY_CONFIG[key];
+      if (!config) return null;
+      const count = counts[key] || 0;
+      return {
+        key,
+        label: config.label,
+        icon: config.icon,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+        color: PRIORITY_COLORS[key],
+      };
+    }).filter(Boolean);
   }, [currentQueue]);
 
   const getStatusBadge = (status: string) => {
@@ -337,47 +426,66 @@ export default function AgentDashboard() {
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => loadAll(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")}
-            />
-            Actualiser
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="bg-background rounded-md border border-border overflow-hidden flex">
+              {(['today', '7days', '30days'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setAgentPeriod(p)}
+                  className={cn(
+                    "px-2.5 py-2 text-xs font-medium transition-all",
+                    agentPeriod === p
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {p === 'today' ? "Aujourd'hui" : p === '7days' ? '7 jrs' : '30 jrs'}
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadAll(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw
+                className={cn("h-3.5 w-3.5 mr-1.5", refreshing && "animate-spin")}
+              />
+              Actualiser
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <AnalyticsCard
             title="En attente"
-            value={stats?.today_waiting ?? 0}
+            value={kpiValues.waiting}
             icon={Clock}
             className="bg-card"
           />
           <AnalyticsCard
             title="Appelés"
-            value={stats?.today_called ?? 0}
+            value={kpiValues.called}
             icon={Activity}
             className="bg-card"
           />
           <AnalyticsCard
             title="Clôturés"
-            value={stats?.today_closed ?? 0}
+            value={kpiValues.closed}
             icon={CheckCircle}
             className="bg-card"
           />
           <AnalyticsCard
             title="Absents"
-            value={stats?.today_absent ?? 0}
+            value={kpiValues.absent}
             icon={UserX}
             className="bg-card"
           />
           <AnalyticsCard
-            title="Total du jour"
-            value={stats?.today_total ?? 0}
+            title={agentPeriod === 'today' ? "Total du jour" : "Total période"}
+            value={kpiValues.total}
             icon={TrendingUp}
             className="bg-card"
           />
@@ -410,6 +518,13 @@ export default function AgentDashboard() {
                     )}>
                       {yesterdayChange >= 0 ? "↑" : "↓"} {Math.abs(yesterdayChange)}% de tickets traités
                     </p>
+                    {agentPeriod === 'today' && (
+                      <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
+                        <span>Attente: {stats?.avg_wait_time ?? '—'} min</span>
+                        <span className="text-border">|</span>
+                        <span>Service: {stats?.avg_service_time ?? '—'} min</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -489,8 +604,8 @@ export default function AgentDashboard() {
                     Temps moyen de service
                   </p>
                   <p className="text-2xl font-bold">
-                    {stats?.avg_service_time
-                      ? `${stats.avg_service_time} min`
+                    {avgServiceTime
+                      ? `${avgServiceTime} min`
                       : "—"}
                   </p>
                 </div>
@@ -507,7 +622,7 @@ export default function AgentDashboard() {
                     Temps moyen d'attente
                   </p>
                   <p className="text-2xl font-bold">
-                    {stats?.avg_wait_time ? `${stats.avg_wait_time} min` : "—"}
+                    {avgWaitTime ? `${avgWaitTime} min` : "—"}
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-orange-500" />
@@ -523,7 +638,7 @@ export default function AgentDashboard() {
                     Moyenne journalière
                   </p>
                   <p className="text-2xl font-bold">
-                    {stats?.tickets_per_day ? `${stats.tickets_per_day}` : "—"}
+                    {dailyAverage ? `${dailyAverage}` : "—"}
                   </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-purple-500" />
@@ -728,6 +843,44 @@ export default function AgentDashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* Priority Distribution */}
+          {priorityDistribution.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Répartition par priorité
+                </CardTitle>
+                <CardDescription>
+                  {currentQueue?.tickets.length ?? 0} ticket(s) dans la file
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {priorityDistribution.map((item: any) => (
+                    <div key={item.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          {item.icon && <item.icon className={cn("h-3.5 w-3.5", item.color.text)} />}
+                          <span className="text-sm font-medium">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-bold">
+                          {item.count} ({item.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full transition-all", item.color.bar)}
+                          style={{ width: `${item.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Recent Tickets & Performance */}
@@ -793,7 +946,11 @@ export default function AgentDashboard() {
           {/* Performance Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Performance (7 derniers jours)</CardTitle>
+              <CardTitle>
+                {agentPeriod === 'today' ? 'Performance (7 derniers jours)' :
+                 agentPeriod === '7days' ? 'Performance - 7 jours' :
+                 'Performance - 30 jours'}
+              </CardTitle>
               <CardDescription>
                 {performance?.total_closed ?? 0} tickets clôturés
               </CardDescription>
@@ -861,6 +1018,39 @@ export default function AgentDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Smart Recommendations */}
+        {Array.isArray(recommendations) && recommendations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                Recommandations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recommendations.map((rec: any, index: number) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-medium">{rec.start} - {rec.end}</p>
+                        <p className="text-sm text-muted-foreground">{rec.reason}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-green-600 border-green-600 shrink-0">
+                      Faible affluence
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
