@@ -102,18 +102,19 @@ class ServiceController extends Controller
         elseif ($people >= 5) { $level = 'medium'; }
 
         // Distribution horaire (créneaux d'affluence) sur les 30 derniers jours
-        $hourlyTickets = DB::table('tickets')
+        // Traitement en PHP pour compatibilité MySQL/PostgreSQL/SQLite
+        $allTickets = DB::table('tickets')
             ->where('service_id', $id)
             ->where('created_at', '>=', now()->subDays(30))
-            ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as total'))
-            ->groupBy('hour')
-            ->orderBy('hour')
-            ->get();
+            ->pluck('created_at');
 
-        $hourlyData = collect(range(0, 23))->map(function ($h) use ($hourlyTickets) {
-            $row = $hourlyTickets->firstWhere('hour', $h);
-            return ['hour' => $h, 'count' => $row ? (int) $row->total : 0];
-        });
+        $hourlyCounts = array_fill(0, 24, 0);
+        foreach ($allTickets as $t) {
+            $hour = (int) \Illuminate\Support\Carbon::parse($t)->format('G');
+            $hourlyCounts[$hour]++;
+        }
+
+        $hourlyData = collect(range(0, 23))->map(fn ($h) => ['hour' => $h, 'count' => $hourlyCounts[$h]]);
 
         $maxCount = max($hourlyData->pluck('count')->max(), 1);
 
