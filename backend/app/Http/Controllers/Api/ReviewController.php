@@ -10,6 +10,35 @@ use Illuminate\Http\Request;
 class ReviewController extends Controller
 {
     /**
+     * Avis publics pour un service.
+     * GET /api/services/{service}/reviews
+     */
+    public function index(\App\Models\Service $service)
+    {
+        $reviews = Review::where('service_id', $service->id)
+            ->with('user:id,name')
+            ->latest()
+            ->paginate(20);
+
+        $avgRating = (float) Review::where('service_id', $service->id)->avg('rating');
+        $total = Review::where('service_id', $service->id)->count();
+
+        return response()->json([
+            'reviews' => $reviews->items(),
+            'avg_rating' => round($avgRating, 1),
+            'total' => $total,
+            'distribution' => [
+                5 => Review::where('service_id', $service->id)->where('rating', 5)->count(),
+                4 => Review::where('service_id', $service->id)->where('rating', 4)->count(),
+                3 => Review::where('service_id', $service->id)->where('rating', 3)->count(),
+                2 => Review::where('service_id', $service->id)->where('rating', 2)->count(),
+                1 => Review::where('service_id', $service->id)->where('rating', 1)->count(),
+            ],
+            'has_more' => $reviews->hasMorePages(),
+        ]);
+    }
+
+    /**
      * Soumettre une évaluation pour un ticket terminé.
      * POST /api/tickets/{ticket}/review
      */

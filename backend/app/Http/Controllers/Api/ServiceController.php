@@ -101,10 +101,37 @@ class ServiceController extends Controller
         if ($people >= 10) { $level = 'high'; }
         elseif ($people >= 5) { $level = 'medium'; }
 
+        // Distribution horaire (créneaux d'affluence) sur les 30 derniers jours
+        $hourlyTickets = DB::table('tickets')
+            ->where('service_id', $id)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as total'))
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->get();
+
+        $hourlyData = collect(range(0, 23))->map(function ($h) use ($hourlyTickets) {
+            $row = $hourlyTickets->firstWhere('hour', $h);
+            return ['hour' => $h, 'count' => $row ? (int) $row->total : 0];
+        });
+
+        $maxCount = max($hourlyData->pluck('count')->max(), 1);
+
+        $peakHours = $hourlyData->filter(fn ($d) => $d['count'] > 0)
+            ->groupBy(fn ($d) => $d['count'] >= $maxCount * 0.7 ? 'high' : ($d['count'] >= $maxCount * 0.3 ? 'medium' : 'low'))
+            ->map(fn ($items) => $items->pluck('hour')->toArray())
+            ->toArray();
+
         return response()->json([
             'level' => $level,
             'people' => $people,
             'eta_avg' => $etaAvg,
+            'hourly_data' => $hourlyData,
+            'peak_hours' => [
+                'high' => $peakHours['high'] ?? [],
+                'medium' => $peakHours['medium'] ?? [],
+                'low' => $peakHours['low'] ?? [],
+            ],
         ]);
     }
 

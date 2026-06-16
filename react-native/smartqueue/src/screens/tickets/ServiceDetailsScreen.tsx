@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   StyleSheet,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -19,7 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Theme } from "../../theme";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { establishmentsApi, Establishment } from "../../api/establishmentsApi";
+import { establishmentsApi, Establishment, AffluenceData, ServiceReviewsResponse, ServiceReview } from "../../api/establishmentsApi";
 import { ticketsApi } from "../../api/ticketsApi";
 import { useAuth } from "../../store/authStore";
 import { useTicket } from "../../store/ticketStore";
@@ -89,7 +90,8 @@ const ServiceItem: React.FC<{
   isSelected: boolean;
   colors: any;
   onSelect: () => void;
-}> = ({ service, isSelected, colors, onSelect }) => (
+  onAffluence?: () => void;
+}> = ({ service, isSelected, colors, onSelect, onAffluence }) => (
   <TouchableOpacity
     style={[
       styles.serviceItem,
@@ -106,16 +108,18 @@ const ServiceItem: React.FC<{
         <Text style={[styles.serviceName, { color: isSelected ? colors.primary : colors.textPrimary }]}>
           {service.name}
         </Text>
-        {service.status === "open" && (
-          <View style={[styles.openBadge, { backgroundColor: colors.success + "15" }]}>
-            <Text style={[styles.openBadgeText, { color: colors.success }]}>Ouvert</Text>
-          </View>
-        )}
-        {service.status === "closed" && (
-          <View style={[styles.openBadge, { backgroundColor: colors.danger + "15" }]}>
-            <Text style={[styles.openBadgeText, { color: colors.danger }]}>Fermé</Text>
-          </View>
-        )}
+        <View style={styles.serviceHeaderRight}>
+          {service.status === "open" && (
+            <View style={[styles.openBadge, { backgroundColor: colors.success + "15" }]}>
+              <Text style={[styles.openBadgeText, { color: colors.success }]}>Ouvert</Text>
+            </View>
+          )}
+          {service.status === "closed" && (
+            <View style={[styles.openBadge, { backgroundColor: colors.danger + "15" }]}>
+              <Text style={[styles.openBadgeText, { color: colors.danger }]}>Fermé</Text>
+            </View>
+          )}
+        </View>
       </View>
       
       {service.description && (
@@ -138,6 +142,12 @@ const ServiceItem: React.FC<{
               ~{service.avg_service_time_minutes} min
             </Text>
           </View>
+        )}
+        {onAffluence && (
+          <TouchableOpacity style={styles.affluenceChip} onPress={(e) => { e.stopPropagation?.(); onAffluence(); }}>
+            <Ionicons name="pulse-outline" size={11} color={colors.warning} />
+            <Text style={[styles.affluenceChipText, { color: colors.warning }]}>Affluence</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -213,6 +223,13 @@ export const ServiceDetailsScreen: React.FC = () => {
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [selectedServiceForSchedule, setSelectedServiceForSchedule] = useState<ServiceData | null>(null);
 
+  const [affluenceData, setAffluenceData] = useState<AffluenceData | null>(null);
+  const [affluenceLoading, setAffluenceLoading] = useState(false);
+  const [showAffluenceSheet, setShowAffluenceSheet] = useState(false);
+
+  const [reviewsData, setReviewsData] = useState<ServiceReviewsResponse | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -262,6 +279,37 @@ export const ServiceDetailsScreen: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadAffluence = useCallback(async (serviceId: number) => {
+    setAffluenceLoading(true);
+    try {
+      const data = await establishmentsApi.getServiceAffluence(serviceId);
+      setAffluenceData(data);
+      setShowAffluenceSheet(true);
+    } catch (err) {
+      showError("Erreur", "Impossible de charger l'affluence.");
+    } finally {
+      setAffluenceLoading(false);
+    }
+  }, [showError]);
+
+  const loadReviews = useCallback(async () => {
+    const sid = selectedServiceId || services[0]?.id;
+    if (!sid) return;
+    setReviewsLoading(true);
+    try {
+      const data = await establishmentsApi.getServiceReviews(sid);
+      setReviewsData(data);
+    } catch (err) {
+      // silencieux — les avis ne sont pas bloquants
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [selectedServiceId, services]);
+
+  useEffect(() => {
+    if (services.length > 0) loadReviews();
+  }, [loadReviews, services.length]);
 
   // Récupérer le service sélectionné pour afficher ses horaires
   useEffect(() => {
@@ -650,6 +698,7 @@ export const ServiceDetailsScreen: React.FC = () => {
                   isSelected={selectedServiceId === service.id}
                   colors={colors}
                   onSelect={() => setSelectedServiceId(service.id)}
+                  onAffluence={() => loadAffluence(service.id)}
                 />
               ))}
             </View>
@@ -713,6 +762,85 @@ export const ServiceDetailsScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* Avis des usagers */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Avis des usagers</Text>
+              {reviewsData && (
+                <View style={styles.avgRatingBadge}>
+                  <Ionicons name="star" size={14} color={colors.warning} />
+                  <Text style={[styles.avgRatingText, { color: colors.textPrimary }]}>{reviewsData.avg_rating}</Text>
+                  <Text style={[styles.avgRatingTotal, { color: colors.textTertiary }]}> ({reviewsData.total})</Text>
+                </View>
+              )}
+            </View>
+
+            {reviewsLoading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+            ) : reviewsData && reviewsData.reviews.length > 0 ? (
+              <>
+                {/* Distribution des notes */}
+                <View style={[styles.ratingDistContainer, { backgroundColor: colors.surfaceSecondary }]}>
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviewsData.distribution[star] ?? 0;
+                    const pct = reviewsData.total > 0 ? (count / reviewsData.total) * 100 : 0;
+                    return (
+                      <View key={star} style={styles.ratingDistRow}>
+                        <Text style={[styles.ratingDistLabel, { color: colors.textSecondary }]}>{star}</Text>
+                        <Ionicons name="star" size={12} color={colors.warning} />
+                        <View style={[styles.ratingDistBar, { backgroundColor: colors.border }]}>
+                          <View style={[styles.ratingDistFill, { width: `${pct}%`, backgroundColor: colors.warning }]} />
+                        </View>
+                        <Text style={[styles.ratingDistCount, { color: colors.textTertiary }]}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Liste des avis */}
+                {reviewsData.reviews.slice(0, 5).map((review) => (
+                  <View key={review.id} style={[styles.reviewItem, { borderBottomColor: colors.border }]}>
+                    <View style={styles.reviewHeader}>
+                      <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + "20" }]}>
+                        <Ionicons name="person" size={14} color={colors.primary} />
+                      </View>
+                      <View style={styles.reviewUserInfo}>
+                        <Text style={[styles.reviewUserName, { color: colors.textPrimary }]}>
+                          {review.user?.name || "Anonyme"}
+                        </Text>
+                        <Text style={[styles.reviewDate, { color: colors.textTertiary }]}>
+                          {new Date(review.created_at).toLocaleDateString("fr-FR")}
+                        </Text>
+                      </View>
+                      <View style={styles.reviewStars}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Ionicons
+                            key={s}
+                            name={s <= review.rating ? "star" : "star-outline"}
+                            size={12}
+                            color={s <= review.rating ? colors.warning : colors.textTertiary}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    {review.comment && (
+                      <Text style={[styles.reviewComment, { color: colors.textSecondary }]} numberOfLines={3}>
+                        {review.comment}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </>
+            ) : (
+              <View style={styles.emptyReviews}>
+                <Ionicons name="chatbubble-ellipses-outline" size={32} color={colors.textTertiary} />
+                <Text style={[styles.emptyReviewsText, { color: colors.textSecondary }]}>
+                  Aucun avis pour le moment
+                </Text>
+              </View>
+            )}
+          </View>
+
           <View style={styles.bottomSpace} />
         </Animated.ScrollView>
       </View>
@@ -730,6 +858,105 @@ export const ServiceDetailsScreen: React.FC = () => {
         showCancel={true}
         cancelText="Fermer"
       />
+
+      {/* Modal Affluence — graphique et créneaux */}
+      <Modal visible={showAffluenceSheet} transparent animationType="slide" onRequestClose={() => setShowAffluenceSheet(false)}>
+        <View style={styles.affluenceOverlay}>
+          <TouchableOpacity style={styles.affluenceBackdrop} activeOpacity={1} onPress={() => setShowAffluenceSheet(false)} />
+          <Animated.View style={[styles.affluenceModal, { backgroundColor: colors.surface }]}>
+            <View style={styles.affluenceHandle}>
+              <View style={[styles.affluenceHandleBar, { backgroundColor: colors.border }]} />
+            </View>
+
+            <View style={styles.affluenceHeader}>
+              <Ionicons name="pulse-outline" size={22} color={colors.warning} />
+              <Text style={[styles.affluenceTitle, { color: colors.textPrimary }]}>Affluence en temps réel</Text>
+              <TouchableOpacity onPress={() => setShowAffluenceSheet(false)}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {affluenceLoading || !affluenceData ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 40 }} />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Stats rapides */}
+                <View style={styles.affluenceStatsRow}>
+                  <View style={[styles.affluenceStat, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.affluenceStatValue, { color: affluenceData.level === 'high' ? colors.danger : affluenceData.level === 'medium' ? colors.warning : colors.success }]}>
+                      {affluenceData.people ?? 0}
+                    </Text>
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textTertiary }]}>En attente</Text>
+                  </View>
+                  <View style={[styles.affluenceStat, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.affluenceStatValue, { color: colors.primary }]}>~{affluenceData.eta_avg ?? '--'} min</Text>
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textTertiary }]}>Attente moyenne</Text>
+                  </View>
+                  <View style={[styles.affluenceStat, { backgroundColor: colors.surfaceSecondary }]}>
+                    <View style={[styles.affluenceLevelDot, { backgroundColor: affluenceData.level === 'high' ? colors.danger : affluenceData.level === 'medium' ? colors.warning : colors.success }]} />
+                    <Text style={[styles.affluenceStatLabel, { color: colors.textTertiary }]}>
+                      {affluenceData.level === 'high' ? 'Élevée' : affluenceData.level === 'medium' ? 'Modérée' : 'Faible'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Graphique barres — Créneaux horaires */}
+                {affluenceData.hourly_data && affluenceData.hourly_data.length > 0 && (
+                  <>
+                    <Text style={[styles.affluenceChartTitle, { color: colors.textPrimary }]}>Créneaux d'affluence (30 jours)</Text>
+                    <View style={[styles.affluenceChart, { backgroundColor: colors.surfaceSecondary }]}>
+                      <View style={styles.affluenceChartBars}>
+                        {affluenceData.hourly_data.map((pt) => {
+                          const maxCount = Math.max(...affluenceData.hourly_data.map(d => d.count), 1);
+                          const heightPct = (pt.count / maxCount) * 100;
+                          const barColor = affluenceData.peak_hours?.high?.includes(pt.hour) ? colors.danger
+                            : affluenceData.peak_hours?.medium?.includes(pt.hour) ? colors.warning
+                            : colors.success + "60";
+                          return (
+                            <View key={pt.hour} style={styles.affluenceBarCol}>
+                              <View style={styles.affluenceBarWrapper}>
+                                <View style={[styles.affluenceBar, { height: `${Math.max(heightPct, 2)}%`, backgroundColor: barColor }]} />
+                              </View>
+                              <Text style={[styles.affluenceBarLabel, { color: colors.textTertiary }]}>
+                                {String(pt.hour).padStart(2, '0')}h
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                      <View style={styles.affluenceLegend}>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: colors.danger }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Peak</Text>
+                        </View>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: colors.warning }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Moyen</Text>
+                        </View>
+                        <View style={styles.affluenceLegendItem}>
+                          <View style={[styles.affluenceLegendDot, { backgroundColor: colors.success + "60" }]} />
+                          <Text style={[styles.affluenceLegendText, { color: colors.textTertiary }]}>Calme</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {/* Conseils */}
+                {affluenceData.peak_hours?.high?.length > 0 && (
+                  <View style={[styles.affluenceTip, { backgroundColor: colors.warning + "12" }]}>
+                    <Ionicons name="bulb-outline" size={16} color={colors.warning} />
+                    <Text style={[styles.affluenceTipText, { color: colors.textSecondary }]}>
+                      Heures d'affluence : {affluenceData.peak_hours.high.map((h: number) => `${String(h).padStart(2,'0')}h`).join(', ')}.
+                      Essayez de venir en dehors de ces créneaux pour une attente réduite.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Custom Alert pour confirmation avant de rejoindre la file */}
       <CustomAlert
@@ -1011,6 +1238,259 @@ const styles = StyleSheet.create({
   },
   bottomSpace: {
     height: 20,
+  },
+
+  // ─── Affluence Chip ───
+  serviceHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  affluenceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  affluenceChipText: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+
+  // ─── Affluence Modal ───
+  affluenceOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  affluenceBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  affluenceModal: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "85%",
+    paddingBottom: 30,
+  },
+  affluenceHandle: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  affluenceHandleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  affluenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(0,0,0,0.06)",
+  },
+  affluenceTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  affluenceStatsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  affluenceStat: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 4,
+  },
+  affluenceStatValue: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  affluenceStatLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  affluenceLevelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  // ─── Graphique ───
+  affluenceChartTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  affluenceChart: {
+    marginHorizontal: 20,
+    borderRadius: 14,
+    padding: 16,
+  },
+  affluenceChartBars: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    height: 120,
+    gap: 1,
+  },
+  affluenceBarCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  affluenceBarWrapper: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  affluenceBar: {
+    width: "60%",
+    borderRadius: 3,
+    minHeight: 2,
+  },
+  affluenceBarLabel: {
+    fontSize: 7,
+    fontWeight: "500",
+  },
+  affluenceLegend: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 16,
+    marginTop: 12,
+  },
+  affluenceLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  affluenceLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  affluenceLegendText: {
+    fontSize: 10,
+  },
+  affluenceTip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+  },
+  affluenceTipText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  // ─── Reviews ───
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  avgRatingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  avgRatingText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  avgRatingTotal: {
+    fontSize: 12,
+  },
+  ratingDistContainer: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    gap: 6,
+  },
+  ratingDistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  ratingDistLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    width: 12,
+  },
+  ratingDistBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 4,
+    overflow: "hidden",
+  },
+  ratingDistFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  ratingDistCount: {
+    fontSize: 10,
+    width: 20,
+    textAlign: "right",
+  },
+  reviewItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  reviewAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewUserInfo: {
+    flex: 1,
+  },
+  reviewUserName: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  reviewDate: {
+    fontSize: 10,
+  },
+  reviewStars: {
+    flexDirection: "row",
+    gap: 1,
+  },
+  reviewComment: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  emptyReviews: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 12,
   },
 });
 
