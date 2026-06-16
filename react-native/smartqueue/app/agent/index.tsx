@@ -250,6 +250,11 @@ export default function AgentHome() {
     low: '#34C759',
   } as const;
 
+  const formatPeakHours = (hours?: number[]) => {
+    if (!hours || hours.length === 0) return null;
+    return hours.map(h => `${String(h).padStart(2, '0')}h`).join(', ');
+  };
+
   const getInsightData = () => {
     if (!selectedService) return null;
     const aff = selectedService.affluence;
@@ -257,17 +262,34 @@ export default function AgentHome() {
     const peopleWaiting = aff?.people || selectedService.people_waiting || 0;
     const avgTime = selectedService.avg_service_time_minutes || 5;
     const ac = AFFLUENCE_COLORS[level];
+    const peakHours = formatPeakHours(aff?.peak_hours?.high);
+    const calmHours = formatPeakHours(aff?.peak_hours?.low);
 
     if (level === 'high') {
-      return { message: `⚠️ ${peopleWaiting} personnes en attente — affluence élevée`, emoji: '😟', color: ac };
+      return {
+        message: `⚠️ ${peopleWaiting} personnes en attente — affluence élevée`,
+        subtext: peakHours ? `Heures de pointe : ${peakHours}` : undefined,
+        emoji: '😟',
+        color: ac,
+      };
     }
     if (level === 'medium') {
-      return { message: `⚠️ ${peopleWaiting} personnes — affluence modérée`, emoji: '😐', color: ac };
+      return {
+        message: `⚠️ ${peopleWaiting} personnes — affluence modérée`,
+        subtext: peakHours ? `Heures de pointe : ${peakHours}` : undefined,
+        emoji: '😐',
+        color: ac,
+      };
     }
     if (avgTime > 10) {
-      return { message: `⏱ Temps de service élevé (${avgTime} min)`, emoji: '😕', color: '#FF9500' };
+      return { message: `⏱ Temps de service élevé (${avgTime} min)`, emoji: '😕', color: '#FF9500', subtext: undefined };
     }
-    return { message: '✅ Bonne affluence, temps de service normal', emoji: '😊', color: ac };
+    return {
+      message: '✅ Bonne affluence, temps de service normal',
+      subtext: calmHours ? `Meilleurs créneaux : ${calmHours}` : undefined,
+      emoji: '😊',
+      color: ac,
+    };
   };
 
   const dayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -424,6 +446,9 @@ export default function AgentHome() {
         <View style={styles.section}>
           <View style={[styles.insightCard, { backgroundColor: insight.color + '15', borderColor: insight.color + '40' }]}>
             <Text style={[styles.insightText, { color: insight.color }]}>{insight.emoji} {insight.message}</Text>
+            {insight.subtext && (
+              <Text style={[styles.insightSubtext, { color: insight.color + 'CC' }]}>{insight.subtext}</Text>
+            )}
           </View>
         </View>
       )}
@@ -501,4 +526,5 @@ const styles = StyleSheet.create({
 
   insightCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
   insightText: { fontSize: 13, fontWeight: '500' },
+  insightSubtext: { fontSize: 11, marginTop: 4, lineHeight: 15 },
 });

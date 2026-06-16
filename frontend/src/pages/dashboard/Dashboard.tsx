@@ -90,7 +90,7 @@ export default function Dashboard() {
   const [services, setServices] = useState<any[]>([])
   const [serviceDistribution, setServiceDistribution] = useState<any[]>([])
   const [agentsDistribution, setAgentsDistribution] = useState<any[]>([])
-  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [overviewAffluence, setOverviewAffluence] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [seriesLoading, setSeriesLoading] = useState(false)
   const [servicesLoading, setServicesLoading] = useState(false)
@@ -230,10 +230,10 @@ export default function Dashboard() {
       if (servicesData.length > 0) {
         const firstService = servicesData[0]
         try {
-          const recommendationsResponse = await api.get(`/api/services/${firstService.id}/recommendations`)
-          setRecommendations(recommendationsResponse.data.windows || [])
-        } catch (error) {
-          setRecommendations([])
+          const { data } = await api.get(`/api/services/${firstService.id}/affluence`)
+          setOverviewAffluence(data)
+        } catch {
+          setOverviewAffluence(null)
         }
       }
     } catch (error) {
@@ -1373,32 +1373,53 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
-                  Recommandations horaires
+                  Créneaux d'affluence
                 </CardTitle>
+                <CardDescription>
+                  Basé sur l'historique des 30 derniers jours
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {Array.isArray(recommendations) && recommendations.length > 0 ? (
-                    recommendations.map((rec: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 bg-green-500 rounded-full" />
-                          <div>
-                            <p className="font-medium">{rec.start} - {rec.end}</p>
-                            <p className="text-sm text-muted-foreground">{rec.reason}</p>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-green-600 border-green-600">
-                          Faible affluence
-                        </Badge>
+                {overviewAffluence ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full shrink-0",
+                        overviewAffluence.level === 'high' ? 'bg-red-500' : overviewAffluence.level === 'medium' ? 'bg-amber-500' : 'bg-green-500'
+                      )} />
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          Affluence {overviewAffluence.level === 'high' ? 'élevée' : overviewAffluence.level === 'medium' ? 'modérée' : 'faible'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {overviewAffluence.people ?? 0} en attente · ~{overviewAffluence.eta_avg ?? '--'} min d'attente
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="h-[120px] w-full flex items-center justify-center text-sm text-muted-foreground">
-                      Aucune donnée.
                     </div>
-                  )}
-                </div>
+
+                    {overviewAffluence.peak_hours?.high?.length > 0 && (
+                      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">Heures de pointe 🔴</p>
+                        <p className="text-sm text-muted-foreground">
+                          {overviewAffluence.peak_hours.high.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {overviewAffluence.peak_hours?.low?.length > 0 && (
+                      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">Heures calmes 🟢</p>
+                        <p className="text-sm text-muted-foreground">
+                          {overviewAffluence.peak_hours.low.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-[120px] w-full flex items-center justify-center text-sm text-muted-foreground">
+                    Aucune donnée.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
