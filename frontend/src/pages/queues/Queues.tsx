@@ -266,8 +266,12 @@ const Queues: React.FC = () => {
   const [error, setError] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [callTimeoutMinutes, setCallTimeoutMinutes] = useState<number | null>(null);
+  const [maxCallAttempts, setMaxCallAttempts] = useState<number>(2);
+  const [enRouteGraceMinutes, setEnRouteGraceMinutes] = useState<number>(10);
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
   const [timeoutInput, setTimeoutInput] = useState("");
+  const [maxAttemptsInput, setMaxAttemptsInput] = useState("");
+  const [graceInput, setGraceInput] = useState("");
   const [isUpdatingTimeout, setIsUpdatingTimeout] = useState(false);
   const [queueView, setQueueView] = useState<"today" | "deferred">("today");
   const [deferredDays, setDeferredDays] = useState<DeferredDay[]>([]);
@@ -357,26 +361,51 @@ const Queues: React.FC = () => {
     if (data?.call_timeout_minutes !== undefined) {
       setCallTimeoutMinutes(data.call_timeout_minutes ?? null);
     }
+    if (data?.max_call_attempts != null) setMaxCallAttempts(Number(data.max_call_attempts));
+    if (data?.en_route_grace_minutes != null) setEnRouteGraceMinutes(Number(data.en_route_grace_minutes));
     return data;
   };
 
   const updateCallTimeout = async () => {
     if (!serviceId) return;
-    const parsed = timeoutInput.trim() === "" ? null : parseInt(timeoutInput, 10);
-    if (parsed !== null && (isNaN(parsed) || parsed < 1 || parsed > 60)) {
-      toast.error("Valeur invalide", { description: "Le délai doit être compris entre 1 et 60 minutes." });
+
+    // Délai de priorité (vide = valeur par défaut)
+    const parsedTimeout = timeoutInput.trim() === "" ? null : parseInt(timeoutInput, 10);
+    if (parsedTimeout !== null && (isNaN(parsedTimeout) || parsedTimeout < 1 || parsedTimeout > 60)) {
+      toast.error("Valeur invalide", { description: "Le délai de priorité doit être compris entre 1 et 60 minutes." });
       return;
     }
+
+    // Délai de présentation (en route → présent)
+    const parsedGrace = graceInput.trim() === "" ? enRouteGraceMinutes : parseInt(graceInput, 10);
+    if (isNaN(parsedGrace) || parsedGrace < 1 || parsedGrace > 60) {
+      toast.error("Valeur invalide", { description: "Le délai de présentation doit être compris entre 1 et 60 minutes." });
+      return;
+    }
+
+    // Nombre de tentatives max (absences avant expiration définitive)
+    const parsedAttempts = maxAttemptsInput.trim() === "" ? maxCallAttempts : parseInt(maxAttemptsInput, 10);
+    if (isNaN(parsedAttempts) || parsedAttempts < 1 || parsedAttempts > 10) {
+      toast.error("Valeur invalide", { description: "Le nombre de tentatives doit être compris entre 1 et 10." });
+      return;
+    }
+
     setIsUpdatingTimeout(true);
     try {
       await api.patch(`/api/services/${Number(serviceId)}/call-timeout`, {
-        call_timeout_minutes: parsed,
+        call_timeout_minutes: parsedTimeout,
+        en_route_grace_minutes: parsedGrace,
+        max_call_attempts: parsedAttempts,
       });
-      setCallTimeoutMinutes(parsed);
+      setCallTimeoutMinutes(parsedTimeout);
+      setEnRouteGraceMinutes(parsedGrace);
+      setMaxCallAttempts(parsedAttempts);
       setShowTimeoutDialog(false);
-      toast.success("Délai mis à jour", {
-        description: parsed ? `Délai de priorité : ${parsed} min` : "Délai par défaut rétabli",
+      toast.success("Paramètres mis à jour", {
+        description: `Priorité : ${parsedTimeout ?? "défaut"} · Présentation : ${parsedGrace} min · Tentatives : ${parsedAttempts}`,
       });
+      // Recharge la file pour propager max_call_attempts sur les boutons des tickets
+      await refreshQueueAndStats(false);
     } catch (e: any) {
       toast.error("Erreur", { description: e?.response?.data?.message || e?.message });
     } finally {
@@ -1126,8 +1155,8 @@ const Queues: React.FC = () => {
                     <ActionButton onClick={openService} disabled={!serviceId || isActing} icon={CheckCircle} variant="primary">Ouvrir service</ActionButton>
                     <ActionButton onClick={closeService} disabled={!serviceId || isActing} icon={X} variant="secondary">Fermer service</ActionButton>
                     <ActionButton onClick={refreshData} disabled={!serviceId || isActing} icon={RefreshCw} variant="secondary">Rafraîchir</ActionButton>
-                    <ActionButton onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setShowTimeoutDialog(true); }} disabled={!serviceId} icon={Timer} variant="secondary">
-                      {callTimeoutMinutes ? `${callTimeoutMinutes} min` : "Délai"}
+                    <ActionButton onClick={() => { setTimeoutInput(callTimeoutMinutes ? String(callTimeoutMinutes) : ""); setMaxAttemptsInput(String(maxCallAttempts)); setGraceInput(String(enRouteGraceMinutes)); setShowTimeoutDialog(true); }} disabled={!serviceId} icon={Settings2} variant="secondary">
+                      {callTimeoutMinutes ? `${callTimeoutMinutes} min` : "Délais"}
                     </ActionButton>
                   </div>
                   <div className="text-sm text-muted-foreground">{isActing ? "Action en cours…" : ""}</div>
@@ -1622,20 +1651,48 @@ const Queues: React.FC = () => {
         </div>
       )}
 
-      {/* Dialog de configuration du délai de priorité */}
+      {/* Dialog de configuration des délais & tentatives du service */}
       {showTimeoutDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTimeoutDialog(false)}>
-          <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600"><Timer className="h-5 w-5" /></div>
-              <div><h3 className="text-base font-semibold text-foreground">Délai de priorité</h3><p className="text-xs text-muted-foreground">Durée avant marquage absent automatique</p></div>
+          <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600"><Settings2 className="h-5 w-5" /></div>
+              <div><h3 className="text-base font-semibold text-foreground">Paramètres d'absence du service</h3><p className="text-xs text-muted-foreground">Délais et tentatives avant expiration</p></div>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">Après l'appel d'un ticket, l'usager dispose de ce délai pour se présenter. Passé ce délai, il est automatiquement marqué absent.</p>
-            <div className="relative mb-2">
-              <input type="number" min={1} max={60} value={timeoutInput} onChange={(e) => setTimeoutInput(e.target.value)} placeholder="10 min par défaut" className="w-full rounded-lg border border-border bg-background px-4 py-3 text-xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16" />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
+
+            {/* Délai de priorité */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-1">Délai de priorité</label>
+              <p className="text-xs text-muted-foreground mb-2">Temps accordé après l'appel d'un ticket avant le marquage absent automatique.</p>
+              <div className="relative">
+                <input type="number" min={1} max={60} value={timeoutInput} onChange={(e) => setTimeoutInput(e.target.value)} placeholder="10 min par défaut" className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-base font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-14" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Laissez vide pour la valeur par défaut · 1 à 60 min</p>
             </div>
-            <p className="text-xs text-muted-foreground mb-6">Laissez vide pour la valeur par défaut · Entre 1 et 60 minutes</p>
+
+            {/* Délai de présentation (en route → présent) */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-1">Délai de présentation</label>
+              <p className="text-xs text-muted-foreground mb-2">Temps accordé à l'usager pour se présenter après avoir confirmé « Je suis en route ».</p>
+              <div className="relative">
+                <input type="number" min={1} max={60} value={graceInput} onChange={(e) => setGraceInput(e.target.value)} placeholder="10" className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-base font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-14" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">min</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">1 à 60 min</p>
+            </div>
+
+            {/* Nombre de tentatives max */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-1">Tentatives max avant expiration</label>
+              <p className="text-xs text-muted-foreground mb-2">Nombre d'absences tolérées avant l'expiration définitive du ticket.</p>
+              <div className="relative">
+                <input type="number" min={1} max={10} value={maxAttemptsInput} onChange={(e) => setMaxAttemptsInput(e.target.value)} placeholder="2" className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-base font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 pr-20" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">absences</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">1 à 10</p>
+            </div>
+
             <div className="flex gap-3">
               <button type="button" onClick={() => setShowTimeoutDialog(false)} className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">Annuler</button>
               <button type="button" onClick={updateCallTimeout} disabled={isUpdatingTimeout} className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60">{isUpdatingTimeout ? "Enregistrement…" : "Enregistrer"}</button>

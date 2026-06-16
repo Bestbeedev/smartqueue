@@ -578,13 +578,15 @@ class TicketService
     {
         $this->expireOldTicketsForServiceId($ticket->service_id);
 
-        // Éviter le double-traitement (race avec le scheduler)
-        if ($ticket->status === 'absent') {
-            return $ticket;
-        }
-
         $service = $ticket->service;
         $maxAttempts = (int) ($service?->max_call_attempts ?? 2);
+
+        // Ne bloquer QUE les tickets déjà en absence définitive (niveau >= max).
+        // Un ticket en absence temporaire (niveau < max) doit pouvoir être escaladé
+        // au niveau supérieur — c'est exactement ce que fait le bouton « Absent définitif ».
+        if ($ticket->status === 'absent' && (int) ($ticket->absent_level ?? 0) >= $maxAttempts) {
+            return $ticket;
+        }
 
         $currentLevel = (int) ($ticket->absent_level ?? 0);
         $newLevel = $currentLevel + 1;
