@@ -37,4 +37,9 @@ class Establishment extends Model
     {
         return $this->hasOne(Subscription::class);
     }
+
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'favorites')->withTimestamps();
+    }
 }

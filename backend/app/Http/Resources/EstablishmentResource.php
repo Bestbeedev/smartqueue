@@ -35,6 +35,8 @@ class EstablishmentResource extends JsonResource
             'people_waiting' => isset($this->people_waiting) ? (int) $this->people_waiting : null,
             // Nombre de services disponibles
             'services_count' => isset($this->services_count) ? (int) $this->services_count : null,
+            // Favori de l'utilisateur connecté
+            'is_favorited' => (bool) ($this->is_favorited ?? false),
             // Date de création
             'created_at' => $this->created_at,
         ];
