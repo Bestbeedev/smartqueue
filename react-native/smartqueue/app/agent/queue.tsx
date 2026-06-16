@@ -244,7 +244,8 @@ function useCountdown(expiresAt?: string | null): number | null {
 
   useEffect(() => {
     if (!expiresAt) { setSeconds(null); return; }
-    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    // DB timestamps lack ms precision; add 1s grace to avoid false 0
+    const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() + 1000 - Date.now()) / 1000));
     setSeconds(calc());
     const id = setInterval(() => setSeconds(calc()), 1000);
     return () => clearInterval(id);

@@ -81,9 +81,14 @@ export const GlobalCalledTicketOverlay: React.FC<GlobalCalledTicketOverlayProps>
       if (data?.countdown_seconds != null) {
         const serverSeconds = Math.max(0, Math.floor(Number(data.countdown_seconds)));
         if (!countdownFetchedRef.current) {
-          countdownRef.current = serverSeconds;
-          setCountdownSeconds(serverSeconds);
-          setLocalCountdown(serverSeconds);
+          // If server returns 0 on first fetch, it's likely a race condition
+          // (called_expires_at truncated to seconds making now() appear past it).
+          // Fall back to the configured timeout instead of showing false "Délai expiré".
+          const timeoutSec = (data?.call_timeout_minutes ?? callTimeoutMinutes ?? 10) * 60;
+          const effectiveSeconds = serverSeconds > 0 ? serverSeconds : timeoutSec;
+          countdownRef.current = effectiveSeconds;
+          setCountdownSeconds(effectiveSeconds);
+          setLocalCountdown(effectiveSeconds);
           setCountdownReady(true);
           countdownFetchedRef.current = true;
         } else {
