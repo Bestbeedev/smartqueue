@@ -20,6 +20,7 @@ export interface Establishment {
   avg_wait_min?: number;
   people_waiting?: number;
   open_now?: boolean;
+  is_favorited?: boolean;
 }
 
 export interface Service {

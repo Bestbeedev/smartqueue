@@ -120,6 +120,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notification-preferences', [NotificationPreferencesController::class, 'show']);
     Route::put('/notification-preferences', [NotificationPreferencesController::class, 'update']);
 
+    // Favoris établissements
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::post('/favorites/{establishment}', [FavoriteController::class, 'store']);
+    Route::delete('/favorites/{establishment}', [FavoriteController::class, 'destroy']);
+    Route::get('/favorites/{establishment}/status', [FavoriteController::class, 'status']);
 
     // Espace agent / admin (gestion des files en temps réel)
     Route::middleware('role:agent,admin')->group(function () {

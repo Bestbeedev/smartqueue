@@ -40,10 +40,11 @@ import useExploreCacheStore, {
 import { useUnreadNotifications } from "../../hooks/useUnreadNotifications";
 import { CustomActionSheet } from "../../components/ui/CustomActionSheet";
 import { ActiveTicketCard } from "../../components/ActiveTicketCard";
+import { useFavorites } from "../../store/favoritesStore";
 
 const { width, height } = Dimensions.get("window");
 
-type FilterType = "all" | "banks" | "clinics" | "pharmacies" | "gov";
+type FilterType = "all" | "favorites" | "banks" | "clinics" | "pharmacies" | "gov";
 type SortOption = "default" | "distance" | "name" | "crowd_level";
 
 // Styles du carrousel
@@ -336,9 +337,10 @@ export const ExploreScreen: React.FC = () => {
       // Appel direct via getState() pour garantir la référence la plus récente
       useTicketStore.getState().fetchActiveTicket().catch(console.error);
       refreshUnread();
+      loadFavorites();
       setTicketStoreVersion(prev => prev + 1);
       setFabRefresh(prev => prev + 1);
-    }, [refreshUnread]),
+    }, [refreshUnread, loadFavorites]),
   );
 
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -354,6 +356,7 @@ export const ExploreScreen: React.FC = () => {
   const { setCachedData, shouldUseCache, cachedEstablishments, forceRefresh } = useExploreCache();
   const { notifyCrowdLevelChange, notifyEstablishmentOpen } = useSimpleNotification();
   const notifiedEstablishmentsRef = useRef<Set<string>>(new Set());
+  const { favoriteIds, loadFavorites, toggleFavorite } = useFavorites();
 
   const establishmentCoords = React.useMemo(() => {
     if (!activeTicket?.establishment) return null;
@@ -518,11 +521,16 @@ export const ExploreScreen: React.FC = () => {
 
   useEffect(() => {
     let filtered = establishments;
+
+    if (selectedFilter === "favorites") {
+      filtered = filtered.filter(est => favoriteIds.includes(est.id));
+    }
+
     if (searchQuery.trim()) {
       filtered = filtered.filter(est => est.name.toLowerCase().includes(searchQuery.toLowerCase()) || est.address.toLowerCase().includes(searchQuery.toLowerCase()));
     }
     setFilteredEstablishments(sortEstablishments(filtered));
-  }, [establishments, searchQuery, sortEstablishments]);
+  }, [establishments, searchQuery, sortEstablishments, selectedFilter, favoriteIds]);
 
   const getTrendIndicator = (establishment: Establishment) => {
     const peopleWaiting = establishment.people_waiting ?? 0;
@@ -543,6 +551,7 @@ export const ExploreScreen: React.FC = () => {
     const lat = Number(establishment.lat), lng = Number(establishment.lng);
     if (isNaN(lat) || isNaN(lng)) return null;
     const trend = getTrendIndicator(establishment);
+    const isFav = favoriteIds.includes(establishment.id);
     return (
       <Marker key={establishment.id} coordinate={{ latitude: lat, longitude: lng }} onPress={() => setSelectedEstablishment(establishment)}>
         <View style={styles.markerContainer}>
@@ -552,6 +561,11 @@ export const ExploreScreen: React.FC = () => {
           <View style={[styles.markerTrend, { backgroundColor: trend.bg, borderColor: "#FFF" }]}>
             <Ionicons name={trend.icon as any} size={8} color={trend.color} />
           </View>
+          {isFav && (
+            <View style={styles.markerFav}>
+              <Ionicons name="heart" size={8} color={colors.danger} />
+            </View>
+          )}
         </View>
       </Marker>
     );
@@ -562,6 +576,7 @@ export const ExploreScreen: React.FC = () => {
     const isOpen = item.open_now ?? true;
     const servicesCount = item.services_count ?? 0;
     const markerColor = getMarkerColor(item.crowd_level, colors);
+    const isFav = favoriteIds.includes(item.id);
 
     return (
       <TouchableOpacity
@@ -602,7 +617,17 @@ export const ExploreScreen: React.FC = () => {
           </View>
         </View>
         <View style={styles.estCardRight}>
-          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation?.(); toggleFavorite(item.id); }}
+            style={styles.favButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isFav ? "heart" : "heart-outline"}
+              size={18}
+              color={isFav ? colors.danger : colors.textTertiary}
+            />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -656,6 +681,18 @@ export const ExploreScreen: React.FC = () => {
           >
             <Ionicons name="grid-outline" size={12} color={selectedFilter === "all" ? "#FFF" : colors.textSecondary} />
             <Text style={[styles.filterChipText, { color: selectedFilter === "all" ? "#FFF" : colors.textSecondary }]}>Tous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSelectedFilter("favorites")}
+            style={[styles.filterChip, { backgroundColor: selectedFilter === "favorites" ? colors.danger : colors.surface, borderColor: selectedFilter === "favorites" ? colors.danger : colors.border }]}
+          >
+            <Ionicons name="heart" size={12} color={selectedFilter === "favorites" ? "#FFF" : colors.danger} />
+            <Text style={[styles.filterChipText, { color: selectedFilter === "favorites" ? "#FFF" : colors.danger }]}>Favoris</Text>
+            {favoriteIds.length > 0 && (
+              <View style={[styles.favCountBadge, { backgroundColor: selectedFilter === "favorites" ? "#FFF" : colors.danger }]}>
+                <Text style={[styles.favCountText, { color: selectedFilter === "favorites" ? colors.danger : "#FFF" }]}>{favoriteIds.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           {filteredEstablishments.slice(0, 4).map(est => (
             <TouchableOpacity key={est.id} style={[styles.estQuickChip, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push({ pathname: "/service-details", params: { establishmentId: String(est.id), serviceId: "", fromQr: "false" } })}>
@@ -808,6 +845,7 @@ const styles = StyleSheet.create({
   markerPin: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
   markerTrend: { position: "absolute", bottom: -2, right: -2, width: 12, height: 12, borderRadius: 6, alignItems: "center", justifyContent: "center", borderWidth: 1.5 },
   destMarker: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
+  markerFav: { position: "absolute", top: -4, left: -4, width: 14, height: 14, borderRadius: 7, backgroundColor: "#FFF", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#FFF" },
 
   establishmentsSection: { flex: 1 },
   sectionHeader: {
@@ -841,6 +879,9 @@ const styles = StyleSheet.create({
   statBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, gap: 3 },
   statBadgeText: { fontSize: 9, fontWeight: "500" },
   estCardRight: { alignItems: "flex-end", justifyContent: "center", marginLeft: 8 },
+  favButton: { padding: 4 },
+  favCountBadge: { minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  favCountText: { fontSize: 9, fontWeight: "800" },
   emptyList: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 },
   emptyTitle: { fontSize: 16, fontWeight: "700", marginTop: 12, textAlign: "center" },
   emptySub: { fontSize: 12, textAlign: "center", marginTop: 6 },

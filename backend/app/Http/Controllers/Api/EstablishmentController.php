@@ -28,6 +28,8 @@ class EstablishmentController extends Controller
             $category = null;
         }
 
+        $user = $request->user();
+
         $query = Establishment::query()
             ->where('is_active', true)
             ->when($category !== null && $category !== '', function ($q) use ($category) {
@@ -43,6 +45,10 @@ class EstablishmentController extends Controller
             ->selectRaw('COUNT(tickets.id) as people_waiting')
             ->selectRaw("CASE WHEN COUNT(tickets.id) >= 16 THEN 'high' WHEN COUNT(tickets.id) >= 6 THEN 'medium' ELSE 'low' END as crowd_level")
             ->groupBy('establishments.id');
+
+        if ($user) {
+            $query->withExists(['favoritedBy as is_favorited' => fn ($q) => $q->where('user_id', $user->id)]);
+        }
 
         if ($lat !== null && $lng !== null) {
             $lat = (float) $lat;
@@ -87,10 +93,13 @@ class EstablishmentController extends Controller
     }
 
     /** Détail d'un établissement. */
-    public function show(int $id)
+    public function show(Request $request, int $id)
     {
+        $user = $request->user();
+
         $est = Establishment::query()
             ->where('id', $id)
+            ->when($user, fn ($q) => $q->withExists(['favoritedBy as is_favorited' => fn ($q2) => $q2->where('user_id', $user->id)]))
             ->with(['services' => function ($q) {
                 $q->with('workingDays')
                   ->withCount(['tickets as people_waiting' => function ($q2) {

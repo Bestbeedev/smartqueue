@@ -77,5 +77,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(NotificationPreference::class);
     }
+
+    public function favoriteEstablishments()
+    {
+        return $this->belongsToMany(Establishment::class, 'favorites')->withTimestamps();
+    }
 }
 
