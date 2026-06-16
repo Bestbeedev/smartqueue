@@ -181,7 +181,7 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [agentPeriod, setAgentPeriod] = useState<'today' | '7days' | '30days'>('today');
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [overviewAffluence, setOverviewAffluence] = useState<any>(null);
   const [affluenceService, setAffluenceService] = useState<ServiceInfo | null>(null);
   const [affluenceData, setAffluenceData] = useState<any>(null);
   const [affluenceLoading, setAffluenceLoading] = useState(false);
@@ -210,10 +210,10 @@ export default function AgentDashboard() {
       const firstServiceId = queueRes.data?.services?.[0]?.id;
       if (firstServiceId) {
         try {
-          const recRes = await api.get(`/api/services/${firstServiceId}/recommendations`);
-          setRecommendations(recRes.data.windows || []);
+          const { data } = await api.get(`/api/services/${firstServiceId}/affluence`);
+          setOverviewAffluence(data);
         } catch {
-          setRecommendations([]);
+          setOverviewAffluence(null);
         }
       }
     } catch (error: any) {
@@ -1055,34 +1055,52 @@ export default function AgentDashboard() {
           </CardContent>
         </Card>
 
-        {/* Smart Recommendations */}
-        {Array.isArray(recommendations) && recommendations.length > 0 && (
+        {/* Créneaux d'affluence */}
+        {overviewAffluence && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5" />
-                Recommandations
+                Créneaux d'affluence
               </CardTitle>
+              <CardDescription>
+                Basé sur l'historique des 30 derniers jours
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recommendations.map((rec: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
-                      <div>
-                        <p className="font-medium">{rec.start} - {rec.end}</p>
-                        <p className="text-sm text-muted-foreground">{rec.reason}</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="text-green-600 border-green-600 shrink-0">
-                      Faible affluence
-                    </Badge>
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    overviewAffluence.level === 'high' ? 'bg-red-500' : overviewAffluence.level === 'medium' ? 'bg-amber-500' : 'bg-green-500'
+                  )} />
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      Affluence {overviewAffluence.level === 'high' ? 'élevée' : overviewAffluence.level === 'medium' ? 'modérée' : 'faible'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {overviewAffluence.people ?? 0} en attente · ~{overviewAffluence.eta_avg ?? '--'} min
+                    </p>
                   </div>
-                ))}
+                </div>
+
+                {overviewAffluence.peak_hours?.high?.length > 0 && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">Heures de pointe 🔴</p>
+                    <p className="text-sm text-muted-foreground">
+                      {overviewAffluence.peak_hours.high.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                    </p>
+                  </div>
+                )}
+
+                {overviewAffluence.peak_hours?.low?.length > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">Heures calmes 🟢</p>
+                    <p className="text-sm text-muted-foreground">
+                      {overviewAffluence.peak_hours.low.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

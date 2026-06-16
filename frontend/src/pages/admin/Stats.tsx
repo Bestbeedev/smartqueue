@@ -7,10 +7,12 @@ import { AreaChartComponent, DonutChart, VerticalBarChart, LineChartComponent } 
 import {
   Ticket, CheckCircle2, UserX, Clock, Timer, CalendarClock,
   Activity, Star, Target, CalendarDays, RefreshCw,
-  TrendingUp, TrendingDown, Lightbulb,
+  TrendingUp, TrendingDown, Lightbulb, Zap,
   ArrowUpRight, ArrowDownRight, Minus,
   BrainCircuit, BarChart4, Gauge, ListChecks, ThumbsUp, ThumbsDown, Meh,
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,6 +103,23 @@ const DEFER_REASON_COLORS: Record<string, string> = {
   past_cutoff: '#f59e0b', critical_zone: '#ef4444', non_working_day: '#8b5cf6',
   holiday: '#10b981', exceptional_closure: '#6b7280',
 }
+
+function getAffluenceLevel(count: number) {
+  if (count >= 10) return { label: 'Élevée', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200', dot: 'bg-red-500' };
+  if (count >= 5) return { label: 'Modérée', color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-200', dot: 'bg-amber-500' };
+  return { label: 'Faible', color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200', dot: 'bg-green-500' };
+}
+
+const openAffluenceDlg = async (serviceId: number, serviceName: string, setSvc: any, setData: any, setLoading: any) => {
+  setSvc({ id: serviceId, name: serviceName });
+  setData(null);
+  setLoading(true);
+  try {
+    const { data } = await api.get(`/api/services/${serviceId}/affluence`);
+    setData(data);
+  } catch { setData(null); }
+  finally { setLoading(false); }
+};
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: "Aujourd'hui", week: '7 jours', month: '30 jours', custom: 'Personnalisé',
@@ -232,6 +251,29 @@ export default function Stats() {
   const [seriesLoading, setSeriesLoading] = useState(false)
 
   const [reviews, setReviews] = useState<ReviewStats | null>(null)
+  const [affluenceByService, setAffluenceByService] = useState<Record<number, any>>({})
+  const [affluenceDlgService, setAffluenceDlgService] = useState<any>(null)
+  const [affluenceDlgData, setAffluenceDlgData] = useState<any>(null)
+  const [affluenceDlgLoading, setAffluenceDlgLoading] = useState(false)
+
+  // ── Affluence ──────────────────────────────────────────────────────────────
+
+  const fetchAffluence = useCallback(async (services: ServiceStat[]) => {
+    const results: Record<number, any> = {};
+    await Promise.all(services.map(async (s) => {
+      try {
+        const { data } = await api.get(`/api/services/${s.service_id}/affluence`);
+        results[s.service_id] = data;
+      } catch { results[s.service_id] = null; }
+    }));
+    setAffluenceByService(results);
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'services' && advanced?.by_service && advanced.by_service.length > 0) {
+      fetchAffluence(advanced.by_service);
+    }
+  }, [tab, advanced, fetchAffluence]);
 
   // ── Fetch advanced ────────────────────────────────────────────────────────
 
@@ -708,7 +750,7 @@ export default function Stats() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        {['Service', 'Total', 'Servis', 'Absents', 'Reportés', 'Taux abs.', 'Taux réal.', 'Attente moy.', 'Priorités'].map(h => (
+                        {['Service', 'Affluence', 'Total', 'Servis', 'Absents', 'Reportés', 'Taux abs.', 'Taux réal.', 'Attente moy.', 'Priorités'].map(h => (
                           <th key={h} className="pb-3 text-right text-xs font-medium text-muted-foreground first:text-left">
                             {h}
                           </th>
@@ -719,6 +761,30 @@ export default function Stats() {
                       {advanced.by_service.map(s => (
                         <tr key={s.service_id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="py-3 font-semibold text-foreground pr-4 min-w-[140px]">{s.service_name}</td>
+                          <td className="py-3 text-right">
+                            {(() => {
+                              const aff = affluenceByService[s.service_id];
+                              const level = aff?.level || 'low';
+                              const cfg = getAffluenceLevel(aff?.people ?? 0);
+                              return (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <div className={cn("w-2 h-2 rounded-full", cfg.dot)} />
+                                  <span className={cn("text-xs font-medium", level === 'high' ? 'text-red-600' : level === 'medium' ? 'text-amber-600' : 'text-green-600')}>
+                                    {level === 'high' ? 'Élevée' : level === 'medium' ? 'Modérée' : 'Faible'}
+                                  </span>
+                                  {aff && (
+                                    <button
+                                      className="p-1 rounded hover:bg-muted transition-colors"
+                                      onClick={() => openAffluenceDlg(s.service_id, s.service_name, setAffluenceDlgService, setAffluenceDlgData, setAffluenceDlgLoading)}
+                                      title="Voir les créneaux"
+                                    >
+                                      <BarChart4 className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </td>
                           <td className="py-3 text-right font-bold text-foreground">{s.total}</td>
                           <td className="py-3 text-right text-green-600 font-medium">{s.served}</td>
                           <td className="py-3 text-right text-amber-600">{s.absent}</td>
@@ -1391,6 +1457,73 @@ export default function Stats() {
           )}
         </div>
       )}
+
+      {/* Affluence Dialog */}
+      <Dialog open={!!affluenceDlgService} onOpenChange={(open) => { if (!open) setAffluenceDlgService(null); }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Affluence — {affluenceDlgService?.name}</DialogTitle>
+            <DialogDescription>Distribution horaire des tickets sur les 30 derniers jours</DialogDescription>
+          </DialogHeader>
+          {affluenceDlgLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : affluenceDlgData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold">{affluenceDlgData.people ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">En attente</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold">~{affluenceDlgData.eta_avg ?? '--'} min</p>
+                  <p className="text-xs text-muted-foreground">Attente moyenne</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <div className={cn("w-3 h-3 rounded-full", affluenceDlgData.level === 'high' ? 'bg-red-500' : affluenceDlgData.level === 'medium' ? 'bg-amber-500' : 'bg-green-500')} />
+                    <p className="text-2xl font-bold">{affluenceDlgData.level === 'high' ? 'Élevée' : affluenceDlgData.level === 'medium' ? 'Modérée' : 'Faible'}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Niveau d'affluence</p>
+                </div>
+              </div>
+              {affluenceDlgData.hourly_data && affluenceDlgData.hourly_data.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Créneaux horaires (30 jours)</h4>
+                  <ChartContainer title="" description="">
+                    <VerticalBarChart
+                      data={affluenceDlgData.hourly_data.map((pt: any) => ({
+                        name: `${String(pt.hour).padStart(2, '0')}h`,
+                        value: pt.count,
+                        color: affluenceDlgData.peak_hours?.high?.includes(pt.hour) ? '#ef4444'
+                          : affluenceDlgData.peak_hours?.medium?.includes(pt.hour) ? '#f59e0b'
+                          : '#22c55e60',
+                      }))}
+                      height={220}
+                    />
+                  </ChartContainer>
+                  <div className="flex items-center justify-center gap-6 mt-2">
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-red-500" /><span className="text-xs text-muted-foreground">Peak</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-amber-500" /><span className="text-xs text-muted-foreground">Moyen</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500/40" /><span className="text-xs text-muted-foreground">Calme</span></div>
+                  </div>
+                </div>
+              )}
+              {affluenceDlgData.peak_hours?.high?.length > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    Heures de pointe : {affluenceDlgData.peak_hours.high.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">Impossible de charger les données d'affluence.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
