@@ -138,7 +138,7 @@ const SummaryCircle: React.FC<{
           <Text style={[styles.miniCircleValue, { color }]}>
             {position > 0 ? position : "—"}
           </Text>
-          <Text style={[styles.miniCircleSeparator, { color: colors.textTertiary }]}>/</Text>
+          <Text style={styles.miniCircleSeparator}>/</Text>
           <Text style={[styles.miniCircleTotal, { color: colors.textTertiary }]}>
             {queueLength}
           </Text>
@@ -207,7 +207,7 @@ const QuickActionCard: React.FC<{
     activeOpacity={0.8}
   >
     <View style={[styles.quickActionCardIcon, { backgroundColor: color + "12" }]}>
-      <Ionicons name={icon as any} size={22} color={color} />
+      <Ionicons name={icon as any} size={18} color={color} />
     </View>
     <Text style={[styles.quickActionCardLabel, { color }]}>{label}</Text>
   </TouchableOpacity>
@@ -523,10 +523,10 @@ const styles = StyleSheet.create({
   // ── Summary Circle ───────────────────────────────────────────────────────
   miniCircleOuter: { alignItems: "center" },
   miniCircleWrap: { alignItems: "center", justifyContent: "center" },
-  miniCircleCenter: { position: "absolute", alignItems: "center", justifyContent: "center" },
-  miniCircleValue: { fontSize: 20, fontWeight: "800", lineHeight: 22 },
-  miniCircleSeparator: { fontSize: 12, fontWeight: "400", lineHeight: 12 },
-  miniCircleTotal: { fontSize: 14, fontWeight: "600", lineHeight: 14 },
+  miniCircleCenter: { position: "absolute", flexDirection: "row", alignItems: "baseline", gap: 1 },
+  miniCircleValue: { fontSize: 22, fontWeight: "800" },
+  miniCircleSeparator: { fontSize: 14, fontWeight: "400", color: "#94A3B8" },
+  miniCircleTotal: { fontSize: 16, fontWeight: "600" },
   miniCircleSoon: { fontSize: 8, fontWeight: "700", marginTop: 2 },
 
   // ── Special Status ────────────────────────────────────────────────────────
@@ -555,9 +555,9 @@ const styles = StyleSheet.create({
 
   // ── Quick Actions (cards) ─────────────────────────────────────────────────
   quickActionsGrid: { flexDirection: "row", gap: 10, marginTop: 10 },
-  quickActionCard: { flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 16, borderWidth: 1, gap: 8 },
-  quickActionCardIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  quickActionCardLabel: { fontSize: 12, fontWeight: "600" },
+  quickActionCard: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 14, borderWidth: 1, gap: 4 },
+  quickActionCardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickActionCardLabel: { fontSize: 11, fontWeight: "600" },
 
   // ── Error ─────────────────────────────────────────────────────────────────
   errorContainer: { alignItems: "center", paddingVertical: 50 },
