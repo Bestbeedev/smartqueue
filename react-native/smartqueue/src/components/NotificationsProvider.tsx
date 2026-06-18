@@ -20,9 +20,8 @@
  * L'overlay temps réel (OverlayCalledTicket via useTicketSocket) continue de
  * fonctionner indépendamment ; les deux systèmes coexistent.
  */
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useNotifications } from "../hooks/useNotifications";
 import { useAuth } from "../store/authStore";
@@ -35,16 +34,7 @@ async function registerNotificationCategories() {
     await Notifications.setNotificationCategoryAsync(TICKET_CALLED_CATEGORY, [
       {
         identifier: "en-route",
-        buttonTitle: "J'arrive",
-        options: {
-          opensAppToForeground: false,
-          isAuthenticationRequired: false,
-          isDestructive: false,
-        },
-      },
-      {
-        identifier: "defer",
-        buttonTitle: "Je reporte",
+        buttonTitle: "Je suis en route",
         options: {
           opensAppToForeground: false,
           isAuthenticationRequired: false,
@@ -53,7 +43,7 @@ async function registerNotificationCategories() {
       },
       {
         identifier: "present",
-        buttonTitle: "Je suis là",
+        buttonTitle: "Je suis présent",
         options: {
           opensAppToForeground: true,
           isAuthenticationRequired: false,
@@ -80,9 +70,6 @@ async function handleNotificationAction(
     switch (actionIdentifier) {
       case "en-route":
         await axiosClient.post(`/tickets/${ticketId}/en-route`);
-        break;
-      case "defer":
-        await axiosClient.post(`/tickets/${ticketId}/defer`);
         break;
       case "present":
         await axiosClient.post(`/tickets/${ticketId}/present`);

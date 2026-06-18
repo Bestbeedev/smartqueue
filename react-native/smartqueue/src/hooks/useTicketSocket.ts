@@ -227,13 +227,16 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           if (data.ticket_id !== numericTicketId) return;
 
           const counterNum = data.counter ?? data.counter_id;
+          const store = useTicketStore.getState();
+          const svcName = store.activeTickets.find(t => t.id === numericTicketId)?.service?.name || store.activeTicket?.service?.name;
+          const ticketNum = data.number || store.activeTicket?.number;
           updateTicketStatus("called", numericTicketId);
           markAsCalled(counterNum?.toString());
           setLastUpdate(new Date());
 
           triggerLocalNotification(
-            "C'est votre tour !",
-            `Guichet ${counterNum || "N/A"} — Appuyez pour ouvrir`,
+            `🎯 ${ticketNum || "Ticket"} — C'est votre tour !`,
+            `${svcName || "Service"} • Guichet ${counterNum || "N/A"}`,
             numericTicketId,
             "ticket_called",
           );
@@ -259,9 +262,12 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             switch (data.status) {
               case "called": {
                 markAsCalled(data.counter_id?.toString());
+                const store = useTicketStore.getState();
+                const svcName = store.activeTickets.find(t => t.id === numericTicketId)?.service?.name || store.activeTicket?.service?.name;
+                const ticketNum = store.activeTickets.find(t => t.id === numericTicketId)?.number || store.activeTicket?.number;
                 triggerLocalNotification(
-                  "C'est votre tour !",
-                  `Guichet ${data.counter_id || "N/A"}`,
+                  `🎯 ${ticketNum || "Ticket"} — C'est votre tour !`,
+                  `${svcName || "Service"} • Guichet ${data.counter_id || "N/A"}`,
                   numericTicketId,
                   "ticket_called",
                 );
