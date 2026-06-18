@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle } from "react-native-svg";
 import { useTicket } from "../../store/ticketStore";
 import type { Ticket } from "../../api/ticketsApi";
 import { useCustomAlert } from "../../hooks/useCustomAlert";
@@ -18,10 +19,52 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
 
-// Composant de statut compact
+// ── Pulsing skeleton ────────────────────────────────────────────────────────
+const SkeletonBlock: React.FC<{ widthVal: number; height: number; borderRadius?: number; style?: any }> = ({
+  widthVal, height, borderRadius = 8, style,
+}) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={[{ width: widthVal, height, borderRadius, backgroundColor: "#CBD5E1", opacity }, style]}
+    />
+  );
+};
+
+const SkeletonCard: React.FC = () => (
+  <View style={styles.skeletonCard}>
+    <View style={styles.skeletonRow}>
+      <SkeletonBlock widthVal={60} height={14} />
+      <SkeletonBlock widthVal={80} height={26} />
+    </View>
+    <SkeletonBlock widthVal="100%" height={40} borderRadius={12} style={{ marginBottom: 12 }} />
+    <View style={styles.skeletonRow}>
+      <SkeletonBlock widthVal="45%" height={14} />
+      <SkeletonBlock widthVal="45%" height={14} />
+    </View>
+    <View style={[styles.skeletonRow, { marginTop: 12 }]}>
+      <SkeletonBlock widthVal="48%" height={36} borderRadius={12} />
+      <SkeletonBlock widthVal="48%" height={36} borderRadius={12} />
+    </View>
+  </View>
+);
+
+// Composant de statut compact - Version améliorée
 const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors }) => {
   const getStatusConfig = () => {
     switch (status) {
@@ -39,8 +82,8 @@ const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors
   const config = getStatusConfig();
 
   return (
-    <View style={[styles.statusBadge, { backgroundColor: config.color + "15" }]}>
-      <Ionicons name={config.icon as any} size={12} color={config.color} />
+    <View style={[styles.statusBadge, { backgroundColor: config.color + "18", borderColor: config.color + "40" }]}>
+      <Ionicons name={config.icon as any} size={13} color={config.color} />
       <Text style={[styles.statusBadgeText, { color: config.color }]}>
         {config.label}
       </Text>
@@ -48,35 +91,62 @@ const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors
   );
 };
 
-// Carte de progression compacte
-const ProgressCard: React.FC<{
+// Mini cercle SVG montrant la position actuelle / total
+const SummaryCircle: React.FC<{
   position: number;
-  etaMinutes: number;
+  queueLength: number;
+  isSoon: boolean;
+  color: string;
   colors: any;
-}> = ({ position, etaMinutes, colors }) => {
-  const progress = position > 0 ? Math.min(100, (1 / position) * 100) : 0;
-  const isSoon = position <= 3 && position > 0;
+}> = ({ position, queueLength, isSoon, color, colors }) => {
+  const size = 72;
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const ratio = Math.min(1, position / Math.max(1, queueLength));
+  const filledLength = circumference * ratio;
+  const gapLength = circumference - filledLength;
 
   return (
-    <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.progressStats}>
-        <View style={styles.progressStat}>
-          <Text style={[styles.progressStatLabel, { color: colors.textTertiary }]}>Position</Text>
-          <Text style={[styles.progressStatValue, { color: isSoon ? colors.warning : colors.primary }]}>
-            {position > 0 ? `${position}e` : "—"}
+    <View style={styles.miniCircleOuter}>
+      <View style={styles.miniCircleWrap}>
+        <Svg width={size} height={size}>
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={colors.border}
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${filledLength} ${gapLength}`}
+            strokeDashoffset={0}
+            rotation="-90"
+            originX={size / 2}
+            originY={size / 2}
+            strokeLinecap="round"
+          />
+        </Svg>
+        <View style={styles.miniCircleCenter}>
+          <Text style={[styles.miniCircleValue, { color }]}>
+            {position > 0 ? position : "—"}
           </Text>
-        </View>
-        <View style={styles.progressStat}>
-          <Text style={[styles.progressStatLabel, { color: colors.textTertiary }]}>Estimation</Text>
-          <Text style={[styles.progressStatValue, { color: colors.primary }]}>
-            {etaMinutes > 0 ? `${etaMinutes} min` : "—"}
+          <Text style={styles.miniCircleSeparator}>/</Text>
+          <Text style={[styles.miniCircleTotal, { color: colors.textTertiary }]}>
+            {queueLength}
           </Text>
         </View>
       </View>
-      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: isSoon ? colors.warning : colors.primary }]} />
-      </View>
-      {isSoon && <Text style={[styles.progressSoon, { color: colors.warning }]}>⚡ Bientôt votre tour !</Text>}
+      {isSoon && (
+        <Text style={[styles.miniCircleSoon, { color: colors.warning }]}>⚡ Bientôt</Text>
+      )}
     </View>
   );
 };
@@ -121,18 +191,25 @@ const TicketCard: React.FC<{
   );
 };
 
-// Action rapide compacte
-const QuickActionCircle: React.FC<{
+// Action rapide en carte
+const QuickActionCard: React.FC<{
   icon: string;
   label: string;
   color: string;
   onPress: () => void;
 }> = ({ icon, label, color, onPress }) => (
-  <TouchableOpacity style={styles.quickActionCircle} onPress={onPress} activeOpacity={0.8}>
-    <View style={[styles.quickActionCircleIcon, { backgroundColor: color + "15" }]}>
-      <Ionicons name={icon as any} size={24} color={color} />
+  <TouchableOpacity
+    style={[styles.quickActionCard, { borderColor: color + "25" }]}
+    onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }}
+    activeOpacity={0.8}
+  >
+    <View style={[styles.quickActionCardIcon, { backgroundColor: color + "12" }]}>
+      <Ionicons name={icon as any} size={18} color={color} />
     </View>
-    <Text style={[styles.quickActionCircleLabel, { color }]}>{label}</Text>
+    <Text style={[styles.quickActionCardLabel, { color }]}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -153,6 +230,7 @@ export const TicketsScreen: React.FC = () => {
   const { AlertComponent, showWarning, showError } = useCustomAlert();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const otherActiveTickets = useMemo(
@@ -162,7 +240,10 @@ export const TicketsScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchActiveTicket().catch(console.error);
+      setIsLoading(true);
+      fetchActiveTicket()
+        .catch(console.error)
+        .finally(() => setIsLoading(false));
     }, [fetchActiveTicket]),
   );
 
@@ -192,49 +273,59 @@ export const TicketsScreen: React.FC = () => {
   const handleNotifications = useCallback(() => router.push("/notifications"), []);
 
   const renderHeader = () => (
-    <LinearGradient colors={["#3B82F6", "#2563EB"]} style={styles.header}>
+    <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.header}>
       <View style={styles.headerTop}>
         <View>
-          <Text style={styles.welcomeText}>👋 Apercu de votre </Text>
+          <Text style={styles.welcomeText}>👋 Aperçu de votre</Text>
           <Text style={styles.headerTitle}>File d'attente</Text>
         </View>
-        <TouchableOpacity style={[styles.notificationIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]} onPress={handleNotifications}>
-          <Ionicons name="notifications-outline" size={22} color="#FFF" />
-          {hasActiveTicket && <View style={styles.notificationDot} />}
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {hasActiveTicket && (
+            <View style={styles.liveDotWrap}>
+              <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
+              <Text style={styles.liveDotText}>LIVE</Text>
+            </View>
+          )}
+          <TouchableOpacity style={[styles.notificationIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]} onPress={handleNotifications}>
+            <Ionicons name="notifications-outline" size={22} color="#FFF" />
+            {hasActiveTicket && <View style={styles.notificationDot} />}
+          </TouchableOpacity>
+        </View>
       </View>
     </LinearGradient>
   );
 
   const renderEmptyState = () => (
     <Animated.View style={[styles.emptyContainer, { opacity: fadeAnim }]}>
-      <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + "15" }]}>
+      <LinearGradient
+        colors={[colors.primary + "20", colors.secondary + "10"]}
+        style={styles.emptyIconContainer}
+      >
         <Ionicons name="ticket-outline" size={56} color={colors.primary} />
-      </View>
-      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Aucun ticket actif</Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Scannez un QR code pour rejoindre une file</Text>
-      <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
+      </LinearGradient>
+      <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Pas de ticket actif</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+        Scannez un QR code dans un établissement pour rejoindre une file d'attente
+      </Text>
+      <TouchableOpacity style={styles.scanButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleScanQR(); }}>
         <LinearGradient colors={[colors.primary, colors.secondary]} style={styles.scanButtonGradient}>
           <Ionicons name="qr-code-outline" size={18} color="#FFF" />
-          <Text style={styles.scanButtonText}>Scanner</Text>
+          <Text style={styles.scanButtonText}>Scanner un QR code</Text>
         </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
 
   const renderActiveTicket = () => {
-    // Déterminer si on affiche la position ou le statut
     const isSpecialStatus = activeTicket?.status === "called" || activeTicket?.status === "present" || activeTicket?.status === "en_route";
     const queueLength = (activeTicket as any)?.queue_length || position || 1;
-    
-    const displayText = isSpecialStatus 
-      ? (activeTicket?.status === "called" ? "Appelé" : activeTicket?.status === "present" ? "Présent" : "En route")
-      : `${position}e / ${queueLength}`;
-    const displayLabel = isSpecialStatus ? "Statut" : "Position";
+    const isSoon = !isSpecialStatus && position > 0 && position <= 3;
+    const posColor = position <= 2 ? colors.danger : position <= 5 ? colors.warning : colors.primary;
 
     return (
       <Animated.View style={{ opacity: fadeAnim }}>
         <View style={[styles.mainTicketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Header: ticket number + status */}
           <View style={styles.ticketHeader}>
             <View>
               <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>Votre ticket</Text>
@@ -243,65 +334,69 @@ export const TicketsScreen: React.FC = () => {
             <StatusBadge status={activeTicket?.status || "waiting"} colors={colors} />
           </View>
 
-          <View style={styles.ticketInfoCompact}>
-            <View style={styles.ticketInfoItem}>
-              <Ionicons name="business-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {activeTicket?.establishment?.name || "Établissement"}
+          {/* Body: circle + info row */}
+          {!isSpecialStatus ? (
+            <View style={styles.progressRow}>
+              <SummaryCircle
+                position={position}
+                queueLength={queueLength}
+                isSoon={isSoon}
+                color={posColor}
+                colors={colors}
+              />
+              <View style={styles.progressInfoCol}>
+                <Text style={[styles.progressInfoLabel, { color: colors.textTertiary }]}>
+                  {activeTicket?.establishment?.name || "Établissement"}
+                </Text>
+                <View style={styles.bodyInfoRow}>
+                  <Ionicons name="briefcase-outline" size={14} color={colors.textTertiary} />
+                  <Text style={[styles.bodyInfoText, { color: colors.textSecondary }]}>
+                    {activeTicket?.service?.name || "Service"}
+                  </Text>
+                </View>
+                <View style={styles.bodyDivider} />
+                <Text style={[styles.progressInfoLabel, { color: colors.textTertiary }]}>Temps estimé</Text>
+                <Text style={[styles.progressInfoEta, { color: posColor }]}>
+                  {etaMinutes > 0 ? `${etaMinutes}` : "—"} min
+                </Text>
+                {position > 0 && (
+                  <Text style={[styles.progressInfoPeople, { color: colors.textTertiary }]}>
+                    {position - 1} personne{(position - 1) > 1 ? "s" : ""} devant vous
+                  </Text>
+                )}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.specialStatusBody}>
+              <Ionicons
+                name={activeTicket?.status === "called" ? "notifications" : activeTicket?.status === "present" ? "checkmark-circle" : "walk"}
+                size={28}
+                color={
+                  activeTicket?.status === "called" ? colors.danger :
+                  activeTicket?.status === "present" ? colors.success :
+                  colors.warning
+                }
+              />
+              <Text style={[styles.specialStatusBodyText, { color: colors.textPrimary }]}>
+                {activeTicket?.status === "called" ? "Appelé au guichet !" :
+                 activeTicket?.status === "present" ? "Présent - Priorité conservée" :
+                 "En route - Agent notifié"}
               </Text>
             </View>
-            <View style={styles.ticketInfoItem}>
-              <Ionicons name="briefcase-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {activeTicket?.service?.name || "Service"}
-              </Text>
-            </View>
-          </View>
+          )}
 
-          <View style={styles.statsRowCompact}>
-            <View style={styles.statItemCompact}>
-              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>{displayLabel}</Text>
-              <Text style={[styles.statValueCompact, { color: isSpecialStatus ? colors.primary : colors.primary }]}>{displayText}</Text>
-            </View>
-            <View style={[styles.statDividerCompact, { backgroundColor: colors.border }]} />
-            <View style={styles.statItemCompact}>
-              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>Estimation</Text>
-              <Text style={[styles.statValueCompact, { color: colors.primary }]}>{etaMinutes > 0 ? `${etaMinutes} min` : "—"}</Text>
-            </View>
-          </View>
-
+          {/* Actions */}
           <View style={styles.ticketActionsCompact}>
-            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "10" }]} onPress={handleViewLiveTicket}>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "60" }]} onPress={handleViewLiveTicket}>
               <Ionicons name="eye-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionBtnTextCompact, { color: colors.primary }]}>Suivre</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.danger + "10" }]} onPress={handleCancelTicket}>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.danger + "60" }]} onPress={handleCancelTicket}>
               <Ionicons name="close-outline" size={18} color={colors.danger} />
               <Text style={[styles.actionBtnTextCompact, { color: colors.danger }]}>Annuler</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        {activeTicket?.status === "waiting" && <ProgressCard position={position} etaMinutes={etaMinutes} colors={colors} />}
-        
-        {activeTicket?.status === "called" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.danger + "10", borderColor: colors.danger }]}>
-            <Ionicons name="notifications" size={20} color={colors.danger} />
-            <Text style={[styles.specialStatusText, { color: colors.danger }]}>Appelé au guichet !</Text>
-          </View>
-        )}
-        {activeTicket?.status === "present" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.success + "10", borderColor: colors.success }]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-            <Text style={[styles.specialStatusText, { color: colors.success }]}>Présent - Priorité conservée</Text>
-          </View>
-        )}
-        {activeTicket?.status === "en_route" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.warning + "10", borderColor: colors.warning }]}>
-            <Ionicons name="walk" size={20} color={colors.warning} />
-            <Text style={[styles.specialStatusText, { color: colors.warning }]}>En route - Agent notifié</Text>
-          </View>
-        )}
       </Animated.View>
     );
   };
@@ -335,10 +430,9 @@ export const TicketsScreen: React.FC = () => {
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Actions Rapides</Text>
       <View style={styles.quickActionsGrid}>
-        <QuickActionCircle icon="qr-code-outline" label="Scanner" color={colors.primary} onPress={handleScanQR} />
-        <QuickActionCircle icon="time-outline" label="Historique" color={colors.success} onPress={handleViewHistory} />
-        <QuickActionCircle icon="map-outline" label="Carte" color={colors.warning} onPress={() => router.push("/navigation")} />
-        <QuickActionCircle icon="call-outline" label="Support" color={colors.secondary} onPress={() => {}} />
+        <QuickActionCard icon="qr-code-outline" label="Scanner" color={colors.primary} onPress={handleScanQR} />
+        <QuickActionCard icon="time-outline" label="Historique" color={colors.success} onPress={handleViewHistory} />
+        <QuickActionCard icon="map-outline" label="Carte" color={colors.warning} onPress={() => router.push("/navigation")} />
       </View>
     </View>
   );
@@ -351,7 +445,9 @@ export const TicketsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       >
-        {error ? (
+        {isLoading ? (
+          <SkeletonCard />
+        ) : error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={56} color={colors.danger} />
             <Text style={[styles.errorText, { color: colors.textPrimary }]}>Une erreur est survenue</Text>
@@ -369,7 +465,7 @@ export const TicketsScreen: React.FC = () => {
         {AlertComponent}
         <View style={styles.bottomSpace} />
       </ScrollView>
-      {!hasActiveTicket && !error && (
+      {!isLoading && !hasActiveTicket && !error && (
         <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={handleScanQR}>
           <Ionicons name="qr-code" size={26} color="#FFF" />
         </TouchableOpacity>
@@ -382,107 +478,94 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingTop: Platform.OS === 'ios' ? 55 : 35, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   welcomeText: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 2 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#FFF" },
+  liveDotWrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.15)" },
+  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  liveDotText: { fontSize: 9, fontWeight: "800", color: "#FFF", letterSpacing: 1 },
   notificationIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   notificationDot: { position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 },
-  
+
+  // ── Skeleton ──────────────────────────────────────────────────────────────
+  skeletonCard: { borderRadius: 18, borderWidth: 1, borderColor: "#E2E8F0", padding: 16, marginBottom: 16, gap: 12 },
+  skeletonRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+
+  // ── Empty ─────────────────────────────────────────────────────────────────
   emptyContainer: { alignItems: "center", paddingVertical: 40 },
   emptyIconContainer: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center", marginBottom: 20 },
   emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 6 },
-  emptySubtitle: { fontSize: 13, textAlign: "center", marginBottom: 28, paddingHorizontal: 30 },
+  emptySubtitle: { fontSize: 13, textAlign: "center", marginBottom: 28, paddingHorizontal: 30, lineHeight: 20 },
   scanButton: { borderRadius: 14, overflow: "hidden" },
   scanButtonGradient: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 24, gap: 6 },
   scanButtonText: { fontSize: 14, fontWeight: "600", color: "#FFF" },
-  
+
+  // ── Main Ticket ───────────────────────────────────────────────────────────
   mainTicketCard: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 16 },
-  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   ticketLabel: { fontSize: 11, marginBottom: 2 },
   ticketNumber: { fontSize: 22, fontWeight: "800" },
-  ticketInfoCompact: { gap: 8, marginBottom: 12 },
-  ticketInfoItem: { flexDirection: "row", alignItems: "center", gap: 8 },
-  ticketInfoText: { fontSize: 13, flex: 1 },
-  statsRowCompact: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  statItemCompact: { flex: 1, alignItems: "center" },
-  statLabelCompact: { fontSize: 10, marginBottom: 2 },
-  statValueCompact: { fontSize: 16, fontWeight: "700" },
-  statDividerCompact: { width: 1, height: 30 },
-  ticketActionsCompact: { flexDirection: "row", gap: 10 },
+  ticketActionsCompact: { flexDirection: "row", gap: 10, marginTop: 14 },
   actionBtnCompact: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
   actionBtnTextCompact: { fontSize: 13, fontWeight: "600" },
-  
-  progressCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 16 },
-  progressStats: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-  progressStat: { alignItems: "center", flex: 1 },
-  progressStatLabel: { fontSize: 11, marginBottom: 3 },
-  progressStatValue: { fontSize: 18, fontWeight: "700" },
-  progressBar: { height: 5, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 3 },
-  progressSoon: { fontSize: 11, textAlign: "center", marginTop: 10, fontWeight: "600" },
-  
-  specialStatusCard: { borderRadius: 14, borderWidth: 1, padding: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 16 },
-  specialStatusText: { fontSize: 14, fontWeight: "600" },
-  
+
+  // ── Progress / Body Row ──────────────────────────────────────────────────
+  progressRow: { flexDirection: "row", alignItems: "center", gap: 16 },
+  progressInfoCol: { flex: 1, gap: 2 },
+  progressInfoLabel: { fontSize: 12, fontWeight: "500" },
+  progressInfoEta: { fontSize: 26, fontWeight: "800" },
+  progressInfoPeople: { fontSize: 12, marginTop: 2 },
+  bodyInfoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bodyInfoText: { fontSize: 13 },
+  bodyDivider: { height: 1, backgroundColor: "#E2E8F0", marginVertical: 8 },
+
+  // ── Summary Circle ───────────────────────────────────────────────────────
+  miniCircleOuter: { alignItems: "center" },
+  miniCircleWrap: { alignItems: "center", justifyContent: "center" },
+  miniCircleCenter: { position: "absolute", flexDirection: "row", alignItems: "baseline", gap: 1 },
+  miniCircleValue: { fontSize: 22, fontWeight: "800" },
+  miniCircleSeparator: { fontSize: 14, fontWeight: "400", color: "#94A3B8" },
+  miniCircleTotal: { fontSize: 16, fontWeight: "600" },
+  miniCircleSoon: { fontSize: 8, fontWeight: "700", marginTop: 2 },
+
+  // ── Special Status ────────────────────────────────────────────────────────
+  specialStatusBody: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  specialStatusBodyText: { fontSize: 14, fontWeight: "600", flex: 1 },
+
+  // ── Sections ──────────────────────────────────────────────────────────────
   section: { marginBottom: 20 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   sectionTitle: { fontSize: 17, fontWeight: "700" },
   sectionBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
   sectionBadgeText: { fontSize: 13, fontWeight: "700" },
-  
-  ticketCard: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    justifyContent: "space-between", 
-    borderWidth: 1, 
-    borderRadius: 14, 
-    padding: 12, 
-    marginBottom: 10 
-  },
-  ticketCardLeft: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 10, 
-    flex: 1 
-  },
-  ticketNumberBadge: { 
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
-    borderRadius: 10, 
-    alignItems: "center", 
-    justifyContent: "center",
-    minWidth: 60
-  },
-  ticketNumber: { 
-    fontSize: 16, 
-    fontWeight: "800" as any,
-    textAlign: "center"
-  },
-  ticketDetails: { 
-    flex: 1 
-  },
-  ticketService: { 
-    fontSize: 14, 
-    fontWeight: "600", 
-    marginBottom: 2 
-  },
-  ticketQueueInfo: { 
-    fontSize: 11 
-  },
-  
-  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 5 },
+
+  // ── Ticket Card (secondary) ───────────────────────────────────────────────
+  ticketCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 10 },
+  ticketCardLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  ticketNumberBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, alignItems: "center", justifyContent: "center", minWidth: 60 },
+  ticketNumber: { fontSize: 16, fontWeight: "800" as any, textAlign: "center" },
+  ticketDetails: { flex: 1 },
+  ticketService: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  ticketQueueInfo: { fontSize: 11 },
+
+  // ── Status Badge ──────────────────────────────────────────────────────────
+  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 5, borderWidth: 1 },
   statusBadgeText: { fontSize: 11, fontWeight: "700" },
-  
-  quickActionsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginTop: 10 },
-  quickActionCircle: { flex: 1, alignItems: "center" },
-  quickActionCircleIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  quickActionCircleLabel: { fontSize: 11, fontWeight: "500" },
-  
+
+  // ── Quick Actions (cards) ─────────────────────────────────────────────────
+  quickActionsGrid: { flexDirection: "row", gap: 10, marginTop: 10 },
+  quickActionCard: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 14, borderWidth: 1, gap: 4 },
+  quickActionCardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickActionCardLabel: { fontSize: 11, fontWeight: "600" },
+
+  // ── Error ─────────────────────────────────────────────────────────────────
   errorContainer: { alignItems: "center", paddingVertical: 50 },
   errorText: { fontSize: 15, marginTop: 14, marginBottom: 20 },
   retryButton: { paddingVertical: 10, paddingHorizontal: 22, borderRadius: 12 },
   retryButtonText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
-  
+
+  // ── Misc ──────────────────────────────────────────────────────────────────
   fab: { position: "absolute", bottom: 24, right: 24, width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   bottomSpace: { height: 20 },
 });

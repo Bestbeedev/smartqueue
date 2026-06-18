@@ -151,6 +151,7 @@ export const useSmartNotifications = (
             data: { ...alert.data, alertType: alert.type },
             sound: alert.urgency === "critical" ? "default" : undefined,
             priority: alert.urgency === "critical" ? "high" : "default",
+            ...(alert.type === "CALLED" ? { categoryId: "ticket_called" } : {}),
           },
           trigger: null, // Immediate
         });
