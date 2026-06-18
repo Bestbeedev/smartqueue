@@ -660,7 +660,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           {
             id: Date.now() + Math.random(),
             type: "served" as const,
-            message: `${served} personne${served > 1 ? "s" : ""} servie${served > 1 ? "s" : ""} avant vous`,
+            message: `${served} personne${served > 1 ? "s" : ""} appelée${served > 1 ? "s" : ""} avant vous`,
             timestamp: new Date(),
           },
           ...prevEntries,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   backButton: {
     width: 40,
@@ -1195,7 +1195,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerMain: {
-    marginTop: 8,
     alignItems: "center",
   },
   ticketLabel: {
