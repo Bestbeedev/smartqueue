@@ -19,6 +19,7 @@ import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useTicket, useTicketStore } from "../../store/ticketStore";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
@@ -32,6 +33,15 @@ import { getApiErrorMessage } from "../../utils/errors";
 import { useOfflineStore } from "../../store/offlineStore";
 
 const { width } = Dimensions.get("window");
+
+const fmtTimeAgo = (date: Date): string => {
+  const diff = Date.now() - date.getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `il y a ${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `il y a ${min}min`;
+  return `il y a ${Math.floor(min / 60)}h`;
+};
 
 // Composant de statut compact - Version avec fond opaque
 const LiveStatusBadge: React.FC<{
@@ -201,6 +211,143 @@ const DistanceCard: React.FC<{
   );
 };
 
+// ── Timeline ─────────────────────────────────────────────────────────────────
+interface TimelineEntry {
+  id: number;
+  type: "served" | "position" | "info";
+  message: string;
+  timestamp: Date;
+}
+
+const QueueTimeline: React.FC<{
+  entries: TimelineEntry[];
+  colors: any;
+}> = ({ entries, colors }) => {
+  if (entries.length === 0) return null;
+
+  return (
+    <View style={[styles.timelineCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.timelineHeader}>
+        <View style={[styles.timelineHeaderDot, { backgroundColor: colors.success }]} />
+        <Text style={[styles.timelineTitle, { color: colors.textPrimary }]}>Activité en direct</Text>
+      </View>
+      {entries.slice(0, 5).map((entry, index) => {
+        const dotColor =
+          entry.type === "served" ? colors.success :
+          entry.type === "position" ? colors.warning : colors.primary;
+        return (
+          <View key={entry.id} style={styles.timelineEntry}>
+            <View style={styles.timelineDotCol}>
+              <View style={[styles.timelineDot, { backgroundColor: dotColor }]} />
+              {index < entries.length - 1 && (
+                <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
+              )}
+            </View>
+            <View style={styles.timelineContent}>
+              <Text style={[styles.timelineMsg, { color: colors.textPrimary }]}>
+                {entry.message}
+              </Text>
+              <Text style={[styles.timelineTime, { color: colors.textTertiary }]}>
+                {fmtTimeAgo(entry.timestamp)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+// ── Position Circle ──────────────────────────────────────────────────────────
+const PositionCircle: React.FC<{
+  position: number;
+  maxPosition: number;
+  isSoon: boolean;
+  isCalled: boolean;
+  isEnRoute: boolean;
+  isPresent: boolean;
+  color: string;
+  colors: any;
+}> = ({ position, maxPosition, isSoon, isCalled, isEnRoute, isPresent, color, colors }) => {
+  const size = 110;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = maxPosition > 0 ? Math.min(1, (maxPosition - position) / maxPosition) : 0;
+  const offset = circumference - progress * circumference;
+
+  if (isCalled) {
+    return (
+      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+        <View style={[styles.posCircleInner, { borderColor: colors.danger + "30" }]}>
+          <Ionicons name="notifications" size={36} color={colors.danger} />
+        </View>
+        <Text style={[styles.posCircleStatus, { color: colors.danger }]}>Appelé</Text>
+      </View>
+    );
+  }
+  if (isPresent) {
+    return (
+      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+        <View style={[styles.posCircleInner, { borderColor: colors.success + "30" }]}>
+          <Ionicons name="checkmark-circle" size={36} color={colors.success} />
+        </View>
+        <Text style={[styles.posCircleStatus, { color: colors.success }]}>Présent</Text>
+      </View>
+    );
+  }
+  if (isEnRoute) {
+    return (
+      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+        <View style={[styles.posCircleInner, { borderColor: colors.warning + "30" }]}>
+          <Ionicons name="walk" size={36} color={colors.warning} />
+        </View>
+        <Text style={[styles.posCircleStatus, { color: colors.warning }]}>En route</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.posCircleOuter}>
+      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+        <Svg width={size} height={size}>
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={colors.border}
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          {progress > 0 && (
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          )}
+        </Svg>
+        <View style={styles.posCircleCenter}>
+          <Text style={[styles.posCircleValue, { color }]}>{position}</Text>
+          <Text style={[styles.posCircleLabel, { color: colors.textTertiary }]}>position</Text>
+        </View>
+      </View>
+      {isSoon && (
+        <View style={[styles.posSoonBadge, { backgroundColor: colors.warning }]}>
+          <Text style={styles.posSoonText}>⚡ Bientôt</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
 interface LiveTicketScreenProps {
   ticketId?: string;
 }
@@ -292,6 +439,29 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
 
   const [countdownSeconds, setCountdownSeconds] = useState(600);
   const didCancelRef = useRef(false);
+
+  // ── Timeline ──────────────────────────────────────────────────────────────
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
+  const prevPositionRef = useRef<number>(displayPosition);
+
+  useEffect(() => {
+    const prev = prevPositionRef.current;
+    if (prev !== displayPosition && displayPosition > 0 && displayPosition < prev) {
+      const served = prev - displayPosition;
+      setTimelineEntries((prevEntries) =>
+        [
+          {
+            id: Date.now() + Math.random(),
+            type: "served" as const,
+            message: `${served} personne${served > 1 ? "s" : ""} servie${served > 1 ? "s" : ""} avant vous`,
+            timestamp: new Date(),
+          },
+          ...prevEntries,
+        ].slice(0, 10),
+      );
+    }
+    prevPositionRef.current = displayPosition;
+  }, [displayPosition]);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -433,15 +603,18 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
 
   const renderPositionCard = () => {
     const isSpecialStatus = isTicketCalledState || isTicketPresent || isTicketEnRoute;
-    const displayValue = isSpecialStatus
-      ? (isTicketCalledState ? "Appelé" : isTicketPresent ? "Présent" : "En route")
-      : `${displayPosition}e`;
     const displayTitle = isSpecialStatus
       ? "Statut"
       : isOnline
         ? "Position dans la file"
         : "Position estimée (hors ligne)";
-    const progress = !isSpecialStatus && displayPosition > 0 ? Math.min(100, (1 / displayPosition) * 100) : 0;
+    const maxPos = Math.max(displayPosition, 3);
+    const positionColor =
+      isSpecialStatus ? colors.primary :
+      displayPosition <= 2 ? colors.danger :
+      displayPosition <= 5 ? colors.warning : colors.primary;
+
+    const isSoon = isOnline && !isSpecialStatus && displayPosition > 0 && displayPosition <= 3;
 
     return (
       <View style={[styles.positionCard, { backgroundColor: colors.surface, borderColor: isOnline ? colors.border : '#F97316' }]}>
@@ -455,58 +628,68 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           </View>
         )}
 
-        <View style={styles.positionCardHeader}>
-          <Text style={[styles.positionCardTitle, { color: isOnline ? colors.textSecondary : '#EA580C' }]}>
-            {displayTitle}
-          </Text>
-          <View style={[styles.positionNumberBadge, { backgroundColor: colors.primary + "15" }]}>
-            <Text style={[styles.positionNumberText, { color: colors.primary }]}>
-              {displayValue}
-            </Text>
-          </View>
-        </View>
+        <View style={styles.positionCardBody}>
+          <PositionCircle
+            position={displayPosition}
+            maxPosition={maxPos}
+            isSoon={isSoon}
+            isCalled={isTicketCalledState}
+            isEnRoute={isTicketEnRoute}
+            isPresent={isTicketPresent}
+            color={positionColor}
+            colors={colors}
+          />
 
-        {!isSpecialStatus && (
-          <>
-            <View style={styles.progressBarContainer}>
-              <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${progress}%`, backgroundColor: isOnline ? colors.primary : '#F97316' }
-                  ]}
-                />
-              </View>
-            </View>
+          <View style={styles.positionInfoCol}>
+            {!isSpecialStatus && (
+              <>
+                <Text style={[styles.posInfoTitle, { color: colors.textPrimary }]}>
+                  {isOnline ? "Temps estimé" : "Estimation"}
+                </Text>
+                <Text style={[styles.posInfoEta, { color: positionColor }]}>
+                  {displayEta} min
+                </Text>
+                {displayPosition > 0 && (
+                  <Text style={[styles.posInfoPeople, { color: colors.textTertiary }]}>
+                    {displayPosition - 1} personne{(displayPosition - 1) > 1 ? "s" : ""} devant vous
+                  </Text>
+                )}
+              </>
+            )}
 
-            <View style={styles.positionFooter}>
-              <View style={styles.etaInfo}>
-                <Ionicons name="time-outline" size={16} color={colors.textTertiary} />
-                <Text style={[styles.etaText, { color: colors.textSecondary }]}>
-                  {displayEta} min {isOnline ? 'estimées' : '(données hors ligne)'}
+            {isTicketCalledState && (
+              <View style={styles.posStatusInfo}>
+                <Text style={[styles.posInfoTitle, { color: colors.danger }]}>Présentez-vous</Text>
+                <Text style={[styles.posInfoDesc, { color: colors.textSecondary }]}>
+                  Guichet #{counterNumber || "N/A"}
                 </Text>
               </View>
-              {isOnline && displayPosition > 0 && displayPosition <= 3 && (
-                <View style={[styles.soonBadge, { backgroundColor: colors.warning + "15" }]}>
-                  <Ionicons name="flash" size={12} color={colors.warning} />
-                  <Text style={[styles.soonText, { color: colors.warning }]}>
-                    Bientôt votre tour
-                  </Text>
-                </View>
-              )}
-            </View>
-          </>
-        )}
+            )}
+            {isTicketPresent && (
+              <View style={styles.posStatusInfo}>
+                <Text style={[styles.posInfoTitle, { color: colors.success }]}>Priorité conservée</Text>
+                <Text style={[styles.posInfoDesc, { color: colors.textSecondary }]}>
+                  Vous êtes en cours de service
+                </Text>
+              </View>
+            )}
+            {isTicketEnRoute && (
+              <View style={styles.posStatusInfo}>
+                <Text style={[styles.posInfoTitle, { color: colors.warning }]}>En attente d'arrivée</Text>
+                <Text style={[styles.posInfoDesc, { color: colors.textSecondary }]}>
+                  L'agent a été notifié
+                </Text>
+              </View>
+            )}
 
-        {isSpecialStatus && (
-          <View style={[styles.specialStatusMessage, { backgroundColor: (isTicketCalledState ? colors.danger : isTicketPresent ? colors.success : colors.warning) + "10" }]}>
-            <Text style={[styles.specialStatusMessageText, { color: isTicketCalledState ? colors.danger : isTicketPresent ? colors.success : colors.warning }]}>
-              {isTicketCalledState && "🎫 Présentez-vous au guichet"}
-              {isTicketPresent && "✅ Priorité conservée"}
-              {isTicketEnRoute && "🚶 En attente d'arrivée"}
-            </Text>
+            {isSoon && !isSpecialStatus && (
+              <View style={[styles.posSoonInline, { backgroundColor: colors.warning + "15" }]}>
+                <Ionicons name="flash" size={14} color={colors.warning} />
+                <Text style={[styles.posSoonInlineText, { color: colors.warning }]}>Bientôt votre tour</Text>
+              </View>
+            )}
           </View>
-        )}
+        </View>
       </View>
     );
   };
@@ -638,6 +821,11 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           )}
           
           {renderActionButtons()}
+
+          {/* Timeline activité */}
+          {!isTicketCalledState && !isTicketPresent && timelineEntries.length > 0 && (
+            <QueueTimeline entries={timelineEntries} colors={colors} />
+          )}
           
           {/* Infos supplémentaires */}
           <View style={styles.compactInfoGrid}>
@@ -1080,6 +1268,148 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#EF4444",
+  },
+  // ── Position Circle ──────────────────────────────────────────────────────
+  posCircleOuter: {
+    alignItems: "center",
+  },
+  posCircleWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  posCircleInner: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  posCircleCenter: {
+    position: "absolute",
+    alignItems: "center",
+  },
+  posCircleValue: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  posCircleLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: -2,
+  },
+  posCircleStatus: {
+    position: "absolute",
+    bottom: -18,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  posSoonBadge: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  posSoonText: {
+    color: "#FFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  // ── Position Card body ───────────────────────────────────────────────────
+  positionCardBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  positionInfoCol: {
+    flex: 1,
+    gap: 4,
+  },
+  posInfoTitle: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  posInfoEta: {
+    fontSize: 26,
+    fontWeight: "800",
+  },
+  posInfoPeople: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  posStatusInfo: {
+    gap: 2,
+  },
+  posInfoDesc: {
+    fontSize: 12,
+  },
+  posSoonInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginTop: 6,
+  },
+  posSoonInlineText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  // ── Timeline ─────────────────────────────────────────────────────────────
+  timelineCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  timelineHeaderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  timelineTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  timelineEntry: {
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 36,
+  },
+  timelineDotCol: {
+    width: 12,
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    marginTop: 2,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingBottom: 10,
+  },
+  timelineMsg: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  timelineTime: {
+    fontSize: 11,
+    marginTop: 1,
   },
 });
 
