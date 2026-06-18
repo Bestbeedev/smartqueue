@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
-  Image,
   Share,
   Animated,
   Dimensions,
@@ -194,6 +193,18 @@ const formatTimeDisplay = (timeStr?: string | null): string => {
 const getDayName = (dayOfWeek: number): string => {
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   return days[dayOfWeek - 1];
+};
+
+const getEstablishmentIcon = (name: string): keyof typeof Ionicons.glyphMap => {
+  const n = name.toLowerCase();
+  if (n.includes("banque") || n.includes("boa") || n.includes("finan") || n.includes("caisse") || n.includes("crédit")) return "business-outline";
+  if (n.includes("hopital") || n.includes("clinique") || n.includes("santé") || n.includes("medical") || n.includes("cabinet")) return "medical-outline";
+  if (n.includes("mtn") || n.includes("orange") || n.includes("telecom") || n.includes("mobile")) return "phone-portrait-outline";
+  if (n.includes("école") || n.includes("université") || n.includes("lycee") || n.includes("formation") || n.includes("fac")) return "school-outline";
+  if (n.includes("mairie") || n.includes("préfecture") || n.includes("municipal")) return "business-outline";
+  if (n.includes("marché") || n.includes("commer") || n.includes("boutique") || n.includes("shop") || n.includes("magasin")) return "cart-outline";
+  if (n.includes("restau") || n.includes("café") || n.includes("bar") || n.includes("snack") || n.includes("fast")) return "restaurant-outline";
+  return "business-outline";
 };
 
 // Fonction pour calculer le temps en moto (environ 30% plus rapide que voiture)
@@ -546,28 +557,44 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header Image avec overlay */}
+      {/* Header avec gradient et icône */}
       <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=800&q=80" }}
-          style={styles.headerImage}
-          resizeMode="cover"
-        />
         <LinearGradient
-          colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.2)", "transparent"]}
-          style={styles.imageOverlay}
-        />
-        
+          colors={[colors.primary, colors.secondary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        >
+          <Ionicons
+            name={getEstablishmentIcon(establishment.name)}
+            size={120}
+            color="rgba(255,255,255,0.08)"
+            style={styles.headerBgIcon}
+          />
+        </LinearGradient>
+
+        <View style={styles.headerContent}>
+          <Text style={styles.headerEstablishmentName} numberOfLines={2}>
+            {establishment.name}
+          </Text>
+          {establishment.address && (
+            <View style={styles.headerAddressRow}>
+              <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.headerAddress} numberOfLines={1}>{establishment.address}</Text>
+            </View>
+          )}
+        </View>
+
         {/* Boutons header */}
         <View style={[styles.headerButtons, { paddingTop: insets.top + 16 }]}>
           <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: "rgba(0,0,0,0.5)" }]}
+            style={[styles.headerButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
             onPress={() => fromQr ? router.replace("/") : router.back()}
           >
             <Ionicons name="arrow-back" size={22} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: "rgba(0,0,0,0.5)" }]}
+            style={[styles.headerButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
             onPress={handleShare}
           >
             <Ionicons name="share-outline" size={20} color="#FFF" />
@@ -582,18 +609,17 @@ export const ServiceDetailsScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContentContainer}
         >
-          {/* Header Info */}
-          <View style={styles.infoHeader}>
-            <Text style={[styles.establishmentName, { color: colors.textPrimary }]}>
-              {establishment.name}
-            </Text>
-            <View style={styles.addressRow}>
-              <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.addressText, { color: colors.textSecondary }]}>
-                {establishment.address}
-              </Text>
+          {/* Adresse */}
+          {establishment.address && (
+            <View style={styles.infoHeader}>
+              <View style={styles.addressRow}>
+                <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
+                <Text style={[styles.addressText, { color: colors.textSecondary }]}>
+                  {establishment.address}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
@@ -993,16 +1019,32 @@ const styles = StyleSheet.create({
     height: height * 0.3,
     position: "relative",
   },
-  headerImage: {
-    width: "100%",
-    height: "100%",
-  },
-  imageOverlay: {
+  headerBgIcon: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    right: -20,
+    bottom: -20,
+  },
+  headerContent: {
+    position: "absolute",
+    bottom: 20,
+    left: 16,
+    right: 16,
+  },
+  headerEstablishmentName: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  headerAddressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  headerAddress: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 12,
+    flex: 1,
   },
   headerButtons: {
     position: "absolute",
@@ -1037,11 +1079,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
-  },
-  establishmentName: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 6,
   },
   addressRow: {
     flexDirection: "row",
