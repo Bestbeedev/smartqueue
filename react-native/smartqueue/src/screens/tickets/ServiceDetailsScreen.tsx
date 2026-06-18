@@ -589,7 +589,7 @@ export const ServiceDetailsScreen: React.FC = () => {
         <View style={[styles.headerButtons, { paddingTop: insets.top + 16 }]}>
           <TouchableOpacity
             style={[styles.headerButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-            onPress={() => fromQr ? router.replace("/") : router.back()}
+            onPress={() => fromQr ? router.replace("/") : router.push("/(tabs)")}
           >
             <Ionicons name="arrow-back" size={22} color="#FFF" />
           </TouchableOpacity>
@@ -609,17 +609,6 @@ export const ServiceDetailsScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContentContainer}
         >
-          {/* Adresse */}
-          {establishment.address && (
-            <View style={styles.infoHeader}>
-              <View style={styles.addressRow}>
-                <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
-                <Text style={[styles.addressText, { color: colors.textSecondary }]}>
-                  {establishment.address}
-                </Text>
-              </View>
-            </View>
-          )}
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
@@ -1026,7 +1015,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     position: "absolute",
-    bottom: 20,
+    bottom: 60,
     left: 16,
     right: 16,
   },
@@ -1094,6 +1083,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
     marginBottom: 20,
+    marginTop: 15,
   },
   statCard: {
     flex: 1,
