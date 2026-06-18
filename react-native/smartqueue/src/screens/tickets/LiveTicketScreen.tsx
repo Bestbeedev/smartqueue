@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Modal,
 } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -32,7 +33,7 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import axiosClient from "../../api/axiosClient";
 import { getApiErrorMessage } from "../../utils/errors";
 import { useOfflineStore } from "../../store/offlineStore";
-import CustomBottomSheet from "@/src/components/ui/BottomSheet";
+import CustomBottomSheet from "../../components/ui/BottomSheet";
 
 const { width } = Dimensions.get("window");
 
@@ -65,8 +66,8 @@ const LiveStatusBadge: React.FC<{
 
   return (
     <View style={[
-      styles.statusBadge, 
-      { 
+      styles.statusBadge,
+      {
         backgroundColor: colors.surface + "CC",
         borderColor: config.color,
       }
@@ -104,8 +105,8 @@ const LiveIndicator: React.FC<{ colors: any }> = ({ colors }) => {
 
   return (
     <Animated.View style={[
-      styles.liveIndicator, 
-      { 
+      styles.liveIndicator,
+      {
         backgroundColor: colors.danger,
         transform: [{ scale: pulseAnim }],
       }
@@ -143,21 +144,21 @@ const DistanceCard: React.FC<{
   departureInfo: any;
 }> = ({ distanceInfo, colors, departureInfo }) => {
   const travelModes = [
-    { 
-      icon: "walk-outline", 
-      label: "À pied", 
+    {
+      icon: "walk-outline",
+      label: "À pied",
       time: distanceInfo?.travelTimes?.walking,
       color: colors.success
     },
-    { 
-      icon: "car-outline", 
-      label: "Voiture", 
+    {
+      icon: "car-outline",
+      label: "Voiture",
       time: distanceInfo?.travelTimes?.car,
       color: colors.primary
     },
-    { 
-      icon: "bicycle-outline", 
-      label: "Moto", 
+    {
+      icon: "bicycle-outline",
+      label: "Moto",
       time: distanceInfo?.travelTimes?.bicycle || (distanceInfo?.travelTimes?.car ? distanceInfo.travelTimes.car * 0.7 : null),
       color: colors.warning
     },
@@ -197,14 +198,14 @@ const DistanceCard: React.FC<{
 
       {departureInfo && (
         <View style={[styles.departureAlert, { backgroundColor: colors.warning + "10" }]}>
-          <Ionicons 
-            name={departureInfo.shouldLeaveNow ? "warning" : "time-outline"} 
-            size={16} 
-            color={colors.warning} 
+          <Ionicons
+            name={departureInfo.shouldLeaveNow ? "warning" : "time-outline"}
+            size={16}
+            color={colors.warning}
           />
           <Text style={[styles.departureAlertText, { color: colors.textSecondary }]}>
-            {departureInfo.shouldLeaveNow 
-              ? "Partez immédiatement !" 
+            {departureInfo.shouldLeaveNow
+              ? "Partez immédiatement !"
               : `Partez dans ${Math.ceil(departureInfo.leaveIn)} min`}
           </Text>
         </View>
@@ -236,7 +237,7 @@ const QueueTimeline: React.FC<{
       {entries.slice(0, 5).map((entry, index) => {
         const dotColor =
           entry.type === "served" ? colors.success :
-          entry.type === "position" ? colors.warning : colors.primary;
+            entry.type === "position" ? colors.warning : colors.primary;
         return (
           <View key={entry.id} style={styles.timelineEntry}>
             <View style={styles.timelineDotCol}>
@@ -575,12 +576,12 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
         .then(({ sound }) => {
           soundRef.current = sound;
         })
-        .catch(() => {});
+        .catch(() => { });
     }
     return () => {
       if (soundRef.current) {
-        soundRef.current.stopAsync().catch(() => {});
-        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current.stopAsync().catch(() => { });
+        soundRef.current.unloadAsync().catch(() => { });
         soundRef.current = null;
       }
     };
@@ -628,9 +629,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     useDistanceTracking({
       targetCoordinates: hasValidCoordinates
         ? {
-            latitude: (displayTicket!.establishment as any).lat,
-            longitude: (displayTicket!.establishment as any).lng,
-          }
+          latitude: (displayTicket!.establishment as any).lat,
+          longitude: (displayTicket!.establishment as any).lng,
+        }
         : null,
       enabled: hasValidCoordinates && !!displayTicket,
     });
@@ -786,10 +787,10 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
         >
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        
+
         {/* Badge LIVE amélioré */}
         <LiveIndicator colors={colors} />
-        
+
         {/* Status Badge amélioré avec fond opaque */}
         <LiveStatusBadge
           status={displayTicket?.status || "waiting"}
@@ -817,8 +818,8 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     const maxPos = Math.max(displayPosition, 3);
     const positionColor =
       isSpecialStatus ? colors.primary :
-      displayPosition <= 2 ? colors.danger :
-      displayPosition <= 5 ? colors.warning : colors.primary;
+        displayPosition <= 2 ? colors.danger :
+          displayPosition <= 5 ? colors.warning : colors.primary;
 
     const isSoon = isOnline && !isSpecialStatus && displayPosition > 0 && displayPosition <= 3;
 
@@ -1037,18 +1038,18 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {renderHeader()}
-      
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {renderPositionCard()}
-          
+
           {/* Carte Distance avec icônes - uniquement si en attente */}
           {!isTicketCalledState && !isTicketPresent && hasValidCoordinates && distanceInfo && hasLocationPermission ? (
-            <DistanceCard 
-              distanceInfo={distanceInfo} 
+            <DistanceCard
+              distanceInfo={distanceInfo}
               colors={colors}
               departureInfo={departureInfo}
             />
@@ -1063,14 +1064,14 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               </Text>
             </View>
           )}
-          
+
           {renderActionButtons()}
 
           {/* Timeline activité */}
           {!isTicketCalledState && !isTicketPresent && timelineEntries.length > 0 && (
             <QueueTimeline entries={timelineEntries} colors={colors} />
           )}
-          
+
           {/* Infos supplémentaires */}
           {!isTicketCalledState && !isTicketPresent && (
             <TouchableOpacity
@@ -1101,60 +1102,68 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           )}
         </Animated.View>
       </ScrollView>
-      
+
       {renderCalledOverlay()}
 
-      {/* Bottom Sheet Détails */}
-      <CustomBottomSheet
-        isVisible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        snapPoints={["45%"]}
+      {/* Modal Détails */}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSheetVisible(false)}
       >
-        <View style={styles.sheetContent}>
-          <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
-            Détails de la file
-          </Text>
-
-          <View style={styles.compactInfoGrid}>
-            <CompactInfoRow
-              icon="business-outline"
-              label="Établissement"
-              value={displayTicket?.establishment?.name || "---"}
-              color={colors.primary}
-              colors={colors}
-            />
-            <CompactInfoRow
-              icon="briefcase-outline"
-              label="Service"
-              value={displayTicket?.service?.name || "---"}
-              color={colors.success}
-              colors={colors}
-            />
-            <CompactInfoRow
-              icon="ribbon-outline"
-              label="Priorité"
-              value={
-                displayTicket?.priority === 'vip' ? '⭐ VIP' :
-                displayTicket?.priority === 'high' ? '🔥 Prioritaire' :
-                '📋 Normal'
-              }
-              color={
-                displayTicket?.priority === 'vip' ? colors.danger :
-                displayTicket?.priority === 'high' ? colors.warning :
-                colors.textSecondary
-              }
-              colors={colors}
-            />
-            <CompactInfoRow
-              icon="calendar-outline"
-              label="Créé le"
-              value={displayTicket?.created_at ? new Date(displayTicket.created_at).toLocaleTimeString() : "---"}
-              color={colors.secondary}
-              colors={colors}
-            />
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setSheetVisible(false)}
+        />
+        <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+          <View style={styles.modalHandle} />
+          <View style={styles.sheetContent}>
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
+              Détails de la file
+            </Text>
+            <View style={styles.compactInfoGrid}>
+              <CompactInfoRow
+                icon="business-outline"
+                label="Établissement"
+                value={displayTicket?.establishment?.name || "---"}
+                color={colors.primary}
+                colors={colors}
+              />
+              <CompactInfoRow
+                icon="briefcase-outline"
+                label="Service"
+                value={displayTicket?.service?.name || "---"}
+                color={colors.success}
+                colors={colors}
+              />
+              <CompactInfoRow
+                icon="ribbon-outline"
+                label="Priorité"
+                value={
+                  displayTicket?.priority === 'vip' ? '⭐ VIP' :
+                  displayTicket?.priority === 'high' ? '🔥 Prioritaire' :
+                  '📋 Normal'
+                }
+                color={
+                  displayTicket?.priority === 'vip' ? colors.danger :
+                  displayTicket?.priority === 'high' ? colors.warning :
+                  colors.textSecondary
+                }
+                colors={colors}
+              />
+              <CompactInfoRow
+                icon="calendar-outline"
+                label="Créé le"
+                value={displayTicket?.created_at ? new Date(displayTicket.created_at).toLocaleTimeString() : "---"}
+                color={colors.secondary}
+                colors={colors}
+              />
+            </View>
           </View>
         </View>
-      </CustomBottomSheet>
+      </Modal>
 
       {AlertComponent}
     </View>
@@ -1812,10 +1821,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
   },
-  // ── Bottom Sheet ─────────────────────────────────────────────────────────
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    paddingBottom: 40,
+    maxHeight: "60%",
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CCC",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
   sheetContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   sheetTitle: {
     fontSize: 18,
