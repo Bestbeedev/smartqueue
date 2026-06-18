@@ -91,19 +91,19 @@ const StatusBadge: React.FC<{ status: string; colors: any }> = ({ status, colors
   );
 };
 
-// Mini cercle de progression SVG (inspiré de LiveTicketScreen)
-const MiniProgressCircle: React.FC<{
+// Mini cercle SVG montrant la position actuelle / total
+const SummaryCircle: React.FC<{
   position: number;
-  maxPosition: number;
+  queueLength: number;
   isSoon: boolean;
   color: string;
   colors: any;
-}> = ({ position, maxPosition, isSoon, color, colors }) => {
-  const size = 64;
+}> = ({ position, queueLength, isSoon, color, colors }) => {
+  const size = 72;
   const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const ratio = Math.min(1, position / Math.max(1, maxPosition));
+  const ratio = Math.min(1, position / Math.max(1, queueLength));
   const filledLength = circumference * ratio;
   const gapLength = circumference - filledLength;
 
@@ -138,47 +138,15 @@ const MiniProgressCircle: React.FC<{
           <Text style={[styles.miniCircleValue, { color }]}>
             {position > 0 ? position : "—"}
           </Text>
+          <Text style={[styles.miniCircleSeparator, { color: colors.textTertiary }]}>/</Text>
+          <Text style={[styles.miniCircleTotal, { color: colors.textTertiary }]}>
+            {queueLength}
+          </Text>
         </View>
       </View>
       {isSoon && (
         <Text style={[styles.miniCircleSoon, { color: colors.warning }]}>⚡ Bientôt</Text>
       )}
-    </View>
-  );
-};
-
-// Carte de progression compacte
-const ProgressCard: React.FC<{
-  position: number;
-  etaMinutes: number;
-  colors: any;
-}> = ({ position, etaMinutes, colors }) => {
-  const maxPos = Math.max(3, position);
-  const isSoon = position > 0 && position <= 3;
-  const posColor = position <= 2 ? colors.danger : position <= 5 ? colors.warning : colors.primary;
-
-  return (
-    <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.progressRow}>
-        <MiniProgressCircle
-          position={position}
-          maxPosition={maxPos}
-          isSoon={isSoon}
-          color={posColor}
-          colors={colors}
-        />
-        <View style={styles.progressInfoCol}>
-          <Text style={[styles.progressInfoLabel, { color: colors.textTertiary }]}>Temps estimé</Text>
-          <Text style={[styles.progressInfoEta, { color: posColor }]}>
-            {etaMinutes > 0 ? `${etaMinutes}` : "—"} min
-          </Text>
-          {position > 0 && (
-            <Text style={[styles.progressInfoPeople, { color: colors.textTertiary }]}>
-              {position - 1} personne{(position - 1) > 1 ? "s" : ""} devant vous
-            </Text>
-          )}
-        </View>
-      </View>
     </View>
   );
 };
@@ -349,18 +317,15 @@ export const TicketsScreen: React.FC = () => {
   );
 
   const renderActiveTicket = () => {
-    // Déterminer si on affiche la position ou le statut
     const isSpecialStatus = activeTicket?.status === "called" || activeTicket?.status === "present" || activeTicket?.status === "en_route";
     const queueLength = (activeTicket as any)?.queue_length || position || 1;
-    
-    const displayText = isSpecialStatus 
-      ? (activeTicket?.status === "called" ? "Appelé" : activeTicket?.status === "present" ? "Présent" : "En route")
-      : `${position}e / ${queueLength}`;
-    const displayLabel = isSpecialStatus ? "Statut" : "Position";
+    const isSoon = !isSpecialStatus && position > 0 && position <= 3;
+    const posColor = position <= 2 ? colors.danger : position <= 5 ? colors.warning : colors.primary;
 
     return (
       <Animated.View style={{ opacity: fadeAnim }}>
         <View style={[styles.mainTicketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Header: ticket number + status */}
           <View style={styles.ticketHeader}>
             <View>
               <Text style={[styles.ticketLabel, { color: colors.textTertiary }]}>Votre ticket</Text>
@@ -369,33 +334,58 @@ export const TicketsScreen: React.FC = () => {
             <StatusBadge status={activeTicket?.status || "waiting"} colors={colors} />
           </View>
 
-          <View style={styles.ticketInfoCompact}>
-            <View style={styles.ticketInfoItem}>
-              <Ionicons name="business-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {activeTicket?.establishment?.name || "Établissement"}
+          {/* Body: circle + info row */}
+          {!isSpecialStatus ? (
+            <View style={styles.progressRow}>
+              <SummaryCircle
+                position={position}
+                queueLength={queueLength}
+                isSoon={isSoon}
+                color={posColor}
+                colors={colors}
+              />
+              <View style={styles.progressInfoCol}>
+                <Text style={[styles.progressInfoLabel, { color: colors.textTertiary }]}>
+                  {activeTicket?.establishment?.name || "Établissement"}
+                </Text>
+                <View style={styles.bodyInfoRow}>
+                  <Ionicons name="briefcase-outline" size={14} color={colors.textTertiary} />
+                  <Text style={[styles.bodyInfoText, { color: colors.textSecondary }]}>
+                    {activeTicket?.service?.name || "Service"}
+                  </Text>
+                </View>
+                <View style={styles.bodyDivider} />
+                <Text style={[styles.progressInfoLabel, { color: colors.textTertiary }]}>Temps estimé</Text>
+                <Text style={[styles.progressInfoEta, { color: posColor }]}>
+                  {etaMinutes > 0 ? `${etaMinutes}` : "—"} min
+                </Text>
+                {position > 0 && (
+                  <Text style={[styles.progressInfoPeople, { color: colors.textTertiary }]}>
+                    {position - 1} personne{(position - 1) > 1 ? "s" : ""} devant vous
+                  </Text>
+                )}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.specialStatusBody}>
+              <Ionicons
+                name={activeTicket?.status === "called" ? "notifications" : activeTicket?.status === "present" ? "checkmark-circle" : "walk"}
+                size={28}
+                color={
+                  activeTicket?.status === "called" ? colors.danger :
+                  activeTicket?.status === "present" ? colors.success :
+                  colors.warning
+                }
+              />
+              <Text style={[styles.specialStatusBodyText, { color: colors.textPrimary }]}>
+                {activeTicket?.status === "called" ? "Appelé au guichet !" :
+                 activeTicket?.status === "present" ? "Présent - Priorité conservée" :
+                 "En route - Agent notifié"}
               </Text>
             </View>
-            <View style={styles.ticketInfoItem}>
-              <Ionicons name="briefcase-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.ticketInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {activeTicket?.service?.name || "Service"}
-              </Text>
-            </View>
-          </View>
+          )}
 
-          <View style={styles.statsRowCompact}>
-            <View style={styles.statItemCompact}>
-              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>{displayLabel}</Text>
-              <Text style={[styles.statValueCompact, { color: isSpecialStatus ? colors.primary : colors.primary }]}>{displayText}</Text>
-            </View>
-            <View style={[styles.statDividerCompact, { backgroundColor: colors.border }]} />
-            <View style={styles.statItemCompact}>
-              <Text style={[styles.statLabelCompact, { color: colors.textTertiary }]}>Estimation</Text>
-              <Text style={[styles.statValueCompact, { color: colors.primary }]}>{etaMinutes > 0 ? `${etaMinutes} min` : "—"}</Text>
-            </View>
-          </View>
-
+          {/* Actions */}
           <View style={styles.ticketActionsCompact}>
             <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "10" }]} onPress={handleViewLiveTicket}>
               <Ionicons name="eye-outline" size={18} color={colors.primary} />
@@ -407,27 +397,6 @@ export const TicketsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {activeTicket?.status === "waiting" && <ProgressCard position={position} etaMinutes={etaMinutes} colors={colors} />}
-        
-        {activeTicket?.status === "called" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.danger + "10", borderColor: colors.danger }]}>
-            <Ionicons name="notifications" size={20} color={colors.danger} />
-            <Text style={[styles.specialStatusText, { color: colors.danger }]}>Appelé au guichet !</Text>
-          </View>
-        )}
-        {activeTicket?.status === "present" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.success + "10", borderColor: colors.success }]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-            <Text style={[styles.specialStatusText, { color: colors.success }]}>Présent - Priorité conservée</Text>
-          </View>
-        )}
-        {activeTicket?.status === "en_route" && (
-          <View style={[styles.specialStatusCard, { backgroundColor: colors.warning + "10", borderColor: colors.warning }]}>
-            <Ionicons name="walk" size={20} color={colors.warning} />
-            <Text style={[styles.specialStatusText, { color: colors.warning }]}>En route - Agent notifié</Text>
-          </View>
-        )}
       </Animated.View>
     );
   };
@@ -534,38 +503,35 @@ const styles = StyleSheet.create({
 
   // ── Main Ticket ───────────────────────────────────────────────────────────
   mainTicketCard: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 16 },
-  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   ticketLabel: { fontSize: 11, marginBottom: 2 },
   ticketNumber: { fontSize: 22, fontWeight: "800" },
-  ticketInfoCompact: { gap: 8, marginBottom: 12 },
-  ticketInfoItem: { flexDirection: "row", alignItems: "center", gap: 8 },
-  ticketInfoText: { fontSize: 13, flex: 1 },
-  statsRowCompact: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  statItemCompact: { flex: 1, alignItems: "center" },
-  statLabelCompact: { fontSize: 10, marginBottom: 2 },
-  statValueCompact: { fontSize: 16, fontWeight: "700" },
-  statDividerCompact: { width: 1, height: 30 },
-  ticketActionsCompact: { flexDirection: "row", gap: 10 },
+  ticketActionsCompact: { flexDirection: "row", gap: 10, marginTop: 14 },
   actionBtnCompact: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
   actionBtnTextCompact: { fontSize: 13, fontWeight: "600" },
 
-  // ── Progress Card (mini circle) ───────────────────────────────────────────
-  progressCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 16 },
+  // ── Progress / Body Row ──────────────────────────────────────────────────
   progressRow: { flexDirection: "row", alignItems: "center", gap: 16 },
   progressInfoCol: { flex: 1, gap: 2 },
   progressInfoLabel: { fontSize: 12, fontWeight: "500" },
   progressInfoEta: { fontSize: 26, fontWeight: "800" },
   progressInfoPeople: { fontSize: 12, marginTop: 2 },
+  bodyInfoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bodyInfoText: { fontSize: 13 },
+  bodyDivider: { height: 1, backgroundColor: "#E2E8F0", marginVertical: 8 },
 
+  // ── Summary Circle ───────────────────────────────────────────────────────
   miniCircleOuter: { alignItems: "center" },
   miniCircleWrap: { alignItems: "center", justifyContent: "center" },
   miniCircleCenter: { position: "absolute", alignItems: "center", justifyContent: "center" },
-  miniCircleValue: { fontSize: 18, fontWeight: "800" },
+  miniCircleValue: { fontSize: 20, fontWeight: "800", lineHeight: 22 },
+  miniCircleSeparator: { fontSize: 12, fontWeight: "400", lineHeight: 12 },
+  miniCircleTotal: { fontSize: 14, fontWeight: "600", lineHeight: 14 },
   miniCircleSoon: { fontSize: 8, fontWeight: "700", marginTop: 2 },
 
   // ── Special Status ────────────────────────────────────────────────────────
-  specialStatusCard: { borderRadius: 14, borderWidth: 1, padding: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 16 },
-  specialStatusText: { fontSize: 14, fontWeight: "600" },
+  specialStatusBody: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  specialStatusBodyText: { fontSize: 14, fontWeight: "600", flex: 1 },
 
   // ── Sections ──────────────────────────────────────────────────────────────
   section: { marginBottom: 20 },
