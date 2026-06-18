@@ -20,7 +20,6 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle } from "react-native-svg";
-import MapView, { Marker } from "react-native-maps";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { useTicket, useTicketStore } from "../../store/ticketStore";
@@ -644,7 +643,6 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const [countdownSeconds, setCountdownSeconds] = useState(0);
   const didCancelRef = useRef(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [mapExpanded, setMapExpanded] = useState(false);
 
   // ── Timeline ──────────────────────────────────────────────────────────────
   const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
@@ -772,12 +770,6 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const isTicketPresent = displayTicket?.status === "present";
   const isTicketEnRoute = displayTicket?.status === "en_route";
   const isTicketCalledState = isDisplayCalled || (isCalled && displayTicket?.id === activeTicket?.id);
-  const establishmentCoords = hasValidCoordinates
-    ? {
-        latitude: Number((displayTicket!.establishment as any).lat),
-        longitude: Number((displayTicket!.establishment as any).lng),
-      }
-    : null;
 
   // Rendu principal
   const renderHeader = () => (
@@ -1068,55 +1060,6 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
                 Activez la localisation pour voir les temps de trajet
               </Text>
             </View>
-          )}
-          
-          {/* Carte intégrée - uniquement si en attente */}
-          {!isTicketCalledState && !isTicketPresent && establishmentCoords && (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => setMapExpanded((prev) => !prev)}
-            >
-              <View
-                style={[
-                  styles.mapCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  mapExpanded && styles.mapCardExpanded,
-                ]}
-              >
-                <View style={styles.mapCardHeader}>
-                  <View style={styles.mapCardHeaderLeft}>
-                    <Ionicons name="map-outline" size={16} color={colors.primary} />
-                    <Text style={[styles.mapCardTitle, { color: colors.textPrimary }]}>
-                      Itinéraire
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={mapExpanded ? "chevron-down" : "chevron-up"}
-                    size={18}
-                    color={colors.textTertiary}
-                  />
-                </View>
-                <View style={[styles.mapContainer, mapExpanded && styles.mapContainerExpanded]}>
-                  <MapView
-                    style={styles.map}
-                    initialRegion={{
-                      ...establishmentCoords,
-                      latitudeDelta: 0.02,
-                      longitudeDelta: 0.02,
-                    }}
-                    scrollEnabled={mapExpanded}
-                    zoomEnabled={mapExpanded}
-                    pitchEnabled={false}
-                    rotateEnabled={false}
-                  >
-                    <Marker
-                      coordinate={establishmentCoords}
-                      title={displayTicket?.establishment?.name || "Établissement"}
-                    />
-                  </MapView>
-                </View>
-              </View>
-            </TouchableOpacity>
           )}
           
           {renderActionButtons()}
@@ -1756,42 +1699,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  // ── Mini Map ─────────────────────────────────────────────────────────────
-  mapCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    marginBottom: 16,
-  },
-  mapCardExpanded: {
-    paddingBottom: 16,
-  },
-  mapCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  mapCardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  mapCardTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  mapContainer: {
-    height: 100,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  mapContainerExpanded: {
-    height: 200,
-  },
-  map: {
-    flex: 1,
   },
   // ── Confetti ─────────────────────────────────────────────────────────────
   confettiContainer: {
