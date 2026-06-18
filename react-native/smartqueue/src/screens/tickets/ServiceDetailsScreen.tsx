@@ -144,9 +144,9 @@ const ServiceItem: React.FC<{
           </View>
         )}
         {onAffluence && (
-          <TouchableOpacity style={styles.affluenceChip} onPress={(e) => { e.stopPropagation?.(); onAffluence(); }}>
+          <TouchableOpacity style={[styles.affluenceChip, { backgroundColor: colors.warning + "15" }]} onPress={(e) => { e.stopPropagation?.(); onAffluence(); }}>
             <Ionicons name="pulse-outline" size={11} color={colors.warning} />
-            <Text style={[styles.affluenceChipText, { color: colors.warning }]}>Affluence</Text>
+            <Text style={[styles.affluenceChipText, { color: colors.warning }]}>Voir l'affluence</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -301,7 +301,7 @@ export const ServiceDetailsScreen: React.FC = () => {
       const data = await establishmentsApi.getServiceReviews(sid);
       setReviewsData(data);
     } catch (err) {
-      // silencieux — les avis ne sont pas bloquants
+      console.warn("[ServiceDetails] Erreur chargement avis:", err);
     } finally {
       setReviewsLoading(false);
     }
@@ -309,7 +309,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   useEffect(() => {
     if (services.length > 0) loadReviews();
-  }, [loadReviews, services.length]);
+  }, [loadReviews, services.length, selectedServiceId]);
 
   // Récupérer le service sélectionné pour afficher ses horaires
   useEffect(() => {

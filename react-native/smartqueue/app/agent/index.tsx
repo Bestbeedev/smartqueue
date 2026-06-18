@@ -422,7 +422,7 @@ export default function AgentHome() {
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Stats</Text>
           <View style={[styles.statsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.affluence?.people ?? selectedService.people_waiting || 0}</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{selectedService.affluence?.people ?? selectedService.people_waiting ?? 0}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>En attente</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />

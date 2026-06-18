@@ -627,7 +627,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
             />
           ) : (!isTicketCalledState && !isTicketPresent) && (
             <View style={[styles.noLocationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="location-off-outline" size={32} color={colors.textTertiary} />
+              <Ionicons name="location-off" size={32} color={colors.textTertiary} />
               <Text style={[styles.noLocationText, { color: colors.textSecondary }]}>
                 Position GPS non disponible
               </Text>
