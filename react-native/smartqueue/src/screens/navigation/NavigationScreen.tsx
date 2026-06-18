@@ -7,10 +7,11 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  Linking,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { useTicket } from "../../store/ticketStore";
@@ -43,7 +44,6 @@ export const NavigationScreen: React.FC = () => {
     (preferredTransportMode as TransportMode) || "car"
   );
   const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
-  const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
 
   // Get establishment coordinates from active ticket
@@ -72,7 +72,7 @@ export const NavigationScreen: React.FC = () => {
         }
       : null,
     enabled: hasActiveTicket && !!establishmentCoords,
-    autoRefreshInterval: 500, // 5 seconds for more real-time feel
+    autoRefreshInterval: 10000, // 10 seconds to save battery
   });
 
   // Generate route coordinates (straight line + intermediate points for curve effect)
@@ -108,9 +108,9 @@ export const NavigationScreen: React.FC = () => {
     generateRoute();
   }, [userLocation, establishmentCoords]);
 
-  // Follow user position in real-time when enabled
+  // Follow user position in real-time when enabled (only after initial fit)
   useEffect(() => {
-    if (!mapRef.current || !userLocation || !isFollowingUser) return;
+    if (!mapRef.current || !userLocation || !isFollowingUser || !hasInitiallyFitted) return;
 
     mapRef.current.animateToRegion(
       {
@@ -121,7 +121,7 @@ export const NavigationScreen: React.FC = () => {
       },
       500
     );
-  }, [userLocation, isFollowingUser]);
+  }, [userLocation, isFollowingUser, hasInitiallyFitted]);
 
   // Initial fit - only once when map loads
   useEffect(() => {
@@ -281,6 +281,7 @@ export const NavigationScreen: React.FC = () => {
             showsUserLocation={true}
             showsMyLocationButton={false}
             followsUserLocation={false}
+            onPanDrag={() => setIsFollowingUser(false)}
           >
             {/* User Location Marker */}
             <Marker
@@ -438,7 +439,7 @@ export const NavigationScreen: React.FC = () => {
           <View style={styles.infoItem}>
             <Ionicons name="ticket" size={24} color={colors.primary} />
             <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-              N°{activeTicket?.number?.split("-").pop() || "--"}
+              N°{activeTicket?.number?.split("-").pop()?.trim() || "--"}
             </Text>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
               Votre ticket
@@ -471,14 +472,32 @@ export const NavigationScreen: React.FC = () => {
             style={[styles.actionButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              // Could integrate with external maps app here
-              // Linking.openURL(`https://maps.google.com/?daddr=${establishmentCoords.latitude},${establishmentCoords.longitude}`);
               router.push("/(tabs)/live-ticket" as any);
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="navigate-circle" size={24} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>Voir mon ticket</Text>
+            <Ionicons name="ticket" size={18} color="#FFFFFF" />
+            <Text style={styles.actionButtonText} numberOfLines={1}>
+              Voir mon ticket
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButtonSecondary, { borderColor: colors.primary }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const url = Platform.select({
+                ios: `maps://app?daddr=${establishmentCoords.latitude},${establishmentCoords.longitude}`,
+                default: `https://maps.google.com/?daddr=${establishmentCoords.latitude},${establishmentCoords.longitude}`,
+              });
+              Linking.openURL(url);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="map" size={18} color={colors.primary} />
+            <Text style={[styles.actionButtonTextSecondary, { color: colors.primary }]} numberOfLines={1}>
+              Google Maps
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -496,7 +515,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 60 : 20,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -665,14 +684,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderRadius: 12,
-    gap: 8,
+    gap: 6,
+    minWidth: 0,
   },
   actionButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
+    flexShrink: 0,
+  },
+  actionButtonSecondary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 6,
+    minWidth: 0,
+  },
+  actionButtonTextSecondary: {
+    fontSize: 14,
+    fontWeight: "600",
+    flexShrink: 0,
   },
 });
 
