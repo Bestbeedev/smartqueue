@@ -144,9 +144,9 @@ const ServiceItem: React.FC<{
           </View>
         )}
         {onAffluence && (
-          <TouchableOpacity style={styles.affluenceChip} onPress={(e) => { e.stopPropagation?.(); onAffluence(); }}>
+          <TouchableOpacity style={[styles.affluenceChip, { backgroundColor: colors.warning + "15" }]} onPress={(e) => { e.stopPropagation?.(); onAffluence(); }}>
             <Ionicons name="pulse-outline" size={11} color={colors.warning} />
-            <Text style={[styles.affluenceChipText, { color: colors.warning }]}>Affluence</Text>
+            <Text style={[styles.affluenceChipText, { color: colors.warning }]}>Voir l'affluence</Text>
           </TouchableOpacity>
         )}
       </View>
