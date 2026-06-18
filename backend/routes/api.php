@@ -89,7 +89,7 @@ Route::get('services/{id}', [ServiceController::class, 'show']);
 Route::get('services/{id}/affluence', [ServiceController::class, 'affluence']);
 Route::get('services/{id}/recommendations', [ServiceController::class, 'recommendations']);
 Route::get('services/{id}/availability', [ServiceController::class, 'availability']);
-Route::get('services/{id}/reviews', [ReviewController::class, 'index']);
+Route::get('services/{service}/reviews', [ReviewController::class, 'index']); // ← {service} pour le binding auto
 
 // Espace utilisateur authentifié (tickets)
 Route::middleware('auth:sanctum')->group(function () {

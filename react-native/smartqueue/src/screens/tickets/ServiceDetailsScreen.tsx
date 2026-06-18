@@ -301,7 +301,7 @@ export const ServiceDetailsScreen: React.FC = () => {
       const data = await establishmentsApi.getServiceReviews(sid);
       setReviewsData(data);
     } catch (err) {
-      // silencieux — les avis ne sont pas bloquants
+      console.warn("[ServiceDetails] Erreur chargement avis:", err);
     } finally {
       setReviewsLoading(false);
     }
@@ -309,7 +309,7 @@ export const ServiceDetailsScreen: React.FC = () => {
 
   useEffect(() => {
     if (services.length > 0) loadReviews();
-  }, [loadReviews, services.length]);
+  }, [loadReviews, services.length, selectedServiceId]);
 
   // Récupérer le service sélectionné pour afficher ses horaires
   useEffect(() => {
