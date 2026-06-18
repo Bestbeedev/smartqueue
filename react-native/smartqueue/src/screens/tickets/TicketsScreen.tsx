@@ -387,11 +387,11 @@ export const TicketsScreen: React.FC = () => {
 
           {/* Actions */}
           <View style={styles.ticketActionsCompact}>
-            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "10" }]} onPress={handleViewLiveTicket}>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.primary + "60" }]} onPress={handleViewLiveTicket}>
               <Ionicons name="eye-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionBtnTextCompact, { color: colors.primary }]}>Suivre</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.danger + "10" }]} onPress={handleCancelTicket}>
+            <TouchableOpacity style={[styles.actionBtnCompact, { backgroundColor: colors.danger + "60" }]} onPress={handleCancelTicket}>
               <Ionicons name="close-outline" size={18} color={colors.danger} />
               <Text style={[styles.actionBtnTextCompact, { color: colors.danger }]}>Annuler</Text>
             </TouchableOpacity>

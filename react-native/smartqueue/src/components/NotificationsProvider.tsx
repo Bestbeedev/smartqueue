@@ -10,17 +10,91 @@
  *  - Charger le handler foreground + créer le canal Android (via useNotifications).
  *  - Demander la permission de notification une fois l'utilisateur connecté.
  *  - Enregistrer le token push auprès du backend (POST /auth/devices/register).
- *  - Gérer le tap sur une notification (app en arrière-plan = onMessageOpenedApp,
- *    app fermée = getLastNotificationResponseAsync) et naviguer en conséquence.
+ *  - Enregistrer les catégories de notifications pour les actions rapides.
+ *  - Gérer le tap sur une notification (app en arrière-plan, fermée) :
+ *      - Tap simple → navigation vers LiveTicket
+ *      - Action "J'arrive" → POST /tickets/{id}/en-route
+ *      - Action "Je reporte" → POST /tickets/{id}/defer
+ *      - Action "Je suis là" → POST /tickets/{id}/present
  *
  * L'overlay temps réel (OverlayCalledTicket via useTicketSocket) continue de
  * fonctionner indépendamment ; les deux systèmes coexistent.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useNotifications } from "../hooks/useNotifications";
 import { useAuth } from "../store/authStore";
+import axiosClient from "../api/axiosClient";
+
+const TICKET_CALLED_CATEGORY = "ticket_called";
+
+async function registerNotificationCategories() {
+  try {
+    await Notifications.setNotificationCategoryAsync(TICKET_CALLED_CATEGORY, [
+      {
+        identifier: "en-route",
+        buttonTitle: "J'arrive",
+        options: {
+          opensAppToForeground: false,
+          isAuthenticationRequired: false,
+          isDestructive: false,
+        },
+      },
+      {
+        identifier: "defer",
+        buttonTitle: "Je reporte",
+        options: {
+          opensAppToForeground: false,
+          isAuthenticationRequired: false,
+          isDestructive: false,
+        },
+      },
+      {
+        identifier: "present",
+        buttonTitle: "Je suis là",
+        options: {
+          opensAppToForeground: true,
+          isAuthenticationRequired: false,
+          isDestructive: false,
+        },
+      },
+    ]);
+  } catch (err) {
+    console.warn("[Notifications] échec enregistrement catégories:", err);
+  }
+}
+
+async function handleNotificationAction(
+  response: Notifications.NotificationResponse,
+) {
+  const { actionIdentifier, notification } = response;
+  if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+
+  const data = notification.request.content.data as Record<string, any>;
+  const ticketId = data?.ticket_id ?? data?.ticketId;
+  if (!ticketId) return;
+
+  try {
+    switch (actionIdentifier) {
+      case "en-route":
+        await axiosClient.post(`/tickets/${ticketId}/en-route`);
+        break;
+      case "defer":
+        await axiosClient.post(`/tickets/${ticketId}/defer`);
+        break;
+      case "present":
+        await axiosClient.post(`/tickets/${ticketId}/present`);
+        break;
+    }
+  } catch (err) {
+    console.warn(
+      `[Notifications] action ${actionIdentifier} échouée:`,
+      err,
+    );
+  }
+}
 
 function navigateFromNotification(
   router: ReturnType<typeof useRouter>,
@@ -53,6 +127,7 @@ export default function NotificationsProvider() {
   } = useNotifications();
 
   const registeredRef = useRef(false);
+  const categoriesRegisteredRef = useRef(false);
 
   // Permission + enregistrement du token dès que l'utilisateur est connecté.
   useEffect(() => {
@@ -90,10 +165,26 @@ export default function NotificationsProvider() {
     registerFCMToken,
   ]);
 
-  // Tap sur une notification quand l'app est en arrière-plan (onMessageOpenedApp).
+  // Enregistrer les catégories d'actions une fois (Android/iOS).
+  useEffect(() => {
+    if (categoriesRegisteredRef.current) return;
+    categoriesRegisteredRef.current = true;
+    registerNotificationCategories();
+  }, []);
+
+  // Tap sur une notification quand l'app est en arrière-plan.
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
+      async (response) => {
+        const isAction =
+          response.actionIdentifier !==
+          Notifications.DEFAULT_ACTION_IDENTIFIER;
+
+        if (isAction) {
+          await handleNotificationAction(response);
+          return;
+        }
+
         const data = response.notification.request.content.data as Record<
           string,
           any
@@ -104,13 +195,21 @@ export default function NotificationsProvider() {
     return () => sub.remove();
   }, [router]);
 
-  // Tap sur une notification quand l'app était fermée/terminée (getInitialNotification).
+  // Tap sur une notification quand l'app était fermée/terminée.
   useEffect(() => {
     let handled = false;
     (async () => {
       const last = await Notifications.getLastNotificationResponseAsync();
       if (last && !handled) {
         handled = true;
+        const isAction =
+          last.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER;
+
+        if (isAction) {
+          await handleNotificationAction(last);
+          return;
+        }
+
         const data = last.notification.request.content.data as Record<
           string,
           any

@@ -231,6 +231,12 @@ export const useTicketSocket = (ticketId: string | number | null) => {
           markAsCalled(counterNum?.toString());
           setLastUpdate(new Date());
 
+          triggerLocalNotification(
+            "C'est votre tour !",
+            `Guichet ${counterNum || "N/A"} — Appuyez pour ouvrir`,
+            numericTicketId,
+            "ticket_called",
+          );
           triggerHapticFeedback("success");
           scheduleResync();
         })
@@ -253,6 +259,12 @@ export const useTicketSocket = (ticketId: string | number | null) => {
             switch (data.status) {
               case "called": {
                 markAsCalled(data.counter_id?.toString());
+                triggerLocalNotification(
+                  "C'est votre tour !",
+                  `Guichet ${data.counter_id || "N/A"}`,
+                  numericTicketId,
+                  "ticket_called",
+                );
                 triggerHapticFeedback("success");
                 break;
               }
@@ -442,7 +454,7 @@ export const useTicketSocket = (ticketId: string | number | null) => {
  * Utilisée uniquement quand l'app est en premier plan (le backend envoie déjà
  * une notification push FCM pour l'arrière-plan).
  */
-const triggerLocalNotification = async (title: string, body: string, ticketId?: number) => {
+const triggerLocalNotification = async (title: string, body: string, ticketId?: number, categoryId?: string) => {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -451,6 +463,7 @@ const triggerLocalNotification = async (title: string, body: string, ticketId?: 
         sound: "default",
         priority: Notifications.AndroidNotificationPriority?.HIGH || "high",
         data: ticketId ? { ticket_id: ticketId } : {},
+        ...(categoryId ? { categoryId } : {}),
       },
       trigger:
         Platform.OS === "android" ? { channelId: "smartqueue-default" } : null,
