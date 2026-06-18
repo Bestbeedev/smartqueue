@@ -20,6 +20,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle } from "react-native-svg";
+import MapView, { Marker } from "react-native-maps";
+import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { useTicket, useTicketStore } from "../../store/ticketStore";
 import { useDistanceTracking } from "../../hooks/useDistanceTracking";
@@ -348,6 +350,167 @@ const PositionCircle: React.FC<{
   );
 };
 
+
+const SMART_TIPS = [
+  { icon: "analytics-outline", title: "Affluence", text: "Heure d'affluence : modérée en ce moment" },
+  { icon: "timer-outline", title: "Attente", text: "Temps d'attente moyen : 12 min" },
+  { icon: "location-outline", title: "Astuce", text: "Activez la localisation pour être prévenu à l'avance" },
+  { icon: "flash-outline", title: "Notification", text: "Gardez votre téléphone déverrouillé pour ne pas manquer votre tour" },
+  { icon: "walk-outline", title: "Déplacement", text: "Préparez votre départ pour arriver à l'heure" },
+  { icon: "cellular-outline", title: "Réseau", text: "Le Wi-Fi de l'établissement est disponible" },
+];
+
+// Carousel de tips à défilement automatique
+const SmartTipsCarousel: React.FC<{ colors: any }> = ({ colors }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startAutoRotate = useCallback(() => {
+    intervalRef.current = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentIndex((prev) => (prev + 1) % SMART_TIPS.length);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 5000);
+  }, [fadeAnim]);
+
+  useEffect(() => {
+    startAutoRotate();
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [startAutoRotate]);
+
+  const tip = SMART_TIPS[currentIndex];
+
+  return (
+    <View style={[styles.tipsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.tipsRow}>
+        <View style={[styles.tipsIconBox, { backgroundColor: colors.primary + "18" }]}>
+          <Ionicons name={tip.icon as any} size={20} color={colors.primary} />
+        </View>
+        <Animated.View style={[styles.tipsContent, { opacity: fadeAnim }]}>
+          <Text style={[styles.tipsTitle, { color: colors.textTertiary }]}>{tip.title}</Text>
+          <Text style={[styles.tipsText, { color: colors.textPrimary }]}>{tip.text}</Text>
+        </Animated.View>
+      </View>
+      <View style={styles.tipsDots}>
+        {SMART_TIPS.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.tipsDot,
+              { backgroundColor: i === currentIndex ? colors.primary : colors.textTertiary + "30" },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// Particules de confettis pour l'écran "C'est votre tour"
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+  color: string;
+  animY: Animated.Value;
+  animRotate: Animated.Value;
+  animScale: Animated.Value;
+}
+
+const CONFETTI_COLORS = ["#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF", "#FF6BDB", "#FF9F43", "#A29BFE"];
+
+const ConfettiParticles: React.FC = () => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    const items: Particle[] = Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      x: Math.random() * width * 0.8 - width * 0.4,
+      y: -300 - Math.random() * 600,
+      rotation: Math.random() * 360,
+      scale: 0.5 + Math.random() * 0.8,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      animY: new Animated.Value(-100 - Math.random() * 500),
+      animRotate: new Animated.Value(0),
+      animScale: new Animated.Value(0),
+    }));
+    setParticles(items);
+
+    Animated.stagger(
+      40,
+      items.map((p) =>
+        Animated.parallel([
+          Animated.timing(p.animY, {
+            toValue: 800 + Math.random() * 400,
+            duration: 2500 + Math.random() * 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(p.animRotate, {
+            toValue: 1,
+            duration: 2000 + Math.random() * 1500,
+            useNativeDriver: true,
+          }),
+          Animated.spring(p.animScale, {
+            toValue: p.scale,
+            tension: 80,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    ).start();
+
+    return () => {
+      items.forEach((p) => {
+        p.animY.stopAnimation();
+        p.animRotate.stopAnimation();
+        p.animScale.stopAnimation();
+      });
+    };
+  }, []);
+
+  return (
+    <View style={styles.confettiContainer} pointerEvents="none">
+      {particles.map((p) => (
+        <Animated.View
+          key={p.id}
+          style={[
+            styles.confettiPiece,
+            {
+              backgroundColor: p.color,
+              transform: [
+                { translateX: p.x },
+                { translateY: p.animY },
+                {
+                  rotate: p.animRotate.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0deg", `${p.rotation}deg`],
+                  }),
+                },
+                { scale: p.animScale },
+              ],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
+
 interface LiveTicketScreenProps {
   ticketId?: string;
 }
@@ -396,6 +559,47 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
     }, [fetchActiveTicket]),
   );
 
+  // ── Son & vibreur quand appelé ────────────────────────────────────────────
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    if (isCalled && soundEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      Audio.Sound.createAsync(
+        { uri: "https://actions.google.com/sounds/v1/alarms/beep_short.ogg" },
+        { shouldPlay: true, volume: 0.8 },
+      )
+        .then(({ sound }) => {
+          soundRef.current = sound;
+        })
+        .catch(() => {});
+    }
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.stopAsync().catch(() => {});
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+    };
+  }, [isCalled, soundEnabled]);
+
+  // ── Countdown du rappel ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isCalled || countdownSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setCountdownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isCalled, countdownSeconds]);
+
   const effectiveTicketId = useMemo(() => {
     const propId = ticketId ? Number(ticketId) : null;
     if (propId && !isNaN(propId)) return propId;
@@ -437,8 +641,10 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const { recordTicketCompleted, recordPresenceConfirmed, recordArrival } =
     useUserStatsStore();
 
-  const [countdownSeconds, setCountdownSeconds] = useState(600);
+  const [countdownSeconds, setCountdownSeconds] = useState(0);
   const didCancelRef = useRef(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   // ── Timeline ──────────────────────────────────────────────────────────────
   const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
@@ -566,6 +772,12 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const isTicketPresent = displayTicket?.status === "present";
   const isTicketEnRoute = displayTicket?.status === "en_route";
   const isTicketCalledState = isDisplayCalled || (isCalled && displayTicket?.id === activeTicket?.id);
+  const establishmentCoords = hasValidCoordinates
+    ? {
+        latitude: Number((displayTicket!.establishment as any).lat),
+        longitude: Number((displayTicket!.establishment as any).lng),
+      }
+    : null;
 
   // Rendu principal
   const renderHeader = () => (
@@ -761,13 +973,19 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
   const renderCalledOverlay = () => {
     if (!isCalled) return null;
 
+    const showCountdown = hasRecalled && countdownSeconds > 0;
+    const countdownLabel = showCountdown
+      ? `${Math.floor(countdownSeconds / 60)}:${String(countdownSeconds % 60).padStart(2, "0")}`
+      : null;
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
           styles.calledOverlay,
           { opacity: fadeAnim }
         ]}
       >
+        <ConfettiParticles />
         <LinearGradient
           colors={[colors.danger, colors.danger + "CC"]}
           style={styles.calledCard}
@@ -779,12 +997,44 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           <Text style={styles.calledSubtitle}>
             Guichet #{counterNumber || "N/A"}
           </Text>
+
+          {countdownLabel && (
+            <Text style={styles.calledCountdown}>
+              Rappel auto dans {countdownLabel}
+            </Text>
+          )}
+
           <TouchableOpacity
             style={styles.calledButton}
             onPress={handleEnRoute}
           >
-            <Text style={styles.calledButtonText}>Je suis en route</Text>
+            <Text style={styles.calledButtonText}>
+              {countdownLabel ? `Je suis en route (${countdownLabel})` : "Je suis en route"}
+            </Text>
           </TouchableOpacity>
+
+          <View style={styles.calledActions}>
+            <TouchableOpacity
+              style={[styles.calledSecondaryBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
+              onPress={() => setSoundEnabled((prev) => !prev)}
+            >
+              <Ionicons
+                name={soundEnabled ? "volume-high" : "volume-mute"}
+                size={20}
+                color="#FFF"
+              />
+              <Text style={styles.calledSecondaryBtnText}>
+                {soundEnabled ? "Son activé" : "Son coupé"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.calledSecondaryBtn, { borderColor: "rgba(255,255,255,0.3)" }]}
+              onPress={handleDefer}
+            >
+              <Ionicons name="time-outline" size={20} color="#FFF" />
+              <Text style={styles.calledSecondaryBtnText}>Reporter</Text>
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
       </Animated.View>
     );
@@ -818,6 +1068,55 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
                 Activez la localisation pour voir les temps de trajet
               </Text>
             </View>
+          )}
+          
+          {/* Carte intégrée - uniquement si en attente */}
+          {!isTicketCalledState && !isTicketPresent && establishmentCoords && (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setMapExpanded((prev) => !prev)}
+            >
+              <View
+                style={[
+                  styles.mapCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  mapExpanded && styles.mapCardExpanded,
+                ]}
+              >
+                <View style={styles.mapCardHeader}>
+                  <View style={styles.mapCardHeaderLeft}>
+                    <Ionicons name="map-outline" size={16} color={colors.primary} />
+                    <Text style={[styles.mapCardTitle, { color: colors.textPrimary }]}>
+                      Itinéraire
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={mapExpanded ? "chevron-down" : "chevron-up"}
+                    size={18}
+                    color={colors.textTertiary}
+                  />
+                </View>
+                <View style={[styles.mapContainer, mapExpanded && styles.mapContainerExpanded]}>
+                  <MapView
+                    style={styles.map}
+                    initialRegion={{
+                      ...establishmentCoords,
+                      latitudeDelta: 0.02,
+                      longitudeDelta: 0.02,
+                    }}
+                    scrollEnabled={mapExpanded}
+                    zoomEnabled={mapExpanded}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                  >
+                    <Marker
+                      coordinate={establishmentCoords}
+                      title={displayTicket?.establishment?.name || "Établissement"}
+                    />
+                  </MapView>
+                </View>
+              </View>
+            </TouchableOpacity>
           )}
           
           {renderActionButtons()}
@@ -866,6 +1165,11 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               colors={colors}
             />
           </View>
+
+          {/* Smart Tips */}
+          {!isTicketCalledState && !isTicketPresent && (
+            <SmartTipsCarousel colors={colors} />
+          )}
         </Animated.View>
       </ScrollView>
       
@@ -1410,6 +1714,127 @@ const styles = StyleSheet.create({
   timelineTime: {
     fontSize: 11,
     marginTop: 1,
+  },
+  // ── Smart Tips ────────────────────────────────────────────────────────────
+  tipsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  tipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  tipsIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tipsContent: {
+    flex: 1,
+  },
+  tipsTitle: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  tipsText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tipsDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+  },
+  tipsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  // ── Mini Map ─────────────────────────────────────────────────────────────
+  mapCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 16,
+  },
+  mapCardExpanded: {
+    paddingBottom: 16,
+  },
+  mapCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  mapCardHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  mapCardTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  mapContainer: {
+    height: 100,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  mapContainerExpanded: {
+    height: 200,
+  },
+  map: {
+    flex: 1,
+  },
+  // ── Confetti ─────────────────────────────────────────────────────────────
+  confettiContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: "hidden",
+  },
+  confettiPiece: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    top: "50%",
+    left: "50%",
+  },
+  // ── Called Overlay enhancements ──────────────────────────────────────────
+  calledCountdown: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 20,
+  },
+  calledActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  calledSecondaryBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  calledSecondaryBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFF",
   },
 });
 
