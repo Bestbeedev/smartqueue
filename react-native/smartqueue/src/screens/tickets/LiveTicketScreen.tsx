@@ -32,6 +32,7 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import axiosClient from "../../api/axiosClient";
 import { getApiErrorMessage } from "../../utils/errors";
 import { useOfflineStore } from "../../store/offlineStore";
+import CustomBottomSheet from "@/src/components/ui/BottomSheet";
 
 const { width } = Dimensions.get("window");
 
@@ -560,6 +561,7 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
 
   // ── Son & vibreur quand appelé ────────────────────────────────────────────
   const soundRef = useRef<Audio.Sound | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   useEffect(() => {
     if (isCalled && soundEnabled) {
@@ -1070,6 +1072,49 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
           )}
           
           {/* Infos supplémentaires */}
+          {!isTicketCalledState && !isTicketPresent && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSheetVisible(true)}
+              style={[styles.infoTriggerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <View style={styles.infoTriggerLeft}>
+                <View style={[styles.infoTriggerIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={[styles.infoTriggerTitle, { color: colors.textPrimary }]}>
+                    Détails de la file
+                  </Text>
+                  <Text style={[styles.infoTriggerSub, { color: colors.textTertiary }]}>
+                    Établissement, service, priorité…
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-up" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+
+          {/* Smart Tips */}
+          {!isTicketCalledState && !isTicketPresent && (
+            <SmartTipsCarousel colors={colors} />
+          )}
+        </Animated.View>
+      </ScrollView>
+      
+      {renderCalledOverlay()}
+
+      {/* Bottom Sheet Détails */}
+      <CustomBottomSheet
+        isVisible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        snapPoints={["45%"]}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
+            Détails de la file
+          </Text>
+
           <View style={styles.compactInfoGrid}>
             <CompactInfoRow
               icon="business-outline"
@@ -1108,15 +1153,9 @@ export const LiveTicketScreen: React.FC<LiveTicketScreenProps> = ({
               colors={colors}
             />
           </View>
+        </View>
+      </CustomBottomSheet>
 
-          {/* Smart Tips */}
-          {!isTicketCalledState && !isTicketPresent && (
-            <SmartTipsCarousel colors={colors} />
-          )}
-        </Animated.View>
-      </ScrollView>
-      
-      {renderCalledOverlay()}
       {AlertComponent}
     </View>
   );
@@ -1742,6 +1781,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#FFF",
+  },
+  // ── Info Trigger (ouvre le bottom sheet) ─────────────────────────────────
+  infoTriggerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  infoTriggerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  infoTriggerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoTriggerTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  infoTriggerSub: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  // ── Bottom Sheet ─────────────────────────────────────────────────────────
+  sheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
   },
 });
 
