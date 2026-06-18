@@ -281,7 +281,7 @@ const PositionCircle: React.FC<{
 
   if (isCalled) {
     return (
-      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+      <View style={{ alignItems: "center", width: size }}>
         <View style={[styles.posCircleInner, { borderColor: colors.danger + "30" }]}>
           <Ionicons name="notifications" size={36} color={colors.danger} />
         </View>
@@ -291,7 +291,7 @@ const PositionCircle: React.FC<{
   }
   if (isPresent) {
     return (
-      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+      <View style={{ alignItems: "center", width: size }}>
         <View style={[styles.posCircleInner, { borderColor: colors.success + "30" }]}>
           <Ionicons name="checkmark-circle" size={36} color={colors.success} />
         </View>
@@ -301,7 +301,7 @@ const PositionCircle: React.FC<{
   }
   if (isEnRoute) {
     return (
-      <View style={[styles.posCircleWrap, { width: size, height: size }]}>
+      <View style={{ alignItems: "center", width: size }}>
         <View style={[styles.posCircleInner, { borderColor: colors.warning + "30" }]}>
           <Ionicons name="walk" size={36} color={colors.warning} />
         </View>
@@ -1593,10 +1593,10 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   posCircleStatus: {
-    position: "absolute",
-    bottom: -18,
+    marginTop: 4,
     fontSize: 11,
     fontWeight: "700",
+    textAlign: "center",
   },
   posSoonBadge: {
     marginTop: 8,
