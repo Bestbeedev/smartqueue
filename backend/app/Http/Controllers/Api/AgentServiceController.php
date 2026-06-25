@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use App\Events\ServiceConfigUpdated;
 use App\Models\Service;
 
 class AgentServiceController extends Controller
@@ -52,6 +53,13 @@ class AgentServiceController extends Controller
             $service->max_call_attempts = $data['max_call_attempts'];
         }
         $service->save();
+
+        event(new ServiceConfigUpdated($service->id, [
+            'service_id' => $service->id,
+            'call_timeout_minutes' => $service->call_timeout_minutes,
+            'en_route_grace_minutes' => (int) $service->en_route_grace_minutes,
+            'max_call_attempts' => (int) $service->max_call_attempts,
+        ]));
 
         return response()->json([
             'message'                => 'Paramètres du service mis à jour',
