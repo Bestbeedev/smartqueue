@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Service;
+use App\Events\ServiceConfigUpdated;
 use App\Http\Resources\ServiceResource;
 use App\Services\ServiceAvailabilityService;
 
@@ -85,6 +86,17 @@ class ServiceController extends Controller
             abort(403, 'Forbidden establishment scope');
         }
         $service->update($data);
+
+        // Broadcast config update to agents and admin in real-time
+        if (array_intersect(array_keys($data), ['call_timeout_minutes', 'max_call_attempts', 'en_route_grace_minutes'])) {
+            event(new ServiceConfigUpdated($service->id, [
+                'service_id' => $service->id,
+                'call_timeout_minutes' => $service->call_timeout_minutes,
+                'en_route_grace_minutes' => (int) $service->en_route_grace_minutes,
+                'max_call_attempts' => (int) $service->max_call_attempts,
+            ]));
+        }
+
         return new ServiceResource($service->load('establishment'));
     }
 

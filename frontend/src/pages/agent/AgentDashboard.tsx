@@ -23,6 +23,8 @@ import {
   Flame,
   Gauge,
   Lightbulb,
+  Settings2,
+  Timer,
 } from "lucide-react";
 import {
   Card,
@@ -163,10 +165,25 @@ const PRIORITY_CONFIG: Record<string, { label: string; icon: any }> = {
   vip: { label: "VIP", icon: Star },
 };
 
-const PRIORITY_COLORS: Record<string, { bar: string; text: string; bg: string }> = {
-  normal: { bar: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  high: { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  vip: { bar: "bg-purple-500", text: "text-purple-700", bg: "bg-purple-100 dark:bg-purple-900/30" },
+const PRIORITY_COLORS: Record<
+  string,
+  { bar: string; text: string; bg: string }
+> = {
+  normal: {
+    bar: "bg-blue-500",
+    text: "text-blue-700",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+  },
+  high: {
+    bar: "bg-amber-500",
+    text: "text-amber-700",
+    bg: "bg-amber-100 dark:bg-amber-900/30",
+  },
+  vip: {
+    bar: "bg-purple-500",
+    text: "text-purple-700",
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+  },
 };
 
 export default function AgentDashboard() {
@@ -180,12 +197,26 @@ export default function AgentDashboard() {
   const [performance, setPerformance] = useState<Performance | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [agentPeriod, setAgentPeriod] = useState<'today' | '7days' | '30days'>('today');
+  const [agentPeriod, setAgentPeriod] = useState<"today" | "7days" | "30days">(
+    "today",
+  );
   const [overviewAffluence, setOverviewAffluence] = useState<any>(null);
-  const [affluenceService, setAffluenceService] = useState<ServiceInfo | null>(null);
+  const [affluenceService, setAffluenceService] = useState<ServiceInfo | null>(
+    null,
+  );
   const [affluenceData, setAffluenceData] = useState<any>(null);
   const [affluenceLoading, setAffluenceLoading] = useState(false);
   const user = useAppSelector((s) => s.auth.user);
+  const [serviceConfigs, setServiceConfigs] = useState<
+    Record<
+      number,
+      {
+        call_timeout_minutes: number | null;
+        max_call_attempts: number;
+        en_route_grace_minutes: number;
+      }
+    >
+  >({});
 
   const loadAll = async (isRefresh = false) => {
     if (isRefresh) {
@@ -210,11 +241,49 @@ export default function AgentDashboard() {
       const firstServiceId = queueRes.data?.services?.[0]?.id;
       if (firstServiceId) {
         try {
-          const { data } = await api.get(`/api/services/${firstServiceId}/affluence`);
+          const { data } = await api.get(
+            `/api/services/${firstServiceId}/affluence`,
+          );
           setOverviewAffluence(data);
         } catch {
           setOverviewAffluence(null);
         }
+      }
+
+      // Load service configurations (call_timeout, max_call_attempts, en_route_grace_minutes)
+      if (queueRes.data?.services?.length > 0) {
+        const configPromises = queueRes.data.services.map(
+          async (svc: ServiceInfo) => {
+            try {
+              const { data } = await api.get(`/api/services/${svc.id}`);
+              return {
+                id: svc.id,
+                config: {
+                  call_timeout_minutes: data?.call_timeout_minutes ?? null,
+                  max_call_attempts: data?.max_call_attempts ?? 2,
+                  en_route_grace_minutes: data?.en_route_grace_minutes ?? 10,
+                },
+              };
+            } catch {
+              return {
+                id: svc.id,
+                config: {
+                  call_timeout_minutes: null,
+                  max_call_attempts: 2,
+                  en_route_grace_minutes: 10,
+                },
+              };
+            }
+          },
+        );
+        const configResults = await Promise.all(configPromises);
+        const configMap: Record<number, any> = {};
+        configResults.forEach((r) => {
+          configMap[r.id] = r.config;
+        });
+        setServiceConfigs(configMap);
+      } else {
+        setServiceConfigs({});
       }
     } catch (error: any) {
       const status = error?.response?.status;
@@ -254,9 +323,12 @@ export default function AgentDashboard() {
   }, [performance]);
 
   const slaPercent = useMemo(() => {
-    if (!currentQueue?.tickets || currentQueue.tickets.length === 0) return null;
+    if (!currentQueue?.tickets || currentQueue.tickets.length === 0)
+      return null;
     const total = currentQueue.tickets.length;
-    const under15 = currentQueue.tickets.filter(t => t.wait_time_minutes < 15).length;
+    const under15 = currentQueue.tickets.filter(
+      (t) => t.wait_time_minutes < 15,
+    ).length;
     return Math.round((under15 / total) * 100);
   }, [currentQueue]);
 
@@ -274,7 +346,9 @@ export default function AgentDashboard() {
 
   const highPriorityCount = useMemo(() => {
     if (!currentQueue?.tickets) return 0;
-    return currentQueue.tickets.filter(t => t.priority === "high" || t.priority === "vip").length;
+    return currentQueue.tickets.filter(
+      (t) => t.priority === "high" || t.priority === "vip",
+    ).length;
   }, [currentQueue]);
 
   const kpiValues = useMemo(() => {
@@ -285,11 +359,12 @@ export default function AgentDashboard() {
       absent: stats?.today_absent ?? 0,
       total: stats?.today_total ?? 0,
     };
-    if (agentPeriod === 'today') return todayKpis;
-    const weeklyTotal = performance?.daily?.reduce((s, d) => s + d.total, 0) ?? 0;
+    if (agentPeriod === "today") return todayKpis;
+    const weeklyTotal =
+      performance?.daily?.reduce((s, d) => s + d.total, 0) ?? 0;
     const weeklyClosed = performance?.total_closed ?? 0;
     const weeklyAbsent = performance?.total_absent ?? 0;
-    if (agentPeriod === '7days') {
+    if (agentPeriod === "7days") {
       return {
         waiting: currentQueue?.total_waiting ?? 0,
         called: weeklyTotal,
@@ -309,7 +384,7 @@ export default function AgentDashboard() {
   }, [agentPeriod, stats, performance, currentQueue]);
 
   const avgServiceTime = useMemo(() => {
-    if (agentPeriod === 'today') return stats?.avg_service_time;
+    if (agentPeriod === "today") return stats?.avg_service_time;
     return performance?.avg_service_time;
   }, [agentPeriod, stats, performance]);
 
@@ -318,7 +393,7 @@ export default function AgentDashboard() {
   }, [stats]);
 
   const dailyAverage = useMemo(() => {
-    if (agentPeriod === 'today') return stats?.tickets_per_day;
+    if (agentPeriod === "today") return stats?.tickets_per_day;
     const days = performance?.daily?.length || 7;
     return Math.round((performance?.total_closed ?? 0) / days);
   }, [agentPeriod, stats, performance]);
@@ -326,25 +401,27 @@ export default function AgentDashboard() {
   const priorityDistribution = useMemo(() => {
     if (!currentQueue?.tickets || currentQueue.tickets.length === 0) return [];
     const counts: Record<string, number> = {};
-    currentQueue.tickets.forEach(t => {
-      const key = t.priority || 'normal';
+    currentQueue.tickets.forEach((t) => {
+      const key = t.priority || "normal";
       counts[key] = (counts[key] || 0) + 1;
     });
     const total = currentQueue.tickets.length;
-    const order = ['normal', 'high', 'vip'];
-    return order.map(key => {
-      const config = PRIORITY_CONFIG[key];
-      if (!config) return null;
-      const count = counts[key] || 0;
-      return {
-        key,
-        label: config.label,
-        icon: config.icon,
-        count,
-        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
-        color: PRIORITY_COLORS[key],
-      };
-    }).filter(Boolean);
+    const order = ["normal", "high", "vip"];
+    return order
+      .map((key) => {
+        const config = PRIORITY_CONFIG[key];
+        if (!config) return null;
+        const count = counts[key] || 0;
+        return {
+          key,
+          label: config.label,
+          icon: config.icon,
+          count,
+          percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+          color: PRIORITY_COLORS[key],
+        };
+      })
+      .filter(Boolean);
   }, [currentQueue]);
 
   const getStatusBadge = (status: string) => {
@@ -431,9 +508,23 @@ export default function AgentDashboard() {
   };
 
   const getAffluenceBadge = (count: number) => {
-    if (count >= 10) return { label: "Élevée", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200" };
-    if (count >= 5) return { label: "Modérée", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200" };
-    return { label: "Faible", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200" };
+    if (count >= 10)
+      return {
+        label: "Élevée",
+        className:
+          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200",
+      };
+    if (count >= 5)
+      return {
+        label: "Modérée",
+        className:
+          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200",
+      };
+    return {
+      label: "Faible",
+      className:
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200",
+    };
   };
 
   const getGaugeColor = (score: number) => {
@@ -458,7 +549,7 @@ export default function AgentDashboard() {
 
           <div className="flex items-center gap-2">
             <div className="bg-background rounded-md border border-border overflow-hidden flex">
-              {(['today', '7days', '30days'] as const).map((p) => (
+              {(["today", "7days", "30days"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setAgentPeriod(p)}
@@ -466,10 +557,14 @@ export default function AgentDashboard() {
                     "px-2.5 py-2 text-xs font-medium transition-all",
                     agentPeriod === p
                       ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:text-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {p === 'today' ? "Aujourd'hui" : p === '7days' ? '7 jrs' : '30 jrs'}
+                  {p === "today"
+                    ? "Aujourd'hui"
+                    : p === "7days"
+                      ? "7 jrs"
+                      : "30 jrs"}
                 </button>
               ))}
             </div>
@@ -480,7 +575,10 @@ export default function AgentDashboard() {
               disabled={refreshing}
             >
               <RefreshCw
-                className={cn("h-3.5 w-3.5 mr-1.5", refreshing && "animate-spin")}
+                className={cn(
+                  "h-3.5 w-3.5 mr-1.5",
+                  refreshing && "animate-spin",
+                )}
               />
               Actualiser
             </Button>
@@ -514,7 +612,7 @@ export default function AgentDashboard() {
             className="bg-card"
           />
           <AnalyticsCard
-            title={agentPeriod === 'today' ? "Total du jour" : "Total période"}
+            title={agentPeriod === "today" ? "Total du jour" : "Total période"}
             value={kpiValues.total}
             icon={TrendingUp}
             className="bg-card"
@@ -522,107 +620,156 @@ export default function AgentDashboard() {
         </div>
 
         {/* Smart Insights */}
-        {yesterdayChange !== null && slaPercent !== null && efficiencyScore !== null && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    yesterdayChange >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
-                  )}>
-                    {yesterdayChange >= 0 ? (
-                      <TrendingUp className={cn(
-                        "h-5 w-5",
-                        yesterdayChange >= 0 ? "text-green-600" : "text-red-600"
-                      )} />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-red-600" />
-                    )}
+        {yesterdayChange !== null &&
+          slaPercent !== null &&
+          efficiencyScore !== null && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg",
+                        yesterdayChange >= 0
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : "bg-red-100 dark:bg-red-900/30",
+                      )}
+                    >
+                      {yesterdayChange >= 0 ? (
+                        <TrendingUp
+                          className={cn(
+                            "h-5 w-5",
+                            yesterdayChange >= 0
+                              ? "text-green-600"
+                              : "text-red-600",
+                          )}
+                        />
+                      ) : (
+                        <TrendingDown className="h-5 w-5 text-red-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        Tendance vs hier
+                      </p>
+                      <p
+                        className={cn(
+                          "text-lg font-bold",
+                          yesterdayChange >= 0
+                            ? "text-green-600"
+                            : "text-red-600",
+                        )}
+                      >
+                        {yesterdayChange >= 0 ? "↑" : "↓"}{" "}
+                        {Math.abs(yesterdayChange)}% de tickets traités
+                      </p>
+                      {agentPeriod === "today" && (
+                        <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
+                          <span>
+                            Attente: {stats?.avg_wait_time ?? "—"} min
+                          </span>
+                          <span className="text-border">|</span>
+                          <span>
+                            Service: {stats?.avg_service_time ?? "—"} min
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Tendance vs hier</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      yesterdayChange >= 0 ? "text-green-600" : "text-red-600"
-                    )}>
-                      {yesterdayChange >= 0 ? "↑" : "↓"} {Math.abs(yesterdayChange)}% de tickets traités
-                    </p>
-                    {agentPeriod === 'today' && (
-                      <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>Attente: {stats?.avg_wait_time ?? '—'} min</span>
-                        <span className="text-border">|</span>
-                        <span>Service: {stats?.avg_service_time ?? '—'} min</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    slaPercent >= 80 ? "bg-green-100 dark:bg-green-900/30" :
-                    slaPercent >= 60 ? "bg-amber-100 dark:bg-amber-900/30" :
-                    "bg-red-100 dark:bg-red-900/30"
-                  )}>
-                    <Clock className={cn(
-                      "h-5 w-5",
-                      slaPercent >= 80 ? "text-green-600" :
-                      slaPercent >= 60 ? "text-amber-600" :
-                      "text-red-600"
-                    )} />
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg",
+                        slaPercent >= 80
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : slaPercent >= 60
+                            ? "bg-amber-100 dark:bg-amber-900/30"
+                            : "bg-red-100 dark:bg-red-900/30",
+                      )}
+                    >
+                      <Clock
+                        className={cn(
+                          "h-5 w-5",
+                          slaPercent >= 80
+                            ? "text-green-600"
+                            : slaPercent >= 60
+                              ? "text-amber-600"
+                              : "text-red-600",
+                        )}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        SLA Performance
+                      </p>
+                      <p
+                        className={cn(
+                          "text-lg font-bold",
+                          slaPercent >= 80
+                            ? "text-green-600"
+                            : slaPercent >= 60
+                              ? "text-amber-600"
+                              : "text-red-600",
+                        )}
+                      >
+                        {slaPercent}% servis sous 15 min
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">SLA Performance</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      slaPercent >= 80 ? "text-green-600" :
-                      slaPercent >= 60 ? "text-amber-600" :
-                      "text-red-600"
-                    )}>
-                      {slaPercent}% servis sous 15 min
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    efficiencyScore >= 80 ? "bg-green-100 dark:bg-green-900/30" :
-                    efficiencyScore >= 60 ? "bg-amber-100 dark:bg-amber-900/30" :
-                    "bg-red-100 dark:bg-red-900/30"
-                  )}>
-                    <Star className={cn(
-                      "h-5 w-5",
-                      efficiencyScore >= 80 ? "text-green-600" :
-                      efficiencyScore >= 60 ? "text-amber-600" :
-                      "text-red-600"
-                    )} />
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg",
+                        efficiencyScore >= 80
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : efficiencyScore >= 60
+                            ? "bg-amber-100 dark:bg-amber-900/30"
+                            : "bg-red-100 dark:bg-red-900/30",
+                      )}
+                    >
+                      <Star
+                        className={cn(
+                          "h-5 w-5",
+                          efficiencyScore >= 80
+                            ? "text-green-600"
+                            : efficiencyScore >= 60
+                              ? "text-amber-600"
+                              : "text-red-600",
+                        )}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        Score d'efficacité
+                      </p>
+                      <p
+                        className={cn(
+                          "text-lg font-bold",
+                          efficiencyScore >= 80
+                            ? "text-green-600"
+                            : efficiencyScore >= 60
+                              ? "text-amber-600"
+                              : "text-red-600",
+                        )}
+                      >
+                        {efficiencyScore}/100
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Score d'efficacité</p>
-                    <p className={cn(
-                      "text-lg font-bold",
-                      efficiencyScore >= 80 ? "text-green-600" :
-                      efficiencyScore >= 60 ? "text-amber-600" :
-                      "text-red-600"
-                    )}>
-                      {efficiencyScore}/100
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -634,9 +781,7 @@ export default function AgentDashboard() {
                     Temps moyen de service
                   </p>
                   <p className="text-2xl font-bold">
-                    {avgServiceTime
-                      ? `${avgServiceTime} min`
-                      : "—"}
+                    {avgServiceTime ? `${avgServiceTime} min` : "—"}
                   </p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-500" />
@@ -685,11 +830,13 @@ export default function AgentDashboard() {
                     <div
                       className="w-16 h-16 rounded-full"
                       style={{
-                        background: `conic-gradient(${getGaugeColor(performanceScore)} 0% ${performanceScore}%, #e5e7eb ${performanceScore}% 100%)`
+                        background: `conic-gradient(${getGaugeColor(performanceScore)} 0% ${performanceScore}%, #e5e7eb ${performanceScore}% 100%)`,
                       }}
                     >
                       <div className="absolute inset-[3px] rounded-full bg-card flex items-center justify-center">
-                        <span className="text-sm font-bold">{performanceScore}</span>
+                        <span className="text-sm font-bold">
+                          {performanceScore}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -731,10 +878,12 @@ export default function AgentDashboard() {
                       className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-1 h-10 rounded-full shrink-0",
-                          getSlaColor(ticket.wait_time_minutes)
-                        )} />
+                        <div
+                          className={cn(
+                            "w-1 h-10 rounded-full shrink-0",
+                            getSlaColor(ticket.wait_time_minutes),
+                          )}
+                        />
                         <div className="flex items-center gap-2">
                           {getPriorityBadge(ticket.priority)}
                           <span className="font-semibold text-lg">
@@ -851,10 +1000,12 @@ export default function AgentDashboard() {
                         <span className="font-medium">{service.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          getHealthColor(service.waiting_count)
-                        )} />
+                        <div
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            getHealthColor(service.waiting_count),
+                          )}
+                        />
                         <Badge
                           variant={
                             service.waiting_count > 0 ? "default" : "secondary"
@@ -862,10 +1013,22 @@ export default function AgentDashboard() {
                         >
                           {service.waiting_count} en attente
                         </Badge>
-                        <Badge className={cn("border text-xs", getAffluenceBadge(service.waiting_count).className)} variant="outline">
+                        <Badge
+                          className={cn(
+                            "border text-xs",
+                            getAffluenceBadge(service.waiting_count).className,
+                          )}
+                          variant="outline"
+                        >
                           {getAffluenceBadge(service.waiting_count).label}
                         </Badge>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAffluence(service)} title="Voir les créneaux d'affluence">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openAffluence(service)}
+                          title="Voir les créneaux d'affluence"
+                        >
                           <BarChart3 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -898,8 +1061,14 @@ export default function AgentDashboard() {
                     <div key={item.key}>
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          {item.icon && <item.icon className={cn("h-3.5 w-3.5", item.color.text)} />}
-                          <span className="text-sm font-medium">{item.label}</span>
+                          {item.icon && (
+                            <item.icon
+                              className={cn("h-3.5 w-3.5", item.color.text)}
+                            />
+                          )}
+                          <span className="text-sm font-medium">
+                            {item.label}
+                          </span>
                         </div>
                         <span className="text-sm font-bold">
                           {item.count} ({item.percentage}%)
@@ -907,7 +1076,10 @@ export default function AgentDashboard() {
                       </div>
                       <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={cn("h-full rounded-full transition-all", item.color.bar)}
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            item.color.bar,
+                          )}
                           style={{ width: `${item.percentage}%` }}
                         />
                       </div>
@@ -983,9 +1155,11 @@ export default function AgentDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {agentPeriod === 'today' ? 'Performance (7 derniers jours)' :
-                 agentPeriod === '7days' ? 'Performance - 7 jours' :
-                 'Performance - 30 jours'}
+                {agentPeriod === "today"
+                  ? "Performance (7 derniers jours)"
+                  : agentPeriod === "7days"
+                    ? "Performance - 7 jours"
+                    : "Performance - 30 jours"}
               </CardTitle>
               <CardDescription>
                 {performance?.total_closed ?? 0} tickets clôturés
@@ -1020,6 +1194,70 @@ export default function AgentDashboard() {
           </Card>
         </div>
 
+        {/* Service Configuration Card */}
+        {serviceConfigs && Object.keys(serviceConfigs).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5" />
+                Configuration des services
+              </CardTitle>
+              <CardDescription>
+                Paramètres d'absence et délais appliqués
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {currentQueue?.services.map((service) => {
+                  const config = serviceConfigs[service.id];
+                  if (!config) return null;
+                  return (
+                    <div
+                      key={service.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            service.status === "open"
+                              ? "bg-green-500"
+                              : "bg-gray-400",
+                          )}
+                        />
+                        <span className="font-medium">{service.name}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span
+                          className="text-muted-foreground"
+                          title="Délai de priorité"
+                        >
+                          <Timer className="h-3.5 w-3.5 inline mr-1" />
+                          {config.call_timeout_minutes ?? "10"} min
+                        </span>
+                        <span
+                          className="text-muted-foreground"
+                          title="Tentatives max"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 inline mr-1" />
+                          {config.max_call_attempts} max
+                        </span>
+                        <span
+                          className="text-muted-foreground"
+                          title="Délai de présentation"
+                        >
+                          <Clock className="h-3.5 w-3.5 inline mr-1" />
+                          {config.en_route_grace_minutes} min
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Actions */}
         <Card>
           <CardHeader>
@@ -1028,27 +1266,48 @@ export default function AgentDashboard() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link to="/dashboard/queues">
-                <Button className="w-full h-15 flex gap-2 items-center" variant="default">
+                <Button
+                  className="w-full h-15 flex gap-2 items-center"
+                  variant="default"
+                >
                   <Play className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Gérer la file ({currentQueue?.total_waiting ?? 0} en attente)</span>
+                  <span className="text-sm">
+                    Gérer la file ({currentQueue?.total_waiting ?? 0} en
+                    attente)
+                  </span>
                 </Button>
               </Link>
               <Link to="/dashboard/tickets">
-                <Button className="w-full h-15 flex gap-2 items-center" variant="secondary">
+                <Button
+                  className="w-full h-15 flex gap-2 items-center"
+                  variant="secondary"
+                >
                   <Eye className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Voir tickets ({stats?.today_total ?? 0})</span>
+                  <span className="text-sm">
+                    Voir tickets ({stats?.today_total ?? 0})
+                  </span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/called">
-                <Button className="w-full h-15 flex gap-2 items-center" variant="outline">
+                <Button
+                  className="w-full h-15 flex gap-2 items-center"
+                  variant="outline"
+                >
                   <Activity className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Tickets appelés ({stats?.today_called ?? 0})</span>
+                  <span className="text-sm">
+                    Tickets appelés ({stats?.today_called ?? 0})
+                  </span>
                 </Button>
               </Link>
               <Link to="/dashboard/queues/priority">
-                <Button className="w-full h-15 flex gap-2 items-center" variant="destructive">
+                <Button
+                  className="w-full h-15 flex gap-2 items-center"
+                  variant="destructive"
+                >
                   <AlertTriangle className="h-6 w-6 mb-1" />
-                  <span className="text-sm">Prioritaires ({highPriorityCount})</span>
+                  <span className="text-sm">
+                    Prioritaires ({highPriorityCount})
+                  </span>
                 </Button>
               </Link>
             </div>
@@ -1070,34 +1329,54 @@ export default function AgentDashboard() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full shrink-0",
-                    overviewAffluence.level === 'high' ? 'bg-red-500' : overviewAffluence.level === 'medium' ? 'bg-amber-500' : 'bg-green-500'
-                  )} />
+                  <div
+                    className={cn(
+                      "w-2 h-2 rounded-full shrink-0",
+                      overviewAffluence.level === "high"
+                        ? "bg-red-500"
+                        : overviewAffluence.level === "medium"
+                          ? "bg-amber-500"
+                          : "bg-green-500",
+                    )}
+                  />
                   <div className="flex-1">
                     <p className="font-medium">
-                      Affluence {overviewAffluence.level === 'high' ? 'élevée' : overviewAffluence.level === 'medium' ? 'modérée' : 'faible'}
+                      Affluence{" "}
+                      {overviewAffluence.level === "high"
+                        ? "élevée"
+                        : overviewAffluence.level === "medium"
+                          ? "modérée"
+                          : "faible"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {overviewAffluence.people ?? 0} en attente · ~{overviewAffluence.eta_avg ?? '--'} min
+                      {overviewAffluence.people ?? 0} en attente · ~
+                      {overviewAffluence.eta_avg ?? "--"} min
                     </p>
                   </div>
                 </div>
 
                 {overviewAffluence.peak_hours?.high?.length > 0 && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">Heures de pointe 🔴</p>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
+                      Heures de pointe 🔴
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {overviewAffluence.peak_hours.high.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                      {overviewAffluence.peak_hours.high
+                        .map((h: number) => `${String(h).padStart(2, "0")}h`)
+                        .join(", ")}
                     </p>
                   </div>
                 )}
 
                 {overviewAffluence.peak_hours?.low?.length > 0 && (
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">Heures calmes 🟢</p>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">
+                      Heures calmes 🟢
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {overviewAffluence.peak_hours.low.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}
+                      {overviewAffluence.peak_hours.low
+                        .map((h: number) => `${String(h).padStart(2, "0")}h`)
+                        .join(", ")}
                     </p>
                   </div>
                 )}
@@ -1108,7 +1387,12 @@ export default function AgentDashboard() {
       </div>
 
       {/* Affluence Dialog */}
-      <Dialog open={!!affluenceService} onOpenChange={(open) => { if (!open) setAffluenceService(null); }}>
+      <Dialog
+        open={!!affluenceService}
+        onOpenChange={(open) => {
+          if (!open) setAffluenceService(null);
+        }}
+      >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Affluence — {affluenceService?.name}</DialogTitle>
@@ -1124,71 +1408,109 @@ export default function AgentDashboard() {
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-muted/30 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold">{affluenceData.people ?? 0}</p>
+                  <p className="text-2xl font-bold">
+                    {affluenceData.people ?? 0}
+                  </p>
                   <p className="text-xs text-muted-foreground">En attente</p>
                 </div>
                 <div className="bg-muted/30 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold">~{affluenceData.eta_avg ?? '--'} min</p>
-                  <p className="text-xs text-muted-foreground">Attente moyenne</p>
+                  <p className="text-2xl font-bold">
+                    ~{affluenceData.eta_avg ?? "--"} min
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Attente moyenne
+                  </p>
                 </div>
                 <div className="bg-muted/30 rounded-lg p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className={cn(
-                      "w-3 h-3 rounded-full",
-                      affluenceData.level === 'high' ? 'bg-red-500' : affluenceData.level === 'medium' ? 'bg-amber-500' : 'bg-green-500'
-                    )} />
+                    <div
+                      className={cn(
+                        "w-3 h-3 rounded-full",
+                        affluenceData.level === "high"
+                          ? "bg-red-500"
+                          : affluenceData.level === "medium"
+                            ? "bg-amber-500"
+                            : "bg-green-500",
+                      )}
+                    />
                     <p className="text-2xl font-bold">
-                      {affluenceData.level === 'high' ? 'Élevée' : affluenceData.level === 'medium' ? 'Modérée' : 'Faible'}
+                      {affluenceData.level === "high"
+                        ? "Élevée"
+                        : affluenceData.level === "medium"
+                          ? "Modérée"
+                          : "Faible"}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Niveau d'affluence</p>
+                  <p className="text-xs text-muted-foreground">
+                    Niveau d'affluence
+                  </p>
                 </div>
               </div>
 
-              {affluenceData.hourly_data && affluenceData.hourly_data.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Créneaux horaires (30 jours)</h4>
-                  <ChartContainer title="" description="">
-                    <VerticalBarChart
-                      data={affluenceData.hourly_data.map((pt: any) => ({
-                        name: `${String(pt.hour).padStart(2, '0')}h`,
-                        value: pt.count,
-                        color: affluenceData.peak_hours?.high?.includes(pt.hour) ? '#ef4444'
-                          : affluenceData.peak_hours?.medium?.includes(pt.hour) ? '#f59e0b'
-                          : '#22c55e60',
-                      }))}
-                      height={220}
-                    />
-                  </ChartContainer>
-                  <div className="flex items-center justify-center gap-6 mt-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-500" />
-                      <span className="text-xs text-muted-foreground">Peak</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-amber-500" />
-                      <span className="text-xs text-muted-foreground">Moyen</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-green-500/40" />
-                      <span className="text-xs text-muted-foreground">Calme</span>
+              {affluenceData.hourly_data &&
+                affluenceData.hourly_data.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">
+                      Créneaux horaires (30 jours)
+                    </h4>
+                    <ChartContainer title="" description="">
+                      <VerticalBarChart
+                        data={affluenceData.hourly_data.map((pt: any) => ({
+                          name: `${String(pt.hour).padStart(2, "0")}h`,
+                          value: pt.count,
+                          color: affluenceData.peak_hours?.high?.includes(
+                            pt.hour,
+                          )
+                            ? "#ef4444"
+                            : affluenceData.peak_hours?.medium?.includes(
+                                  pt.hour,
+                                )
+                              ? "#f59e0b"
+                              : "#22c55e60",
+                        }))}
+                        height={220}
+                      />
+                    </ChartContainer>
+                    <div className="flex items-center justify-center gap-6 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <span className="text-xs text-muted-foreground">
+                          Peak
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-amber-500" />
+                        <span className="text-xs text-muted-foreground">
+                          Moyen
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-green-500/40" />
+                        <span className="text-xs text-muted-foreground">
+                          Calme
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {affluenceData.peak_hours?.high?.length > 0 && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                   <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                   <p className="text-sm text-muted-foreground">
-                    Heures de pointe : {affluenceData.peak_hours.high.map((h: number) => `${String(h).padStart(2, '0')}h`).join(', ')}.
-                    Prévoyez des ressources supplémentaires sur ces créneaux.
+                    Heures de pointe :{" "}
+                    {affluenceData.peak_hours.high
+                      .map((h: number) => `${String(h).padStart(2, "0")}h`)
+                      .join(", ")}
+                    . Prévoyez des ressources supplémentaires sur ces créneaux.
                   </p>
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-center py-8 text-muted-foreground">Impossible de charger les données d'affluence.</p>
+            <p className="text-center py-8 text-muted-foreground">
+              Impossible de charger les données d'affluence.
+            </p>
           )}
         </DialogContent>
       </Dialog>
