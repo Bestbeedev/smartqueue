@@ -1,0 +1,163 @@
+name: Sync Repository from Upstream
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Toutes les 5 minutes
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: "Forcer la synchronisation"
+        required: false
+        default: false
+        type: boolean
+  repository_dispatch:
+    types:
+      - sync-request
+
+env:
+  # Forcer l'utilisation de Node.js 24 pour les actions JavaScript
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SYNC_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Sync Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Backup workflows
+        run: |
+          mkdir -p /tmp/github-backup
+          
+          if [ -d ".github/workflows" ]; then
+            echo "📦 Backing up existing workflows..."
+            cp -R .github/workflows /tmp/github-backup/
+          else
+            echo "ℹ️ No workflows to backup"
+          fi
+
+      - name: Add upstream repository
+        run: |
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream https://github.com/stephdeve/SmartQueue.git
+          echo "✅ Upstream repository added"
+          git remote -v
+
+      - name: Fetch upstream changes
+        run: |
+          echo "🔄 Fetching latest changes from upstream..."
+          git fetch upstream --prune --tags
+          echo "✅ Fetch completed"
+
+      - name: Check for differences
+        id: diff
+        run: |
+          UPSTREAM_COMMIT=$(git rev-parse upstream/main)
+          LOCAL_COMMIT=$(git rev-parse HEAD)
+          
+          echo "📍 Upstream commit: ${UPSTREAM_COMMIT:0:7}"
+          echo "📍 Local commit: ${LOCAL_COMMIT:0:7}"
+          
+          if [ "$UPSTREAM_COMMIT" = "$LOCAL_COMMIT" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✅ Repository is already synchronized"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Changes detected in upstream repository"
+            echo "📝 New commits available for sync"
+          fi
+
+      - name: Sync with upstream
+        if: steps.diff.outputs.changed == 'true' || github.event.inputs.force_sync == 'true'
+        run: |
+          echo "🔄 Synchronizing with upstream/main..."
+          git reset --hard upstream/main
+          echo "✅ Sync completed"
+
+      - name: Restore workflows
+        if: steps.diff.outputs.changed == 'true' || github.event.inputs.force_sync == 'true'
+        run: |
+          mkdir -p .github
+          
+          if [ -d "/tmp/github-backup/workflows" ]; then
+            echo "📦 Restoring workflows from backup..."
+            cp -R /tmp/github-backup/workflows .github/
+            echo "✅ Workflows restored"
+          else
+            echo "ℹ️ No workflows to restore"
+          fi
+
+      - name: Commit workflow preservation
+        if: steps.diff.outputs.changed == 'true' || github.event.inputs.force_sync == 'true'
+        run: |
+          git add .github/workflows
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: preserve workflow files during sync"
+            echo "✅ Workflow changes committed"
+          else
+            echo "ℹ️ No workflow changes to commit"
+          fi
+
+      - name: Push changes to repository
+        if: steps.diff.outputs.changed == 'true' || github.event.inputs.force_sync == 'true'
+        run: |
+          echo "📤 Pushing changes to origin/main..."
+          git push origin HEAD:main --force-with-lease
+          echo "✅ Push completed successfully"
+
+      - name: Sync Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "📊 SYNCHRONIZATION SUMMARY"
+          echo "=========================================="
+          echo "📁 Source repository : stephdeve/SmartQueue"
+          echo "📁 Target repository : Bestbeedev/smartqueue"
+          echo "🔄 Trigger           : ${{ github.event_name }}"
+          echo "📅 Date              : $(date)"
+          echo "=========================================="
+          
+          if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
+            echo "✅ Status: Synchronization performed"
+          else
+            echo "ℹ️ Status: Already up to date"
+          fi
+          echo "=========================================="
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs: sync
+    if: always()
+    
+    steps:
+      - name: Check synchronization status
+        run: |
+          SYNC_STATUS="${{ needs.sync.result }}"
+          
+          echo "=========================================="
+          echo "🔍 SYNC MONITORING"
+          echo "=========================================="
+          echo "📊 Sync job status: $SYNC_STATUS"
+          echo "=========================================="
+          
+          if [ "$SYNC_STATUS" = "failure" ]; then
+            echo "❌ Synchronization failed!"
+            echo "Please check the logs for more details."
+            exit 1
+          elif [ "$SYNC_STATUS" = "success" ]; then
+            echo "✅ Synchronization completed successfully!"
+          else
+            echo "⚠️ Sync status: $SYNC_STATUS"
+          fi
+          
+          echo "=========================================="
